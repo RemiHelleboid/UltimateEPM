@@ -39,7 +39,6 @@ namespace EmpiricalPseudopotential
 	{
 	public:
 		SymmetryPoints();
-		~SymmetryPoints();
 
 
 		std::vector<std::string> path;

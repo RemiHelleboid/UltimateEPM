@@ -13,10 +13,6 @@ namespace EmpiricalPseudopotential
 	}
 
 
-	Pseudopotential::~Pseudopotential()
-	{
-	}
-
 
 	std::complex<double> Pseudopotential::GetValue(const Vector3D<int>& G, const Vector3D<double>& tau) const
 	{

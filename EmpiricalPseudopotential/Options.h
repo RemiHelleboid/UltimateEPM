@@ -9,7 +9,6 @@ class Options
 {
 public:
 	Options();
-	~Options();
 
 	void Load();
 	void Save();

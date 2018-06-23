@@ -11,10 +11,6 @@ Options::Options()
 }
 
 
-Options::~Options()
-{
-}
-
 void Options::Open()
 {
 	if (m_fileconfig) return;

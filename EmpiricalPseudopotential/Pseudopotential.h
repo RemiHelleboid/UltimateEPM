@@ -11,7 +11,6 @@ namespace EmpiricalPseudopotential
 	{
 	public:
 		Pseudopotential(double V3S = 0, double V8S = 0, double V11S = 0, double V3A = 0, double V4A = 0, double V11A = 0);
-		~Pseudopotential();
 
 	protected:
 		double m_V3S;

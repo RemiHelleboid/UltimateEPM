@@ -26,9 +26,7 @@ OptionsFrame::OptionsFrame(const wxString & title, wxWindow* parent)
 }
 
 
-OptionsFrame::~OptionsFrame()
-{
-}
+
 
 
 void OptionsFrame::CreateControls()
