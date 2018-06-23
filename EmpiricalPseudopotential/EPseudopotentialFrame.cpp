@@ -106,7 +106,7 @@ void EPseudopotentialFrame::OnAbout(wxCommandEvent& /*event*/)
 	wxMessageBox("Empirical Pseudopotential ver 1.0", "About EPseudopotential", wxOK | wxICON_INFORMATION);
 }
 
-void EPseudopotentialFrame::OnCalculate(wxCommandEvent& event)
+void EPseudopotentialFrame::OnCalculate(wxCommandEvent& /*event*/)
 {
 	Compute();
 }

@@ -97,7 +97,7 @@ namespace EmpiricalPseudopotential
 				v *= 27.211385; 
 			}
 
-		return bandgap;
+		return bandgap * 27.211385;
 	}
 
 
