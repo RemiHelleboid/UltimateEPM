@@ -19,8 +19,10 @@ namespace EmpiricalPseudopotential
 	{
 		const unsigned int basisSize = static_cast<unsigned int>(m_basisVectors.size());
 
+
+
 		for (unsigned int i = 0; i < basisSize; ++i)
-			for (unsigned int j = 0; j < i; ++j)
+			for (unsigned int j = 0; j < i; ++j) // only the lower triangular of matrix is set because the diagonalization method only needs that
 				// off diagonal elements
 				matrix(i, j) = m_material.pseudopotential.GetValue(m_basisVectors[i] - m_basisVectors[j]);
 
