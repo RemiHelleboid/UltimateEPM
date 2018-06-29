@@ -32,6 +32,9 @@ namespace EmpiricalPseudopotential
 		materials["ZnSe"] = Material("ZnSe", 5.65, -0.23, 0.01, 0.06, 0.18, 0.12, 0.03);
 		materials["ZnTe"] = Material("ZnTe", 6.07, -0.22, 0.00, 0.05, 0.13, 0.10, 0.01);
 		materials["CdTe"] = Material("CdTe", 6.41, -0.20, 0.00, 0.04, 0.15, 0.09, 0.04);
+
+		// SiGe alloy, x = 0.5
+		materials["SiGe"] = Material("SiGe", 5.495, -0.22, 0.025, 0.07, 0., 0., 0.);
 	}
 
 }
