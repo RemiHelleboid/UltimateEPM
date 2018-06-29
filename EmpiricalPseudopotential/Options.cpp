@@ -5,7 +5,7 @@
 
 Options::Options()
 	: nrThreads(4), materialName("Si"), nrPoints(600), nearestNeighbors(10), nrLevels(10), pathNo(0),
-	paths{ { {"K", "W", "X", "G", "L", "W"}, {"L", "G", "X", "K", "G" }, {"W", "G", "X", "W", "L", "G"},  {"L", "G", "X", "U", "K", "G"} } },
+	paths{ { {"K", "W", "X", "G", "L", "W"}, {"L", "G", "X", "K", "G" }, {"W", "G", "X", "W", "L", "G"},  {"L", "G", "X", "U", "K", "G"}, {"G", "X", "K", "G", "L", "K", "W", "X"} } },
 	m_fileconfig(nullptr)
 {
 }

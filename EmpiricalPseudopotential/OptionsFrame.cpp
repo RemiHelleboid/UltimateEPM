@@ -128,7 +128,7 @@ void OptionsFrame::CreateControls()
 		pathStrings[i] = p;
 	}
 
-	wxChoice* pathChoice = new wxChoice (this, ID_PATH, wxDefaultPosition, wxSize(140, -1), options.paths.size(), pathStrings, 0 );
+	wxChoice* pathChoice = new wxChoice (this, ID_PATH, wxDefaultPosition, wxSize(160, -1), options.paths.size(), pathStrings, 0 );
 	pathChoice->SetSelection(options.pathNo);
 	box->Add(pathChoice, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5);
 
