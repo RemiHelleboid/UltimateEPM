@@ -80,6 +80,31 @@ EPseudopotentialFrame::~EPseudopotentialFrame()
 }
 
 
+
+void EPseudopotentialFrame::ConstructVTK()
+{
+	pRenderer = vtkRenderer::New();
+	pContextView = vtkContextView::New();
+
+	vtkRenderWindow *pRenderWindow = m_pVTKWindow->GetRenderWindow();
+	pRenderWindow->AddRenderer(pRenderer);
+	pContextView->SetInteractor(pRenderWindow->GetInteractor());
+	//pContextView->GetInteractor()->Initialize();
+
+	pChart = vtkChartXY::New();
+	pChart->SetRenderEmpty(true);		
+	pContextView->GetScene()->AddItem(pChart);
+}
+
+
+void EPseudopotentialFrame::DestroyVTK()
+{
+	if (pChart) pChart->Delete();
+	if (pRenderer) pRenderer->Delete();
+	if (pContextView) pContextView->Delete();
+}
+
+
 void EPseudopotentialFrame::OnOptions(wxCommandEvent& /*event*/)
 {
 	OptionsFrame *optionsFrame = new OptionsFrame("Options", this);
@@ -116,20 +141,6 @@ void EPseudopotentialFrame::OnUpdateCalculate(wxUpdateUIEvent& event)
 	event.Enable(isFinished());
 }
 
-void EPseudopotentialFrame::ConstructVTK()
-{
-	pRenderer = vtkRenderer::New();
-	pContextView = vtkContextView::New();
-
-	vtkRenderWindow *pRenderWindow = m_pVTKWindow->GetRenderWindow();
-	pRenderWindow->AddRenderer(pRenderer);
-	pContextView->SetInteractor(pRenderWindow->GetInteractor());
-	//pContextView->GetInteractor()->Initialize();
-
-	pChart = vtkChartXY::New();
-	pChart->SetRenderEmpty(true);		
-	pContextView->GetScene()->AddItem(pChart);
-}
 
 void EPseudopotentialFrame::ConfigureVTK(const std::string& name, const std::vector<std::vector<double>>& results, std::vector<unsigned int>& symmetryPointsPositions, std::vector<std::string>& symmetryPointsLabels)
 {
@@ -222,12 +233,6 @@ void EPseudopotentialFrame::ConfigureVTK(const std::string& name, const std::vec
 	xAxis->SetCustomTickPositions(posArray.GetPointer(), labelsArray.GetPointer());	
 }
 
-void EPseudopotentialFrame::DestroyVTK()
-{
-	if (pChart) pChart->Delete();
-	if (pRenderer) pRenderer->Delete();
-	if (pContextView) pContextView->Delete();
-}
 
 
 void EPseudopotentialFrame::OnTimer(wxTimerEvent& WXUNUSED(event))

@@ -16,7 +16,7 @@
 #endif
 
 
-#include "EPseudopotentialFrame.h"
+class EPseudopotentialFrame;
 
 class EPseudopotentialApp : public wxApp
 {

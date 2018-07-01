@@ -19,8 +19,6 @@
 #include <list>
 
 
-//#include "Options.h"
-
 #include "wxVTKRenderWindowInteractor.h"
 #include "vtkCamera.h"
 #include "vtkRenderer.h"
@@ -67,8 +65,9 @@ private:
 
 protected:
 	void ConstructVTK();
-	void ConfigureVTK(const std::string& name, const std::vector<std::vector<double>>& results, std::vector<unsigned int>& symmetryPointsPositions, std::vector<std::string>& symmetryPointsLabels);
 	void DestroyVTK();
+
+	void ConfigureVTK(const std::string& name, const std::vector<std::vector<double>>& results, std::vector<unsigned int>& symmetryPointsPositions, std::vector<std::string>& symmetryPointsLabels);
 
 
 	bool isFinished() const;
