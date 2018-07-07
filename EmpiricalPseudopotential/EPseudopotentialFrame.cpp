@@ -142,7 +142,7 @@ void EPseudopotentialFrame::OnUpdateCalculate(wxUpdateUIEvent& event)
 }
 
 
-void EPseudopotentialFrame::ConfigureVTK(const std::string& name, const std::vector<std::vector<double>>& results, std::vector<unsigned int>& symmetryPointsPositions, std::vector<std::string>& symmetryPointsLabels)
+void EPseudopotentialFrame::ConfigureVTK(const std::string& name, const std::vector<std::vector<double>>& results, std::vector<unsigned int>& symmetryPointsPositions, const std::vector<std::string>& symmetryPointsLabels)
 {
 	pChart->ClearPlots();
 
@@ -258,8 +258,7 @@ void EPseudopotentialFrame::Compute()
 
 	SetTitle("Computing - EPseudopotential");
 
-	bandStructure.symmetryPoints.path = computeOptions.paths[computeOptions.pathNo];
-	bandStructure.Initialize(computeOptions.nrPoints, computeOptions.nearestNeighbors);
+	bandStructure.Initialize(computeOptions.paths[computeOptions.pathNo], computeOptions.nrPoints, computeOptions.nearestNeighbors);
 
 	unsigned int nrThreads = computeOptions.nrThreads;
 	if (0 == nrThreads) computeOptions.nrThreads = nrThreads = 1;
@@ -306,7 +305,7 @@ void EPseudopotentialFrame::StopThreads(bool cancel)
 	if (!cancel)
 	{
 		bandStructure.AdjustValues();		
-		ConfigureVTK(std::string(computeOptions.materialName.c_str()), bandStructure.results, bandStructure.symmetryPointsPositions, bandStructure.symmetryPoints.path);
+		ConfigureVTK(std::string(computeOptions.materialName.c_str()), bandStructure.results, bandStructure.symmetryPointsPositions, bandStructure.GetPath());
 	}
 
 	if (wxIsBusy()) wxEndBusyCursor();

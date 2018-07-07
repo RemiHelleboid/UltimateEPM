@@ -40,13 +40,10 @@ namespace EmpiricalPseudopotential
 	public:
 		SymmetryPoints();
 
-
-		std::vector<std::string> path;
-
 		std::map<std::string, SymmetryPoint> symmetryPoints;
 
 
-		std::vector<Vector3D<double>> GeneratePoints(int nrPoints, std::vector<unsigned int>& symmetryPointsPositions);
+		std::vector<Vector3D<double>> GeneratePoints(const std::vector<std::string>& path, int nrPoints, std::vector<unsigned int>& symmetryPointsPositions);
 	};
 
 }

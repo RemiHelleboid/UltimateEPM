@@ -5,8 +5,6 @@ namespace EmpiricalPseudopotential
 
 
 	SymmetryPoints::SymmetryPoints()
-		:
-		path{ {"K", "W", "X", "G", "L", "W"} }
 	{
 		symmetryPoints["L"] = SymmetryPoint("L", Vector3D<double>(0.5, 0.5, 0.5));
 		symmetryPoints["G"] = SymmetryPoint("G", Vector3D<double>(0., 0., 0.));
@@ -19,7 +17,7 @@ namespace EmpiricalPseudopotential
 
 
 
-	std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(int nrPoints, std::vector<unsigned int>& symmetryPointsPositions)
+	std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<std::string>& path, int nrPoints, std::vector<unsigned int>& symmetryPointsPositions)
 	{
 		std::vector<Vector3D<double>> result;
 

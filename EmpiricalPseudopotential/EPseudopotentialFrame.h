@@ -67,7 +67,7 @@ protected:
 	void ConstructVTK();
 	void DestroyVTK();
 
-	void ConfigureVTK(const std::string& name, const std::vector<std::vector<double>>& results, std::vector<unsigned int>& symmetryPointsPositions, std::vector<std::string>& symmetryPointsLabels);
+	void ConfigureVTK(const std::string& name, const std::vector<std::vector<double>>& results, std::vector<unsigned int>& symmetryPointsPositions, const std::vector<std::string>& symmetryPointsLabels);
 
 
 	bool isFinished() const;

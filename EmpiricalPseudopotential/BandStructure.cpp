@@ -38,7 +38,7 @@ namespace EmpiricalPseudopotential
 	}
 
 
-	void BandStructure::Initialize(unsigned int nrPoints,  unsigned int nearestNeighborsNumber)
+	void BandStructure::Initialize(std::vector<std::string> path, unsigned int nrPoints,  unsigned int nearestNeighborsNumber)
 	{
 		kpoints.clear();
 		results.clear();
@@ -46,9 +46,11 @@ namespace EmpiricalPseudopotential
 		kpoints.reserve(nrPoints);
 		results.reserve(nrPoints);
 
+		m_path.swap(path);
+
 		GenerateBasisVectors(nearestNeighborsNumber);
 
-		kpoints = symmetryPoints.GeneratePoints(nrPoints, symmetryPointsPositions);
+		kpoints = symmetryPoints.GeneratePoints(m_path, nrPoints, symmetryPointsPositions);
 	}
 
 
