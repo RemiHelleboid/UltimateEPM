@@ -72,6 +72,15 @@ protected:
 
 	bool isFinished() const;
 	void StopThreads(bool cancel = false);
+	void Compute();
+
+public:
+
+	std::atomic_int runningThreads;
+
+	EmpiricalPseudopotential::BandStructure bandStructure;
+
+	Options currentOptions; // what's edited
 
 private:
 	wxVTKRenderWindowInteractor *m_pVTKWindow;
@@ -87,17 +96,7 @@ private:
 	std::list<std::unique_ptr<EPThread>> threadsList;
 
 	Options computeOptions; // what's actually displayed
-public:
-	std::atomic_int runningThreads;
-
-	EmpiricalPseudopotential::BandStructure bandStructure;
-
-	Options currentOptions; // what's edited
-
-private:
 
 	wxDECLARE_EVENT_TABLE();
-public:
-	void Compute();
 };
 
