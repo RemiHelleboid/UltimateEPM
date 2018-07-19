@@ -1,7 +1,7 @@
 # EmpiricalPseudopotential
 Band structure computation using empirical pseudopotentials
 
-Description coming soon on https://compphys.go.ro
+Description is available at https://compphys.go.ro/empirical-pseudopotential/
 
 
 ### PROGRAM IN ACTION
