@@ -60,6 +60,7 @@ private:
 	void OnOptions(wxCommandEvent& event);
 	void OnAbout(wxCommandEvent& event);
 	void OnTimer(wxTimerEvent& event);
+	void OnEraseBackground(wxEraseEvent &event);
 
 protected:
 	void ConstructVTK();

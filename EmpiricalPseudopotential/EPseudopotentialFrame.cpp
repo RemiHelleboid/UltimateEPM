@@ -25,6 +25,7 @@ EVT_MENU(wxID_EXIT, EPseudopotentialFrame::OnExit)
 EVT_MENU(wxID_PREFERENCES, EPseudopotentialFrame::OnOptions)
 EVT_MENU(wxID_ABOUT, EPseudopotentialFrame::OnAbout)
 EVT_TIMER(101, EPseudopotentialFrame::OnTimer)
+EVT_ERASE_BACKGROUND(EPseudopotentialFrame::OnEraseBackground)
 wxEND_EVENT_TABLE()
 
 
@@ -103,6 +104,13 @@ void EPseudopotentialFrame::DestroyVTK()
 	if (pRenderer) pRenderer->Delete();
 	if (pContextView) pContextView->Delete();
 }
+
+
+void EPseudopotentialFrame::OnEraseBackground(wxEraseEvent &event)
+{
+  event.Skip(false);
+}
+
 
 
 void EPseudopotentialFrame::OnOptions(wxCommandEvent& /*event*/)
