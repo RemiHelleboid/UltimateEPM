@@ -21,7 +21,7 @@ namespace EmpiricalPseudopotential
 
 
 		const int size = static_cast<int>(ceil(sqrt(static_cast<double>(G2[nearestNeighbors]))));
-
+		
 		for (int i = -size; i <= size; ++i)
 			for (int j = -size; j <= size; ++j)
 				for (int k = -size; k <= size; ++k)
@@ -31,7 +31,10 @@ namespace EmpiricalPseudopotential
 
 					for (unsigned int nearestNeighbor = 0; nearestNeighbor <= nearestNeighbors; ++nearestNeighbor)
 						if (vectSquared == G2[nearestNeighbor])
+						{
 							basisVectors.push_back(vect);
+							break;
+						}
 				}
 
 		return true;
