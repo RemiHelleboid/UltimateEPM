@@ -22,6 +22,7 @@ namespace EmpiricalPseudopotential
 
 		const int size = static_cast<int>(ceil(sqrt(static_cast<double>(G2[nearestNeighbors]))));
 		
+		/*
 		for (int i = -size; i <= size; ++i)
 			for (int j = -size; j <= size; ++j)
 				for (int k = -size; k <= size; ++k)
@@ -36,7 +37,26 @@ namespace EmpiricalPseudopotential
 							break;
 						}
 				}
+		*/
 
+
+		// the other way is commented above
+		// the following should be easier to understand
+
+		// the basis vectors for the reciprocal cell
+		const Vector3D<int> b1(-1, 1, 1), b2(1, -1, 1), b3(1, 1, -1);
+
+		for (int i = -size; i <= size; ++i)
+			for (int j = -size; j <= size; ++j)
+				for (int k = -size; k <= size; ++k)
+				{
+					const Vector3D<int> vect = b1 * i + b2 * j + b3 * k; // reciprocal lattice vector
+					const double vectSquared =  vect * vect;
+
+					if (vectSquared <= G2[nearestNeighbors]) // if it's under the cutoff length, add it
+						basisVectors.push_back(vect);
+				}
+				
 		return true;
 	}
 
