@@ -40,6 +40,8 @@
 #ifndef _wxVTKRenderWindowInteractor_h_
 #define _wxVTKRenderWindowInteractor_h_
 
+#define wxNEEDS_DECL_BEFORE_TEMPLATE
+
 // For compilers that support precompilation, includes "wx/wx.h".
 #include "wx/wxprec.h"
 

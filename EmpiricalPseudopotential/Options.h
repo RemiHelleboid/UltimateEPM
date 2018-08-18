@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+#define wxNEEDS_DECL_BEFORE_TEMPLATE
+
 #include <wx/fileconf.h>
 
 class Options

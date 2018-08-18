@@ -20,7 +20,7 @@ namespace EmpiricalPseudopotential
 		basisVectors.clear();
 
 
-		int size = int(ceil(sqrt(double(G2[nearestNeighbors]))));
+		const int size = static_cast<int>(ceil(sqrt(static_cast<double>(G2[nearestNeighbors]))));
 
 		for (int i = -size; i <= size; ++i)
 			for (int j = -size; j <= size; ++j)
