@@ -43,8 +43,24 @@ namespace EmpiricalPseudopotential
 		// the other way is commented above
 		// the following should be easier to understand
 
-		// the basis vectors for the reciprocal cell
+		// the Bravais lattice is a fcc lattice (with 2 atoms - the anion and cation - in the unit cell)
+		// the reciprocal lattice is a bcc lattice 
+
+		// the basis vectors for the reciprocal space
+		
 		const Vector3D<int> b1(-1, 1, 1), b2(1, -1, 1), b3(1, 1, -1);
+
+		// you can also get them from the Bravais lattice vectors
+		// like this:
+
+		// Bravais lattice vectors for fcc:
+		//const Vector3D<double> a1(0, 0.5, 0.5), a2(0.5, 0, 0.5), a3(0.5, 0.5, 0);
+
+		// reciprocal lattice:
+		//const Vector3D<double> b1 = a2 % a3 / (a1 * (a2 % a3)); 		
+		//const Vector3D<double> b2 = a3 % a1 / (a2 * (a3 % a1));
+		//const Vector3D<double> b3 = a1 % a2 / (a3 * (a1 % a2));
+		
 
 		for (int i = -size; i <= size; ++i)
 			for (int j = -size; j <= size; ++j)
