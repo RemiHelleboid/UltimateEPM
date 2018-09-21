@@ -35,6 +35,10 @@ namespace EmpiricalPseudopotential
 
 		// SiGe alloy, x = 0.5
 		materials["SiGe"] = Material("SiGe", 5.495, -0.22, 0.025, 0.07, 0., 0., 0.);
+
+		// Added AlAs from here: https://www.ece.nus.edu.sg/stfpage/eleadj/pseudopotential.htm
+		// lattice constant from here: https://sector7.xray.aps.anl.gov/calculators/crystal_lattice_parameters.html
+		materials["AlAs"] = Material("AlAs", 5.6605, -0.221, 0.025, 0.07, 0.08, 0.05, -0.004);
 	}
 
 }
