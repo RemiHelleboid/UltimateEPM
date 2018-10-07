@@ -11,6 +11,7 @@ class Options
 {
 public:
 	Options();
+	~Options() { Close(); }
 
 	void Load();
 	void Save();
