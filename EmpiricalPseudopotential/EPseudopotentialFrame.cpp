@@ -78,6 +78,8 @@ EPseudopotentialFrame::~EPseudopotentialFrame()
 	StopThreads(true);
 	DestroyVTK();
 	if (m_pVTKWindow) m_pVTKWindow->Delete();
+
+	currentOptions.Close();	
 }
 
 
