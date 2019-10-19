@@ -32,15 +32,15 @@ namespace EmpiricalPseudopotential
 
 		for (int i = 1; i < path.size(); ++i)
 		{
-			const Vector3D<double> dif = symmetryPoints[path[i]].position - symmetryPoints[path[i - 1]].position;
+			const Vector3D<double> dif = symmetryPoints[path[i]].position - symmetryPoints[path[i - 1ULL]].position;
 			length += dif.Length();
 		}
 
-		const double stepSize = length / (nrPoints - 1);
+		const double stepSize = length / (nrPoints - 1.);
 
 		for (int i = 1; i < path.size(); ++i)
 		{
-			const Vector3D<double> startPos = symmetryPoints[path[i - 1]].position;
+			const Vector3D<double> startPos = symmetryPoints[path[i - 1ULL]].position;
 			const Vector3D<double> dif = symmetryPoints[path[i]].position - startPos;
 			const double difLength = dif.Length();
 

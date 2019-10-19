@@ -222,14 +222,14 @@ void EPseudopotentialFrame::ConfigureVTK(const std::string& name, const std::vec
 	// now the lines in the chart, each has its own column in the table
 	for (int j = 0; j < numPoints; ++j)
 		for (int i = 0; i < results[j].size(); ++i)
-		  table->SetValue(j, i + 1, results[j][i]);
+		  table->SetValue(j, i + 1ULL, results[j][i]);
 
 	// add the lines to the chart
 	for (int i = 0; i < results[0].size(); ++i)
 	{
 	  vtkPlot *line = pChart->AddPlot(vtkChart::LINE);
 	  // Use columns 0 and 1 for x and y
-	  line->SetInputData(table.GetPointer(), 0, i + 1);
+	  line->SetInputData(table.GetPointer(), 0, i + 1ULL);
 	  
 	  // Make the plot blue, with a width of 2.0 pixels
 	  line->SetColor(0, 0, 255, 255);
@@ -258,7 +258,7 @@ void EPseudopotentialFrame::ConfigureVTK(const std::string& name, const std::vec
 	}
 	// add the last
 
-	posArray->SetValue(index, numPoints - 1);
+	posArray->SetValue(index, numPoints - 1ULL);
 	labelsArray->SetValue(index, symmetryPointsLabels[index]);
 
 	xAxis->SetCustomTickPositions(posArray.GetPointer(), labelsArray.GetPointer());	

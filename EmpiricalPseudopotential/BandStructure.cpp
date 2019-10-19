@@ -159,7 +159,7 @@ namespace EmpiricalPseudopotential
 			for (auto& p : results)
 			{
 				const double valLow = p[levelLow];
-				const double valHigh = p[levelLow + 1];
+				const double valHigh = p[levelLow + 1ULL];
 
 				maxValValence = std::max(maxValValence, valLow);
 				minValConduction = std::min(minValConduction, valHigh);
