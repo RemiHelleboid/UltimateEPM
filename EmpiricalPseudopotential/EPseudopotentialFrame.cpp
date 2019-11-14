@@ -137,6 +137,7 @@ void EPseudopotentialFrame::OnExit(wxCommandEvent& /*event*/)
 {
 	currentOptions.Save();
 	currentOptions.Close();
+	StopThreads(true);
 	Close(true);
 }
 
