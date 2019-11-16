@@ -6,16 +6,17 @@
 Options::Options()
 	: nrThreads(4), materialName("Si"), nrPoints(600), nearestNeighbors(10), nrLevels(10), pathNo(0),
 	paths{ { 
-		{"K", "W", "X", "G", "L", "W"}, 
-		{"L", "G", "X", "K", "G" }, 
-		{"W", "G", "X", "W", "L", "G"},  
-		{"L", "G", "X", "W", "K", "G"}, 
-		{"L", "G", "X", "U", "K", "G"}, 
-		{"G", "X", "K", "G", "L", "K", "W", "X"}, 
-		{"G", "X", "W", "L", "G", "K", "W", "U"},
-		{"G", "X", "W", "L", "G", "K"},
-		{"G", "X", "W", "G", "U", "X"},
-		{"L", "G", "X", "U", "G"}
+			{"K", "W", "X", "G", "L", "W"},
+			{"L", "G", "X", "K", "G" },
+			{"W", "G", "X", "W", "L", "G"},
+			{"L", "G", "X", "W", "K", "G"},
+			{"L", "G", "X", "U", "K", "G"},
+			{"L", "G", "X", "U", "G"},
+			{"G", "X", "K", "G", "L", "K", "W", "X"},
+			{"G", "X", "W", "L", "G", "K", "W", "U"},
+			{"G", "X", "W", "L", "G", "K"},
+			{"G", "X", "W", "G", "U", "X"},
+			{"G", "X", "W", "L", "G", "X"},
 		} },
 	m_fileconfig(nullptr)
 {
