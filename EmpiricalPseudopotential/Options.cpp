@@ -14,7 +14,8 @@ Options::Options()
 		{"G", "X", "K", "G", "L", "K", "W", "X"}, 
 		{"G", "X", "W", "L", "G", "K", "W", "U"},
 		{"G", "X", "W", "L", "G", "K"},
-		{"G", "X", "W", "G", "U", "X"}
+		{"G", "X", "W", "G", "U", "X"},
+		{"L", "G", "X", "U", "G"}
 		} },
 	m_fileconfig(nullptr)
 {
