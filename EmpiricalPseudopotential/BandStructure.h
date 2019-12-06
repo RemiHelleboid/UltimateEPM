@@ -36,10 +36,7 @@ namespace EmpiricalPseudopotential
 		std::vector<Vector3D<int>> basisVectors;
 
 		std::vector<Vector3D<double>> kpoints;
-
-		unsigned int nearestNeighbors;
-		std::vector<unsigned int> G2;
-
+		
 		static bool FindBandgap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction);
 		bool GenerateBasisVectors(unsigned int nearestNeighborsNumber);
 	};

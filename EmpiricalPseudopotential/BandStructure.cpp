@@ -5,8 +5,6 @@ namespace EmpiricalPseudopotential
 {
 
 	BandStructure::BandStructure()
-		: nearestNeighbors(9),
-		G2{ 0, 3, 4, 8, 11, 12, 16, 19, 20, 24 }
 	{
 		basisVectors.reserve(127);
 	}
@@ -16,9 +14,9 @@ namespace EmpiricalPseudopotential
 	{
 		if (nearestNeighborsNumber < 2 || nearestNeighborsNumber > 10) return false;
 
-		nearestNeighbors = nearestNeighborsNumber - 1;
+		static const std::vector<unsigned int> G2{ 0, 3, 4, 8, 11, 12, 16, 19, 20, 24 };
+		const unsigned int nearestNeighbors = nearestNeighborsNumber - 1;
 		basisVectors.clear();
-
 
 		const int size = static_cast<int>(ceil(sqrt(static_cast<double>(G2[nearestNeighbors]))));
 		
