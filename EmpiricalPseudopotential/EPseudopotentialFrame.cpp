@@ -26,6 +26,7 @@ wxBEGIN_EVENT_TABLE(EPseudopotentialFrame, wxFrame)
 EVT_MENU(ID_CALCULATE, EPseudopotentialFrame::OnCalculate)
 EVT_UPDATE_UI(ID_CALCULATE, EPseudopotentialFrame::OnUpdateCalculate)
 EVT_MENU(wxID_EXIT, EPseudopotentialFrame::OnExit)
+EVT_CLOSE(EPseudopotentialFrame::OnClose)
 EVT_MENU(wxID_PREFERENCES, EPseudopotentialFrame::OnOptions)
 EVT_MENU(wxID_ABOUT, EPseudopotentialFrame::OnAbout)
 EVT_TIMER(101, EPseudopotentialFrame::OnTimer)
@@ -140,6 +141,15 @@ void EPseudopotentialFrame::OnExit(wxCommandEvent& /*event*/)
 	StopThreads(true);
 	Close(true);
 }
+
+void EPseudopotentialFrame::OnClose(wxCloseEvent& /*event*/)
+{
+	currentOptions.Save();
+	currentOptions.Close();
+	StopThreads(true);
+	Close(true);
+}
+
 
 void EPseudopotentialFrame::OnAbout(wxCommandEvent& /*event*/)
 {
