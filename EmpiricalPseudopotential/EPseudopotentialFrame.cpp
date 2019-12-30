@@ -142,12 +142,13 @@ void EPseudopotentialFrame::OnExit(wxCommandEvent& /*event*/)
 	Close(true);
 }
 
-void EPseudopotentialFrame::OnClose(wxCloseEvent& /*event*/)
+void EPseudopotentialFrame::OnClose(wxCloseEvent& event)
 {
 	currentOptions.Save();
 	currentOptions.Close();
 	StopThreads(true);
-	Close(true);
+
+	event.Skip();
 }
 
 
