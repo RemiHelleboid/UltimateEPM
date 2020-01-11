@@ -11,6 +11,10 @@ class Options
 {
 public:
 	Options();
+	~Options()
+	{
+		delete m_fileconfig;
+	}
 
 	// avoid double deletion of m_fileconfig at destruction if copied
 	Options(const Options& other)

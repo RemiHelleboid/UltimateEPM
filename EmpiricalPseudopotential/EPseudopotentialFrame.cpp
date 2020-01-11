@@ -126,7 +126,9 @@ void EPseudopotentialFrame::OnOptions(wxCommandEvent& /*event*/)
 	optionsFrame->options = currentOptions;
 	if (wxID_OK == optionsFrame->ShowModal())
 	{
+		currentOptions.Close(); // close before copying
 		currentOptions = optionsFrame->options;
+		currentOptions.Open(); // open it again
 		currentOptions.Save();
 	}
 
