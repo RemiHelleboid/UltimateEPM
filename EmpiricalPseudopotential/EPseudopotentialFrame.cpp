@@ -71,7 +71,6 @@ EPseudopotentialFrame::EPseudopotentialFrame(const wxString& title, const wxPoin
 	std::vector<std::string> empty_strings;
 	ConfigureVTK("", empty_results, empty_pos, empty_strings);
 	
-	currentOptions.Open();
 	currentOptions.Load();
 
 	//Compute();
@@ -83,8 +82,6 @@ EPseudopotentialFrame::~EPseudopotentialFrame()
 	StopThreads(true);
 	DestroyVTK();
 	if (m_pVTKWindow) m_pVTKWindow->Delete();
-
-	currentOptions.Close();	
 }
 
 
@@ -126,9 +123,7 @@ void EPseudopotentialFrame::OnOptions(wxCommandEvent& /*event*/)
 	optionsFrame->options = currentOptions;
 	if (wxID_OK == optionsFrame->ShowModal())
 	{
-		currentOptions.Close(); // close before copying
 		currentOptions = optionsFrame->options;
-		currentOptions.Open(); // open it again
 		currentOptions.Save();
 	}
 
@@ -139,7 +134,6 @@ void EPseudopotentialFrame::OnOptions(wxCommandEvent& /*event*/)
 void EPseudopotentialFrame::OnExit(wxCommandEvent& /*event*/)
 {
 	currentOptions.Save();
-	currentOptions.Close();
 	StopThreads(true);
 	Close(true);
 }
@@ -147,7 +141,6 @@ void EPseudopotentialFrame::OnExit(wxCommandEvent& /*event*/)
 void EPseudopotentialFrame::OnClose(wxCloseEvent& event)
 {
 	currentOptions.Save();
-	currentOptions.Close();
 	StopThreads(true);
 
 	event.Skip();
