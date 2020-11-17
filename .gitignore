@@ -1,0 +1,17 @@
+
+*.ipch
+*.db
+*.dat
+*.tlog
+*.log
+*.obj
+*.pdb
+*.idb
+*.exe
+*.ilk
+*.lastcodeanalysissucceeded
+*.iobj
+*.ipdb
+*.txt
+.vs/EmpiricalPseudopotential/v16/.suo
+.vs/EmpiricalPseudopotential/v15/.suo
