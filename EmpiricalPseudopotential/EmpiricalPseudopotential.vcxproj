@@ -94,6 +94,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>WIN32;_DEBUG;__WXMSW__;_WINDOWS;wxUSE_GUI=1;NOPCH;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>wxmsw30ud_core.lib;wxbase30ud.lib;wxtiffd.lib;wxjpegd.lib;wxpngd.lib;wxzlibd.lib;wxregexud.lib;wxexpatd.lib;winmm.lib;comctl32.lib;rpcrt4.lib;wsock32.lib;wininet.lib;vtkCommonCore-8.0.lib;vtkRenderingCore-8.0.lib;vtkViewsCore-8.0.lib;vtkFiltersCore-8.0.lib;vtkCommonDataModel-8.0.lib;vtkFiltersGeneral-8.0.lib;vtkFiltersGeometry-8.0.lib;vtkRenderingOpenGL2-8.0.lib;vtkCommonExecutionModel-8.0.lib;vtkRenderingAnnotation-8.0.lib;vtkRenderingContextOpenGL2-8.0.lib;vtkRenderingVolumeOpenGL2-8.0.lib;vtkInteractionStyle-8.0.lib;vtkRenderingFreeType-8.0.lib;vtkRenderingVolume-8.0.lib;vtkFiltersModeling-8.0.lib;vtkFiltersSources-8.0.lib;vtkChartsCore-8.0.lib;vtkRenderingContext2D-8.0.lib;vtkViewsContext2D-8.0.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -106,6 +107,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>WIN32;_DEBUG;__WXMSW__;_WINDOWS;wxUSE_GUI=1;NOPCH;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>wxmsw30ud_core.lib;wxbase30ud.lib;wxtiffd.lib;wxjpegd.lib;wxpngd.lib;wxzlibd.lib;wxregexud.lib;wxexpatd.lib;winmm.lib;comctl32.lib;rpcrt4.lib;wsock32.lib;wininet.lib;vtkCommonCore-8.0.lib;vtkRenderingCore-8.0.lib;vtkViewsCore-8.0.lib;vtkFiltersCore-8.0.lib;vtkCommonDataModel-8.0.lib;vtkFiltersGeneral-8.0.lib;vtkFiltersGeometry-8.0.lib;vtkRenderingOpenGL2-8.0.lib;vtkCommonExecutionModel-8.0.lib;vtkRenderingAnnotation-8.0.lib;vtkRenderingContextOpenGL2-8.0.lib;vtkRenderingVolumeOpenGL2-8.0.lib;vtkInteractionStyle-8.0.lib;vtkRenderingFreeType-8.0.lib;vtkRenderingVolume-8.0.lib;vtkFiltersModeling-8.0.lib;vtkFiltersSources-8.0.lib;vtkChartsCore-8.0.lib;vtkRenderingContext2D-8.0.lib;vtkViewsContext2D-8.0.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -120,6 +122,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>WIN32;__WXMSW__;_WINDOWS;wxUSE_GUI=1;NOPCH;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -136,6 +139,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>WIN32;__WXMSW__;_WINDOWS;wxUSE_GUI=1;NOPCH;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
