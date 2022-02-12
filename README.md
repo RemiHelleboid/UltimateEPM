@@ -1,6 +1,8 @@
 # EmpiricalPseudopotential
 Band structure computation using empirical pseudopotentials
 
+[![CodeFactor](https://www.codefactor.io/repository/github/aromanro/empiricalpseudopotential/badge)](https://www.codefactor.io/repository/github/aromanro/empiricalpseudopotential)
+
 Description is available at https://compphys.go.ro/empirical-pseudopotential/
 
 
