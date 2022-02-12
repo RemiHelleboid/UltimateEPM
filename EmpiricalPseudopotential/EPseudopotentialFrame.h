@@ -77,7 +77,6 @@ protected:
 	void Compute();
 
 public:
-
 	std::atomic_int runningThreads;
 
 	EmpiricalPseudopotential::BandStructure bandStructure;

@@ -23,6 +23,6 @@ class EPseudopotentialApp : public wxApp
 public:
 	EPseudopotentialFrame * frame = nullptr;
 
-	virtual bool OnInit() override;
+	bool OnInit() override;
 };
 
