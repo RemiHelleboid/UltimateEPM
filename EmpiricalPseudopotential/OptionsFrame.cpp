@@ -81,7 +81,7 @@ void OptionsFrame::CreateControls()
 	// nr points
 
 	label = new wxStaticText(this, wxID_STATIC, "Nr. &Points:", wxDefaultPosition, wxSize(60, -1), wxALIGN_RIGHT);
-	box->Add(label, 0, wxALIGN_LEFT, 5);
+	box->Add(label, 0, wxALIGN_CENTER_VERTICAL, 5);
 	
 	str = wxString::Format(wxT("%i"), options.nrPoints);
 	wxTextCtrl* nrPointsCtrl = new wxTextCtrl ( this, ID_NRPOINTS, str, wxDefaultPosition, wxSize(60, -1), 0 );
