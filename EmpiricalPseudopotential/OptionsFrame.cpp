@@ -40,6 +40,8 @@ void OptionsFrame::CreateControls()
 	wxBoxSizer* boxSizer = new wxBoxSizer(wxVERTICAL);
 	vbox->Add(boxSizer, 0, wxGROW, 5);
 
+	boxSizer->AddSpacer(5);
+
 	// ******************************************************************
 	// now option controls
 
