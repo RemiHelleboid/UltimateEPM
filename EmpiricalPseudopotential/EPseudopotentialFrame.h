@@ -34,7 +34,7 @@
 
 #include "vtkTable.h"
 #include "vtkArray.h"
-#include "VtkFloatArray.h"
+#include "vtkFloatArray.h"
 #include "vtkNew.h"
 #include "vtkChart.h"
 #include "vtkChartXY.h"
