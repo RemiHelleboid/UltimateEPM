@@ -6,10 +6,10 @@
 Options::Options()
     : nrThreads(4),
       materialName("Si"),
-      nrPoints(600),
+      nrPoints(400),
       nearestNeighbors(10),
-      nrLevels(16),
-      pathNo(6),
+      nrLevels(10),
+      pathNo(1),
       paths{{
           {"K", "W", "X", "G", "L", "W"},
           {"W", "G", "X", "W", "L", "G"},
@@ -31,22 +31,21 @@ Options::Options()
       }},
       m_fileconfig(nullptr) {}
 
-
 void Options::print_options() {
-	std::cout << "Options:" << std::endl;
-	std::cout << "nrThreads: " << nrThreads << std::endl;
-	std::cout << "materialName: " << materialName << std::endl;
-	std::cout << "nrPoints: " << nrPoints << std::endl;
-	std::cout << "nearestNeighbors: " << nearestNeighbors << std::endl;
-	std::cout << "nrLevels: " << nrLevels << std::endl;
-	std::cout << "pathNo: " << pathNo << std::endl;
-	std::cout << "paths: " << std::endl;
-	for (auto& path : paths) {
-		for (auto& point : path) {
-			std::cout << point << " ";
-		}
-		std::cout << std::endl;
-	}
+    std::cout << "Options:" << std::endl;
+    std::cout << "nrThreads: " << nrThreads << std::endl;
+    std::cout << "materialName: " << materialName << std::endl;
+    std::cout << "nrPoints: " << nrPoints << std::endl;
+    std::cout << "nearestNeighbors: " << nearestNeighbors << std::endl;
+    std::cout << "nrLevels: " << nrLevels << std::endl;
+    std::cout << "pathNo: " << pathNo << std::endl;
+    std::cout << "paths: " << std::endl;
+    for (auto& path : paths) {
+        for (auto& point : path) {
+            std::cout << point << " ";
+        }
+        std::cout << std::endl;
+    }
 }
 
 // void Options::Open()
@@ -106,5 +105,3 @@ void Options::print_options() {
 // 		m_fileconfig->Flush();
 // 	Close();
 // }
-
-

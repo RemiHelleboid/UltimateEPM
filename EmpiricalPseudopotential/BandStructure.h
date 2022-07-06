@@ -19,37 +19,41 @@ class BandStructure {
     std::vector<std::vector<double>> m_results;
     std::vector<unsigned int>        symmetryPointsPositions;
 
-    void Initialize(std::vector<std::string> path, unsigned int nrPoints = 600, unsigned int nearestNeighborsNumber = 10);
-    std::vector<std::vector<double>> Compute(const Material&   material,
-                                             unsigned int      startPoint,
-                                             unsigned int      endPoint,
-                                             unsigned int      nrLevels,
-                                             std::atomic_bool& terminate);
+    void Initialize(const Material&           material,
+                    std::size_t               nb_bands,
+                    std::vector<std::string>& path,
+                    unsigned int              nrPoints,
+                    unsigned int              nearestNeighborsNumber);
 
-    std::vector<std::vector<double>> Compute(const Material&   material,
-                                             unsigned int      startPoint,
-                                             unsigned int      endPoint,
-                                             unsigned int      nrLevels);
+    //  void Initialize(std::vector<Vector3D<double>> list_k_points, unsigned int nearestNeighborsNumber = 10);
+    std::vector<std::vector<double>> Compute();
 
     double AdjustValues();
 
-    unsigned int GetPointsNumber() const { return static_cast<unsigned int>(kpoints.size()); }
-
+    unsigned int GetPointsNumber() const { return static_cast<unsigned int>(m_kpoints.size()); }
 
     const std::vector<std::string>& GetPath() const { return m_path; }
 
-   void print_results() const;
-   void export_result_in_file(const std::string& filename) const;
+    void print_results() const;
+    void export_result_in_file(const std::string& filename) const;
+
+    std::string path_band_filename() const;
 
  private:
-    std::vector<std::string>      m_path;
+    std::vector<std::string> m_path;
+    unsigned int             m_nb_points;
+
+    Material     m_material;
+    unsigned int m_nb_bands;
+    unsigned int m_nearestNeighborsNumber;
+
     std::vector<Vector3D<int>>    basisVectors;
-    std::vector<Vector3D<double>> kpoints;
+    std::vector<Vector3D<double>> m_kpoints;
 
     static bool FindBandgap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction);
     bool        GenerateBasisVectors(unsigned int nearestNeighborsNumber);
 };
 
-void export_vector_bands_result_in_file(const std::string& filename, std::vector<std::vector<double>>) ;
+void export_vector_bands_result_in_file(const std::string& filename, std::vector<std::vector<double>>);
 
 }  // namespace EmpiricalPseudopotential

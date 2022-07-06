@@ -11,51 +11,18 @@ namespace EmpiricalPseudopotential {
 BandStructure::BandStructure() { basisVectors.reserve(127); }
 
 bool BandStructure::GenerateBasisVectors(unsigned int nearestNeighborsNumber) {
-    if (nearestNeighborsNumber < 2 || nearestNeighborsNumber > 10) return false;
+    static const std::vector<unsigned int> G2{
+        0,   3,   4,   8,   11,  12,  16,  19,  20,  24,  27,  32,  35,  36,  40,  43,  44,  48,  51,  52,  56,  59,  67,  68,
+        75,  76,  80,  83,  84,  88,  96,  99,  104, 107, 108, 115, 116, 120, 123, 128, 131, 132, 136, 139, 140, 144, 147, 152,
+        155, 160, 163, 164, 168, 171, 172, 176, 179, 180, 184, 187, 192, 195, 196, 200, 203, 204, 208, 211, 212, 216, 219, 224,
+        227, 228, 232, 236, 243, 244, 248, 251, 259, 260, 264, 267, 268, 272, 275, 276, 280, 283, 291, 296, 299, 300, 304, 307,
+        308, 312, 315, 320, 323, 324, 331, 332, 339, 355, 356, 360, 363, 371, 376, 384, 387, 395, 420, 451};
 
-    static const std::vector<unsigned int> G2{0, 3, 4, 8, 11, 12, 16, 19, 20, 24};
-    const unsigned int                     nearestNeighbors = nearestNeighborsNumber - 1;
+    if (nearestNeighborsNumber < 2 || nearestNeighborsNumber > G2.size()) return false;
+    const unsigned int nearestNeighbors = nearestNeighborsNumber - 1;
     basisVectors.clear();
-
-    const int size = static_cast<int>(ceil(sqrt(static_cast<double>(G2[nearestNeighbors]))));
-
-    /*
-    for (int i = -size; i <= size; ++i)
-            for (int j = -size; j <= size; ++j)
-                    for (int k = -size; k <= size; ++k)
-                    {
-                            const Vector3D<int> vect(i, j, k);
-                            const double vectSquared = vect * vect;
-
-                            for (unsigned int nearestNeighbor = 0; nearestNeighbor <= nearestNeighbors; ++nearestNeighbor)
-                                    if (vectSquared == G2[nearestNeighbor])
-                                    {
-                                            basisVectors.push_back(vect);
-                                            break;
-                                    }
-                    }
-    */
-
-    // the other way is commented above
-    // the following should be easier to understand
-
-    // the Bravais lattice is a fcc lattice (with 2 atoms - the anion and cation - in the unit cell)
-    // the reciprocal lattice is a bcc lattice
-
-    // the basis vectors for the reciprocal space
-
+    const int           size = static_cast<int>(ceil(sqrt(static_cast<double>(G2[nearestNeighbors]))));
     const Vector3D<int> b1(-1, 1, 1), b2(1, -1, 1), b3(1, 1, -1);
-
-    // you can also get them from the Bravais lattice vectors
-    // like this:
-
-    // Bravais lattice vectors for fcc:
-    // const Vector3D<double> a1(0, 0.5, 0.5), a2(0.5, 0, 0.5), a3(0.5, 0.5, 0);
-
-    // reciprocal lattice:
-    // const Vector3D<double> b1 = a2 % a3 / (a1 * (a2 % a3));
-    // const Vector3D<double> b2 = a3 % a1 / (a2 * (a3 % a1));
-    // const Vector3D<double> b3 = a1 % a2 / (a3 * (a1 % a2));
 
     for (int i = -size; i <= size; ++i)
         for (int j = -size; j <= size; ++j)
@@ -70,73 +37,47 @@ bool BandStructure::GenerateBasisVectors(unsigned int nearestNeighborsNumber) {
     return true;
 }
 
-void BandStructure::Initialize(std::vector<std::string> path, unsigned int nrPoints, unsigned int nearestNeighborsNumber) {
-    kpoints.clear();
+void BandStructure::Initialize(const Material&           material,
+                               std::size_t               nb_bands,
+                               std::vector<std::string>& path,
+                               unsigned int              nbPoints,
+                               unsigned int              nearestNeighborsNumber) {
+    m_material               = material;
+    m_nb_bands               = nb_bands;
+    m_path                   = path;
+    m_nb_points               = nbPoints;
+    m_nearestNeighborsNumber = nearestNeighborsNumber;
+    m_kpoints.clear();
     m_results.clear();
+    m_kpoints.reserve(m_nb_points);
+    m_results.reserve(m_nb_points);
 
-    kpoints.reserve(nrPoints);
-    m_results.reserve(nrPoints);
-
-    m_path.swap(path);
-
-    GenerateBasisVectors(nearestNeighborsNumber);
-
-    kpoints = symmetryPoints.GeneratePoints(m_path, nrPoints, symmetryPointsPositions);
-}
-
-std::vector<std::vector<double>> BandStructure::Compute(const Material&   material,
-                                                        unsigned int      startPoint,
-                                                        unsigned int      endPoint,
-                                                        unsigned int      nrLevels,
-                                                        std::atomic_bool& terminate) {
-    std::vector<std::vector<double>> res;
-
-    Hamiltonian hamiltonian(material, basisVectors);
-
-    for (unsigned int i = startPoint; i < endPoint && !terminate; ++i) {
-        hamiltonian.SetMatrix(kpoints[i]);
-        hamiltonian.Diagonalize();
-
-        const Eigen::VectorXd& eigenvals = hamiltonian.eigenvalues();
-
-        res.emplace_back();
-        res.back().reserve(nrLevels);
-
-        for (unsigned int level = 0; level < nrLevels && level < eigenvals.rows(); ++level)
-            res.back().push_back(eigenvals(level));
+    if (!GenerateBasisVectors(nearestNeighborsNumber)) {
+        throw std::runtime_error("BandStructure::Initialize: GenerateBasisVectors failed");
     }
-
-    return std::move(res);
+    m_kpoints = symmetryPoints.GeneratePoints(m_path, m_nb_points, symmetryPointsPositions);
 }
 
-std::vector<std::vector<double>> BandStructure::Compute(const Material& material,
-                                                        unsigned int    startPoint,
-                                                        unsigned int    endPoint,
-                                                        unsigned int    nrLevels) {
-	std::cout << "Computing band structure..." << std::endl;
+std::vector<std::vector<double>> BandStructure::Compute() {
+    std::cout << "Computing band structure..." << std::endl;
     std::vector<std::vector<double>> res;
     m_results.clear();
 
-    Hamiltonian hamiltonian(material, basisVectors);
+    Hamiltonian hamiltonian(m_material, basisVectors);
 
-    for (unsigned int i = startPoint; i < endPoint; ++i) {
-        // std::cout << "\rComputing band structure for point: \t\t " << i << " " << kpoints[i] << "\t\t" << std::flush;
-        hamiltonian.SetMatrix(kpoints[i]);
+    for (unsigned int i = 0; i < m_nb_points; ++i) {
+        hamiltonian.SetMatrix(m_kpoints[i]);
         hamiltonian.Diagonalize();
 
         const Eigen::VectorXd& eigenvals = hamiltonian.eigenvalues();
 
         m_results.emplace_back();
-        m_results.back().reserve(nrLevels);
-        // computation is done with atomic units
-        // results are in Hartree, here they are converted to eV
-        for (unsigned int level = 0; level < nrLevels && level < eigenvals.rows(); ++level) {
+        m_results.back().reserve(m_nb_bands);
+        for (unsigned int level = 0; level < m_nb_bands && level < eigenvals.rows(); ++level) {
             m_results.back().push_back(eigenvals(level));
-            // std::cout << "\t\tEnergy for band " << level << ": " << eigenvals(level) * 27.211385 << std::endl;
         }
     }
-    export_vector_bands_result_in_file("my_result.txt", res);
-	std::cout << "Done!" << std::endl;
+    std::cout << "Done!" << std::endl;
     return std::move(res);
 }
 
@@ -207,6 +148,20 @@ void BandStructure::export_result_in_file(const std::string& filename) const {
             file << v << " ";
         file << std::endl;
     }
+}
+
+std::string BandStructure::path_band_filename() const {
+    std::string path_string;
+    if (m_path.empty()) {
+        path_string = "";
+    } else {
+        for (auto& point : m_path) {
+            path_string += point;
+        }
+    }
+    std::string filename = "EEP_" + m_material.name + "_nb_bands_" + std::to_string(m_results.front().size()) + "_path_" + path_string +
+                           "_size_basis_" + std::to_string(basisVectors.size());
+    return filename;
 }
 
 void export_vector_bands_result_in_file(const std::string& filename, std::vector<std::vector<double>> results) {

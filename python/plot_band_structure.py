@@ -13,7 +13,8 @@ plt.style.use(['science', 'high-vis'])
 
 def plot_band_structure(filename):
     cnv = {1: lambda s: np.float(s.strip() or 'Nan')}
-    band_energies = np.loadtxt(filename, delimiter=" ", usecols=(0, 1, 2, 3, 4, 5, 6, 7, 8))
+    nb_bands = 16
+    band_energies = np.loadtxt(filename, delimiter=" ", usecols=tuple(i for i in range(nb_bands)))
     band_energies = band_energies.T   
     fig, ax = plt.subplots()
     ax.set_title(f"Band structure from {filename}")
@@ -21,7 +22,10 @@ def plot_band_structure(filename):
     ax.set_ylabel("Energy (eV)")
     
     for band in band_energies[::]:
-        ax.plot(band)
+        ax.plot(band, ls="-", color='k')
+        
+    ax.grid(True, which='both', axis='y', ls="-", lw=0.25, alpha=0.5, color='grey')
+    fig.tight_layout()
     plt.show()
     
 
