@@ -1,6 +1,6 @@
 #pragma once
-
-#include <Eigen/eigen>
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
 
 #include <complex>
 

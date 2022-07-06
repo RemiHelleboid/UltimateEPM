@@ -1,17 +1,42 @@
+# Prerequisites
+*.d
 
-*.ipch
-*.db
-*.dat
-*.tlog
-*.log
+# Compiled Object files
+*.slo
+*.lo
+*.o
 *.obj
-*.pdb
-*.idb
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
 *.exe
-*.ilk
-*.lastcodeanalysissucceeded
-*.iobj
-*.ipdb
-*.txt
-.vs/EmpiricalPseudopotential/v16/.suo
-.vs/EmpiricalPseudopotential/v15/.suo
+*.out
+*.app
+
+
+# build dir
+Debug/
+debug/
+Release/
+build/
+
+# Vscode
+.vscode/

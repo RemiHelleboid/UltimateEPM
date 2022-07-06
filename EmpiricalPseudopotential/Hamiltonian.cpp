@@ -11,7 +11,7 @@ namespace EmpiricalPseudopotential
 		: m_material(material), m_basisVectors(basisVectors)
 	{
 		const unsigned int basisSize = static_cast<unsigned int>(basisVectors.size());
-
+		std::cout << "Basis size: " << basisSize << std::endl;
 		matrix.resize(basisSize, basisSize);
 	}
 

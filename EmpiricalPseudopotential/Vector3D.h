@@ -1,6 +1,8 @@
 #pragma once
 
 #include <tuple>
+#include <cmath>
+#include <iostream>
 
 template<typename T> class Vector3D
 {
@@ -44,15 +46,20 @@ public:
 	double getTheta() const
 	{
 		double cosTheta = Z / Length();
-		if (isnan(cosTheta) || isinf(cosTheta) || cosTheta > 1. || cosTheta < -1) cosTheta = (cosTheta < 0 ? -1 : 1);
+		if (std::isnan(cosTheta) || std::isinf(cosTheta) || cosTheta > 1. || cosTheta < -1) cosTheta = (cosTheta < 0 ? -1 : 1);
 
-		return acos(cosTheta);
+		return std::acos(cosTheta);
 	}
 
 	double getPhi() const
 	{
 		return atan2(Y, X);
 	}
+
+	friend std::ostream &operator<<(std::ostream &os, const Vector3D &v) {
+		os << "(" << v.X << ", " << v.Y << ", " << v.Z << ")";
+        return os;
+    }
 };
 
 template<typename T> Vector3D<T> operator*(T o, const Vector3D<T>& t) { return t*o; }
@@ -62,6 +69,8 @@ template<typename T> bool operator<(const Vector3D<T>& lhs, const Vector3D<T>& r
 {
 	return std::tie(lhs.X, lhs.Y, lhs.Z) < std::tie(rhs.X, rhs.Y, rhs.Z);
 }
+
+
 
 #ifndef _VECTOR_3D_IMPL
 #include "Vector3D.inl"

@@ -18,7 +18,7 @@ namespace EmpiricalPseudopotential
 	Materials::Materials()
 	{
 		// values are given in Angstroms and Rydbergs, the constructor converts them to atomic units, see above
-		materials["Si"] = Material("Si", 5.43, -0.21, 0.04, 0.08);
+		materials["Si"] = Material("Si", 5.43, -0.2241, 0.052, 0.0724);
 		materials["Ge"] = Material("Ge", 5.66, -0.23, 0.01, 0.06);
 		materials["Sn"] = Material("Sn", 6.49, -0.20, 0.00, 0.04);
 		materials["GaP"] = Material("GaP", 5.44, -0.22, 0.03, 0.07, 0.12, 0.07, 0.02);
