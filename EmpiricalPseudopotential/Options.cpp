@@ -1,14 +1,13 @@
 #include "Options.h"
 
 #include <iostream>
-// #include <wx/stdpaths.h>
 
 Options::Options()
     : nrThreads(4),
       materialName("Si"),
-      nrPoints(1200),
-      nearestNeighbors(15),
-      nrLevels(12),
+      nrPoints(20),
+      nearestNeighbors(12),
+      nrLevels(8),
       pathNo(1),
       paths{{
           {"K", "W", "X", "G", "L", "W"},
@@ -48,60 +47,4 @@ void Options::print_options() {
     }
 }
 
-// void Options::Open()
-// {
-// 	if (m_fileconfig) return;
 
-// 	wxString dir = wxStandardPaths::Get().GetConfigDir() + wxFileName::GetPathSeparator();
-
-// 	if(!wxFileName::DirExists(dir))
-// 		wxFileName::Mkdir(dir, 0777, wxPATH_MKDIR_FULL);
-
-// 	wxString iniFilePath = dir + "EPseudopotential.ini";
-
-// 	m_fileconfig = new wxFileConfig("EPseudopotential", wxEmptyString, iniFilePath);
-
-// 	wxConfigBase::Set(m_fileconfig);
-// }
-
-// void Options::Close()
-// {
-// 	delete m_fileconfig;
-// 	m_fileconfig = NULL;
-// 	wxConfigBase::Set(NULL);
-// }
-
-// void Options::Load()
-// {
-// 	Open();
-// 	wxConfigBase *conf=wxConfigBase::Get(false);
-// 	if (conf)
-// 	{
-// 		nrThreads = conf->ReadLong("/nrThreads", 4);
-// 		materialName = conf->Read("/materialName", "Si");
-// 		nrPoints = conf->ReadLong("/nrPoints", 600);
-// 		nearestNeighbors = conf->ReadLong("/nearestNeighbors", 10);
-// 		nrLevels = conf->ReadLong("/nrLevels", 10);
-// 		pathNo = conf->ReadLong("/pathNo", 0);
-// 	}
-// 	Close();
-// }
-
-// void Options::Save()
-// {
-// 	Open();
-// 	wxConfigBase *conf=wxConfigBase::Get(false);
-// 	if (conf)
-// 	{
-// 		conf->Write("/nrThreads", static_cast<long int>(nrThreads));
-// 		conf->Write("/materialName", materialName);
-// 		conf->Write("/nrPoints", static_cast<long int>(nrPoints));
-// 		conf->Write("/nearestNeighbors", static_cast<long int>(nearestNeighbors));
-// 		conf->Write("/nrLevels", static_cast<long int>(nrLevels));
-// 		conf->Write("/pathNo", static_cast<long int>(pathNo));
-// 	}
-
-// 	if (m_fileconfig)
-// 		m_fileconfig->Flush();
-// 	Close();
-// }

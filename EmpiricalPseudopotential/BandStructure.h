@@ -13,43 +13,63 @@ class BandStructure {
  public:
     BandStructure();
 
-    Materials      materials;
-    SymmetryPoints symmetryPoints;
-
-    std::vector<std::vector<double>> m_results;
-    std::vector<unsigned int>        symmetryPointsPositions;
-
+    /**
+     * @brief Initialize the band structure with the given material and the given symmetry points that form a path
+     * of nrPoints on which the energies will be computed, for nb_bands levels.
+     *
+     * @param material
+     * @param nb_bands
+     * @param path
+     * @param nrPoints
+     * @param nearestNeighborsNumber
+     */
     void Initialize(const Material&           material,
                     std::size_t               nb_bands,
                     std::vector<std::string>& path,
                     unsigned int              nrPoints,
                     unsigned int              nearestNeighborsNumber);
 
-    //  void Initialize(std::vector<Vector3D<double>> list_k_points, unsigned int nearestNeighborsNumber = 10);
+    /**
+     * @brief Initialize the band structure with the given material and the k-points on which we want the energies to be computed.
+     *
+     * @param material
+     * @param nb_bands
+     * @param list_k_points
+     * @param nearestNeighborsNumber
+     */
+    void Initialize(const Material&               material,
+                    std::size_t                   nb_bands,
+                    std::vector<Vector3D<double>> list_k_points,
+                    unsigned int                  nearestNeighborsNumber);
+
+    const std::vector<std::string>&  GetPath() const { return m_path; }
+    unsigned int                     GetPointsNumber() const { return static_cast<unsigned int>(m_kpoints.size()); }
     std::vector<std::vector<double>> Compute();
     std::vector<std::vector<double>> Compute_parralel(int nb_threads);
+    double                           AdjustValues();
 
-    double AdjustValues();
-
-    unsigned int GetPointsNumber() const { return static_cast<unsigned int>(m_kpoints.size()); }
-
-    const std::vector<std::string>& GetPath() const { return m_path; }
-
-    void print_results() const;
-    void export_result_in_file(const std::string& filename) const;
-
-    std::string path_band_filename() const;
+    void                print_results() const;
+    std::string         path_band_filename() const;
+    void                export_kpoints_to_file(std::string filename) const;
+    void                export_result_in_file(const std::string& filename) const;
+    void                export_result_in_file_with_kpoints(const std::string& filename) const;
+    std::vector<double> get_band(unsigned int band_index) const;
 
  private:
-    std::vector<std::string> m_path;
-    unsigned int             m_nb_points;
+    Materials materials;
+
+    SymmetryPoints            symmetryPoints;
+    std::vector<unsigned int> symmetryPointsPositions;
+    std::vector<std::string>  m_path;
+    unsigned int              m_nb_points;
 
     Material     m_material;
     unsigned int m_nb_bands;
     unsigned int m_nearestNeighborsNumber;
 
-    std::vector<Vector3D<int>>    basisVectors;
-    std::vector<Vector3D<double>> m_kpoints;
+    std::vector<Vector3D<int>>       basisVectors;
+    std::vector<Vector3D<double>>    m_kpoints;
+    std::vector<std::vector<double>> m_results;
 
     static bool FindBandgap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction);
     bool        GenerateBasisVectors(unsigned int nearestNeighborsNumber);

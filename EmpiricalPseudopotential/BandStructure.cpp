@@ -1,13 +1,13 @@
 #include "BandStructure.h"
 
+#include <omp.h>
+
 #include <cfloat>
+#include <chrono>
 #include <fstream>
 #include <iostream>
-#include <chrono>
 
 #include "Hamiltonian.h"
-
-#include <omp.h>
 
 namespace EmpiricalPseudopotential {
 
@@ -48,7 +48,7 @@ void BandStructure::Initialize(const Material&           material,
     m_material               = material;
     m_nb_bands               = nb_bands;
     m_path                   = path;
-    m_nb_points               = nbPoints;
+    m_nb_points              = nbPoints;
     m_nearestNeighborsNumber = nearestNeighborsNumber;
     m_kpoints.clear();
     m_results.clear();
@@ -61,14 +61,35 @@ void BandStructure::Initialize(const Material&           material,
     m_kpoints = symmetryPoints.GeneratePoints(m_path, m_nb_points, symmetryPointsPositions);
 }
 
+void BandStructure::Initialize(const Material&               material,
+                               std::size_t                   nb_bands,
+                               std::vector<Vector3D<double>> list_k_points,
+                               unsigned int                  nearestNeighborsNumber) {
+    m_material               = material;
+    m_nb_bands               = nb_bands;
+    m_nb_points              = list_k_points.size();
+    m_nearestNeighborsNumber = nearestNeighborsNumber;
+    m_kpoints.clear();
+    m_results.clear();
+    m_kpoints = list_k_points;
+
+    if (!GenerateBasisVectors(nearestNeighborsNumber)) {
+        throw std::runtime_error("BandStructure::Initialize: GenerateBasisVectors failed");
+    }
+}
+
 std::vector<std::vector<double>> BandStructure::Compute() {
     std::cout << "Computing band structure..." << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
+
     std::vector<std::vector<double>> res;
     m_results.clear();
 
     Hamiltonian hamiltonian(m_material, basisVectors);
 
     for (unsigned int i = 0; i < m_nb_points; ++i) {
+        std::cout << "\rComputing band structure at point " << i + 1 << "/" << m_nb_points << std::flush;
+        // std::cout << "Computing band structure at point " << m_kpoints[i] << std::endl;
         hamiltonian.SetMatrix(m_kpoints[i]);
         hamiltonian.Diagonalize();
 
@@ -80,29 +101,31 @@ std::vector<std::vector<double>> BandStructure::Compute() {
             m_results.back().push_back(eigenvals(level));
         }
     }
-    std::cout << "Done!" << std::endl;
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "\nDone!" << std::endl;
+    std::cout << "Band structure computed in " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0
+              << " s" << std::endl;
     return std::move(res);
 }
 
 std::vector<std::vector<double>> BandStructure::Compute_parralel(int nb_threads) {
     std::cout << "Computing band structure..." << std::endl;
-	auto start = std::chrono::high_resolution_clock::now();
+    auto                             start = std::chrono::high_resolution_clock::now();
     std::vector<std::vector<double>> res;
     m_results.clear();
-	m_results.resize(m_nb_points);
-	for (auto &row : m_results){
-		row.resize(m_nb_bands);
-	};
+    m_results.resize(m_nb_points);
+    for (auto& row : m_results) {
+        row.resize(m_nb_bands);
+    };
 
-	std::vector<Hamiltonian> hamiltonian_per_thread;
-	for (int i = 0; i < nb_threads; i++){
-		hamiltonian_per_thread.push_back(Hamiltonian(m_material, basisVectors));
-	}
-
+    std::vector<Hamiltonian> hamiltonian_per_thread;
+    for (int i = 0; i < nb_threads; i++) {
+        hamiltonian_per_thread.push_back(Hamiltonian(m_material, basisVectors));
+    }
 
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (unsigned int index_k = 0; index_k < m_nb_points; ++index_k) {
-		int tid = omp_get_thread_num();
+        int tid = omp_get_thread_num();
         hamiltonian_per_thread[tid].SetMatrix(m_kpoints[index_k]);
         hamiltonian_per_thread[tid].Diagonalize();
 
@@ -111,8 +134,9 @@ std::vector<std::vector<double>> BandStructure::Compute_parralel(int nb_threads)
             m_results[index_k][level] = eigenvals(level);
         }
     }
-	auto end = std::chrono::high_resolution_clock::now();
-	std::cout << "Band structure computed in " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms" << std::endl;
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "Band structure computed in " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0
+              << " s" << std::endl;
     std::cout << "Done!" << std::endl;
     return std::move(res);
 }
@@ -168,6 +192,15 @@ bool BandStructure::FindBandgap(const std::vector<std::vector<double>>& results,
     return false;
 }
 
+std::vector<double> BandStructure::get_band(unsigned int band_index) const {
+    std::vector<double> res;
+    res.reserve(m_results.size());
+    for (auto& p : m_results) {
+        res.push_back(p[band_index]);
+    }
+    return res;
+}
+
 void BandStructure::print_results() const {
     for (auto& p : m_results) {
         for (auto& v : p)
@@ -176,11 +209,34 @@ void BandStructure::print_results() const {
     }
 }
 
+void BandStructure::export_kpoints_to_file(std::string filename) const {
+    std::ofstream file(filename);
+    for (auto& p : m_kpoints) {
+        file << p.Y << " " << p.X << " " << p.Z << std::endl;
+    }
+    file.close();
+}
+
 void BandStructure::export_result_in_file(const std::string& filename) const {
     std::ofstream file(filename);
 
     for (auto& p : m_results) {
         for (auto& v : p)
+            file << v << " ";
+        file << std::endl;
+    }
+}
+
+void BandStructure::export_result_in_file_with_kpoints(const std::string& filename) const {
+    std::ofstream file(filename);
+    file << "kx ky kz ";
+    for (unsigned int i = 0; i < m_results.front().size(); ++i) {
+        file << "band_" << i << " ";
+    }
+    file << std::endl;
+    for (unsigned int index_k = 0; index_k < m_nb_points; ++index_k) {
+        file << m_kpoints[index_k].Y << " " << m_kpoints[index_k].X << " " << m_kpoints[index_k].Z << " ";
+        for (auto& v : m_results[index_k])
             file << v << " ";
         file << std::endl;
     }
