@@ -14,6 +14,8 @@
 
 #include "Vector3D.h"
 #include "gmsh.h"
+#include "BandStructure.h"
+
 
 class bz_mesh {
  private:
@@ -32,5 +34,6 @@ class bz_mesh {
     void                           read_mesh();
     std::vector<Vector3D<double>>& get_kpoints() { return m_kpoints; };
 
-    void add_band_on_mesh(const std::string& band_name, const std::vector<double> band_values);
+    void add_band_on_mesh(const std::string& band_name, const std::vector<double>& band_values);
+    void add_all_bands_on_mesh(const std::string& out_filename, const EmpiricalPseudopotential::BandStructure &my_band);
 };

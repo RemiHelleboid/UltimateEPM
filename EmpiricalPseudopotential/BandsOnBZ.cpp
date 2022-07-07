@@ -66,9 +66,9 @@ int main(int argc, char* argv[]) {
     unsigned int        band_index = 0;
     std::vector<double> band_0     = my_bandstructure.get_band(band_index);
     // export band in file
-    my_bandstructure.export_result_in_file_with_kpoints("BZ_BANDS_SI.csv");
+    // my_bandstructure.export_result_in_file_with_kpoints("BZ_BANDS_SI.csv");
 
-    // my_mesh.add_band_on_mesh("band_0", band_0);
+    my_mesh.add_all_bands_on_mesh("all_band_on_bz.msh", my_bandstructure);
 
     return 0;
 }

@@ -48,11 +48,13 @@ class BandStructure {
     std::vector<std::vector<double>> Compute_parralel(int nb_threads);
     double                           AdjustValues();
 
-    void                print_results() const;
-    std::string         path_band_filename() const;
-    void                export_kpoints_to_file(std::string filename) const;
-    void                export_result_in_file(const std::string& filename) const;
-    void                export_result_in_file_with_kpoints(const std::string& filename) const;
+    void        print_results() const;
+    std::string path_band_filename() const;
+    void        export_kpoints_to_file(std::string filename) const;
+    void        export_result_in_file(const std::string& filename) const;
+    void        export_result_in_file_with_kpoints(const std::string& filename) const;
+
+    unsigned int        get_number_of_bands() const { return m_nb_bands; }
     std::vector<double> get_band(unsigned int band_index) const;
 
  private:
