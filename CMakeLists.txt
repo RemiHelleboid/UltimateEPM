@@ -71,6 +71,9 @@ if(NOT GMSH_LIB)
   message(FATAL_ERROR "Could not find libgmsh")
 endif()
 
+# tclap library for argument parsing
+include_directories(${PROJECT_SOURCE_DIR}/external/tclap/include)
+
 # -----------------------------------------------------------------------------
 # The compiled library code is here
 add_subdirectory(EmpiricalPseudopotential/)

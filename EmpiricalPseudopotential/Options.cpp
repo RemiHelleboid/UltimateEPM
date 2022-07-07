@@ -7,7 +7,7 @@ Options::Options()
       materialName("Si"),
       nrPoints(20),
       nearestNeighbors(12),
-      nrLevels(8),
+      nrLevels(30),
       pathNo(1),
       paths{{
           {"K", "W", "X", "G", "L", "W"},
