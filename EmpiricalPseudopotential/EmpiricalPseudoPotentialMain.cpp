@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
 
     const unsigned int nrPoints = my_bandstructure.GetPointsNumber();
 
-    auto res = my_bandstructure.Compute();
+    auto res = my_bandstructure.Compute_parralel(8);
     // Print res
     for (auto& row : res) {
         for (auto& val : row) {

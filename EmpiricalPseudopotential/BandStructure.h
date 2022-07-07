@@ -27,6 +27,7 @@ class BandStructure {
 
     //  void Initialize(std::vector<Vector3D<double>> list_k_points, unsigned int nearestNeighborsNumber = 10);
     std::vector<std::vector<double>> Compute();
+    std::vector<std::vector<double>> Compute_parralel(int nb_threads);
 
     double AdjustValues();
 

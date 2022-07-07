@@ -6,8 +6,13 @@ project(
   DESCRIPTION "Empirical Pseudo Potential Code"
   LANGUAGES C CXX)
 
+add_compile_definitions(CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+
 # -----------------------------------------------------------------------------
 # Set the project options.
+
+option(ENABLE_OPEN_MP "Build test programs" ON)
+
 
 # Handling build type nicely Set a default build type if none was specified
 set(default_build_type "Release")
@@ -46,6 +51,24 @@ if(NOT Eigen3_FOUND)
   message("Fetching Eigen3 lib ...")
   add_compile_definitions(EIGEN_USE_LAPACKE=0)
   FetchContent_MakeAvailable(Eigen)
+endif()
+
+# Find OpenMP
+if(ENABLE_OPEN_MP)
+  message("OpenMP optimization activated.")
+  find_package(OpenMP)
+  if(OpenMP_FOUND)
+    set(USE_OPENMP_ACCELERATION 1)
+    add_compile_definitions(USE_OPEN_MP=1)
+  endif()
+else()
+  set(USE_OPENMP_ACCELERATION 0)
+  add_compile_definitions(USE_OPEN_MP=0)
+endif(ENABLE_OPEN_MP)
+
+find_library(GMSH_LIB gmsh HINTS $ENV{GMSH_LIB})
+if(NOT GMSH_LIB)
+  message(FATAL_ERROR "Could not find libgmsh")
 endif()
 
 # -----------------------------------------------------------------------------

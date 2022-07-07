@@ -3,8 +3,11 @@
 #include <cfloat>
 #include <fstream>
 #include <iostream>
+#include <chrono>
 
 #include "Hamiltonian.h"
+
+#include <omp.h>
 
 namespace EmpiricalPseudopotential {
 
@@ -77,6 +80,39 @@ std::vector<std::vector<double>> BandStructure::Compute() {
             m_results.back().push_back(eigenvals(level));
         }
     }
+    std::cout << "Done!" << std::endl;
+    return std::move(res);
+}
+
+std::vector<std::vector<double>> BandStructure::Compute_parralel(int nb_threads) {
+    std::cout << "Computing band structure..." << std::endl;
+	auto start = std::chrono::high_resolution_clock::now();
+    std::vector<std::vector<double>> res;
+    m_results.clear();
+	m_results.resize(m_nb_points);
+	for (auto &row : m_results){
+		row.resize(m_nb_bands);
+	};
+
+	std::vector<Hamiltonian> hamiltonian_per_thread;
+	for (int i = 0; i < nb_threads; i++){
+		hamiltonian_per_thread.push_back(Hamiltonian(m_material, basisVectors));
+	}
+
+
+#pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
+    for (unsigned int index_k = 0; index_k < m_nb_points; ++index_k) {
+		int tid = omp_get_thread_num();
+        hamiltonian_per_thread[tid].SetMatrix(m_kpoints[index_k]);
+        hamiltonian_per_thread[tid].Diagonalize();
+
+        const Eigen::VectorXd& eigenvals = hamiltonian_per_thread[tid].eigenvalues();
+        for (unsigned int level = 0; level < m_nb_bands && level < eigenvals.rows(); ++level) {
+            m_results[index_k][level] = eigenvals(level);
+        }
+    }
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "Band structure computed in " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms" << std::endl;
     std::cout << "Done!" << std::endl;
     return std::move(res);
 }

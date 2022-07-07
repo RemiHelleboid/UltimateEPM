@@ -9,7 +9,7 @@ Hamiltonian::Hamiltonian(const Material& material, const std::vector<Vector3D<in
     : m_material(material),
       m_basisVectors(basisVectors) {
     const unsigned int basisSize = static_cast<unsigned int>(basisVectors.size());
-    std::cout << "Basis size: " << basisSize << std::endl;
+    // std::cout << "Basis size: " << basisSize << std::endl;
     matrix.resize(basisSize, basisSize);
 }
 
