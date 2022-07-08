@@ -41,11 +41,7 @@ Go wherever you want to install the library and run:
 Find more informations on [GMSH Website](https://gmsh.info/)
 
 
-
-
-
-
-The compilation is straightforward.  
+### Compilation  
 1. `git clone https://github.com/RemiHelleboid/EmpiricalPseudopotential.git`
 2. `cd EmpiricalPseudopotential`
 3. `mkdir build && cd build`
