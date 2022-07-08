@@ -18,11 +18,20 @@ You can do two types of calculations:
 
 ---
 
+## Compilation
+The compilation is straightforward.  
+1. `git clone https://github.com/RemiHelleboid/EmpiricalPseudopotential.git`
+2. `cd EmpiricalPseudopotential`
+3. `mkdir build && cd build`
+4. `cmake ..`
+5. `make`
+   
+---
 ## Usage
 
 
 ## Available Material
 
 
-## Compilation
+
 
