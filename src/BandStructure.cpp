@@ -14,7 +14,7 @@
 
 namespace EmpiricalPseudopotential {
 
-BandStructure::BandStructure() { basisVectors.reserve(127); }
+BandStructure::BandStructure() { }
 
 bool BandStructure::GenerateBasisVectors(unsigned int nearestNeighborsNumber) {
     static const std::vector<unsigned int> G2{

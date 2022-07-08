@@ -12,7 +12,11 @@ add_compile_definitions(CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 # Set the project options.
 
 option(ENABLE_OPEN_MP "Build test programs" ON)
+option(ENABLE_CLANG_TIDY "Enable clang tidy at compilation" OFF)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Handling build type nicely Set a default build type if none was specified
 set(default_build_type "Release")
@@ -30,6 +34,11 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   # Set the possible values of build type for cmake-gui
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release"
                                                "MinSizeRel" "RelWithDebInfo")
+endif()
+
+if(ENABLE_CLANG_TIDY)
+  message("Clang tidy at compilation is enabled")
+  set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,readability-*)
 endif()
 
 # -----------------------------------------------------------------------------
@@ -76,4 +85,5 @@ include_directories(${PROJECT_SOURCE_DIR}/external/tclap/include)
 
 # -----------------------------------------------------------------------------
 # The compiled library code is here
-add_subdirectory(EmpiricalPseudopotential/)
+add_subdirectory(src/)
+add_subdirectory(apps/)

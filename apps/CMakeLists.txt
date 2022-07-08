@@ -1,0 +1,8 @@
+# Create the main executables
+add_executable(EmpiricalPseudoPotentialMain EmpiricalPseudoPotentialMain.cpp)
+target_link_libraries(EmpiricalPseudoPotentialMain PUBLIC libepp pthread)
+target_compile_features(EmpiricalPseudoPotentialMain PRIVATE cxx_std_20)
+
+add_executable(BandsOnBZ BandsOnBZ.cpp)
+target_link_libraries(BandsOnBZ PUBLIC libepp pthread)
+target_compile_features(BandsOnBZ PRIVATE cxx_std_20)

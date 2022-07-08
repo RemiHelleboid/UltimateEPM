@@ -14,8 +14,9 @@ Pseudopotential::Pseudopotential(double V3S, double V8S, double V11S, double V3A
       m_V11A(V11A) {}
 
 std::complex<double> Pseudopotential::GetValue(const Vector3D<int>& G, const Vector3D<double>& tau) const {
-    const int    G2   = G * G;
-    const double Gtau = 2. * M_PI * tau * G;
+    constexpr double const_two = 2.0;
+    const int        G2        = G * G;
+    const double     Gtau      = const_two * M_PI * tau * G;
 
     double VS = 0;
     double VA = 0;
