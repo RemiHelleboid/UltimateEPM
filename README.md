@@ -19,6 +19,32 @@ You can do two types of calculations:
 ---
 
 ## Compilation
+### Dependencies  
+This project relies on these libraries:
+* Eigen
+* GMSH
+* OpenMP (optional)
+* tclap (embedded with the project)
+
+
+You will also need standard packages such as CMake, Make, a C++ compiler, etc.
+A minimal installation command would look like:  
+`sudo apt-get update && sudo apt-get install -y apt-utils git curl cmake g++ 
+libopenmpi-dev`  
+
+If you don't have Eigen install on your system, the sources will be automatically 
+fetched by CMake when you'll compile the project. You don't need to do anything. 
+
+You can install GMSH from sources straightforwardly :   
+Go wherever you want to install the library and run:   
+`git clone https://gitlab.onelab.info/gmsh/gmsh.git && cd gmsh && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_BUILD_SHARED=1 -DENABLE_PRIVATE_API=1 .. && make -j 8 shared && make install/fast && cd .. && rm -rf gmsh `  
+Find more informations on [GMSH Website](https://gmsh.info/)
+
+
+
+
+
+
 The compilation is straightforward.  
 1. `git clone https://github.com/RemiHelleboid/EmpiricalPseudopotential.git`
 2. `cd EmpiricalPseudopotential`
