@@ -21,24 +21,25 @@ You can do two types of calculations:
 ## Compilation
 ### Dependencies  
 This project relies on these libraries:
-* Eigen
-* GMSH
-* OpenMP (optional)
-* tclap (embedded with the project)
+* [Eigen](https://eigen.tuxfamily.org)
+* [GMSH](https://gmsh.info/)
+* [OpenMP](https://www.openmp.org/)
+* [tclap](http://tclap.sourceforge.net/)
 
 
 You will also need standard packages such as CMake, Make, a C++ compiler, etc.
-A minimal installation command would look like:  
-`sudo apt-get update && sudo apt-get install -y apt-utils git curl cmake g++ 
-libopenmpi-dev`  
+A __minimal installation__ command would look like:  
+`sudo apt-get update && sudo apt-get install -y apt-utils cmake g++ libopenmpi-dev`  
 
-If you don't have Eigen install on your system, the sources will be automatically 
-fetched by CMake when you'll compile the project. You don't need to do anything. 
+If you don't have __Eigen__ install on your system, the sources will be automatically fetched by CMake when you'll compile the project. You don't need to do anything. [Eigen Website](https://eigen.tuxfamily.org).
 
-You can install GMSH from sources straightforwardly :   
+The __tclap__ library is headers-only and embedded in the sources of the project.
+You do not need to install it. 
+
+You can install __GMSH__ from sources straightforwardly :   
 Go wherever you want to install the library and run:   
 `git clone https://gitlab.onelab.info/gmsh/gmsh.git && cd gmsh && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_BUILD_SHARED=1 -DENABLE_PRIVATE_API=1 .. && make -j 8 shared && make install/fast && cd .. && rm -rf gmsh `  
-Find more informations on [GMSH Website](https://gmsh.info/)
+Find more informations on [GMSH Website](https://gmsh.info/).
 
 
 ### Compilation  
