@@ -65,7 +65,7 @@ def plot_band_structure(filename, OUT_DIR):
     ax.set_xticks([], minor=True)
     fig.tight_layout()
     filename = Path(filename).stem
-    fig.savefig(f"{OUT_DIR}/{filename[:-4:]}_small.png", dpi=70)
+    fig.savefig(f"{OUT_DIR}/{filename[:-4:]}.png", dpi=600)
     # fig.savefig(f"{filename[:-4:]}.pdf", dpi=600)
     # plt.show()
 
