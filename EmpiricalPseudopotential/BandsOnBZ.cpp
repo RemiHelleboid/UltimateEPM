@@ -11,6 +11,8 @@
 
 #include <tclap/CmdLine.h>
 
+#include <filesystem>
+
 #include "BandStructure.h"
 #include "Material.h"
 #include "Options.h"
@@ -68,7 +70,9 @@ int main(int argc, char* argv[]) {
     // export band in file
     // my_bandstructure.export_result_in_file_with_kpoints("BZ_BANDS_SI.csv");
 
-    my_mesh.add_all_bands_on_mesh("all_band_on_bz.msh", my_bandstructure);
+    std::string out_file_bands = my_bandstructure.path_band_filename();
+
+    my_mesh.add_all_bands_on_mesh(out_file_bands + "_all_bands.msh", my_bandstructure);
 
     return 0;
 }

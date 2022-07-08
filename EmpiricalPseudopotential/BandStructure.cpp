@@ -2,13 +2,13 @@
 
 #include <omp.h>
 
+#include <algorithm>
 #include <cfloat>
 #include <chrono>
+#include <experimental/iterator>
 #include <fstream>
 #include <iostream>
-#include <algorithm>
 #include <iterator>
-#include <experimental/iterator>
 
 #include "Hamiltonian.h"
 
@@ -140,9 +140,10 @@ std::vector<std::vector<double>> BandStructure::Compute_parralel(int nb_threads)
             std::cout << "\rComputing band structure at point " << index_k + 1 << "/" << m_nb_points << std::flush;
         }
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Band structure computed in " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0
-              << " s" << std::endl;
+    auto end              = std::chrono::high_resolution_clock::now();
+    auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    std::cout << "Band structure computed in " << total_time_count / 1000.0 << " s\t"
+              << m_nb_points / static_cast<double>(total_time_count / 1000.0) << " points/s" << std::endl;
     std::cout << "Done!" << std::endl;
     return std::move(res);
 }
@@ -236,16 +237,15 @@ void BandStructure::export_result_in_file(const std::string& filename) const {
 void BandStructure::export_result_in_file_with_kpoints(const std::string& filename) const {
     std::ofstream file(filename);
     file << "kx,ky,kz,";
-    
-    for (unsigned int i = 0; i < m_results.front().size()-1; ++i) {
+
+    for (unsigned int i = 0; i < m_results.front().size() - 1; ++i) {
         file << "band_" << i << ",";
     }
     file << "band_" << m_results.front().size() - 1 << std::endl;
     for (unsigned int index_k = 0; index_k < m_nb_points; ++index_k) {
         file << m_kpoints[index_k].Y << "," << m_kpoints[index_k].X << "," << m_kpoints[index_k].Z << ",";
         std::vector<double> band_values = m_results[index_k];
-        std::copy(std::begin(band_values), std::end(band_values),
-              std::experimental::make_ostream_joiner(file, ","));
+        std::copy(std::begin(band_values), std::end(band_values), std::experimental::make_ostream_joiner(file, ","));
         file << std::endl;
     }
 }

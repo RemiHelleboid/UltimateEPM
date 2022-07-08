@@ -37,6 +37,7 @@ Debug/
 debug/
 Release/
 build/
+multimedia/
 
 # Vscode
 .vscode/
