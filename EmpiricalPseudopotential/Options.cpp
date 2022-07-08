@@ -5,7 +5,7 @@
 Options::Options()
     : nrThreads(4),
       materialName("Si"),
-      nrPoints(20),
+      nrPoints(60),
       nearestNeighbors(12),
       nrLevels(30),
       pathNo(1),

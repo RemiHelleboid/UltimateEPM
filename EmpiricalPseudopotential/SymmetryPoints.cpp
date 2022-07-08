@@ -35,6 +35,7 @@ std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<s
     symmetryPointsPositions.reserve(path.size());
 
     if (nrPoints <= path.size() * 2 + 1) {
+        std::cout << "Error: nrPoints must be greater than twice the number of symmetry points in the path + 1" << std::endl;
 		return result;
 	};
 

@@ -24,7 +24,10 @@ bool BandStructure::GenerateBasisVectors(unsigned int nearestNeighborsNumber) {
         227, 228, 232, 236, 243, 244, 248, 251, 259, 260, 264, 267, 268, 272, 275, 276, 280, 283, 291, 296, 299, 300, 304, 307,
         308, 312, 315, 320, 323, 324, 331, 332, 339, 355, 356, 360, 363, 371, 376, 384, 387, 395, 420, 451};
 
-    if (nearestNeighborsNumber < 2 || nearestNeighborsNumber > G2.size()) return false;
+    if (nearestNeighborsNumber < 2 || nearestNeighborsNumber > G2.size()) {
+        std::cout << "Error: nearestNeighborsNumber must be between 2 and " << G2.size() << std::endl;
+        return false;
+    }
     const unsigned int nearestNeighbors = nearestNeighborsNumber - 1;
     basisVectors.clear();
     const int           size = static_cast<int>(ceil(sqrt(static_cast<double>(G2[nearestNeighbors]))));
@@ -61,7 +64,13 @@ void BandStructure::Initialize(const Material&           material,
     if (!GenerateBasisVectors(nearestNeighborsNumber)) {
         throw std::runtime_error("BandStructure::Initialize: GenerateBasisVectors failed");
     }
-    m_kpoints = symmetryPoints.GeneratePoints(m_path, m_nb_points, symmetryPointsPositions);
+    m_kpoints   = symmetryPoints.GeneratePoints(m_path, m_nb_points, symmetryPointsPositions);
+    m_nb_points = m_kpoints.size();
+    if (m_nb_points == 0) {
+        throw std::runtime_error(
+            "BandStructure::Initialize: GeneratePoints failed. No points generated.\
+        \nPlease increase the number of points such as there is twice as many points as the number of symetry points.");
+    }
 }
 
 void BandStructure::Initialize(const Material&               material,
@@ -89,7 +98,6 @@ std::vector<std::vector<double>> BandStructure::Compute() {
     m_results.clear();
 
     Hamiltonian hamiltonian(m_material, basisVectors);
-
     for (unsigned int i = 0; i < m_nb_points; ++i) {
         std::cout << "\rComputing band structure at point " << i + 1 << "/" << m_nb_points << std::flush;
         // std::cout << "Computing band structure at point " << m_kpoints[i] << std::endl;
@@ -225,6 +233,8 @@ void BandStructure::export_kpoints_to_file(std::string filename) const {
 }
 
 void BandStructure::export_result_in_file(const std::string& filename) const {
+    std::cout << "Exporting band structure to file:     " << filename << std::endl;
+
     std::ofstream file(filename);
 
     for (auto& p : m_results) {
@@ -235,6 +245,7 @@ void BandStructure::export_result_in_file(const std::string& filename) const {
 }
 
 void BandStructure::export_result_in_file_with_kpoints(const std::string& filename) const {
+    std::cout << "Exporting band structure to file:     " << filename << std::endl;
     std::ofstream file(filename);
     file << "kx,ky,kz,";
 
@@ -265,6 +276,7 @@ std::string BandStructure::path_band_filename() const {
 }
 
 void export_vector_bands_result_in_file(const std::string& filename, std::vector<std::vector<double>> results) {
+    std::cout << "Exporting band structure to file:     " << filename << std::endl;
     std::ofstream file(filename);
 
     for (auto& p : results) {
