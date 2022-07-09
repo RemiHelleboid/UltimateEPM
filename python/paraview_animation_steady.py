@@ -40,9 +40,10 @@ si_extremas = [[-12.5891, -8.1794],
 
 def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_iso_values, out_file, nb_frames):
 
+    print("------------------- COMPUTE THE ISO SURFACE ANIMATION ------------------- ")
+
     list_energies = np.linspace(min_energy, max_energy, number_iso_values)
-    band_str = f"band_{band_index}"
-    band_color = f"band_{(band_index+1)%12}"
+    band_str = "band_" + str(band_index)
 
     min_energy = si_extremas[band_index][0] - 0.25 
     max_energy = si_extremas[band_index][1] + 0.25
@@ -53,17 +54,19 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
 
     # create a new 'XML Unstructured Grid Reader'
     medium_1_bz_meshvtu = XMLUnstructuredGridReader(registrationName='fine_1_bz_mesh.vtu', FileName=[
-                                                    '/home/remi/EmpiricalPseudopotential/build/fine_1_bz_mesh.vtu'])
+                                                    'fine_1_bz_mesh.vtu'])
     medium_1_bz_meshvtu.PointArrayStatus = ['band_0', 'band_1', 'band_2', 'band_3', 'band_4', 'band_5',
                                             'band_6', 'band_7', 'band_8', 'band_9', 'band_10', 'band_11', 'band_12', 'band_13', 'band_14', 'band_15']
 
     # get active view
     renderView1 = GetActiveViewOrCreate('RenderView')
+
     
     
         
     # get layout
     layout2 = GetLayout()
+
 
     #--------------------------------
     # saving layout sizes for layouts
@@ -104,7 +107,7 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
     # create a new 'Contour'
     contour1 = Contour(registrationName='Contour1', Input=medium_1_bz_meshvtu)
     contour1.ContourBy = ['POINTS', band_str]
-    contour1.Isosurfaces = [-10.379030287270895]
+    contour1.Isosurfaces = [-1000.379030287270895]
     contour1.PointMergeMethod = 'Uniform Binning'
 
     # Hide orientation axes
@@ -167,6 +170,12 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
     # hide data in view
     Hide(medium_1_bz_meshvtu, renderView1)
 
+    paletteName = "Black Background"
+    LoadPalette(paletteName)
+
+    SetProperties(renderView1, Background=[0, 0, 0])
+    renderView1.Update()
+
     # show color bar/color legend
     contour1Display.SetScalarBarVisibility(renderView1, False)
 
@@ -182,6 +191,7 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
     # save animation
     SaveAnimation(out_file, renderView1, ImageResolution=[1200, 1200],
                   FontScaling='Do not scale fonts',
+                  OverrideColorPalette="Black Background",
                   FrameRate=30,
                   FrameWindow=[0, nb_frames-1])
 
@@ -219,9 +229,9 @@ if __name__ == "__main__":
     nb_frames = args["nb_frames"]
     out_dir = args["out_dir"]
 
-    out_file = f"{out_dir}/Si_steady_animation_{bands_index}th_band_iso.avi"
+    out_file = out_dir + "/Si_steady_animation_" + f"{bands_index:03d}" + "th_band_iso.avi"
 
-    print_agrs(bands_file, min_iso_energy, max_iso_energy, bands_index)
+    # print_agrs(bands_file, min_iso_energy, max_iso_energy, bands_index)
 
     plot_iso_surface(bands_file, bands_index, min_iso_energy,
                      max_iso_energy, number_iso_values, out_file, nb_frames)
