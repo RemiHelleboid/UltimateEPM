@@ -6,36 +6,36 @@ import inspect
 # disable automatic camera reset on 'Show'
 paraview.simple._DisableFirstRenderCameraReset()
 
-si_extremas = [[-12.5891, -8.33024],
+si_extremas = [[-12.5891, -8.1794],
                [-8.30847, -1.66159e-13],
-               [-4.42516, -2.71896e-14],
-               [-3.02394, 0.0],
-               [1.03669, 3.40913],
-               [1.16998, 4.97943],
+               [-4.54238, -2.71896e-14],
+               [-3.96281, 0.0],
+               [1.04034, 4.9053],
+               [1.16998, 6.85878],
                [3.37964, 12.2698],
                [3.99022, 12.2698],
-               [6.75105, 12.8557],
-               [7.31399, 13.7759],
-               [8.25655, 16.2184],
-               [11.4349, 16.6692],
-               [12.569, 17.631],
-               [12.569, 18.665],
+               [6.48798, 12.8557],
+               [7.31058, 13.4927],
+               [8.25655, 16.0562],
+               [11.4688, 16.4623],
+               [12.569, 18.7686],
+               [12.569, 19.3298],
                [15.5224, 21.5633],
-               [17.5607, 27.3715],
-               [17.5607, 27.3715],
-               [18.4241, 27.421],
-               [21.258, 28.5222],
-               [21.4927, 29.9422],
-               [22.2918, 30.3369],
-               [22.2918, 30.9994],
-               [26.1788, 33.2535],
-               [27.1347, 34.9097],
-               [30.3366, 35.8184],
-               [31.2036, 36.2169],
-               [31.6554, 37.3205],
-               [32.5713, 43.4564],
-               [34.6604, 43.9431],
-               [35.6336, 43.9431]]
+               [17.5502, 27.3715],
+               [17.5502, 27.3715],
+               [18.4023, 27.3941],
+               [21.4196, 28.6273],
+               [21.4516, 29.9285],
+               [22.2918, 30.2796],
+               [22.2918, 31.0066],
+               [26.0339, 33.7144],
+               [26.8845, 34.6376],
+               [28.3037, 36.0478],
+               [28.5333, 36.356],
+               [29.3058, 37.5507],
+               [29.3592, 43.4564],
+               [33.2726, 43.9431],
+               [33.6085, 43.9431]]
 
 
 def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_iso_values, out_file, nb_frames):
@@ -43,9 +43,10 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
     list_energies = np.linspace(min_energy, max_energy, number_iso_values)
     band_str = f"band_{band_index}"
     band_color = f"band_{(band_index+1)%12}"
-    
-    min_energy, max_energy = si_extremas[band_index]
-    
+
+    min_energy = si_extremas[band_index][0] - 0.25 
+    max_energy = si_extremas[band_index][1] + 0.25
+
     print("band_index: ", band_index)
     print("min_energy: ", min_energy)
     print("max_energy: ", max_energy)
@@ -58,6 +59,25 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
 
     # get active view
     renderView1 = GetActiveViewOrCreate('RenderView')
+    
+    
+        
+    # get layout
+    layout2 = GetLayout()
+
+    #--------------------------------
+    # saving layout sizes for layouts
+
+    # layout/tab size in pixels
+    layout2.SetSize(200, 200)
+
+    #-----------------------------------
+    # saving camera placements for views
+
+    # current camera placement for renderView1
+    renderView1.CameraPosition = [0.0, 0.0, 4.3305962012888966]
+    renderView1.CameraFocalPoint = [0.0, 0.0, -2.361534228613564]
+    renderView1.CameraParallelScale = 1.7320508075688772
 
     # get display properties
     medium_1_bz_meshvtuDisplay = GetDisplayProperties(
@@ -156,12 +176,9 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
     # update the view to ensure updated data information
     renderView1.Update()
 
-    animationScene1.Play()
-
     # get animation scene
     animationScene1 = GetAnimationScene()
 
-    f
     # save animation
     SaveAnimation(out_file, renderView1, ImageResolution=[1200, 1200],
                   FontScaling='Do not scale fonts',
