@@ -9,7 +9,7 @@
  *
  */
 
-#include "bz_mesh.hpp"
+#include "bz_meshfile.hpp"
 
 #include "BandStructure.h"
 #include "gmsh.h"

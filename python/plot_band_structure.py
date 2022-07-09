@@ -43,7 +43,7 @@ def plot_band_structure(filename, OUT_DIR):
         point_sym_positions.append(point_sym_positions[k-1] + dist_btw_points[k-1])
         
     cnv = {1: lambda s: np.float(s.strip() or 'Nan')}
-    nb_bands = 10
+    nb_bands = 30
     band_energies = np.loadtxt(
         filename, delimiter=" ", usecols=tuple(i for i in range(nb_bands)))
     band_energies = band_energies.T
@@ -54,6 +54,7 @@ def plot_band_structure(filename, OUT_DIR):
 
     for band in band_energies[::]:
         ax.plot(band, ls="-", color='k', lw=0.5)
+        print(f'[{band.min()},{band.max()}],')
 
     ax.set_ylim(bottom=-14, top=10)
     ax.grid(True, which='both', axis='both', ls="-",

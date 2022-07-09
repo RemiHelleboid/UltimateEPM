@@ -16,7 +16,7 @@
 #include "BandStructure.h"
 #include "Material.h"
 #include "Options.h"
-#include "bz_mesh.hpp"
+#include "bz_meshfile.hpp"
 
 int main(int argc, char* argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
