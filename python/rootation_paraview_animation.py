@@ -62,13 +62,13 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
     renderView1 = GetActiveViewOrCreate('RenderView')
 
     # get layout
-    layout2 = GetLayout()
+    # layout2 = GetLayout()
 
     # --------------------------------
     # saving layout sizes for layouts
 
     # layout/tab size in pixels
-    layout2.SetSize(1200, 1200)
+    # layout2.SetSize(1200, 1200)
 
     # -----------------------------------
     # saving camera placements for views
@@ -183,40 +183,40 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
     
     # # reset view to fit data bounds
     # # renderView1.ResetCamera(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0, True)
+    
+    # create a key frame
 
 
     # # get camera animation track for the view
     cameraAnimationCue1 = GetCameraTrack(view=renderView1)
 
-    # # create keyframes for this animation track
+    
+    # create a key frame
+    keyFrame10297 = CameraKeyFrame()
+    keyFrame10297.Position = [-4.302322923455295, 0.0, 0.0]
+    keyFrame10297.FocalPoint = [2.389807506447166, 0.0, 0.0]
+    keyFrame10297.ViewUp = [0.0, 0.0, 1.0]
+    keyFrame10297.ParallelScale = 1.7320508075688772
+    keyFrame10297.PositionPathPoints = [-4.30232, 0.0, 0.0, -2.6824526443328667, -3.363689223651854, 0.0, 0.95735626457893, -4.194451855138103, 0.0, 3.8762563797539356, -1.8667066884802535, 0.0, 3.8762563797539364, 1.8667066884802517, 0.0, 0.957356264578932, 4.194451855138103, 0.0, -2.6824526443328653, 3.363689223651855, 0.0]
+    keyFrame10297.FocalPathPoints = [0.0, 0.0, 0.0]
+    keyFrame10297.ClosedPositionPath = 1
 
     # create a key frame
-    keyFrame9971 = CameraKeyFrame()
-    keyFrame9971.Position = [0.0, 0.0, 2.0]
-    keyFrame9971.ParallelScale = 1.0
-    keyFrame9971.PositionPathPoints = [0.0, 0.0, 6.69213, 5.232117918768776, 0.0, 4.172474807712887, 6.524344328949348, 0.0, -1.4891390177570698, 2.9036063870607856,
-                                       0.0, -6.029400789955816, -2.9036063870607833, 0.0, -6.029400789955817, -6.524344328949347, 0.0, -1.489139017757072, -5.232117918768777, 0.0, 4.172474807712884]
-    keyFrame9971.FocalPathPoints = [0.0, 0.0, 0.0]
-    keyFrame9971.ClosedPositionPath = 1
-
-    # # create a key frame
-    keyFrame9972 = CameraKeyFrame()
-    keyFrame9972.KeyTime = 1.0
-    keyFrame9972.Position = [0.0, 0.0, 2.0]
-    keyFrame9972.ParallelScale = 1.0
+    keyFrame10298 = CameraKeyFrame()
+    keyFrame10298.KeyTime = 1.0
+    keyFrame10298.Position = [-4.302322923455295, 0.0, 0.0]
+    keyFrame10298.FocalPoint = [2.389807506447166, 0.0, 0.0]
+    keyFrame10298.ViewUp = [0.0, 0.0, 1.0]
+    keyFrame10298.ParallelScale = 1.7320508075688772
 
     # initialize the animation track
     cameraAnimationCue1.Mode = 'Path-based'
-    cameraAnimationCue1.KeyFrames = [keyFrame9971, keyFrame9972]
-    
-    # # reset view to fit data bounds
-    # renderView1.ResetCamera(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0, True)
+    cameraAnimationCue1.KeyFrames = [keyFrame10297, keyFrame10298]
 
 
     # save animation
-    SaveAnimation(out_file, renderView1, ImageResolution=[1200, 1200],
-                  FontScaling='Do not scale fonts',
-                  OverrideColorPalette="Black Background",
+    SaveAnimation(out_file, renderView1, ImageResolution=[1500, 1500],
+                #   FontScaling='Do not scale fonts',
                   FrameRate=30,
                   FrameWindow=[0, nb_frames-1])
 
