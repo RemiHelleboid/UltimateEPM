@@ -1,6 +1,6 @@
 set(HEADER_FILES_LIBEPP
     SymmetryPoints.h
-    bz_mesh.hpp
+    bz_meshfile.hpp
     Options.h
     Material.h
     Hamiltonian.h
@@ -11,7 +11,7 @@ set(HEADER_FILES_LIBEPP
 
 set(SOURCE_FILES_LIBEPP Material.cpp SymmetryPoints.cpp Options.cpp
                         Hamiltonian.cpp BandStructure.cpp Pseudopotential.cpp
-                        bz_mesh.cpp)
+                        bz_meshfile.cpp)
 
 add_library(libepp STATIC ${SOURCE_FILES_LIBEPP} ${HEADER_FILES_LIBEPP})
 
