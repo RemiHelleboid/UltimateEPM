@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.15...3.25)
 
+include(CMakePrintHelpers)
+
+
 project(
   EmpiricalPseudopotential
   VERSION "1.0.0"
@@ -75,10 +78,36 @@ else()
   add_compile_definitions(USE_OPEN_MP=0)
 endif(ENABLE_OPEN_MP)
 
+# FIND GMSH
+# Adds GMSH
 find_library(GMSH_LIB gmsh HINTS $ENV{GMSH_LIB})
 if(NOT GMSH_LIB)
   message(FATAL_ERROR "Could not find libgmsh")
 endif()
+message("GMSH.a FOUND" ${GMSH_LIB})
+
+find_path(GMSH_INC gmsh.h HINTS $ENV{GMSH_INC})
+if(NOT GMSH_INC)
+  message(FATAL_ERROR "Could not find gmsh.h")
+endif()
+message("GMSH.H FOUND" ${GMSH_INC})
+
+cmake_print_variables(GMSH_LIB)
+cmake_print_variables(GMSH_INC)
+
+if(GMSH_LIB MATCHES ".a") # FIXME - generalize this
+  find_library(BLAS_LIB blas)
+  if(BLAS_LIB)
+    list(APPEND EXTRA_LIBS ${BLAS_LIB})
+    message("BLAS FOUND : " ${BLAS_LIB})
+  endif()
+  find_library(LAPACK_LIB lapack)
+  if(LAPACK_LIB)
+    list(APPEND EXTRA_LIBS ${LAPACK_LIB})
+    message("LAPACK FOUND : " ${BLAS_LIB})
+  endif()
+endif()
+
 
 # tclap library for argument parsing
 include_directories(${PROJECT_SOURCE_DIR}/external/tclap/include)

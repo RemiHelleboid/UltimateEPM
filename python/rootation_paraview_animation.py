@@ -215,7 +215,7 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
 
 
     # save animation
-    SaveAnimation(out_file, renderView1, ImageResolution=[1500, 1500],
+    SaveAnimation(out_file, renderView1, ImageResolution=[3840, 2160],
                 #   FontScaling='Do not scale fonts',
                   FrameRate=30,
                   FrameWindow=[0, nb_frames-1])
