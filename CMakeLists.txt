@@ -115,4 +115,5 @@ include_directories(${PROJECT_SOURCE_DIR}/external/tclap/include)
 # -----------------------------------------------------------------------------
 # The compiled library code is here
 add_subdirectory(src/)
+add_subdirectory(src/BZ_MESH)
 add_subdirectory(apps/)
