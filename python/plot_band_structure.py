@@ -36,14 +36,13 @@ def get_path_from_filename(filename):
     dist_btw_points = [np.linalg.norm(list_points[k+1] - list_points[k]) for k in range(len(list_points)-1)]
     return list_points_plot, dist_btw_points, material
 
-def plot_band_structure(filename, OUT_DIR):
+def plot_band_structure(filename, OUT_DIR, nb_bands=10):
     list_points_string, dist_btw_points, material = get_path_from_filename(filename)
     point_sym_positions = [0]
     for k in range(1, len(list_points_string)):
         point_sym_positions.append(point_sym_positions[k-1] + dist_btw_points[k-1])
         
     cnv = {1: lambda s: np.float(s.strip() or 'Nan')}
-    nb_bands = 30
     band_energies = np.loadtxt(
         filename, delimiter=" ", usecols=tuple(i for i in range(nb_bands)))
     band_energies = band_energies.T
@@ -75,10 +74,12 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-f", "--file", dest="path_file",
                         help="The file to parse.", required=True)
+    parser.add_argument("-b", "--nbbands", dest="nb_bands", type=int,
+                        help="The nb of bands to plot.", required=False)
     parser.add_argument("-o", "--outputdir", dest="output_path_dir",
                         help="The directory to save the results.", default="./")
     args = parser.parse_args()
     FILE_PATH = args.path_file
     OUT_DIR = args.output_path_dir
 
-    plot_band_structure(FILE_PATH, OUT_DIR)
+    plot_band_structure(FILE_PATH, OUT_DIR, args.nb_bands)

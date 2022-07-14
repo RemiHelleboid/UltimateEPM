@@ -35,7 +35,37 @@ si_extremas = [[-12.5891, -8.1794],
                [29.3058, 37.5507],
                [29.3592, 43.4564],
                [33.2726, 43.9431],
-               [33.6085, 43.9431]]
+               [33.6085, 43.9431],
+               [35.1483, 43.9431],
+               [35.8883, 44.497],
+               [36.2965, 44.497],
+               [36.2965, 44.533],
+               [39.5456, 45.9688],
+               [39.8383, 46.1416],
+               [41.3132, 47.4013],
+               [41.709, 48.0407],
+               [42.3173, 49.2082],
+               [43.8589, 50.619],
+               [45.0952, 52.5127],
+               [45.0952, 53.0229],
+               [45.8357, 54.1446],
+               [45.8872, 54.5142],
+               [45.8872, 56.4409],
+               [46.0035, 57.9422],
+               [46.0846, 58.0097],
+               [46.5917, 58.0097],
+               [46.5917, 60.2646],
+               [46.5917, 60.5861],
+               [47.5444, 61.2098],
+               [49.7131, 61.2098],
+               [50.4511, 63.0419],
+               [51.5336, 63.8502],
+               [51.6383, 64.5733],
+               [53.5386, 64.6788],
+               [53.8414, 66.3079],
+               [53.8414, 66.6578],
+               [55.3743, 67.0306],
+               [61.6536, 71.9235]]
 
 
 def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_iso_values, out_file, nb_frames):
@@ -45,7 +75,7 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
     list_energies = np.linspace(min_energy, max_energy, number_iso_values)
     band_str = "band_" + str(band_index)
 
-    min_energy = si_extremas[band_index][0] - 0.25 
+    min_energy = si_extremas[band_index][0] - 0.25
     max_energy = si_extremas[band_index][1] + 0.25
 
     print("band_index: ", band_index)
@@ -53,28 +83,24 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
     print("max_energy: ", max_energy)
 
     # create a new 'XML Unstructured Grid Reader'
-    medium_1_bz_meshvtu = XMLUnstructuredGridReader(registrationName='fine_1_bz_mesh.vtu', FileName=[
-                                                    'fine_1_bz_mesh.vtu'])
+    medium_1_bz_meshvtu = XMLUnstructuredGridReader(registrationName=filename_vtu, FileName=[
+                                                    filename_vtu])
     medium_1_bz_meshvtu.PointArrayStatus = ['band_0', 'band_1', 'band_2', 'band_3', 'band_4', 'band_5',
                                             'band_6', 'band_7', 'band_8', 'band_9', 'band_10', 'band_11', 'band_12', 'band_13', 'band_14', 'band_15']
 
     # get active view
     renderView1 = GetActiveViewOrCreate('RenderView')
 
-    
-    
-        
     # get layout
     layout2 = GetLayout()
 
-
-    #--------------------------------
+    # --------------------------------
     # saving layout sizes for layouts
 
     # layout/tab size in pixels
     layout2.SetSize(200, 200)
 
-    #-----------------------------------
+    # -----------------------------------
     # saving camera placements for views
 
     # current camera placement for renderView1
@@ -189,10 +215,10 @@ def plot_iso_surface(filename_vtu, band_index, min_energy, max_energy, number_is
     animationScene1 = GetAnimationScene()
 
     # save animation
-    SaveAnimation(out_file, renderView1, ImageResolution=[1200, 1200],
+    SaveAnimation(out_file, renderView1, ImageResolution=[1000, 1000],
                   FontScaling='Do not scale fonts',
                   OverrideColorPalette="Black Background",
-                  FrameRate=30,
+                  FrameRate=60,
                   FrameWindow=[0, nb_frames-1])
 
 
@@ -229,7 +255,8 @@ if __name__ == "__main__":
     nb_frames = args["nb_frames"]
     out_dir = args["out_dir"]
 
-    out_file = out_dir + "/Si_steady_animation_" + f"{bands_index:03d}" + "th_band_iso.avi"
+    out_file = out_dir + "/Si_steady_animation_" + \
+        f"{bands_index:03d}" + "th_band_iso.avi"
 
     # print_agrs(bands_file, min_iso_energy, max_iso_energy, bands_index)
 
