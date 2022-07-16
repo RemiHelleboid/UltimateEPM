@@ -56,7 +56,7 @@ class IsoTriangle {
         m_list_vertices{VtxA, VtxB, VtxC},
         m_iso_energy(iso_energy),
         m_list_edges{VtxA-VtxB, VtxA-VtxC, VtxB-VtxC},
-        m_signed_surface{0.5 * m_list_edges[0].dot(m_list_edges[1])} {}
+        m_signed_surface{0.5 * (cross_product(m_list_edges[0], m_list_edges[1]).norm())} {}
 
     double get_iso_energy() const {return m_iso_energy;}
     double get_signed_surface() const {return m_signed_surface;}
