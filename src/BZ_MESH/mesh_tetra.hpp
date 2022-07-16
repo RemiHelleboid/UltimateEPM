@@ -88,8 +88,8 @@ class Tetra {
 
     Tetra(const std::array<Vertex*, 4>& list_vertices);
 
-    std::vector<double> get_valence_band_energies_at_vtx(std::size_t index_band) const;
-    std::vector<double> get_conduction_band_energies_at_vtx(std::size_t index_band) const;
+    std::vector<double> get_valence_band_energies_at_vertices(std::size_t index_band) const;
+    std::vector<double> get_conduction_band_energies_at_vertices(std::size_t index_band) const;
     void                compute_and_set_minmax_energies();
 
     double                compute_signed_volume() const;
@@ -98,6 +98,12 @@ class Tetra {
     bool                  is_location_inside(const vector3& location) const;
     std::array<double, 4> compute_barycentric_coordinates(const vector3& location) const;
     vector3               compute_euclidean_coordinates(const std::array<double, 4>& barycentric_coordinates) const;
+
+    std::array<int, 4> get_index_vertices_with_sorted_energy_at_conduction_band(std::size_t index_band)const;
+    std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
+
+
 };
+
 
 }  // namespace bz_mesh

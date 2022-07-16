@@ -55,6 +55,7 @@ class Vertex {
     const std::vector<double>& get_conduction_energies() const { return m_conduction_band_energies; }
     double get_energy_at_conduction_band(std::size_t band_index) const { return m_conduction_band_energies[band_index]; }
     double get_energy_at_valance_band(std::size_t band_index) const { return m_valance_band_energies[band_index]; }
+
 };
 
 }  // namespace bz_mesh

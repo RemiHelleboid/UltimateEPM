@@ -2,7 +2,8 @@ set(HEADER_FILES_LIBBZMESH
     mesh_tetra.hpp
     mesh_vertex.hpp
     bz_mesh.hpp
-    vector.hpp)
+    vector.hpp 
+    iso_triangle.hpp)
 
 set(SOURCE_FILES_LIBBZMESH 
     mesh_tetra.cpp

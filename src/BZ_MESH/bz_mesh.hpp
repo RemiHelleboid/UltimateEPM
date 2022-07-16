@@ -13,4 +13,5 @@
 
 #include "mesh_vertex.hpp"
 #include "mesh_tetra.hpp"
+#include "iso_triangle.hpp"
 
