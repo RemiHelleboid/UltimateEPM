@@ -38,13 +38,13 @@ void Options::print_options() {
     std::cout << "nearestNeighbors: " << nearestNeighbors << std::endl;
     std::cout << "nrLevels: " << nrLevels << std::endl;
     std::cout << "pathNo: " << pathNo << std::endl;
-    std::cout << "paths: " << std::endl;
-    for (auto& path : paths) {
-        for (auto& point : path) {
-            std::cout << point << " ";
-        }
-        std::cout << std::endl;
-    }
+    // std::cout << "paths: " << std::endl;
+    // for (auto& path : paths) {
+    //     for (auto& point : path) {
+    //         std::cout << point << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 }
 
 

@@ -14,11 +14,11 @@
 #include "BandStructure.h"
 #include "gmsh.h"
 
-void bz_mesh::add_k_point(Vector3D<double> kpoint) { m_kpoints.push_back(kpoint); }
+void bz_mesh_points::add_k_point(Vector3D<double> kpoint) { m_kpoints.push_back(kpoint); }
 
-void bz_mesh::add_k_point(double k_x, double k_y, double k_z) { m_kpoints.push_back(Vector3D<double>(k_x, k_y, k_z)); }
+void bz_mesh_points::add_k_point(double k_x, double k_y, double k_z) { m_kpoints.push_back(Vector3D<double>(k_x, k_y, k_z)); }
 
-void bz_mesh::read_mesh() {
+void bz_mesh_points::read_mesh() {
     std::cout << "Opening file " << m_filename << std::endl;
     gmsh::initialize();
     // gmsh::option::setNumber("General.Verbosity", 1);
@@ -42,7 +42,7 @@ void bz_mesh::read_mesh() {
     std::cout << "Number of k-points: " << m_kpoints.size() << std::endl;
 }
 
-void bz_mesh::add_band_on_mesh(const std::string& band_name, const std::vector<double> &band_values) {
+void bz_mesh_points::add_band_on_mesh(const std::string& band_name, const std::vector<double> &band_values) {
     const int bulk_dimension = 3;
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 99999999);
@@ -66,7 +66,7 @@ void bz_mesh::add_band_on_mesh(const std::string& band_name, const std::vector<d
     gmsh::finalize();
 }
 
-void bz_mesh::add_all_bands_on_mesh(const std::string& out_filename, const EmpiricalPseudopotential::BandStructure& my_band) {
+void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, const EmpiricalPseudopotential::BandStructure& my_band) {
     const int bulk_dimension = 3;
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 99999999);

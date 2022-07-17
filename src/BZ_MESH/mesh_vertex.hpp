@@ -14,31 +14,35 @@
 #include <algorithm>
 #include <iostream>
 #include <map>
+#include <string>
 #include <vector>
 
 #include "vector.hpp"
+
 
 namespace bz_mesh {
 
 class Vertex {
  private:
+    /**
+     * @brief Index of the vertex within the mesh.
+     *
+     */
     std::size_t m_index;
 
+    /**
+     * @brief Position of the k-vector.
+     *
+     */
     vector3 m_position;
 
     /**
-     * @brief The energy of the conduction band with index b_idx at this vertex
-     * is stored as m_conduction_band_energies[b_idx]
+     * @brief The energy of the band with index b_idx at this vertex
+     * is stored as m_band_energies[b_idx].
+     * For example, m_band_energies[3] is the energy of the band 3 at the k-point with position m_position.
      *
      */
-    std::vector<double> m_conduction_band_energies;
-
-    /**
-     * @brief The energy of the valance band with index b_idx at this vertex
-     * is stored as m_conduction_band_energies[b_idx]
-     *
-     */
-    std::vector<double> m_valance_band_energies;
+    std::vector<double> m_band_energies;
 
  public:
     Vertex() : m_index{0}, m_position{} {}
@@ -49,13 +53,16 @@ class Vertex {
     std::size_t    get_index() const { return m_index; }
     const vector3& get_position() const { return m_position; }
 
-    std::size_t                get_number_valence_bands() const { return m_valance_band_energies.size(); }
-    std::size_t                get_number_conduction_bands() const { return m_conduction_band_energies.size(); }
-    const std::vector<double>& get_valence_energies() const { return m_valance_band_energies; }
-    const std::vector<double>& get_conduction_energies() const { return m_conduction_band_energies; }
-    double get_energy_at_conduction_band(std::size_t band_index) const { return m_conduction_band_energies[band_index]; }
-    double get_energy_at_valance_band(std::size_t band_index) const { return m_valance_band_energies[band_index]; }
-
+    void add_band_energy_value(double energy) { m_band_energies.push_back(energy); }
+    void set_band_energy(std::size_t index_band, double new_energy) {
+        if (index_band > m_band_energies.size()) {
+            throw std::invalid_argument("The energy of valence band " + std::to_string(index_band) +
+                                        " cannot be modify because it does not exists.");
+        }
+        m_band_energies[index_band] = new_energy;
+    }
+    std::size_t get_number_bands() const { return m_band_energies.size(); }
+    double      get_energy_at_band(std::size_t band_index) const { return m_band_energies[band_index]; }
 };
 
 }  // namespace bz_mesh

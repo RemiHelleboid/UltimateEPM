@@ -15,6 +15,8 @@
 #include <array>
 #include <vector>
 
+#include "iso_triangle.hpp"
+
 namespace bz_mesh {
 
 /**
@@ -22,10 +24,10 @@ namespace bz_mesh {
  *
  * @param list_vertices
  */
-Tetra::Tetra(const std::array<Vertex*, 4>& list_vertices)
-    : m_list_vertices(list_vertices),
-      m_nb_conduction_bands{m_list_vertices[0]->get_number_conduction_bands()},
-      m_nb_valence_bands{m_list_vertices[0]->get_number_valence_bands()} {
+Tetra::Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices)
+    : m_index(index),
+      m_list_vertices(list_vertices),
+      m_nb_bands{m_list_vertices[0]->get_number_bands()}{
     m_list_edges[0] = compute_edge(1, 0);
     m_list_edges[1] = compute_edge(2, 0);
     m_list_edges[2] = compute_edge(3, 0);
@@ -45,51 +47,16 @@ double Tetra::compute_signed_volume() const {
  * @param index_band
  * @return std::vector<double>
  */
-std::vector<double> Tetra::get_valence_band_energies_at_vertices(std::size_t index_band) const {
+std::vector<double> Tetra::get_band_energies_at_vertices(std::size_t index_band) const {
     std::vector<double> list_energies_valence;
     for (auto& p_vtx : m_list_vertices) {
-        list_energies_valence.push_back(p_vtx->get_energy_at_valance_band(index_band));
+        list_energies_valence.push_back(p_vtx->get_energy_at_band(index_band));
     }
     return list_energies_valence;
 }
 
-/**
- * @brief Return the values of the energy of the index_band conduction band at the 4 vertices of the tetrahedra.
- *
- * @param index_band
- * @return std::vector<double>
- */
-std::vector<double> Tetra::get_conduction_band_energies_at_vertices(std::size_t index_band) const {
-    std::vector<double> list_energies_conduction;
-    for (auto& p_vtx : m_list_vertices) {
-        list_energies_conduction.push_back(p_vtx->get_energy_at_conduction_band(index_band));
-    }
-    return list_energies_conduction;
-}
 
-/**
- * @brief Compute the minimum and maximum energy for each band.
- * The results are set in the corresponding class members.
- *
- */
-void Tetra::compute_and_set_minmax_energies() {
-    min_energy_per_valence_band.clear();
-    max_energy_per_valence_band.clear();
-    min_energy_per_conduction_band.clear();
-    max_energy_per_conduction_band.clear();
-    for (std::size_t band_index = 0; band_index < m_nb_valence_bands; ++band_index) {
-        std::vector<double> energies_at_vertices = get_valence_band_energies_at_vertices(band_index);
-        auto                min_max_energy       = std::minmax(energies_at_vertices.begin(), energies_at_vertices.end());
-        min_energy_per_valence_band.push_back(*min_max_energy.first);
-        min_energy_per_valence_band.push_back(*min_max_energy.second);
-    }
-    for (std::size_t band_index = 0; band_index < m_nb_conduction_bands; ++band_index) {
-        std::vector<double> energies_at_vertices = get_conduction_band_energies_at_vertices(band_index);
-        auto                min_max_energy       = std::minmax(energies_at_vertices.begin(), energies_at_vertices.end());
-        min_energy_per_conduction_band.push_back(*min_max_energy.first);
-        max_energy_per_conduction_band.push_back(*min_max_energy.second);
-    }
-}
+
 
 /**
  * @brief Compute the edge vector between two vertices of the tetrahedra.
@@ -164,8 +131,8 @@ vector3 Tetra::compute_euclidean_coordinates(const std::array<double, 4>& baryce
  * @param index_band
  * @return std::array<int, 4>
  */
-std::array<int, 4> Tetra::get_index_vertices_with_sorted_energy_at_conduction_band(std::size_t index_band) const {
-    std::vector<double> energies_at_vertices = get_conduction_band_energies_at_vertices(index_band);
+std::array<int, 4> Tetra::get_index_vertices_with_sorted_energy_at_band(std::size_t index_band) const {
+    std::vector<double> energies_at_vertices = get_band_energies_at_vertices(index_band);
     std::array<int, 4>  sorted_index         = {0, 1, 2, 3};
     if (energies_at_vertices[0] > energies_at_vertices[1]) {
         std::swap(energies_at_vertices[0], energies_at_vertices[1]);
@@ -191,8 +158,8 @@ std::array<int, 4> Tetra::get_index_vertices_with_sorted_energy_at_conduction_ba
 }
 
 std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const {
-    std::vector<double> energies_at_vertices = get_conduction_band_energies_at_vertices(band_index);
-    std::array<int, 4>  indices_sort         = get_index_vertices_with_sorted_energy_at_conduction_band(band_index);
+    std::vector<double> energies_at_vertices = get_band_energies_at_vertices(band_index);
+    std::array<int, 4>  indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
     double              e_0                  = energies_at_vertices[indices_sort[0]];
     double              e_1                  = energies_at_vertices[indices_sort[1]];
     double              e_2                  = energies_at_vertices[indices_sort[2]];
@@ -200,10 +167,12 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
 
     std::vector<vector3> list_points_iso_surface{};
 
-    if (e_0 <= iso_energy) {
+    if (e_0 >= iso_energy) {
+        // std::cout << "Case 1 " << e_0 << "\n";
         return {};
     }
-    if (e_3 >= iso_energy) {
+    if (e_3 <= iso_energy) {
+        // std::cout << "Case 2 " << e_3 << "\n";
         return {};
     }
     if (iso_energy < e_1 && iso_energy >= e_0) {
@@ -227,15 +196,29 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
         return {U, V, W, X};
     }
     if (iso_energy >= e_2) {
-        double lC_U = (e_3 - iso_energy) / (e_3 - e_2);
+        double  lC_U = (e_3 - iso_energy) / (e_3 - e_2);
         vector3 U    = compute_euclidean_coordinates({0.0, 0.0, lC_U, 1.0 - lC_U});
-        double lB_V = (e_3 - iso_energy) / (e_3 - e_1);
+        double  lB_V = (e_3 - iso_energy) / (e_3 - e_1);
         vector3 V    = compute_euclidean_coordinates({0.0, lB_V, 0.0, 1.0 - lB_V});
-        double lA_W = (e_3 - iso_energy) / (e_3 - e_0);
+        double  lA_W = (e_3 - iso_energy) / (e_3 - e_0);
         vector3 W    = compute_euclidean_coordinates({lA_W, 0.0, 1.0 - lA_W});
         return {U, V, W};
     }
     return {};
+}
+
+double Tetra::compute_tetra_dos_band(double energy, std::size_t band_index) const {
+    std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy, band_index);
+    if (vertices_iso_surface.empty()) {
+        return 0.0;
+    } else if (vertices_iso_surface.size() == 3) {
+        IsoTriangle triangle(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], energy);
+        return fabs(triangle.get_signed_surface());
+    } else {
+        IsoTriangle triangle1(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[3], energy);
+        IsoTriangle triangle2(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], energy);
+        return fabs(triangle1.get_signed_surface() + triangle2.get_signed_surface());
+    }
 }
 
 }  // namespace bz_mesh

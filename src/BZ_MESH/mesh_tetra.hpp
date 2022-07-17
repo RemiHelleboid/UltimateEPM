@@ -19,6 +19,12 @@ namespace bz_mesh {
 class Tetra {
  private:
     /**
+     * @brief Element index.
+     *
+     */
+    std::size_t m_index;
+
+    /**
      * @brief The 4 vertices of the tetrahedra are stored as an array of pointers on Vertices object.
      *
      */
@@ -43,41 +49,7 @@ class Tetra {
      * @brief Number of conduction bands.
      *
      */
-    std::size_t m_nb_conduction_bands = 0;
-
-    /**
-     * @brief Number of valence bands.
-     *
-     */
-    std::size_t m_nb_valence_bands = 0;
-
-    /**
-     * @brief The value min_energy_per_valence_band[idx_band] is the minimum energy of the vertices for the
-     * valence band with index idx_band.
-     *
-     */
-    std::vector<double> min_energy_per_valence_band;
-
-    /**
-     * @brief The value min_energy_per_conduction_band[idx_band] is the minimum energy of the vertices for the
-     * conduction band with index idx_band.
-     *
-     */
-    std::vector<double> min_energy_per_conduction_band;
-
-    /**
-     * @brief The value max_energy_per_valence_band[idx_band] is the maximum energy of the vertices for the
-     * valence band with index idx_band.
-     *
-     */
-    std::vector<double> max_energy_per_valence_band;
-
-    /**
-     * @brief The value max_energy_per_conduction_band[idx_band] is the maximum energy of the vertices for the
-     * conduction band with index idx_band.
-     *
-     */
-    std::vector<double> max_energy_per_conduction_band;
+    std::size_t m_nb_bands = 0;
 
  public:
     /**
@@ -86,11 +58,9 @@ class Tetra {
      */
     Tetra() = delete;
 
-    Tetra(const std::array<Vertex*, 4>& list_vertices);
+    Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices);
 
-    std::vector<double> get_valence_band_energies_at_vertices(std::size_t index_band) const;
-    std::vector<double> get_conduction_band_energies_at_vertices(std::size_t index_band) const;
-    void                compute_and_set_minmax_energies();
+    std::vector<double> get_band_energies_at_vertices(std::size_t index_band) const;
 
     double                compute_signed_volume() const;
     double                get_signed_volume() const { return m_signed_volume; }
@@ -99,11 +69,9 @@ class Tetra {
     std::array<double, 4> compute_barycentric_coordinates(const vector3& location) const;
     vector3               compute_euclidean_coordinates(const std::array<double, 4>& barycentric_coordinates) const;
 
-    std::array<int, 4> get_index_vertices_with_sorted_energy_at_conduction_band(std::size_t index_band)const;
+    std::array<int, 4>   get_index_vertices_with_sorted_energy_at_band(std::size_t index_band) const;
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
-
-
+    double               compute_tetra_dos_band(double energy, std::size_t band_index) const;
 };
-
 
 }  // namespace bz_mesh

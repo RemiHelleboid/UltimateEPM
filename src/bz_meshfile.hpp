@@ -17,7 +17,8 @@
 #include "BandStructure.h"
 
 
-class bz_mesh {
+
+class bz_mesh_points {
  private:
     std::string                   m_filename;
     std::size_t                   m_nb_points;
@@ -25,8 +26,8 @@ class bz_mesh {
     std::vector<Vector3D<double>> m_kpoints;
 
  public:
-    bz_mesh(std::string filename) : m_filename(filename), m_nb_points(0){};
-    ~bz_mesh() = default;
+    bz_mesh_points(std::string filename) : m_filename(filename), m_nb_points(0){};
+    ~bz_mesh_points() = default;
 
     void add_k_point(Vector3D<double> kpoint);
     void add_k_point(double k_x, double k_y, double k_z);

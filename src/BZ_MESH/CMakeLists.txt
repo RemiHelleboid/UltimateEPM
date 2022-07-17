@@ -24,5 +24,3 @@ endif(USE_OPENMP_ACCELERATION)
 
 # All users of this library will need at least C++20
 target_compile_features(lib_bzmesh PRIVATE cxx_std_20)
-
-

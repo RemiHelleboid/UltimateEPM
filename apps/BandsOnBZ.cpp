@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
 
     // bz_mesh my_mesh("mesh.msh");
     const std::string mesh_filename = arg_mesh_file.getValue();
-    bz_mesh           my_mesh(mesh_filename);
+    bz_mesh_points           my_mesh(mesh_filename);
     my_mesh.read_mesh();
     std::vector<Vector3D<double>>& mesh_kpoints = my_mesh.get_kpoints();
 

@@ -30,7 +30,8 @@ class BandStructure {
                     unsigned int              nearestNeighborsNumber);
 
     /**
-     * @brief Initialize the band structure with the given material and the k-points on which we want the energies to be computed.
+     * @brief Initialize the band structure with the given material and the k-points on which we want 
+     * the energies to be computed.
      *
      * @param material
      * @param nb_bands
