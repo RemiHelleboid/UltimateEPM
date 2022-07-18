@@ -92,9 +92,12 @@ int main(int argc, char *argv[]) {
         list_list_dos.push_back(lists_energies_dos[1]);
         list_header.push_back("energy_band_" + std::to_string(band_index));
         list_header.push_back("dos_band_" + std::to_string(band_index));
+        bz_mesh::Tetra::print_stat_iso_computing();
+        bz_mesh::Tetra::reset_stat_iso_computing();
     }
 
     export_multiple_vector_to_csv("DOS_BANDS.csv", list_header, list_list_dos);
+
 
 
     return 0;

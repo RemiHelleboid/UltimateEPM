@@ -48,6 +48,7 @@ endif()
 # FIND / GET RELEVANT LIBRARIES
 include(FetchContent)
 # Find Eigen library
+# Find Eigen library
 FetchContent_Declare(
   Eigen
   GIT_REPOSITORY "https://gitlab.com/libeigen/eigen.git"
@@ -114,6 +115,6 @@ include_directories(${PROJECT_SOURCE_DIR}/external/tclap/include)
 
 # -----------------------------------------------------------------------------
 # The compiled library code is here
-add_subdirectory(src/)
+add_subdirectory(src/EPP)
 add_subdirectory(src/BZ_MESH)
 add_subdirectory(apps/)

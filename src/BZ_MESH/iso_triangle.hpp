@@ -13,13 +13,11 @@
 
 #include "vector.hpp"
 
-
 namespace bz_mesh {
-
 
 /**
  * @brief This class represent the iso energy triangle within a Tetra.
- * 
+ *
  */
 class IsoTriangle {
  private:
@@ -31,7 +29,7 @@ class IsoTriangle {
 
     /**
      * @brief Iso energy the triangle was constructed with.
-     * 
+     *
      */
     double m_iso_energy;
 
@@ -52,15 +50,14 @@ class IsoTriangle {
 
  public:
     IsoTriangle() = delete;
-    IsoTriangle(const vector3& VtxA, const vector3& VtxB, const vector3& VtxC, double iso_energy):
-        m_list_vertices{VtxA, VtxB, VtxC},
-        m_iso_energy(iso_energy),
-        m_list_edges{VtxA-VtxB, VtxA-VtxC, VtxB-VtxC},
-        m_surface{0.5 * (cross_product(m_list_edges[0], m_list_edges[1]).norm())} {}
+    IsoTriangle(const vector3& VtxA, const vector3& VtxB, const vector3& VtxC, double iso_energy)
+        : m_list_vertices{VtxA, VtxB, VtxC},
+          m_iso_energy(iso_energy),
+          m_list_edges{VtxA - VtxB, VtxA - VtxC, VtxB - VtxC},
+          m_surface{0.5 * (cross_product(m_list_edges[1], m_list_edges[2]).norm())} {}
 
-    double get_iso_energy() const {return m_iso_energy;}
-    double get_signed_surface() const {return m_surface;}
-
+    double get_iso_energy() const { return m_iso_energy; }
+    double get_signed_surface() const { return m_surface; }
 };
 
 }  // namespace bz_mesh

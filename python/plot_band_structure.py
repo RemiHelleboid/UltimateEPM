@@ -10,7 +10,10 @@ import glob
 import os
 from argparse import ArgumentParser
 
-plt.style.use(['science', 'high-vis'])
+try:
+    plt.style.use(['science', 'high-vis'])
+except Exception:
+    plt.style.use(['seaborn'])
 
 BZ_points = {
     "G":  np.array([0, 0, 0]),

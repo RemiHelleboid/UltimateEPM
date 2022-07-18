@@ -18,7 +18,9 @@
 
 #pragma omp declare reduction(merge : std::vector <double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
+
 namespace bz_mesh {
+
 
 /**
  * @brief Read the geometry of the mesh from the .msh file: the vertices and the elements are added to

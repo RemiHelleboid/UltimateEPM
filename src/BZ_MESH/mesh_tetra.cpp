@@ -19,6 +19,9 @@
 
 namespace bz_mesh {
 
+std::vector<double> Tetra::ms_case_stats = {0, 0, 0, 0, 0};
+
+
 /**
  * @brief Construct a new Tetra by passing directly the array of the four pointers to the vertices.
  *
@@ -27,7 +30,7 @@ namespace bz_mesh {
 Tetra::Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices)
     : m_index(index),
       m_list_vertices(list_vertices),
-      m_nb_bands{m_list_vertices[0]->get_number_bands()}{
+      m_nb_bands{m_list_vertices[0]->get_number_bands()} {
     m_list_edges[0] = compute_edge(1, 0);
     m_list_edges[1] = compute_edge(2, 0);
     m_list_edges[2] = compute_edge(3, 0);
@@ -54,9 +57,6 @@ std::vector<double> Tetra::get_band_energies_at_vertices(std::size_t index_band)
     }
     return list_energies_valence;
 }
-
-
-
 
 /**
  * @brief Compute the edge vector between two vertices of the tetrahedra.
@@ -124,6 +124,14 @@ vector3 Tetra::compute_euclidean_coordinates(const std::array<double, 4>& baryce
         barycentric_coordinates[2] * m_list_vertices[2]->get_position() + barycentric_coordinates[3] * m_list_vertices[3]->get_position());
 }
 
+vector3 Tetra::compute_euclidean_coordinates_with_indices(const std::array<double, 4>& barycentric_coordinates,
+                                                          const std::array<int, 4>&    indices_vertex) const {
+    return (barycentric_coordinates[0] * m_list_vertices[indices_vertex[0]]->get_position() +
+            barycentric_coordinates[1] * m_list_vertices[indices_vertex[1]]->get_position() +
+            barycentric_coordinates[2] * m_list_vertices[indices_vertex[2]]->get_position() +
+            barycentric_coordinates[3] * m_list_vertices[indices_vertex[3]]->get_position());
+}
+
 /**
  * @brief Return a list of indices a, b, c, d such as, for the conduction band with index index_band,
  * we have Vtx_a <= Vtx_b <= Vtx_c <= Vtx_d in term of energy.
@@ -165,43 +173,49 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
     double              e_2                  = energies_at_vertices[indices_sort[2]];
     double              e_3                  = energies_at_vertices[indices_sort[3]];
 
+    bool check_order = (e_0 <= e_1 && e_1 <= e_2 && e_2 <= e_3);
     std::vector<vector3> list_points_iso_surface{};
 
     if (e_0 >= iso_energy) {
         // std::cout << "Case 1 " << e_0 << "\n";
+        ms_case_stats[0]++;
         return {};
     }
     if (e_3 <= iso_energy) {
         // std::cout << "Case 2 " << e_3 << "\n";
+        ms_case_stats[1]++;
         return {};
     }
     if (iso_energy < e_1 && iso_energy >= e_0) {
+        ms_case_stats[2]++;
         double  lA_U = (iso_energy - e_0) / (e_1 - e_0);
-        vector3 U    = compute_euclidean_coordinates({1.0 - lA_U, lA_U, 0.0, 0.0});
+        vector3 U    = compute_euclidean_coordinates_with_indices({1.0 - lA_U, lA_U, 0.0, 0.0}, indices_sort);
         double  lA_V = (iso_energy - e_0) / (e_2 - e_0);
-        vector3 V    = compute_euclidean_coordinates({1.0 - lA_V, 0.0, lA_V, 0.0});
+        vector3 V    = compute_euclidean_coordinates_with_indices({1.0 - lA_V, 0.0, lA_V, 0.0}, indices_sort);
         double  lA_W = (iso_energy - e_0) / (e_3 - e_0);
-        vector3 W    = compute_euclidean_coordinates({1.0 - lA_W, 0.0, 0.0, lA_W});
+        vector3 W    = compute_euclidean_coordinates_with_indices({1.0 - lA_W, 0.0, 0.0, lA_W}, indices_sort);
         return {U, V, W};
     }
     if (iso_energy < e_2 && iso_energy >= e_1) {
+        ms_case_stats[3]++;
         double  lA_U = (iso_energy - e_0) / (e_2 - e_0);
-        vector3 U    = compute_euclidean_coordinates({lA_U, 0.0, 1.0 - lA_U, 0.0});
+        vector3 U    = compute_euclidean_coordinates_with_indices({1.0 - lA_U, 0.0, lA_U, 0.0}, indices_sort);
         double  lA_V = (iso_energy - e_0) / (e_3 - e_0);
-        vector3 V    = compute_euclidean_coordinates({lA_V, 0.0, 0.0, 1.0 - lA_U});
+        vector3 V    = compute_euclidean_coordinates_with_indices({1.0 - lA_V, 0.0, 0.0, lA_U}, indices_sort);
         double  lA_W = (e_2 - iso_energy) / (e_2 - e_1);
-        vector3 W    = compute_euclidean_coordinates({0.0, lA_W, 1.0 - lA_W, 0.0});
+        vector3 W    = compute_euclidean_coordinates_with_indices({0.0, lA_W, 1.0 - lA_W, 0.0}, indices_sort);
         double  lA_X = (iso_energy - e_1) / (e_3 - e_1);
-        vector3 X    = compute_euclidean_coordinates({0.0, lA_X, 0.0, 1.0 - lA_X});
+        vector3 X    = compute_euclidean_coordinates_with_indices({0.0, 1.0 - lA_X, 0.0, lA_X}, indices_sort);
         return {U, V, W, X};
     }
     if (iso_energy >= e_2) {
+        ms_case_stats[4]++;
         double  lC_U = (e_3 - iso_energy) / (e_3 - e_2);
-        vector3 U    = compute_euclidean_coordinates({0.0, 0.0, lC_U, 1.0 - lC_U});
+        vector3 U    = compute_euclidean_coordinates_with_indices({0.0, 0.0, lC_U, 1.0 - lC_U}, indices_sort);
         double  lB_V = (e_3 - iso_energy) / (e_3 - e_1);
-        vector3 V    = compute_euclidean_coordinates({0.0, lB_V, 0.0, 1.0 - lB_V});
+        vector3 V    = compute_euclidean_coordinates_with_indices({0.0, lB_V, 0.0, 1.0 - lB_V}, indices_sort);
         double  lA_W = (e_3 - iso_energy) / (e_3 - e_0);
-        vector3 W    = compute_euclidean_coordinates({lA_W, 0.0, 1.0 - lA_W});
+        vector3 W    = compute_euclidean_coordinates_with_indices({lA_W, 0.0, 1.0 - lA_W}, indices_sort);
         return {U, V, W};
     }
     return {};
