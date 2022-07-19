@@ -22,7 +22,6 @@ int main(int argc, char* argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshfile", "Name to print", true, "bz.msh", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
-    TCLAP::ValueArg<std::string> arg_outfile("o", "outfile", "Name of the output file", false, "", "string");
     TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to compute", false, 12, "int");
     TCLAP::ValueArg<int>         arg_nearest_neighbors("n",
                                                "nearestNeighbors",
@@ -34,7 +33,6 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
     cmd.add(arg_nb_bands);
-    cmd.add(arg_outfile);
     cmd.add(arg_nearest_neighbors);
     cmd.add(arg_nb_threads);
 
@@ -53,7 +51,7 @@ int main(int argc, char* argv[]) {
 
     // bz_mesh my_mesh("mesh.msh");
     const std::string mesh_filename = arg_mesh_file.getValue();
-    bz_mesh_points           my_mesh(mesh_filename);
+    bz_mesh           my_mesh(mesh_filename);
     my_mesh.read_mesh();
     std::vector<Vector3D<double>>& mesh_kpoints = my_mesh.get_kpoints();
 
@@ -72,12 +70,7 @@ int main(int argc, char* argv[]) {
     // export band in file
     // my_bandstructure.export_result_in_file_with_kpoints("BZ_BANDS_SI.csv");
 
-    std::filesystem::path in_path(mesh_filename);
-    std::string out_file_bands = in_path.stem().replace_extension("").string() + my_bandstructure.path_band_filename();
-
-    if (arg_outfile.isSet()) {
-        out_file_bands = arg_outfile.getValue();
-    }
+    std::string out_file_bands = my_bandstructure.path_band_filename();
 
     my_mesh.add_all_bands_on_mesh(out_file_bands + "_all_bands.msh", my_bandstructure);
 

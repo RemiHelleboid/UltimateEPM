@@ -47,7 +47,7 @@ def plot_band_structure(filename, OUT_DIR, nb_bands=10):
         
     cnv = {1: lambda s: np.float(s.strip() or 'Nan')}
     band_energies = np.loadtxt(
-        filename, delimiter=" ", usecols=tuple(i for i in range(nb_bands)))
+        filename, delimiter=",", usecols=tuple(i for i in range(nb_bands)), skiprows=1)
     band_energies = band_energies.T
     fig, ax = plt.subplots()
     ax.set_title(f"Band structure of {material}")
@@ -69,8 +69,10 @@ def plot_band_structure(filename, OUT_DIR, nb_bands=10):
     fig.tight_layout()
     filename = Path(filename).stem
     fig.savefig(f"{OUT_DIR}/{filename[:-4:]}.png", dpi=600)
+    ax.set_ylim(bottom=-3, top=4)
     # fig.savefig(f"{filename[:-4:]}.pdf", dpi=600)
-    # plt.show()
+    fig.savefig(f"{OUT_DIR}/ZOOM_{filename[:-4:]}.png", dpi=600)
+    plt.show()
 
 
 if __name__ == "__main__":

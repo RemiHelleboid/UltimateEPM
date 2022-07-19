@@ -11,6 +11,11 @@
 #pragma once
 
 #include <array>
+#include <iostream>
+#include <vector>
+#include <numeric>
+#include <string>
+#include <functional>
 
 #include "mesh_vertex.hpp"
 
@@ -81,11 +86,13 @@ class Tetra {
 
     static void print_stat_iso_computing() {
         std::size_t total_computation = ms_case_stats[0] + ms_case_stats[1] + ms_case_stats[2] + ms_case_stats[3] + ms_case_stats[4];
-        std::cout << "Case 1: " << ms_case_stats[0] / double(total_computation) << std::endl;
-        std::cout << "Case 2: " << ms_case_stats[1] / double(total_computation) << std::endl;
-        std::cout << "Case 3: " << ms_case_stats[2] / double(total_computation) << std::endl;
-        std::cout << "Case 4: " << ms_case_stats[3] / double(total_computation) << std::endl;
-        std::cout << "Case 5: " << ms_case_stats[4] / double(total_computation) << std::endl;
+        std::cout << "Case 1:       " << ms_case_stats[0] / double(total_computation) << std::endl;
+        std::cout << "Case 2:       " << ms_case_stats[1] / double(total_computation) << std::endl;
+        std::cout << "Case 3:       " << ms_case_stats[2] / double(total_computation) << std::endl;
+        std::cout << "Case 4:       " << ms_case_stats[3] / double(total_computation) << std::endl;
+        std::cout << "Case 5:       " << ms_case_stats[4] / double(total_computation) << std::endl;
+        std::cout << "Case Unknown: " << 1 - std::accumulate(ms_case_stats.begin(), ms_case_stats.end(), 0.0) / double(total_computation)
+                  << std::endl;
     }
 };
 

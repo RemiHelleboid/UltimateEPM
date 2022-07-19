@@ -217,6 +217,8 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
         double  lA_W = (e_3 - iso_energy) / (e_3 - e_0);
         vector3 W    = compute_euclidean_coordinates_with_indices({lA_W, 0.0, 1.0 - lA_W}, indices_sort);
         return {U, V, W};
+    } else {
+        throw std::runtime_error("ISO SURFACE CASE UNKNOWN IN DOS COMPUTATION... ABORT.");
     }
     return {};
 }
@@ -231,7 +233,7 @@ double Tetra::compute_tetra_dos_band(double energy, std::size_t band_index) cons
     } else {
         IsoTriangle triangle1(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[3], energy);
         IsoTriangle triangle2(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], energy);
-        return fabs(triangle1.get_signed_surface() + triangle2.get_signed_surface());
+        return fabs(triangle1.get_signed_surface()) + fabs(triangle2.get_signed_surface());
     }
 }
 

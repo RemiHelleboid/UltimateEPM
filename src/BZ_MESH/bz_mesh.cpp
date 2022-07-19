@@ -60,6 +60,10 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
     std::vector<int>                      elemTypes;
     std::vector<std::vector<std::size_t>> elemTags, elemNodeTags;
     gmsh::model::mesh::getElements(elemTypes, elemTags, elemNodeTags, dim, tag);
+    if (elemTags.empty()) {
+        std::cout << "ElementTags is zero when the mesh was imported... Abort.\n";
+        throw std::runtime_error("ElementTags is zero when the mesh was imported... Abort.");
+    }
     std::size_t number_elements = elemTags[0].size();
 
     std::cout << "Number of elements: " << number_elements << std::endl;

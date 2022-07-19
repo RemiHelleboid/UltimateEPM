@@ -49,8 +49,8 @@ def plot_dos_sum_bands(filename, ax_plot=None, band_type="all"):
     BANDS = BANDS.T
     
     nb_points = 1000
-    min_linspace = 0 if band_type in ["all", "conduction"] else -10.0
-    max_linspace = 0 if band_type in ["all", "valence"] else 10.0
+    min_linspace = 0 if band_type in [ "conduction"] else -10.0
+    max_linspace = 0 if band_type in ["valence"] else 10.0
     energies_plot = np.linspace(min_linspace, max_linspace, nb_points)
     dos_total = np.zeros_like(energies_plot)
 
@@ -64,10 +64,12 @@ def plot_dos_sum_bands(filename, ax_plot=None, band_type="all"):
         dos_interp = np.interp(energies_plot, energies, dos)
         dos_total += dos_interp
         count_band += 1
-        axs.plot(energies_plot, dos_total, label=f"{count_band}", lw=0.5)
+    axs.plot(energies_plot, dos_total, lw=0.5)
     axs.legend(fontsize='x-small', title_fontsize='x-small', title="Number\n of bands", fancybox=True)
     axs.set_xlabel("Energy (eV)")
     axs.set_ylabel("Density of state (a.u.)")
+    axs.set_xlim(-6, 5)
+    axs.set_ylim(0.001, )
 
 
 
@@ -83,22 +85,29 @@ if __name__ == "__main__":
                         help="The nb of bands to plot.", required=False)
     parser.add_argument("-o", "--outputdir", dest="output_path_dir",
                         help="The directory to save the results.", default="./")
+    parser.add_argument("-t", "--type", dest="band_type",
+                        help="The type of band to plot (conduction, valence or all).", default="all")
     args = parser.parse_args()
     FILE_PATH = args.path_file
     OUT_DIR = args.output_path_dir
+
+    print(f"PLOTTING DOS FOR FILE {FILE_PATH}")
     
-    band_type = "valence"
+    band_type = args.band_type
+
+    path_input = Path(FILE_PATH)
+    path_out = Path(path_input.stem).with_suffix("")
 
     fig, axs = plt.subplots()
     plot_dos_per_band(FILE_PATH, axs, band_type)
     fig.tight_layout()
-    fig.savefig("DOS_PER_BAND.pdf", dpi=600)
-    fig.savefig("DOS_PER_BAND.png", dpi=600)
-    plt.show()
+    fig.savefig(f"DOS_PER_BAND_{path_out}.pdf", dpi=600)
+    fig.savefig(f"DOS_PER_BAND_{path_out}.png", dpi=600)
+    # plt.show()
     
     fig, axs = plt.subplots()
     plot_dos_sum_bands(FILE_PATH, axs, band_type)
     fig.tight_layout()
-    fig.savefig("DOS_TOTAL.pdf", dpi=600)
-    fig.savefig("DOS_TOTAL.png", dpi=600)
-    plt.show()
+    fig.savefig(f"DOS_TOTAL_{path_out}.pdf", dpi=600)
+    fig.savefig(f"DOS_TOTAL_{path_out}.png", dpi=600)
+    # plt.show()
