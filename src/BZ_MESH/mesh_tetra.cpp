@@ -40,6 +40,16 @@ Tetra::Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices)
     m_signed_volume = compute_signed_volume();
 }
 
+void Tetra::compute_min_max_energies_at_bands() {
+    m_nb_bands = m_list_vertices[0]->get_number_bands();
+    for (std::size_t idx_band = 0; idx_band < m_nb_bands; ++idx_band) {
+        auto energies = get_band_energies_at_vertices(idx_band);
+        auto minmax   = std::minmax_element(energies.begin(), energies.end());
+        m_min_energy_per_band.push_back(*minmax.first);
+        m_max_energy_per_band.push_back(*minmax.second);
+    }
+}
+
 double Tetra::compute_signed_volume() const {
     return (1.0 / 6.0) * scalar_triple_product(m_list_edges[0], m_list_edges[1], m_list_edges[2]);
 }
@@ -50,12 +60,11 @@ double Tetra::compute_signed_volume() const {
  * @param index_band
  * @return std::vector<double>
  */
-std::vector<double> Tetra::get_band_energies_at_vertices(std::size_t index_band) const {
-    std::vector<double> list_energies_valence;
-    for (auto& p_vtx : m_list_vertices) {
-        list_energies_valence.push_back(p_vtx->get_energy_at_band(index_band));
-    }
-    return list_energies_valence;
+std::array<double, 4> Tetra::get_band_energies_at_vertices(std::size_t index_band) const {
+    return {m_list_vertices[0]->get_energy_at_band(index_band),
+            m_list_vertices[1]->get_energy_at_band(index_band),
+            m_list_vertices[2]->get_energy_at_band(index_band),
+            m_list_vertices[3]->get_energy_at_band(index_band)};
 }
 
 /**
@@ -140,8 +149,8 @@ vector3 Tetra::compute_euclidean_coordinates_with_indices(const std::array<doubl
  * @return std::array<int, 4>
  */
 std::array<int, 4> Tetra::get_index_vertices_with_sorted_energy_at_band(std::size_t index_band) const {
-    std::vector<double> energies_at_vertices = get_band_energies_at_vertices(index_band);
-    std::array<int, 4>  sorted_index         = {0, 1, 2, 3};
+    std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(index_band);
+    std::array<int, 4>    sorted_index         = {0, 1, 2, 3};
     if (energies_at_vertices[0] > energies_at_vertices[1]) {
         std::swap(energies_at_vertices[0], energies_at_vertices[1]);
         std::swap(sorted_index[0], sorted_index[1]);
@@ -166,12 +175,12 @@ std::array<int, 4> Tetra::get_index_vertices_with_sorted_energy_at_band(std::siz
 }
 
 std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const {
-    std::vector<double> energies_at_vertices = get_band_energies_at_vertices(band_index);
-    std::array<int, 4>  indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
-    double              e_0                  = energies_at_vertices[indices_sort[0]];
-    double              e_1                  = energies_at_vertices[indices_sort[1]];
-    double              e_2                  = energies_at_vertices[indices_sort[2]];
-    double              e_3                  = energies_at_vertices[indices_sort[3]];
+    std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
+    std::array<int, 4>    indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
+    double                e_0                  = energies_at_vertices[indices_sort[0]];
+    double                e_1                  = energies_at_vertices[indices_sort[1]];
+    double                e_2                  = energies_at_vertices[indices_sort[2]];
+    double                e_3                  = energies_at_vertices[indices_sort[3]];
 
     bool check_order = (e_0 <= e_1 && e_1 <= e_2 && e_2 <= e_3);
     if (!check_order) {
@@ -180,16 +189,7 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
     }
     std::vector<vector3> list_points_iso_surface{};
 
-    if (e_0 >= iso_energy) {
-        // std::cout << "Case 1 " << e_0 << "\n";
-        ms_case_stats[0]++;
-        return {};
-    }
-    if (e_3 <= iso_energy) {
-        // std::cout << "Case 2 " << e_3 << "\n";
-        ms_case_stats[1]++;
-        return {};
-    }
+
     if (iso_energy < e_1 && iso_energy >= e_0) {
         ms_case_stats[2]++;
         double  lA_U = (iso_energy - e_0) / (e_1 - e_0);
@@ -242,18 +242,17 @@ double Tetra::compute_tetra_iso_surface_energy_band(double energy, std::size_t b
 }
 
 double Tetra::compute_tetra_dos_energy_band(double energy, std::size_t band_index) const {
-    const double        renormalization      = 6.0 * fabs(this->m_signed_volume);
-    std::vector<double> energies_at_vertices = get_band_energies_at_vertices(band_index);
-    std::array<int, 4>  indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
-    double              e_0                  = energies_at_vertices[indices_sort[0]];
-    double              e_1                  = energies_at_vertices[indices_sort[1]];
-    double              e_2                  = energies_at_vertices[indices_sort[2]];
-    double              e_3                  = energies_at_vertices[indices_sort[3]];
-    double              eps_12               = (e_0 - e_1);
-    double              eps_13               = (e_0 - e_2);
-    double              eps_14               = (e_0 - e_3);
-    double              gradient_energy      = sqrt((eps_12 * eps_12 + eps_13 * eps_13 + eps_14 * eps_14));
-    // std::cout << "gradient_energy = " << gradient_energy << std::endl;
+    if (energy < m_min_energy_per_band[band_index] || energy > m_max_energy_per_band[band_index]) {
+        return 0.0;
+    }
+    const double                renormalization      = 6.0 * fabs(this->m_signed_volume);
+    const std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
+    const std::array<int, 4>    indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
+    const double                e_0                  = energies_at_vertices[indices_sort[0]];
+    const double                eps_12               = (e_0 - energies_at_vertices[indices_sort[1]]);
+    const double                eps_13               = (e_0 - energies_at_vertices[indices_sort[2]]);
+    const double                eps_14               = (e_0 - energies_at_vertices[indices_sort[3]]);
+    const double                gradient_energy      = sqrt((eps_12 * eps_12 + eps_13 * eps_13 + eps_14 * eps_14));
     return renormalization * (1.0 / gradient_energy) * this->compute_tetra_iso_surface_energy_band(energy, band_index);
 }
 

@@ -81,7 +81,6 @@ int main(int argc, char *argv[]) {
     bz_mesh::MeshBZ my_bz_mesh{};
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file, current_material.m_a);
     my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file);
-    my_bz_mesh.compute_iso_surface(1.10, 0);
 
     std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
 
@@ -94,7 +93,7 @@ int main(int argc, char *argv[]) {
 
     for (int band_index = 0; band_index < number_bands; ++band_index) {
         std::vector<std::vector<double>> lists_energies_dos =
-            my_bz_mesh.compute_dos_band_at_band_auto(band_index, arg_nb_energies.getValue());
+            my_bz_mesh.compute_dos_band_at_band_auto(band_index, arg_nb_energies.getValue(), my_options.nrThreads);
         list_list_dos.push_back(lists_energies_dos[0]);
         list_list_dos.push_back(lists_energies_dos[1]);
         list_header.push_back("energy_band_" + std::to_string(band_index));

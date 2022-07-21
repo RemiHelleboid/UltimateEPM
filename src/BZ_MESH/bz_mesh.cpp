@@ -133,6 +133,7 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename) {
         m_max_band.push_back(*(minmax_band.second));
     }
     gmsh::finalize();
+    compute_min_max_energies_at_tetras();
 }
 
 void MeshBZ::add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices) {
@@ -141,6 +142,12 @@ void MeshBZ::add_new_band_energies_to_vertices(const std::vector<double>& energi
     }
     for (std::size_t index_vtx = 0; index_vtx < m_list_vertices.size(); ++index_vtx) {
         m_list_vertices[index_vtx].add_band_energy_value(energies_at_vertices[index_vtx]);
+    }
+}
+
+void MeshBZ::compute_min_max_energies_at_tetras() {
+    for (auto&& tetra : m_list_tetrahedra) {
+        tetra.compute_min_max_energies_at_bands();
     }
 }
 
@@ -173,18 +180,19 @@ double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index)
 std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         band_index,
                                                                   double      min_energy,
                                                                   double      max_energy,
+                                                                  int         num_threads,
                                                                   std::size_t nb_points) const {
     auto   start       = std::chrono::high_resolution_clock::now();
     double energy_step = (max_energy - min_energy) / (nb_points - 1);
 
     std::vector<double> list_energies{};
     std::vector<double> list_dos{};
-#pragma omp parallel for schedule(dynamic) num_threads(32) reduction(merge : list_energies) reduction(merge : list_dos)
+    #pragma omp parallel for schedule(dynamic) num_threads(num_threads) reduction(merge : list_energies) reduction(merge : list_dos)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
         double dos    = compute_dos_at_energy_and_band(energy, band_index);
         int    tid    = omp_get_thread_num();
-#pragma omp critical
+        #pragma omp critical
         list_energies.push_back(energy);
         list_dos.push_back(dos);
         //         std::cout << "\rComputing density of state at energy " << index_energy << "/" << nb_points << std::flush;
@@ -194,8 +202,9 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
     std::cout << "\nDOS for 1 band computed in  " << total_time_count / 1000.0 << "s" << std::endl;
     return {list_energies, list_dos};
 }
-std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int band_index, std::size_t nb_points) const {
-    const double margin_energy = 0.5;
+
+std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int band_index, std::size_t nb_points, int num_threads) const {
+    const double margin_energy = 0.1;
     double       min_energy    = m_min_band[band_index] - margin_energy;
     double       max_energy    = m_max_band[band_index] + margin_energy;
     auto         start         = std::chrono::high_resolution_clock::now();
@@ -203,12 +212,12 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int band_
 
     std::vector<double> list_energies{};
     std::vector<double> list_dos{};
-#pragma omp parallel for schedule(dynamic) num_threads(32) reduction(merge : list_energies) reduction(merge : list_dos)
+    #pragma omp parallel for schedule(dynamic) num_threads(num_threads) reduction(merge : list_energies) reduction(merge : list_dos)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
         double dos    = compute_dos_at_energy_and_band(energy, band_index);
         int    tid    = omp_get_thread_num();
-#pragma omp critical
+        #pragma omp critical
         list_energies.push_back(energy);
         list_dos.push_back(dos);
         //         std::cout << "\rComputing density of state at energy " << index_energy << "/" << nb_points << std::flush;

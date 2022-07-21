@@ -67,6 +67,7 @@ class MeshBZ {
     void read_mesh_geometry_from_msh_file(const std::string& filename, double lattice_constant);
     void read_mesh_bands_from_msh_file(const std::string& filename);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
+    void compute_min_max_energies_at_tetras();
 
     std::size_t get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t get_number_elements() const { return m_list_tetrahedra.size(); }
@@ -82,8 +83,9 @@ class MeshBZ {
     std::vector<std::vector<double>> compute_dos_band_at_band(int         band_index,
                                                               double      min_energy,
                                                               double      max_energy,
+                                                              int         num_threads,
                                                               std::size_t nb_points) const;
-    std::vector<std::vector<double>> compute_dos_band_at_band_auto(int band_index, std::size_t nb_points) const;
+    std::vector<std::vector<double>> compute_dos_band_at_band_auto(int band_index, std::size_t nb_points, int num_threads) const;
 };
 
 }  // namespace bz_mesh

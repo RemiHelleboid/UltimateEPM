@@ -11,11 +11,11 @@
 #pragma once
 
 #include <array>
+#include <functional>
 #include <iostream>
-#include <vector>
 #include <numeric>
 #include <string>
-#include <functional>
+#include <vector>
 
 #include "mesh_vertex.hpp"
 
@@ -56,6 +56,20 @@ class Tetra {
      */
     std::size_t m_nb_bands = 0;
 
+    /**
+     * @brief The value min_energy_per_band[k] is the minimum energy of the k-th band on the tetrahedra.
+     * It is pre-computed and stored for optimization purposes.
+     *
+     */
+    std::vector<double> m_min_energy_per_band;
+
+    /**
+     * @brief The value max_energy_per_band[k] is the maximum energy of the k-th band on the tetrahedra.
+     * It is pre-computed and stored for optimization purposes.
+     *
+     */
+    std::vector<double> m_max_energy_per_band;
+
  public:
     static std::vector<double> ms_case_stats;
 
@@ -66,8 +80,9 @@ class Tetra {
     Tetra() = delete;
 
     Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices);
+    void compute_min_max_energies_at_bands();
 
-    std::vector<double> get_band_energies_at_vertices(std::size_t index_band) const;
+    std::array<double, 4> get_band_energies_at_vertices(std::size_t index_band) const;
 
     double                compute_signed_volume() const;
     double                get_signed_volume() const { return m_signed_volume; }
