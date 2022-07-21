@@ -1,6 +1,6 @@
-# EmpiricalPseudopotential
+# BzMeshBandsDos
 
-Band structure computation using empirical pseudopotentials
+Band structure and DOS computation using empirical pseudopotentials on the full Brillouin-Zone.
 
 [![Build & Unit Test](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml/badge.svg)](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml)
 [![Codacy Code Quality](https://app.codacy.com/project/badge/Grade/da70f725be754c928f4506a2bf86caea)](https://www.codacy.com/gh/RemiHelleboid/BzMeshBandsDos/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=RemiHelleboid/BzMeshBandsDos&amp;utm_campaign=Badge_Grade)
@@ -56,11 +56,11 @@ Find more informations on [GMSH Website](https://gmsh.info/).
 
 ### Compilation
 
-1.    `git clone https://github.com/RemiHelleboid/EmpiricalPseudopotential.git`
-2.    `cd EmpiricalPseudopotential`
-3.    `mkdir build && cd build`
-4.    `cmake ..`
-5.    `make`
+*    `git clone https://github.com/RemiHelleboid/EmpiricalPseudopotential.git`  
+*    `cd EmpiricalPseudopotential`  
+*    `mkdir build && cd build`  
+*    `cmake ..`  
+*    `make`  
 
 ---
 
