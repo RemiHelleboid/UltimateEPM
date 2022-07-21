@@ -10,8 +10,12 @@ import glob
 import os
 from argparse import ArgumentParser
 
-plt.style.use(['science', 'muted'])
+import matplotlib.style
+import matplotlib as mpl
 
+plt.style.use(['science', 'muted'])
+mpl.rcParams['figure.figsize'] = [3.5, 2.8]
+mpl.rcParams['figure.dpi'] = 300
 
 def plot_dos_per_band(filename, ax_plot=None, band_type="all"):
     if ax_plot is not None:
@@ -31,9 +35,10 @@ def plot_dos_per_band(filename, ax_plot=None, band_type="all"):
             continue
         band_counter += 1
         axs.plot(energies, dos, lw=0.9 , label=f"{band_counter}")
-    axs.legend(fontsize='xx-small', title_fontsize='x-small', title="Band index", fancybox=True, ncol=2)
+    axs.legend(fontsize='x-small', title_fontsize='x-small', title="Band index", fancybox=True, ncol=2)
     axs.set_xlabel("Energy (eV)")
-    axs.set_ylabel("Density of state (a.u.)")
+    axs.set_ylabel("Density of states (a.u.)")
+    axs.set_ylim(0.00, )
     if band_type == "conduction":
         axs.set_xlim(-1, )
     axs.set_yticklabels([])
@@ -50,7 +55,7 @@ def plot_dos_sum_bands(filename, ax_plot=None, band_type="all"):
     number_bands = int((BANDS.shape[1] - 1) / 2)
     BANDS = BANDS.T
     
-    nb_points = 1000
+    nb_points = 2000
     min_linspace = 0 if band_type in [ "conduction"] else -10.0
     max_linspace = 0 if band_type in ["valence"] else 10.0
     energies_plot = np.linspace(min_linspace, max_linspace, nb_points)
@@ -69,9 +74,10 @@ def plot_dos_sum_bands(filename, ax_plot=None, band_type="all"):
     axs.plot(energies_plot, dos_total, c="darkblue")
     # axs.legend(fontsize='x-small', title_fontsize='x-small', title="Number\n of bands", fancybox=True)
     axs.set_xlabel("Energy (eV)")
-    axs.set_ylabel("Density of state (a.u.)")
+    axs.set_ylabel("Density of states (a.u.)")
     # axs.set_xlim(-6, 5)
     axs.set_ylim(0.00, )
+    axs.set_xlim(min_linspace, max_linspace)
     axs.set_yticklabels([])
     axs.set_title("Silicon Total Density of States")
 
