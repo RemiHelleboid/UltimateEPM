@@ -43,7 +43,6 @@ void bz_mesh_points::read_mesh() {
 }
 
 void bz_mesh_points::add_band_on_mesh(const std::string& band_name, const std::vector<double> &band_values) {
-    const int bulk_dimension = 3;
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 99999999);
     gmsh::model::add("bz_mesh");

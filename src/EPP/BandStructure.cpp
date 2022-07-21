@@ -14,8 +14,6 @@
 
 namespace EmpiricalPseudopotential {
 
-BandStructure::BandStructure() { }
-
 bool BandStructure::GenerateBasisVectors(unsigned int nearestNeighborsNumber) {
     static const std::vector<unsigned int> G2{
         0,   3,   4,   8,   11,  12,  16,  19,  20,  24,  27,  32,  35,  36,  40,  43,  44,  48,  51,  52,  56,  59,  67,  68,
@@ -46,11 +44,11 @@ bool BandStructure::GenerateBasisVectors(unsigned int nearestNeighborsNumber) {
     return true;
 }
 
-void BandStructure::Initialize(const Material&           material,
-                               std::size_t               nb_bands,
-                               std::vector<std::string>& path,
-                               unsigned int              nbPoints,
-                               unsigned int              nearestNeighborsNumber) {
+void BandStructure::Initialize(const Material&                 material,
+                               std::size_t                     nb_bands,
+                               const std::vector<std::string>& path,
+                               unsigned int                    nbPoints,
+                               unsigned int                    nearestNeighborsNumber) {
     m_material               = material;
     m_nb_bands               = nb_bands;
     m_path                   = path;

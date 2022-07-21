@@ -11,7 +11,7 @@ namespace EmpiricalPseudopotential {
 
 class BandStructure {
  public:
-    BandStructure();
+    BandStructure() : m_nb_points(0), m_nb_bands(10), m_nearestNeighborsNumber(10){};
 
     /**
      * @brief Initialize the band structure with the given material and the given symmetry points that form a path
@@ -23,14 +23,14 @@ class BandStructure {
      * @param nrPoints
      * @param nearestNeighborsNumber
      */
-    void Initialize(const Material&           material,
-                    std::size_t               nb_bands,
-                    std::vector<std::string>& path,
-                    unsigned int              nrPoints,
-                    unsigned int              nearestNeighborsNumber);
+    void Initialize(const Material&                 material,
+                    std::size_t                     nb_bands,
+                    const std::vector<std::string>& path,
+                    unsigned int                    nrPoints,
+                    unsigned int                    nearestNeighborsNumber);
 
     /**
-     * @brief Initialize the band structure with the given material and the k-points on which we want 
+     * @brief Initialize the band structure with the given material and the k-points on which we want
      * the energies to be computed.
      *
      * @param material
