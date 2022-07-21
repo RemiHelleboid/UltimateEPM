@@ -10,7 +10,7 @@ import glob
 import os
 from argparse import ArgumentParser
 
-plt.style.use(['science', "high-vis"])
+plt.style.use(['science', 'muted'])
 
 
 def plot_dos_per_band(filename, ax_plot=None, band_type="all"):
@@ -30,12 +30,14 @@ def plot_dos_per_band(filename, ax_plot=None, band_type="all"):
         if np.mean(energies) >= 0.5 and (band_type!="conduction" and band_type!="all"):
             continue
         band_counter += 1
-        axs.plot(energies, dos, lw=0.5 , label=f"{band_counter}")
-    axs.legend(fontsize='xx-small', title_fontsize='x-small', title="Band index", fancybox=True)
+        axs.plot(energies, dos, lw=0.9 , label=f"{band_counter}")
+    axs.legend(fontsize='xx-small', title_fontsize='x-small', title="Band index", fancybox=True, ncol=2)
     axs.set_xlabel("Energy (eV)")
     axs.set_ylabel("Density of state (a.u.)")
     if band_type == "conduction":
         axs.set_xlim(-1, )
+    axs.set_yticklabels([])
+    axs.set_title("Silicon Bands Density of States")
 
 
 def plot_dos_sum_bands(filename, ax_plot=None, band_type="all"):
@@ -64,12 +66,14 @@ def plot_dos_sum_bands(filename, ax_plot=None, band_type="all"):
         dos_interp = np.interp(energies_plot, energies, dos)
         dos_total += dos_interp
         count_band += 1
-    axs.plot(energies_plot, dos_total, lw=0.5)
-    axs.legend(fontsize='x-small', title_fontsize='x-small', title="Number\n of bands", fancybox=True)
+    axs.plot(energies_plot, dos_total, c="darkblue")
+    # axs.legend(fontsize='x-small', title_fontsize='x-small', title="Number\n of bands", fancybox=True)
     axs.set_xlabel("Energy (eV)")
     axs.set_ylabel("Density of state (a.u.)")
-    axs.set_xlim(-6, 5)
-    axs.set_ylim(0.001, )
+    # axs.set_xlim(-6, 5)
+    axs.set_ylim(0.00, )
+    axs.set_yticklabels([])
+    axs.set_title("Silicon Total Density of States")
 
 
 
@@ -110,4 +114,4 @@ if __name__ == "__main__":
     fig.tight_layout()
     fig.savefig(f"DOS_TOTAL_{path_out}.pdf", dpi=600)
     fig.savefig(f"DOS_TOTAL_{path_out}.png", dpi=600)
-    # plt.show()
+    plt.show()

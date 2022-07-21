@@ -18,17 +18,17 @@
 
 #pragma omp declare reduction(merge : std::vector <double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
-
 namespace bz_mesh {
-
 
 /**
  * @brief Read the geometry of the mesh from the .msh file: the vertices and the elements are added to
  * the m_list_vertices and m_list_elements lists.
+ * All the points coordinates are renormalized by the lattice constant passed as argument.
  *
  * @param filename
+ * @param lattice_constant
  */
-void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
+void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, double lattice_constant) {
     std::cout << "Opening file " << filename << std::endl;
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 1);
@@ -48,8 +48,10 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
 
     m_list_vertices.reserve(size_nodes_tags);
     for (std::size_t index_vertex = 0; index_vertex < size_nodes_tags; ++index_vertex) {
-        m_list_vertices.push_back(
-            Vertex(index_vertex, nodeCoords[3 * index_vertex], nodeCoords[3 * index_vertex + 1], nodeCoords[3 * index_vertex + 2]));
+        m_list_vertices.push_back(Vertex(index_vertex,
+                                         lattice_constant * nodeCoords[3 * index_vertex],
+                                         lattice_constant * nodeCoords[3 * index_vertex + 1],
+                                         lattice_constant * nodeCoords[3 * index_vertex + 2]));
     }
     std::cout << "Number of k-points vertices: " << m_list_vertices.size() << std::endl;
 
@@ -155,8 +157,22 @@ double MeshBZ::compute_iso_surface(double iso_energy, int band_index) const {
     double total_dos = 0.0;
 
     for (auto&& tetra : m_list_tetrahedra) {
-        total_dos += tetra.compute_tetra_dos_band(iso_energy, band_index);
+        total_dos += tetra.compute_tetra_iso_surface_energy_band(iso_energy, band_index);
     }
+    auto end              = std::chrono::high_resolution_clock::now();
+    auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+    return total_dos;
+}
+
+double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index) const {
+    auto   start     = std::chrono::high_resolution_clock::now();
+    double total_dos = 0.0;
+
+    for (auto&& tetra : m_list_tetrahedra) {
+        total_dos += tetra.compute_tetra_dos_energy_band(iso_energy, band_index);
+    }
+    total_dos /= this->compute_mesh_volume();
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
@@ -175,7 +191,7 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
 #pragma omp parallel for schedule(dynamic) num_threads(32) reduction(merge : list_energies) reduction(merge : list_dos)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
-        double dos    = compute_iso_surface(energy, band_index);
+        double dos    = compute_dos_at_energy_and_band(energy, band_index);
         int    tid    = omp_get_thread_num();
 #pragma omp critical
         list_energies.push_back(energy);
@@ -189,17 +205,17 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
 }
 std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int band_index, std::size_t nb_points) const {
     const double margin_energy = 0.5;
-    double min_energy = m_min_band[band_index] - margin_energy;
-    double max_energy = m_max_band[band_index] + margin_energy;
-    auto   start       = std::chrono::high_resolution_clock::now();
-    double energy_step = (max_energy - min_energy) / (nb_points - 1);
+    double       min_energy    = m_min_band[band_index] - margin_energy;
+    double       max_energy    = m_max_band[band_index] + margin_energy;
+    auto         start         = std::chrono::high_resolution_clock::now();
+    double       energy_step   = (max_energy - min_energy) / (nb_points - 1);
 
     std::vector<double> list_energies{};
     std::vector<double> list_dos{};
 #pragma omp parallel for schedule(dynamic) num_threads(32) reduction(merge : list_energies) reduction(merge : list_dos)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
-        double dos    = compute_iso_surface(energy, band_index);
+        double dos    = compute_dos_at_energy_and_band(energy, band_index);
         int    tid    = omp_get_thread_num();
 #pragma omp critical
         list_energies.push_back(energy);

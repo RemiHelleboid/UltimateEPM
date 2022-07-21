@@ -74,10 +74,12 @@ int main(int argc, char *argv[]) {
     my_options.nrThreads    = arg_nb_threads.getValue();
     my_options.print_options();
 
+    EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
+
     const std::string mesh_band_input_file = arg_mesh_file.getValue();
 
     bz_mesh::MeshBZ my_bz_mesh{};
-    my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file);
+    my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file, current_material.m_a);
     my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file);
     my_bz_mesh.compute_iso_surface(1.10, 0);
 

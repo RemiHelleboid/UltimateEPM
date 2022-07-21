@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <vector>
 
 #include "iso_triangle.hpp"
@@ -20,7 +21,6 @@
 namespace bz_mesh {
 
 std::vector<double> Tetra::ms_case_stats = {0, 0, 0, 0, 0};
-
 
 /**
  * @brief Construct a new Tetra by passing directly the array of the four pointers to the vertices.
@@ -173,7 +173,7 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
     double              e_2                  = energies_at_vertices[indices_sort[2]];
     double              e_3                  = energies_at_vertices[indices_sort[3]];
 
-    bool check_order = (e_0 <= e_1 && e_1 <= e_2 && e_2 <= e_3);
+    bool                 check_order = (e_0 <= e_1 && e_1 <= e_2 && e_2 <= e_3);
     std::vector<vector3> list_points_iso_surface{};
 
     if (e_0 >= iso_energy) {
@@ -223,7 +223,7 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
     return {};
 }
 
-double Tetra::compute_tetra_dos_band(double energy, std::size_t band_index) const {
+double Tetra::compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const {
     std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy, band_index);
     if (vertices_iso_surface.empty()) {
         return 0.0;
@@ -235,6 +235,22 @@ double Tetra::compute_tetra_dos_band(double energy, std::size_t band_index) cons
         IsoTriangle triangle2(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], energy);
         return fabs(triangle1.get_signed_surface()) + fabs(triangle2.get_signed_surface());
     }
+}
+
+double Tetra::compute_tetra_dos_energy_band(double energy, std::size_t band_index) const {
+    const double        renormalization      = 6.0 * fabs(this->m_signed_volume);
+    std::vector<double> energies_at_vertices = get_band_energies_at_vertices(band_index);
+    std::array<int, 4>  indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
+    double              e_0                  = energies_at_vertices[indices_sort[0]];
+    double              e_1                  = energies_at_vertices[indices_sort[1]];
+    double              e_2                  = energies_at_vertices[indices_sort[2]];
+    double              e_3                  = energies_at_vertices[indices_sort[3]];
+    double              eps_12               = (e_0 - e_1);
+    double              eps_13               = (e_0 - e_2);
+    double              eps_14               = (e_0 - e_3);
+    double              gradient_energy      = sqrt((eps_12 * eps_12 + eps_13 * eps_13 + eps_14 * eps_14));
+    // std::cout << "gradient_energy = " << gradient_energy << std::endl;
+    return renormalization * (1.0 / gradient_energy) * this->compute_tetra_iso_surface_energy_band(energy, band_index);
 }
 
 }  // namespace bz_mesh

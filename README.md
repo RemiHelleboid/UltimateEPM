@@ -19,6 +19,11 @@ You can do two types of calculations:
 
 ---
 
+* Compute the density of states over the all Brillouin Zone.
+![Silicon Density of States For 10 Bands](doc/DOS_PER_BAND_DOS_bz_mesh_1_mediumEEP_Si_nb_bands_10_path__size_basis_137_all_bands.png "SiliconODS10Bands")
+![Silicon Totoal Density of States](doc/DOS_TOTAL_DOS_bz_mesh_1_mediumEEP_Si_nb_bands_10_path__size_basis_137_all_bands.png "SiliconDOSTOTALBands")
+
+
 ## Compilation
 ### Dependencies  
 This project relies on these libraries:

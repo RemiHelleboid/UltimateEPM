@@ -64,19 +64,21 @@ class MeshBZ {
  public:
     MeshBZ() = default;
 
-    void read_mesh_geometry_from_msh_file(const std::string& filename);
+    void read_mesh_geometry_from_msh_file(const std::string& filename, double lattice_constant);
     void read_mesh_bands_from_msh_file(const std::string& filename);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
 
     std::size_t get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t get_number_elements() const { return m_list_tetrahedra.size(); }
-    std::size_t get_number_bands() const {return m_min_band.size();}
+    std::size_t get_number_bands() const { return m_min_band.size(); }
 
     const std::vector<Vertex>& get_list_vertices() const { return m_list_vertices; }
     const std::vector<Tetra>&  get_list_elements() const { return m_list_tetrahedra; }
 
-    double                           compute_mesh_volume() const;
-    double                           compute_iso_surface(double iso_energy, int band_index) const;
+    double compute_mesh_volume() const;
+    double compute_iso_surface(double iso_energy, int band_index) const;
+    double compute_dos_at_energy_and_band(double iso_energy, int band_index) const;
+
     std::vector<std::vector<double>> compute_dos_band_at_band(int         band_index,
                                                               double      min_energy,
                                                               double      max_energy,

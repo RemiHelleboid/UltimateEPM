@@ -80,7 +80,8 @@ class Tetra {
 
     std::array<int, 4>   get_index_vertices_with_sorted_energy_at_band(std::size_t index_band) const;
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
-    double               compute_tetra_dos_band(double energy, std::size_t band_index) const;
+    double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;
+    double               compute_tetra_dos_energy_band(double energy, std::size_t band_index) const;
 
     static void reset_stat_iso_computing() { ms_case_stats = std::vector<double>(5, 0.0); }
 
