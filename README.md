@@ -67,3 +67,7 @@ Find more informations on [GMSH Website](https://gmsh.info/).
 ## Usage
 
 ## Available Material
+
+## Brillouin Zone Meshing
+To get the required mesh of the Brillouin Zone, you can use the BZ.py script from the great J. Grebot, there: [fcc-bz-mesh](https://github.com/JGrebot/fcc-bz-mesh).
+  ![Diamond Brillouin Zone Mesh](doc/bz_mesh_jg_8.png "DiamondBZMesh")
