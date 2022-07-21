@@ -18,13 +18,13 @@
 #include "BandStructure.h"
 #include "Options.h"
 
-void print_arguments(std::vector<std::string> path,
-                     std::string              material,
-                     unsigned int             nb_points,
-                     unsigned int             nb_bands,
-                     unsigned int             nearestNeighbors,
-                     unsigned int             nb_threads,
-                     const std::string&       result_dir) {
+void print_arguments(const std::vector<std::string>& path,
+                     const std::string&              material,
+                     unsigned int                    nb_points,
+                     unsigned int                    nb_bands,
+                     unsigned int                    nearestNeighbors,
+                     unsigned int                    nb_threads,
+                     const std::string&              result_dir) {
     std::cout << "Path: ";
     for (auto& p : path)
         std::cout << p << " ";
@@ -37,12 +37,12 @@ void print_arguments(std::vector<std::string> path,
     std::cout << "Result directory: " << result_dir << std::endl;
 }
 
-int compute_path_mat(EmpiricalPseudopotential::Material material,
-                     std::vector<std::string>           path,
-                     unsigned int                       nb_points,
-                     unsigned int                       nb_bands,
-                     unsigned int                       nearestNeighbors,
-                     const std::string&                 result_dir) {
+int compute_path_mat(const EmpiricalPseudopotential::Material& material,
+                     const std::vector<std::string>&           path,
+                     unsigned int                              nb_points,
+                     unsigned int                              nb_bands,
+                     unsigned int                              nearestNeighbors,
+                     const std::string&                        result_dir) {
     Options my_options;
     my_options.nearestNeighbors = nearestNeighbors;
     my_options.nrPoints         = nb_points;

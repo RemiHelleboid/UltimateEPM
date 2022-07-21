@@ -47,7 +47,7 @@ class Vertex {
  public:
     Vertex() : m_index{0}, m_position{} {}
     explicit Vertex(std::size_t index) : m_index(index), m_position{} {}
-    Vertex(std::size_t index, vector3 postion) : m_index(index), m_position{} {}
+    Vertex(std::size_t index, const vector3& postion) : m_index(index), m_position{} {}
     Vertex(std::size_t index, double x, double y, double z) : m_index(index), m_position{x, y, z} {}
 
     std::size_t    get_index() const { return m_index; }
