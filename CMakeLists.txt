@@ -62,7 +62,7 @@ if(NOT Eigen3_FOUND)
   set(BUILD_TESTING OFF)
   set(EIGEN_BUILD_PKGCONFIG OFF)
   message("Fetching Eigen3 lib ...")
-  add_compile_definitions(EIGEN_USE_LAPACKE=0)
+  add_compile_definitions(EIGEN_USE_LAPACK=0)
   FetchContent_MakeAvailable(Eigen)
 endif()
 
