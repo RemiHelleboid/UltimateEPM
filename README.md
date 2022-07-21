@@ -3,7 +3,7 @@
 Band structure computation using empirical pseudopotentials
 
 [![Build & Unit Test](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml/badge.svg)](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/da70f725be754c928f4506a2bf86caea)](https://www.codacy.com/gh/RemiHelleboid/EmpiricalPseudopotential/dashboard?utm_source=github.com&utm_medium=referral&utm_content=RemiHelleboid/EmpiricalPseudopotential&utm_campaign=Badge_Grade)
+[![Codacy Code Quality](https://app.codacy.com/project/badge/Grade/da70f725be754c928f4506a2bf86caea)](https://www.codacy.com/gh/RemiHelleboid/BzMeshBandsDos/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=RemiHelleboid/BzMeshBandsDos&amp;utm_campaign=Badge_Grade)
 
 ---
 
