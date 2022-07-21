@@ -67,13 +67,9 @@ int main(int argc, char* argv[]) {
     }
     my_bandstructure.AdjustValues();
 
-    unsigned int        band_index = 0;
-    std::vector<double> band_0     = my_bandstructure.get_band(band_index);
-    // export band in file
-    // my_bandstructure.export_result_in_file_with_kpoints("BZ_BANDS_SI.csv");
 
     std::filesystem::path in_path(mesh_filename);
-    std::string out_file_bands = in_path.stem().replace_extension("").string() + my_bandstructure.path_band_filename();
+    std::string out_file_bands = in_path.stem().replace_extension("").string() + "_" + my_bandstructure.path_band_filename();
 
     if (arg_outfile.isSet()) {
         out_file_bands = arg_outfile.getValue();

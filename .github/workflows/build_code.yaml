@@ -1,16 +1,16 @@
-name: Build & Unit Test
+name: Build Test
 
 on:
   push:
-    branches: [ main master dev-main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main master dev-main ]
+    branches: [ master ]
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
 
-jobs:
+jobs:out_file_bands
   build:
     # The CMake configure and build commands are platform agnostic and should work equally
     # well on Windows or Mac.  You can convert this to a matrix build if you need
