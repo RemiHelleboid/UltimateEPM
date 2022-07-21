@@ -1,13 +1,7 @@
 import numpy as np
-import scipy.stats as st
 import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import cm, title
-import scipy.stats as st
-from scipy.stats import skewnorm
-import glob
-import os
 from argparse import ArgumentParser
 
 try:
@@ -24,27 +18,33 @@ BZ_points = {
     "K":  np.array([3/8, 3/8, 0]),
 }
 
+
 def get_path_from_filename(filename):
     filename = Path(filename).stem
     print(f"Filename: {filename}")
     spliteed_filename = filename.split("_")
-    index_material = spliteed_filename.index("EEP") + 1 
-    index_path = spliteed_filename.index("path") + 1 
+    index_material = spliteed_filename.index("EEP") + 1
+    index_path = spliteed_filename.index("path") + 1
     material = spliteed_filename[index_material]
     path = spliteed_filename[index_path]
     list_points_string = list(path)
-    list_points_plot = [point if point != "G" else "$\Gamma$" for point in list_points_string ]
+    list_points_plot = [point if point !=
+                        "G" else "$\Gamma$" for point in list_points_string]
     print(f"Path: {list_points_string}")
     list_points = [BZ_points[point] for point in list_points_string]
-    dist_btw_points = [np.linalg.norm(list_points[k+1] - list_points[k]) for k in range(len(list_points)-1)]
+    dist_btw_points = [np.linalg.norm(
+        list_points[k+1] - list_points[k]) for k in range(len(list_points)-1)]
     return list_points_plot, dist_btw_points, material
 
+
 def plot_band_structure(filename, OUT_DIR, nb_bands=10):
-    list_points_string, dist_btw_points, material = get_path_from_filename(filename)
+    list_points_string, dist_btw_points, material = get_path_from_filename(
+        filename)
     point_sym_positions = [0]
     for k in range(1, len(list_points_string)):
-        point_sym_positions.append(point_sym_positions[k-1] + dist_btw_points[k-1])
-        
+        point_sym_positions.append(
+            point_sym_positions[k-1] + dist_btw_points[k-1])
+
     cnv = {1: lambda s: np.float(s.strip() or 'Nan')}
     band_energies = np.loadtxt(
         filename, delimiter=",", usecols=tuple(i for i in range(nb_bands)), skiprows=1)

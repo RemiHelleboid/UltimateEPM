@@ -153,29 +153,20 @@ double MeshBZ::compute_mesh_volume() const {
 }
 
 double MeshBZ::compute_iso_surface(double iso_energy, int band_index) const {
-    auto   start     = std::chrono::high_resolution_clock::now();
     double total_dos = 0.0;
-
     for (auto&& tetra : m_list_tetrahedra) {
         total_dos += tetra.compute_tetra_iso_surface_energy_band(iso_energy, band_index);
     }
-    auto end              = std::chrono::high_resolution_clock::now();
-    auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
     return total_dos;
 }
 
 double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index) const {
-    auto   start     = std::chrono::high_resolution_clock::now();
     double total_dos = 0.0;
-
     for (auto&& tetra : m_list_tetrahedra) {
         total_dos += tetra.compute_tetra_dos_energy_band(iso_energy, band_index);
     }
     total_dos /= this->compute_mesh_volume();
-    auto end              = std::chrono::high_resolution_clock::now();
-    auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
     return total_dos;
 }
 

@@ -172,10 +172,10 @@ double BandStructure::AdjustValues() {
 
             // computation is done with atomic units
             // results are in Hartree, here they are converted to eV
-            v *= 27.211385;
+            v *= hartree_to_eV;
         }
 
-    return bandgap * 27.211385;
+    return bandgap * hartree_to_eV;
 }
 
 bool BandStructure::FindBandgap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction) {

@@ -2,7 +2,6 @@
 from paraview.simple import *
 import numpy as np
 import argparse
-import inspect
 # disable automatic camera reset on 'Show'
 paraview.simple._DisableFirstRenderCameraReset()
 

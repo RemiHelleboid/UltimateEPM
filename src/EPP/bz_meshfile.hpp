@@ -26,7 +26,7 @@ class bz_mesh_points {
     std::vector<Vector3D<double>> m_kpoints;
 
  public:
-    bz_mesh_points(std::string filename) : m_filename(filename), m_nb_points(0){};
+    explicit bz_mesh_points(std::string filename) : m_filename(filename), m_nb_points(0){};
     ~bz_mesh_points() = default;
 
     void add_k_point(Vector3D<double> kpoint);

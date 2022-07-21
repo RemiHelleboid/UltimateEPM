@@ -42,12 +42,10 @@ int compute_path_mat(EmpiricalPseudopotential::Material material,
                      unsigned int                       nb_points,
                      unsigned int                       nb_bands,
                      unsigned int                       nearestNeighbors,
-                     unsigned int                       nb_threads,
                      const std::string&                 result_dir) {
-    Options                                 my_options;
+    Options my_options;
     my_options.nearestNeighbors = nearestNeighbors;
     my_options.nrPoints         = nb_points;
-    my_options.nrThreads        = nb_threads;
     my_options.nrLevels         = nb_bands;
     EmpiricalPseudopotential::BandStructure my_bandstructure;
     my_bandstructure.Initialize(material, my_options.nrLevels, path, my_options.nrPoints, my_options.nearestNeighbors);
@@ -81,10 +79,7 @@ int compute_all_path_all_mat(int nb_bands, int nearestNeighbors, int nrPoints, i
                                         my_options.nrPoints,
                                         my_options.nearestNeighbors);
 
-            const unsigned int nrPoints = my_bandstructure.GetPointsNumber();
-
-            auto res = my_bandstructure.Compute_parralel(8);
-            // auto res = my_bandstructure.Compute();
+            auto res = my_bandstructure.Compute_parralel(my_options.nrThreads);
             my_bandstructure.AdjustValues();
             my_bandstructure.export_result_in_file(result_dir + "/" + my_bandstructure.path_band_filename() + ".txt");
         }
@@ -157,13 +152,13 @@ int main(int argc, char* argv[]) {
                                         arg_nb_threads.getValue(),
                                         arg_res_dir.getValue());
     } else if (arg_material.isSet() && arg_path_sym_points.isSet()) {
-        std::cout << "Compute the band structure on the path " << arg_path_sym_points.getValue() << " for the material " << arg_material.getValue() << std::endl;
+        std::cout << "Compute the band structure on the path " << arg_path_sym_points.getValue() << " for the material "
+                  << arg_material.getValue() << std::endl;
         return compute_path_mat(materials.materials.at(arg_material.getValue()),
                                 path_list,
                                 arg_nb_points.getValue(),
                                 arg_nb_bands.getValue(),
                                 arg_nearest_neighbors.getValue(),
-                                arg_nb_threads.getValue(),
                                 arg_res_dir.getValue());
     } else {
         std::cout << "No material or path specified" << std::endl;

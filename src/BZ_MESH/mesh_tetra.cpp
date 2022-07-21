@@ -173,7 +173,11 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
     double              e_2                  = energies_at_vertices[indices_sort[2]];
     double              e_3                  = energies_at_vertices[indices_sort[3]];
 
-    bool                 check_order = (e_0 <= e_1 && e_1 <= e_2 && e_2 <= e_3);
+    bool check_order = (e_0 <= e_1 && e_1 <= e_2 && e_2 <= e_3);
+    if (!check_order) {
+        std::cerr << "Error: the order of the energies is not correct" << std::endl;
+        throw std::runtime_error("Error: the order of the energies is not correct");
+    }
     std::vector<vector3> list_points_iso_surface{};
 
     if (e_0 >= iso_energy) {
