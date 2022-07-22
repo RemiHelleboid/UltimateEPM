@@ -15,18 +15,18 @@ This repository was initially a fork from : [EmpiricalPseudopotential](https://g
 You can do two types of calculations:
 
 ### Compute the electronic band structure over a path of high-symmetry points (e.g. $L\Gamma X U K \Gamma$) for a given material, and plot the results 
-  ![Silicon Band Structure over LGXUG path](doc/EEP_Si_nb_bands_16_path_LGXUG_size_basis_181.png "SiliconBandStructure")
+<img src="doc/EEP_Si_nb_bands_16_path_LGXUG_size_basis_181.png" width="450">
 
 ---
 
 ### Compute the electronic band structure over all k-points of an input mesh of the Brillouin Zone (or a fraction of it). The result can then be visualized, for example, through iso-energy surface
-  ![Animation of iso-energy surfaces of the 1st conduction band of Silicon](doc/rotation_animation_4th_band_iso.gif "Silicon1stCB_isoenergy")
+<img src="doc/rotation_animation_4th_band_iso.gif" width="450">
 
 ---
 
 ### Compute the density of states over the all Brillouin Zone
-  ![Silicon Density of States For 10 Bands](doc/silicon_dos_per_band.png "SiliconODS10Bands")
-  ![Silicon Total Density of States](doc/silicon_total_dos.png "SiliconDOSTOTALBands")
+<img src="doc/silicon_dos_per_band.png" width="450">
+<img src="doc/silicon_total_dos.png" width="450">
 
 ## Build and Compilation
 
@@ -69,4 +69,5 @@ Find more informations on [GMSH Website](https://gmsh.info/).
 
 ## Brillouin Zone Meshing
 To get the required mesh of the Brillouin Zone, you can use the BZ.py script from the great J. Grebot, there: [fcc-bz-mesh](https://github.com/JGrebot/fcc-bz-mesh).
-  ![Diamond Brillouin Zone Mesh](doc/bz_mesh_jg_8.png "DiamondBZMesh")
+
+<img src="doc/bz_mesh_jg_8.png" width="450">
