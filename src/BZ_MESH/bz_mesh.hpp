@@ -86,6 +86,8 @@ class MeshBZ {
                                                               int         num_threads,
                                                               std::size_t nb_points) const;
     std::vector<std::vector<double>> compute_dos_band_at_band_auto(int band_index, std::size_t nb_points, int num_threads) const;
+
+    void export_k_points_to_file(const std::string& filename) const;
 };
 
 }  // namespace bz_mesh

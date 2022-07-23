@@ -15,8 +15,9 @@
 #include <iostream>
 #include <optional>
 #include <vector>
-
 namespace bz_mesh {
+
+enum class permutaion_type { XY, XZ, YZ, XYZ, YZX, ZXY };
 
 class vector3 {
  private:
@@ -53,7 +54,52 @@ class vector3 {
         m_z /= v_norm;
     }
 
-    inline double dot(const vector3 &vector_rhs) const { return (m_x * vector_rhs.m_x + m_y * vector_rhs.m_y + m_z * vector_rhs.m_z); }
+    /**
+     * @brief Apply a reflection on the vector.
+     * For example, apply_reflection(1, -1, 1) will apply the reflexion with respect to the y axis.
+     * There is 2^3 = 8 possible reflexions.
+     *
+     * @param x_reflection
+     * @param y_reflection
+     * @param z_reflection
+     */
+    void apply_reflection(int x_reflection, int y_reflection, int z_reflection) {
+        m_x = x_reflection * m_x;
+        m_y = y_reflection * m_y;
+        m_z = z_reflection * m_z;
+    }
+
+    /**
+     * @brief Apply a permutation on the vector.
+     * There is 6 possible permutations.
+     * 
+     * @param permutation 
+     */
+    void apply_permutation(permutaion_type permutation) {
+        switch (permutation) {
+            case permutaion_type::XY:
+                std::swap(m_x, m_y);
+                break;
+            case permutaion_type::XZ:
+                std::swap(m_x, m_z);
+                break;
+            case permutaion_type::YZ:
+                std::swap(m_y, m_z);
+                break;
+            case permutaion_type::XYZ:
+                break;
+            case permutaion_type::YZX:
+                std::swap(m_y, m_z);
+                std::swap(m_x, m_y);
+                break;
+            case permutaion_type::ZXY:
+                std::swap(m_z, m_y);
+                std::swap(m_x, m_y);
+                break;
+        }
+    }
+
+    double dot(const vector3 &vector_rhs) const { return (m_x * vector_rhs.m_x + m_y * vector_rhs.m_y + m_z * vector_rhs.m_z); }
 
     friend vector3 middle(const vector3 &vector_lhs, const vector3 &vector_rhs) {
         constexpr double one_half = 1.0 / 2.0;

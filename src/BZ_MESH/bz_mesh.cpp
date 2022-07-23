@@ -11,10 +11,14 @@
 
 #include "bz_mesh.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <fstream>
+#include <vector>
 
 #include "gmsh.h"
 #include "omp.h"
+
 
 #pragma omp declare reduction(merge : std::vector <double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
@@ -187,12 +191,12 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
 
     std::vector<double> list_energies{};
     std::vector<double> list_dos{};
-    #pragma omp parallel for schedule(dynamic) num_threads(num_threads) reduction(merge : list_energies) reduction(merge : list_dos)
+#pragma omp parallel for schedule(dynamic) num_threads(num_threads) reduction(merge : list_energies) reduction(merge : list_dos)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
         double dos    = compute_dos_at_energy_and_band(energy, band_index);
         int    tid    = omp_get_thread_num();
-        #pragma omp critical
+#pragma omp critical
         list_energies.push_back(energy);
         list_dos.push_back(dos);
         //         std::cout << "\rComputing density of state at energy " << index_energy << "/" << nb_points << std::flush;
@@ -212,12 +216,12 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int band_
 
     std::vector<double> list_energies{};
     std::vector<double> list_dos{};
-    #pragma omp parallel for schedule(dynamic) num_threads(num_threads) reduction(merge : list_energies) reduction(merge : list_dos)
+#pragma omp parallel for schedule(dynamic) num_threads(num_threads) reduction(merge : list_energies) reduction(merge : list_dos)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
         double dos    = compute_dos_at_energy_and_band(energy, band_index);
         int    tid    = omp_get_thread_num();
-        #pragma omp critical
+#pragma omp critical
         list_energies.push_back(energy);
         list_dos.push_back(dos);
         //         std::cout << "\rComputing density of state at energy " << index_energy << "/" << nb_points << std::flush;
@@ -226,6 +230,17 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int band_
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     std::cout << "\nDOS for 1 band computed in  " << total_time_count / 1000.0 << "s" << std::endl;
     return {list_energies, list_dos};
+}
+
+void MeshBZ::export_k_points_to_file(const std::string& filename) const {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        throw std::invalid_argument("Could not open file " + filename + " for writing.");
+    }
+    for (auto&& k_point : m_list_vertices) {
+        file << k_point.get_position().x() << "," << k_point.get_position().y() << "," << k_point.get_position().z() << std::endl;
+    }
+    file.close();
 }
 
 }  // namespace bz_mesh
