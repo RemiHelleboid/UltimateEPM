@@ -40,6 +40,10 @@ Tetra::Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices)
     m_signed_volume = compute_signed_volume();
 }
 
+/**
+ * @brief Compute the minimum and maximum energies of the bands within the tetrahedron.
+ *  *
+ */
 void Tetra::compute_min_max_energies_at_bands() {
     m_nb_bands = m_list_vertices[0]->get_number_bands();
     for (std::size_t idx_band = 0; idx_band < m_nb_bands; ++idx_band) {
@@ -50,6 +54,11 @@ void Tetra::compute_min_max_energies_at_bands() {
     }
 }
 
+/**
+ * @brief Compute the signed volume of the tetrahedron.
+ *
+ * @return double
+ */
 double Tetra::compute_signed_volume() const {
     return (1.0 / 6.0) * scalar_triple_product(m_list_edges[0], m_list_edges[1], m_list_edges[2]);
 }
@@ -133,6 +142,14 @@ vector3 Tetra::compute_euclidean_coordinates(const std::array<double, 4>& baryce
         barycentric_coordinates[2] * m_list_vertices[2]->get_position() + barycentric_coordinates[3] * m_list_vertices[3]->get_position());
 }
 
+/**
+ * @brief Compute the euclidean position from barycentric coordinates, with a given vertices order,
+ * that might be different from the vertices of the tetrahedra.
+ *
+ * @param barycentric_coordinates
+ * @param indices_vertex
+ * @return vector3
+ */
 vector3 Tetra::compute_euclidean_coordinates_with_indices(const std::array<double, 4>& barycentric_coordinates,
                                                           const std::array<int, 4>&    indices_vertex) const {
     return (barycentric_coordinates[0] * m_list_vertices[indices_vertex[0]]->get_position() +
@@ -144,6 +161,9 @@ vector3 Tetra::compute_euclidean_coordinates_with_indices(const std::array<doubl
 /**
  * @brief Return a list of indices a, b, c, d such as, for the conduction band with index index_band,
  * we have Vtx_a <= Vtx_b <= Vtx_c <= Vtx_d in term of energy.
+ *
+ * This function is written explicitely instead of using std::sort functions, because the sorting is done
+ * with the minimum number of operations for a 4 values sorting. Other solution might be tested later.
  *
  * @param index_band
  * @return std::array<int, 4>
@@ -174,6 +194,23 @@ std::array<int, 4> Tetra::get_index_vertices_with_sorted_energy_at_band(std::siz
     return sorted_index;
 }
 
+/**
+ * @brief Compute the iso-energy surface within the tetrahedra for a given energy of a given band.
+ * The surface is returned as a list of points (3 when the surface is a triangle, 4 when it is a quadrangle).
+ *
+ * The case of energy being smaller than the minimum energy of the tetrahedra is not taken into account.
+ * Same thing for the case of energy being greater than the maximum energy of the tetrahedra.
+ * Those two cases are handle by the caller function. This is done to avoid computing the sorted index which is computationallly intensive.
+ * The minimum and maximum energies are stored in the member variables
+ * m_min_energy_at_vertices and m_max_energy_at_vertices at the construction of the tetrahedra.
+ *
+ * This is very important because those 2 trivial cases represent usually more than 95% of the cases.
+ *
+ *
+ * @param iso_energy
+ * @param band_index
+ * @return std::vector<vector3>
+ */
 std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const {
     std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
     std::array<int, 4>    indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
@@ -187,8 +224,6 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
         std::cerr << "Error: the order of the energies is not correct" << std::endl;
         throw std::runtime_error("Error: the order of the energies is not correct");
     }
-    std::vector<vector3> list_points_iso_surface{};
-
 
     if (iso_energy < e_1 && iso_energy >= e_0) {
         ms_case_stats[2]++;
@@ -227,6 +262,21 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
     return {};
 }
 
+/**
+ * @brief Compute the surface of the tetrahedra for a given energy of a given band.
+ * The iso-surface is computed by the function compute_band_iso_energy_surface, and then
+ * the area of the surface is computed.
+ *
+ * If the surface is a triangle, the area is computed by the class IsoTriangle class function "get_signed_area".
+ * If the surface is a quadrangle, the area is computed by splitting the quadrangle into 2 triangles and then computing the area of each
+ * triangle.
+ *
+ * A more direct way to compute the area in both cases should be tested for performances improvement.
+ *  *
+ * @param energy
+ * @param band_index
+ * @return double
+ */
 double Tetra::compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const {
     std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy, band_index);
     if (vertices_iso_surface.empty()) {
@@ -241,6 +291,16 @@ double Tetra::compute_tetra_iso_surface_energy_band(double energy, std::size_t b
     }
 }
 
+/**
+ * @brief Main function to compute the DOS of the energy energy of the band with index band_index within the tetrahedra.
+ *
+ * One could try to store the value eps_12, eps_13, eps_14 for each band at the construction step, to avoid computing them each time the
+ * function is called.
+ *
+ * @param energy
+ * @param band_index
+ * @return double
+ */
 double Tetra::compute_tetra_dos_energy_band(double energy, std::size_t band_index) const {
     if (energy < m_min_energy_per_band[band_index] || energy > m_max_energy_per_band[band_index]) {
         return 0.0;

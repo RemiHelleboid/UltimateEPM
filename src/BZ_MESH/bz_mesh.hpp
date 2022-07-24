@@ -79,6 +79,7 @@ class MeshBZ {
     double compute_mesh_volume() const;
     double compute_iso_surface(double iso_energy, int band_index) const;
     double compute_dos_at_energy_and_band(double iso_energy, int band_index) const;
+    double compute_overlapp_integral_impact_ionization_electrons(double energy);
 
     std::vector<std::vector<double>> compute_dos_band_at_band(int         band_index,
                                                               double      min_energy,
@@ -88,6 +89,7 @@ class MeshBZ {
     std::vector<std::vector<double>> compute_dos_band_at_band_auto(int band_index, std::size_t nb_points, int num_threads) const;
 
     void export_k_points_to_file(const std::string& filename) const;
+
 };
 
 }  // namespace bz_mesh

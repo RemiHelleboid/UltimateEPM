@@ -50,13 +50,33 @@ class IsoTriangle {
 
  public:
     IsoTriangle() = delete;
+
+    /**
+     * @brief Construct a new Iso Triangle object from the list of vertices and the iso energy.
+     *
+     * @param VtxA
+     * @param VtxB
+     * @param VtxC
+     * @param iso_energy
+     */
     IsoTriangle(const vector3& VtxA, const vector3& VtxB, const vector3& VtxC, double iso_energy)
         : m_list_vertices{VtxA, VtxB, VtxC},
           m_iso_energy(iso_energy),
           m_list_edges{VtxA - VtxB, VtxA - VtxC, VtxB - VtxC},
           m_surface{0.5 * (cross_product(m_list_edges[1], m_list_edges[2]).norm())} {}
 
+    /**
+     * @brief Get the iso energy of the triangle.
+     *
+     * @return double
+     */
     double get_iso_energy() const { return m_iso_energy; }
+
+    /**
+     * @brief Get the surface of the triangle.
+     *
+     * @return double
+     */
     double get_signed_surface() const { return m_surface; }
 };
 
