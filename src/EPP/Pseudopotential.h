@@ -21,6 +21,7 @@ class Pseudopotential {
 
  public:
     std::complex<double> GetValue(const Vector3D<int>& G, const Vector3D<double>& tau = Vector3D<double>(1. / 8., 1. / 8., 1. / 8.)) const;
+    void print_parameters() const;
 };
 
 }  // namespace EmpiricalPseudopotential

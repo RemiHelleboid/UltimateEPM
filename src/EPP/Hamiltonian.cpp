@@ -23,7 +23,7 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k) {
     for (unsigned int i = 0; i < basisSize; ++i) {
         // diagonal elements
         // this is actually with 2 * M_PI, but I optimized it with the /2. from the kinetic energy term
-        const Vector3D<double> KG        = M_PI / m_material.m_a * (k + m_basisVectors[i]);
+        const Vector3D<double> KG        = M_PI / m_material.m_lattice_constant * (k + m_basisVectors[i]);
         constexpr double       const_two = 2.0;
         matrix(i, i) = std::complex<double>(const_two * KG * KG);  // 2* comes from the above optimization, instead of a /2
     }

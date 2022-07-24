@@ -38,7 +38,7 @@ class Options {
 
     void Load();
     void Save();
-
+    
     void print_options();
 
     int         nrThreads;

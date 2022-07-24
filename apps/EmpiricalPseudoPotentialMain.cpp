@@ -55,14 +55,49 @@ int compute_path_mat(const EmpiricalPseudopotential::Material& material,
     return 0;
 }
 
-int compute_all_path_all_mat(int nb_bands, int nearestNeighbors, int nrPoints, int nb_threads, const std::string& result_dir) {
-    EmpiricalPseudopotential::Materials materials;
-    Options                             my_options;
+int compute_all_mat(EmpiricalPseudopotential::Materials list_materials,
+                    const std::vector<std::string>&     path,
+                    int                                 nb_bands,
+                    int                                 nearestNeighbors,
+                    int                                 nrPoints,
+                    int                                 nb_threads,
+                    const std::string&                  result_dir) {
+    Options my_options;
     my_options.nearestNeighbors = nearestNeighbors;
     my_options.nrPoints         = nrPoints;
     my_options.nrThreads        = nb_threads;
     my_options.nrLevels         = nb_bands;
-    for (auto const& [name, mat] : materials.materials) {
+    for (auto const& [name, mat] : list_materials.materials) {
+        std::cout << "----------------------------------------------------" << std::endl;
+        std::cout << "Material: " << name << std::endl;
+        std::cout << "Path: ";
+        for (auto& point : path) {
+            std::cout << point << " ";
+        }
+        std::cout << std::endl;
+        EmpiricalPseudopotential::BandStructure my_bandstructure;
+        my_bandstructure.Initialize(mat, my_options.nrLevels, path, my_options.nrPoints, my_options.nearestNeighbors);
+
+        auto res = my_bandstructure.Compute_parralel(my_options.nrThreads);
+        my_bandstructure.AdjustValues();
+        my_bandstructure.export_result_in_file(result_dir + "/" + my_bandstructure.path_band_filename() + ".txt");
+    }
+
+    return 0;
+}
+
+int compute_all_path_all_mat(EmpiricalPseudopotential::Materials list_materials,
+                             int                                 nb_bands,
+                             int                                 nearestNeighbors,
+                             int                                 nrPoints,
+                             int                                 nb_threads,
+                             const std::string&                  result_dir) {
+    Options my_options;
+    my_options.nearestNeighbors = nearestNeighbors;
+    my_options.nrPoints         = nrPoints;
+    my_options.nrThreads        = nb_threads;
+    my_options.nrLevels         = nb_bands;
+    for (auto const& [name, mat] : list_materials.materials) {
         std::cout << "----------------------------------------------------" << std::endl;
         std::cout << "Material: " << name << std::endl;
         for (int path_index = 0; path_index < my_options.paths.size(); path_index++) {
@@ -94,7 +129,7 @@ int main(int argc, char* argv[]) {
                                                      "path",
                                                      "path of high symmetry points, e.g. LKWGXWLGK ",
                                                      false,
-                                                     "LGXUG",
+                                                     "LGXWKULWXK",
                                                      "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", false, "Si", "string");
     TCLAP::ValueArg<int>         arg_nb_points("N", "npoints", "Number of points per Path", false, 80, "int");
@@ -133,7 +168,9 @@ int main(int argc, char* argv[]) {
     }
 
     EmpiricalPseudopotential::Materials materials;
-    materials.materials.at(arg_material.getValue());
+    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
+    materials.load_material_parameters(file_material_parameters);
+    materials.print_material_parameters();
 
     print_arguments(path_list,
                     arg_material.getValue(),
@@ -142,11 +179,12 @@ int main(int argc, char* argv[]) {
                     arg_nearest_neighbors.getValue(),
                     arg_nb_threads.getValue(),
                     arg_res_dir.getValue());
-    std::this_thread::sleep_for(std::chrono::seconds(4));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     if (all_path_mat.getValue()) {
         std::cout << "Compute the band structure on all the paths for all the materials" << std::endl;
-        return compute_all_path_all_mat(arg_nb_bands.getValue(),
+        return compute_all_path_all_mat(materials,
+                                        arg_nb_bands.getValue(),
                                         arg_nearest_neighbors.getValue(),
                                         arg_nb_points.getValue(),
                                         arg_nb_threads.getValue(),
@@ -160,6 +198,16 @@ int main(int argc, char* argv[]) {
                                 arg_nb_bands.getValue(),
                                 arg_nearest_neighbors.getValue(),
                                 arg_res_dir.getValue());
+    } else if (!arg_material.isSet() && arg_path_sym_points.isSet()) {
+        std::cout << "Compute the band structure on the path " << arg_path_sym_points.getValue() << " for all the materials" << std::endl;
+        return compute_all_mat(materials,
+                               path_list,
+                               arg_nb_bands.getValue(),
+                               arg_nearest_neighbors.getValue(),
+                               arg_nb_points.getValue(),
+                               arg_nb_threads.getValue(),
+                               arg_res_dir.getValue());
+
     } else {
         std::cout << "No material or path specified" << std::endl;
         return 1;

@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
     const std::string mesh_band_input_file = arg_mesh_file.getValue();
 
     bz_mesh::MeshBZ my_bz_mesh{};
-    my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file, current_material.m_a);
+    my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file, current_material.m_lattice_constant);
     my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file);
 
     std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;

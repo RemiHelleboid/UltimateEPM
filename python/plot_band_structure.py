@@ -8,6 +8,10 @@ try:
     plt.style.use(['science', 'high-vis'])
 except Exception:
     plt.style.use(['seaborn'])
+    
+import matplotlib as mpl
+mpl.rcParams['figure.figsize'] = [3.5, 2.8]
+
 
 BZ_points = {
     "G":  np.array([0, 0, 0]),
@@ -69,8 +73,8 @@ def plot_band_structure(filename, OUT_DIR, nb_bands=10):
     fig.tight_layout()
     filename = Path(filename).stem
     fig.savefig(f"{OUT_DIR}/{filename[:-4:]}.png", dpi=600)
-    ax.set_ylim(bottom=-3, top=4)
-    # fig.savefig(f"{filename[:-4:]}.pdf", dpi=600)
+    ax.set_ylim(bottom=-2, top=3)
+    fig.savefig(f"{filename[:-4:]}.pdf", dpi=600)
     fig.savefig(f"{OUT_DIR}/ZOOM_{filename[:-4:]}.png", dpi=600)
     plt.show()
 

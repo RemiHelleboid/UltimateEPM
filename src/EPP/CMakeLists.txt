@@ -19,7 +19,7 @@ target_include_directories(libepp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 
 # Link with reuired libraries
-target_link_libraries(libepp PUBLIC pthread Eigen3::Eigen)
+target_link_libraries(libepp PUBLIC pthread Eigen3::Eigen yaml-cpp)
 target_link_libraries(libepp PUBLIC ${GMSH_LIB})
 target_include_directories(libepp PUBLIC ${GMSH_INC})
 if(USE_OPENMP_ACCELERATION)
