@@ -3,8 +3,6 @@
 Band structure and DOS computation using empirical pseudopotentials on the full Brillouin-Zone.
 
 [![Build & Unit Test](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml/badge.svg)](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml)
-
-
 [![Codacy Code Quality](https://app.codacy.com/project/badge/Grade/bdf5fb66f01347e096f807d113cc2985)](https://www.codacy.com/gh/RemiHelleboid/BzMeshBandsDos/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=RemiHelleboid/BzMeshBandsDos&amp;utm_campaign=Badge_Grade)
 ---
 
@@ -14,21 +12,21 @@ This repository was initially a fork from : [EmpiricalPseudopotential](https://g
 
 ## Features
 
-You can do two types of calculations:
+You can do three types of calculations:
 
-### Compute the electronic band structure over a path of high-symmetry points (e.g. $L\Gamma X U K \Gamma$) for a given material, and plot the results 
-<img src="doc/EEP_Si_nb_bands_16_path_LGXWKULWXKG_size_basis.png" width="600">
-
----
-
-### Compute the electronic band structure over all k-points of an input mesh of the Brillouin Zone (or a fraction of it). The result can then be visualized, for example, through iso-energy surface
-<img src="doc/rotation_animation_4th_band_iso.gif" width="600">
+__Compute the electronic band structure over a path of high-symmetry points (e.g. $L \Gamma XWKULWXK \Gamma$) for a given material, and plot the results__
+<img src="doc/EEP_Si_nb_bands_16_path_LGXWKULWXKG_size_basis.png" width="500">
 
 ---
 
-### Compute the density of states over the all Brillouin Zone
-<img src="doc/silicon_dos_per_band.png" width="600">
-<img src="doc/dos_total_silicon.png" width="600">
+__Compute the electronic band structure over all k-points of an input mesh of the Brillouin Zone (or a fraction of it). The result can then be visualized, for example, through iso-energy surface__
+<img src="doc/rotation_animation_4th_band_iso.gif" width="500">
+
+---
+
+__Compute the density of states over the all Brillouin Zone__
+<img src="doc/silicon_dos_per_band.png" width="500">
+<img src="doc/dos_total_silicon.png" width="500">
 
 ---
 
@@ -105,7 +103,7 @@ To compute the electronic band structure over a mesh of the Brillouin zone, the 
 ___Output___ 
 * The result of the computation, i.e. the energy of each band at each vertex of the input mesh, is stored as follows: for each band the energies are store as a gmsh "view" which is the name for the physical data (scalar, vector field, tensor, ...) in the mesh. 
   
-<img src="doc/gmsh_band_views.png" width="600">
+<img src="doc/gmsh_band_views.png" width="500">
 
 ---
 ### __Density of States Computation__
@@ -125,6 +123,6 @@ The command to compute the Density of State is:
 ## Brillouin Zone Meshing
 To get the required mesh of the Brillouin Zone, you can use the BZ.py script from the great J. Grebot, there: [fcc-bz-mesh](https://github.com/JGrebot/fcc-bz-mesh).
 
-<img src="doc/bz_mesh_jg_8.png" width="600">
+<img src="doc/bz_mesh_jg_8.png" width="500">
 
 ---
