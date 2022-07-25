@@ -40,6 +40,22 @@ Tetra::Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices)
     m_signed_volume = compute_signed_volume();
 }
 
+void Tetra::compute_gradient_energy_at_bands() {
+    m_gradient_energy_per_band.clear();
+    std::size_t m_nb_bands = m_list_vertices[0]->get_number_bands();
+    m_gradient_energy_per_band.reserve(m_nb_bands);
+    for (std::size_t band_index = 0; band_index < m_nb_bands; band_index++) {
+        const std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
+        const std::array<int, 4>    indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
+        const double                e_0                  = energies_at_vertices[indices_sort[0]];
+        const double                eps_12               = (e_0 - energies_at_vertices[indices_sort[1]]);
+        const double                eps_13               = (e_0 - energies_at_vertices[indices_sort[2]]);
+        const double                eps_14               = (e_0 - energies_at_vertices[indices_sort[3]]);
+        const double                gradient_energy      = sqrt((eps_12 * eps_12 + eps_13 * eps_13 + eps_14 * eps_14));
+        m_gradient_energy_per_band.push_back(gradient_energy);
+    }
+}
+
 /**
  * @brief Compute the minimum and maximum energies of the bands within the tetrahedron.
  *  *
@@ -308,12 +324,8 @@ double Tetra::compute_tetra_dos_energy_band(double energy, std::size_t band_inde
     const double                renormalization      = 6.0 * fabs(this->m_signed_volume);
     const std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
     const std::array<int, 4>    indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
-    const double                e_0                  = energies_at_vertices[indices_sort[0]];
-    const double                eps_12               = (e_0 - energies_at_vertices[indices_sort[1]]);
-    const double                eps_13               = (e_0 - energies_at_vertices[indices_sort[2]]);
-    const double                eps_14               = (e_0 - energies_at_vertices[indices_sort[3]]);
-    const double                gradient_energy      = sqrt((eps_12 * eps_12 + eps_13 * eps_13 + eps_14 * eps_14));
-    return renormalization * (1.0 / gradient_energy) * this->compute_tetra_iso_surface_energy_band(energy, band_index);
+    return renormalization * (1.0 / m_gradient_energy_per_band[band_index]) *
+           this->compute_tetra_iso_surface_energy_band(energy, band_index);
 }
 
 }  // namespace bz_mesh

@@ -70,6 +70,8 @@ class Tetra {
      */
     std::vector<double> m_max_energy_per_band;
 
+    std::vector<double> m_gradient_energy_per_band;
+
  public:
     static std::vector<double> ms_case_stats;
 
@@ -84,9 +86,11 @@ class Tetra {
 
     std::array<double, 4> get_band_energies_at_vertices(std::size_t index_band) const;
 
-    double                compute_signed_volume() const;
-    double                get_signed_volume() const { return m_signed_volume; }
-    vector3               compute_edge(std::size_t index_vtx_1, std::size_t index_vtx_2) const;
+    double  compute_signed_volume() const;
+    double  get_signed_volume() const { return m_signed_volume; }
+    vector3 compute_edge(std::size_t index_vtx_1, std::size_t index_vtx_2) const;
+    void    compute_gradient_energy_at_bands();
+
     bool                  is_location_inside(const vector3& location) const;
     std::array<double, 4> compute_barycentric_coordinates(const vector3& location) const;
     vector3               compute_euclidean_coordinates(const std::array<double, 4>& barycentric_coordinates) const;
