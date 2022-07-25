@@ -30,6 +30,8 @@ You can do two types of calculations:
 <img src="doc/silicon_dos_per_band.png" width="600">
 <img src="doc/silicon_total_dos.png" width="600">
 
+---
+
 ## Build and Compilation
 
 ### Dependencies
@@ -66,10 +68,31 @@ Find more informations on [GMSH Website](https://gmsh.info/).
 ---
 
 ## Usage
+### Band structure plot over a __path of high symmetry points__
 
+To plot the band structure over a path $LKW \Gamma XWL \Gamma K$ for a given materials, use:
+`./apps/EmpiricalPseudoPotentialMain -m Si -b 16 -N 2000 -n 10 -r output_dir -j 4 -p LGXWKULWXKG -P`  
+* The `-m Si` set the __material__ on which the band structure is computed to Silicon.
+* The `-b 16` option means to compute and export __16 bands__. 
+* The `-N 2000` option means that the path will be __discretized in 2000 points__.
+* The `-n 10` option specifies the __number of nearest neighbors__ to compute the band structure. 
+* The `-r output_dir` means that the results of the computation will be __stored in the output_dir directory__ (it is created if it does not exist yet).
+* The `-j 4` option requires the computation to be run with __parallelization on 4 CPUs.__
+* The `-p LGXWKULWXKG ` option specifies the __path__ on which the band structure must be computed. G stands for $\Gamma$.
+* The -P option will trigger a call to a __python script that will plot__ the calculated band structure after it has been computed.
+
+___Additional possibilities___
+* If you __don't specify the material__ with the `-m SymBol` option, the computation __will be done for all the available materials.__
+* If you want to get __all material__ on __many different paths__, use the `-A` option, and don't specify either material or path.
+
+
+
+---
 ## Available Material
 
 ## Brillouin Zone Meshing
 To get the required mesh of the Brillouin Zone, you can use the BZ.py script from the great J. Grebot, there: [fcc-bz-mesh](https://github.com/JGrebot/fcc-bz-mesh).
 
 <img src="doc/bz_mesh_jg_8.png" width="600">
+
+---
