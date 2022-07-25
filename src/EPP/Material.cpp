@@ -55,7 +55,7 @@ void Materials::load_material_parameters(const std::string& filename) {
         double      V3A    = material["V3A"].as<double>();
         double      V4A    = material["V4A"].as<double>();
         double      V11A   = material["V11A"].as<double>();
-        materials[name]    = Material(symbol, a, V3S, V8S, V11S, V3A, V4A, V11A);
+        materials[symbol]    = Material(symbol, a, V3S, V8S, V11S, V3A, V4A, V11A);
     }
 }
 

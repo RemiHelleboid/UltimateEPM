@@ -21,6 +21,26 @@ materials:
     V4A: 0.0
     V11A: 0.0
 
+  - name: Tin
+    symbol: Sn
+    lattice-constant: 6.49
+    V3S: -0.20
+    V8S: 0.00
+    V11S: 0.04
+    V3A: 0.0
+    V4A: 0.0
+    V11A: 0.0
+
+  - name: GalliumPhosphide
+    symbol: GaP
+    lattice-constant: 5.44
+    V3S: -0.22
+    V8S: 0.03
+    V11S: 0.07
+    V3A: 0.12
+    V4A: 0.07
+    V11A: 0.02
+
   - name: GalliumArsenide
     symbol: GaAs
     lattice-constant: 5.44
@@ -30,4 +50,57 @@ materials:
     V3A: 0.07
     V4A: 0.05
     V11A: 0.01
+
+  - name: AluminiumAntimonide
+    symbol: AlSb
+    lattice-constant: 6.13
+    V3S: -0.21
+    V8S: 0.02
+    V11S: 0.06
+    V3A: 0.06
+    V4A: 0.04
+    V11A: 0.02
+
+  - name: IndiumPhosphide
+    symbol: InP
+    lattice-constant: 5.86
+    V3S: -0.23
+    V8S: 0.01
+    V11S: 0.06
+    V3A: 0.07
+    V4A: 0.05
+    V11A: 0.01
+
+  - name: IndiumArsenide
+    symbol: InAs
+    lattice-constant: 6.12
+    V3S: -0.22
+    V8S: 0.00
+    V11S: 0.05
+    V3A: 0.08
+    V4A: 0.05
+    V11A: 0.03
+
+  - name: IndiumAntimonide
+    symbol: InSb
+    lattice-constant: 6.48
+    V3S: -0.20
+    V8S: 0.00
+    V11S: 0.04
+    V3A: 0.06
+    V4A: 0.05
+    V11A: 0.01
+
+  
+  - name: AlAs
+    symbol: AluminiumArsenide
+    lattice-constant: 5.6605
+    V3S: -0.221
+    V8S: 0.025
+    V11S: 0.07
+    V3A: 0.08
+    V4A: 0.05
+    V11A: -0.04
+
+  
 

@@ -9,6 +9,7 @@
  *
  */
 
+#include <Python.h>
 #include <tclap/CmdLine.h>
 
 #include <chrono>
@@ -17,6 +18,8 @@
 
 #include "BandStructure.h"
 #include "Options.h"
+
+const std::string python_plot_band_structure_script = std::string(CMAKE_SOURCE_DIR) + "/python/plot_band_structure.py";
 
 void print_arguments(const std::vector<std::string>& path,
                      const std::string&              material,
@@ -42,7 +45,8 @@ int compute_path_mat(const EmpiricalPseudopotential::Material& material,
                      unsigned int                              nb_points,
                      unsigned int                              nb_bands,
                      unsigned int                              nearestNeighbors,
-                     const std::string&                        result_dir) {
+                     const std::string&                        result_dir,
+                     bool                                      call_python_plot) {
     Options my_options;
     my_options.nearestNeighbors = nearestNeighbors;
     my_options.nrPoints         = nb_points;
@@ -51,7 +55,14 @@ int compute_path_mat(const EmpiricalPseudopotential::Material& material,
     my_bandstructure.Initialize(material, my_options.nrLevels, path, my_options.nrPoints, my_options.nearestNeighbors);
     my_bandstructure.Compute();
     my_bandstructure.AdjustValues();
-    my_bandstructure.export_result_in_file(result_dir + "/" + my_bandstructure.path_band_filename() + ".txt");
+    const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() + ".txt";
+    my_bandstructure.export_result_in_file(file_output);
+    if (call_python_plot) {
+        std::string python_call = "python3 " + python_plot_band_structure_script + " --file " + file_output;
+        std::cout << "Executing: " << python_call << std::endl;
+        int succes_plot = system(python_call.c_str());
+        return succes_plot;
+    }
     return 0;
 }
 
@@ -61,7 +72,8 @@ int compute_all_mat(EmpiricalPseudopotential::Materials list_materials,
                     int                                 nearestNeighbors,
                     int                                 nrPoints,
                     int                                 nb_threads,
-                    const std::string&                  result_dir) {
+                    const std::string&                  result_dir,
+                    bool                                call_python_plot) {
     Options my_options;
     my_options.nearestNeighbors = nearestNeighbors;
     my_options.nrPoints         = nrPoints;
@@ -80,7 +92,13 @@ int compute_all_mat(EmpiricalPseudopotential::Materials list_materials,
 
         auto res = my_bandstructure.Compute_parralel(my_options.nrThreads);
         my_bandstructure.AdjustValues();
-        my_bandstructure.export_result_in_file(result_dir + "/" + my_bandstructure.path_band_filename() + ".txt");
+        const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() + ".txt";
+        my_bandstructure.export_result_in_file(file_output);
+        if (call_python_plot) {
+            std::string python_call = "python3 " + python_plot_band_structure_script + " --file " + file_output;
+            std::cout << "Executing: " << python_call << std::endl;
+            int succes_plot = system(python_call.c_str());
+        }
     }
 
     return 0;
@@ -91,7 +109,8 @@ int compute_all_path_all_mat(EmpiricalPseudopotential::Materials list_materials,
                              int                                 nearestNeighbors,
                              int                                 nrPoints,
                              int                                 nb_threads,
-                             const std::string&                  result_dir) {
+                             const std::string&                  result_dir,
+                             bool                                call_python_plot) {
     Options my_options;
     my_options.nearestNeighbors = nearestNeighbors;
     my_options.nrPoints         = nrPoints;
@@ -116,7 +135,13 @@ int compute_all_path_all_mat(EmpiricalPseudopotential::Materials list_materials,
 
             auto res = my_bandstructure.Compute_parralel(my_options.nrThreads);
             my_bandstructure.AdjustValues();
-            my_bandstructure.export_result_in_file(result_dir + "/" + my_bandstructure.path_band_filename() + ".txt");
+            const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() + ".txt";
+            my_bandstructure.export_result_in_file(file_output);
+            if (call_python_plot) {
+                std::string python_call = "python3 " + python_plot_band_structure_script + " --file " + file_output;
+                std::cout << "Executing: " << python_call << std::endl;
+                int succes_plot = system(python_call.c_str());
+            }
         }
     }
 
@@ -143,6 +168,7 @@ int main(int argc, char* argv[]) {
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<std::string> arg_res_dir("r", "resultdir", "directory to store the results.", false, "EPP_RESULTS", "str");
     TCLAP::SwitchArg             all_path_mat("A", "all", "Compute the band structure on all the paths for all the materials", false);
+    TCLAP::SwitchArg             plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     cmd.add(arg_path_sym_points);
     cmd.add(arg_material);
     cmd.add(arg_nb_bands);
@@ -151,6 +177,7 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_nb_threads);
     cmd.add(arg_res_dir);
     cmd.add(all_path_mat);
+    cmd.add(plot_with_python);
 
     cmd.parse(argc, argv);
 
@@ -181,6 +208,8 @@ int main(int argc, char* argv[]) {
                     arg_res_dir.getValue());
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
+    bool call_python_plot = plot_with_python.isSet();
+
     if (all_path_mat.getValue()) {
         std::cout << "Compute the band structure on all the paths for all the materials" << std::endl;
         return compute_all_path_all_mat(materials,
@@ -188,25 +217,28 @@ int main(int argc, char* argv[]) {
                                         arg_nearest_neighbors.getValue(),
                                         arg_nb_points.getValue(),
                                         arg_nb_threads.getValue(),
-                                        arg_res_dir.getValue());
+                                        arg_res_dir.getValue(),
+                                        call_python_plot);
     } else if (arg_material.isSet() && arg_path_sym_points.isSet()) {
         std::cout << "Compute the band structure on the path " << arg_path_sym_points.getValue() << " for the material "
                   << arg_material.getValue() << std::endl;
-        return compute_path_mat(materials.materials.at(arg_material.getValue()),
-                                path_list,
-                                arg_nb_points.getValue(),
-                                arg_nb_bands.getValue(),
-                                arg_nearest_neighbors.getValue(),
-                                arg_res_dir.getValue());
+        compute_path_mat(materials.materials.at(arg_material.getValue()),
+                         path_list,
+                         arg_nb_points.getValue(),
+                         arg_nb_bands.getValue(),
+                         arg_nearest_neighbors.getValue(),
+                         arg_res_dir.getValue(),
+                         call_python_plot);
     } else if (!arg_material.isSet() && arg_path_sym_points.isSet()) {
         std::cout << "Compute the band structure on the path " << arg_path_sym_points.getValue() << " for all the materials" << std::endl;
-        return compute_all_mat(materials,
-                               path_list,
-                               arg_nb_bands.getValue(),
-                               arg_nearest_neighbors.getValue(),
-                               arg_nb_points.getValue(),
-                               arg_nb_threads.getValue(),
-                               arg_res_dir.getValue());
+        compute_all_mat(materials,
+                        path_list,
+                        arg_nb_bands.getValue(),
+                        arg_nearest_neighbors.getValue(),
+                        arg_nb_points.getValue(),
+                        arg_nb_threads.getValue(),
+                        arg_res_dir.getValue(),
+                        call_python_plot);
 
     } else {
         std::cout << "No material or path specified" << std::endl;
