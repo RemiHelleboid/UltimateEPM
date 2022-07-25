@@ -14,17 +14,17 @@ This repository was initially a fork from : [EmpiricalPseudopotential](https://g
 
 You can do three types of calculations:
 
-__Compute the electronic band structure over a path of high-symmetry points (e.g. $L \Gamma XWKULWXK \Gamma$) for a given material, and plot the results__
+__Compute the electronic band structure over a path of high-symmetry points (e.g. $L \Gamma XWKULWXK \Gamma$) for a given material, and plot the results.__  
 <img src="doc/EEP_Si_nb_bands_16_path_LGXWKULWXKG_size_basis.png" width="500">
 
 ---
 
-__Compute the electronic band structure over all k-points of an input mesh of the Brillouin Zone (or a fraction of it). The result can then be visualized, for example, through iso-energy surface__
+__Compute the electronic band structure over all k-points of an input mesh of the Brillouin Zone (or a fraction of it). The result can then be visualized, for example, through iso-energy surface.__  
 <img src="doc/rotation_animation_4th_band_iso.gif" width="500">
 
 ---
 
-__Compute the density of states over the all Brillouin Zone__
+__Compute the density of states over the all Brillouin Zone.__  
 <img src="doc/silicon_dos_per_band.png" width="500">
 <img src="doc/dos_total_silicon.png" width="500">
 
