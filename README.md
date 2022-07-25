@@ -28,7 +28,7 @@ You can do two types of calculations:
 
 ### Compute the density of states over the all Brillouin Zone
 <img src="doc/silicon_dos_per_band.png" width="600">
-<img src="doc/silicon_total_dos.png" width="600">
+<img src="doc/dos_total_silicon.png" width="600">
 
 ---
 
@@ -75,7 +75,7 @@ To plot the band structure over a path $LKW \Gamma XWL \Gamma K$ for a given mat
 * The `-m Si` sets the __material__ on which the band structure is computed to Silicon.
 * The `-b 16` option means to compute and export __16 bands__. 
 * The `-N 2000` option means that the path will be __discretized in 2000 points__.
-* The `-n 10` option specifies the __number of nearest neighbors__ to compute the band structure. 
+* The `-n 10` option specifies the __number of nearest neighbors__ used to compute the band structure. 
 * The `-r output_dir` means that the results of the computation will be __stored in the output_dir directory__ (it is created if it does not exist yet).
 * The `-j 4` option requires the computation to be run with __parallelization on 4 CPUs.__
 * The `-p LGXWKULWXKG ` option specifies the __path__ on which the band structure must be computed. G stands for $\Gamma$.
@@ -84,8 +84,40 @@ To plot the band structure over a path $LKW \Gamma XWL \Gamma K$ for a given mat
 ___Additional possibilities___
 * If you __don't specify the material__ with the `-m SymBol` option, the computation __will be done for all the available materials.__
 * If you want to get __all material__ on __many different paths__, use the `-A` option, and don't specify either material or path.
+* Use `./apps/EmpiricalPseudoPotentialMain --help` to `display the help` of the program.
+
+___Outputs___
+* The energies at each point in the path, for each band, is stored in a file with the form `EEP_Si_nb_bands_16_path_LGXWKULWXKG_size_basis_137.txt`.
+* If the `-P` option was set, the plot of the band structured is also stored as .png and .pdf files.
+
+---
+### __Band structure computation over a mesh of the Brillouin Zone__
 
 
+To compute the electronic band structure over a mesh of the Brillouin zone, the command is:  
+`./apps/BandsOnBZ -f bz_mesh.msh -m Si -b 12 -n 10 -j 8 -o output_file 
+`
+* The `-m Si` sets the __material__ on which the band structure is computed to Silicon.
+* The `-b 12` option means to compute and export __16 bands__. 
+* The `-j 8` option requires the computation to be run with __parallelization on 8 CPUs.__
+* `-o output_file` can be used to set the name of the __output file__.
+
+___Output___ 
+* The result of the computation, i.e. the energy of each band at each vertex of the input mesh, is stored as follows: for each band the energies are store as a gmsh "view" which is the name for the physical data (scalar, vector field, tensor, ...) in the mesh. 
+  
+<img src="doc/gmsh_band_views.png" width="600">
+
+---
+### __Density of States Computation__
+The command to compute the Density of State is:  
+` ./apps/DOS_MeshBZ -f bz_mesh_1_fine_EEP_Si_nb_bands_12_path__size_basis_137_all_bands.msh -m Si -b 12 -e 500  -j 8 `
+`
+* The `-f input_mesh_with_bands.msh` the __mesh file with the energy bands computed__, resulting from the computation with `BandsOnBZ` program.
+* The `-m Si` sets the __material__ on which the band structure is computed to Germanium.
+* The `-b 12` the number of bands to consider, here: __16 bands.__
+* The `-e 500` option sets the __number of energies with whom the energy range of each band is discretized.__ 
+* The `-j 8` option requires the computation to be run with __parallelization on 8 CPUs.__
+* `-o output_file` can be used to set the name of the __output file.__
 
 ---
 ## Available Material

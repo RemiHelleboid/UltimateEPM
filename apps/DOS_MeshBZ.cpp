@@ -58,6 +58,8 @@ int main(int argc, char *argv[]) {
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
     TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to consider", false, 12, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
+        TCLAP::SwitchArg             plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
+        cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
     cmd.add(arg_nb_bands);
@@ -67,6 +69,8 @@ int main(int argc, char *argv[]) {
     cmd.parse(argc, argv);
 
     EmpiricalPseudopotential::Materials materials;
+    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
+    materials.load_material_parameters(file_material_parameters);
 
     Options my_options;
     my_options.materialName = arg_material.getValue();
@@ -106,6 +110,17 @@ int main(int argc, char *argv[]) {
     std::string           out_file_bands = "DOS_" + in_path.stem().replace_extension("").string();
 
     export_multiple_vector_to_csv(out_file_bands + ".csv", list_header, list_list_dos);
+
+
+    const std::string python_plot_dos = std::string(CMAKE_SOURCE_DIR) + "/python/plot_density_of_states.py";
+
+    bool call_python_plot = plot_with_python.isSet();
+
+    if (call_python_plot) {
+        std::string python_call = "python3 " + python_plot_dos + " --file " + out_file_bands + ".csv";
+        std::cout << "Executing: " << python_call << std::endl;
+        int succes_plot = system(python_call.c_str());
+    }
 
     return 0;
 }
