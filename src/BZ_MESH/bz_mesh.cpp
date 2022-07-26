@@ -231,7 +231,6 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int band_
 #pragma omp critical
         list_energies.push_back(energy);
         list_dos.push_back(dos);
-        //         std::cout << "\rComputing density of state at energy " << index_energy << "/" << nb_points << std::flush;
     }
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();

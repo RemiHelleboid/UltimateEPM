@@ -1,5 +1,4 @@
-# BzMeshBandsDos {#mainpage}
-
+# BzMeshBandsDos 
 Band structure and DOS computation using empirical pseudopotentials on the full Brillouin-Zone.
 
 [![Build & Unit Test](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml/badge.svg)](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml)
