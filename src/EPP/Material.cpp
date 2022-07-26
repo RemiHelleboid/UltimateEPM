@@ -69,7 +69,8 @@ double compute_F_l_function(const Vector3D<int>& K1, const Vector3D<int>& K2, do
 /**
  * @brief Compute the non local correction to the EPM Hamiltonian.
  * It follows: Chelikowsky, J. R. & Cohen, M. L. Nonlocal pseudopotential calculations for the electronic structure of eleven diamond
- * and zinc-blende semiconductors. Phys. Rev. B 14, 556–582 (1976). See also: Pötz, W. & Vogl, P. Theory of optical-phonon deformation
+ * and zinc-blende semiconductors. Phys. Rev. B 14, 556–582 (1976).
+ * See also: Pötz, W. & Vogl, P. Theory of optical-phonon deformation
  * potentials in tetrahedral semiconductors. Phys. Rev. B 24, 2025–2037 (1981)
  *
  * K1 = (k + G)
@@ -127,6 +128,12 @@ std::complex<double> Material::compute_pseudopotential_non_local_correction(cons
 
     double V_symetric     = (V_anion + V_cation) / 2.0;
     double V_antisymetric = (V_anion - V_cation) / 2.0;
+
+    constexpr double const_two = 2.0;
+    const double     Gtau      = const_two * M_PI * tau * G_diff;
+    
+    return std::complex<double>(cos(Gtau) * V_symetric, sin(Gtau) * V_antisymetric);
+
 }
 
 void Materials::print_materials_list() const {
