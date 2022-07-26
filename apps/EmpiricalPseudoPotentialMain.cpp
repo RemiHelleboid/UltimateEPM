@@ -9,7 +9,6 @@
  *
  */
 
-#include <Python.h>
 #include <tclap/CmdLine.h>
 
 #include <chrono>
@@ -58,7 +57,8 @@ int compute_path_mat(const EmpiricalPseudopotential::Material& material,
     const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() + ".txt";
     my_bandstructure.export_result_in_file(file_output);
     if (call_python_plot) {
-        std::string python_call = "python3 " + python_plot_band_structure_script + " --file " + file_output;
+        std::string python_call =
+            "python3 " + python_plot_band_structure_script + " --file " + file_output + " -b " + std::to_string(nb_bands);
         std::cout << "Executing: " << python_call << std::endl;
         int succes_plot = system(python_call.c_str());
         return succes_plot;
@@ -95,7 +95,8 @@ int compute_all_mat(EmpiricalPseudopotential::Materials list_materials,
         const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() + ".txt";
         my_bandstructure.export_result_in_file(file_output);
         if (call_python_plot) {
-            std::string python_call = "python3 " + python_plot_band_structure_script + " --file " + file_output;
+            std::string python_call =
+                "python3 " + python_plot_band_structure_script + " --file " + file_output + " -b " + std::to_string(nb_bands);
             std::cout << "Executing: " << python_call << std::endl;
             int succes_plot = system(python_call.c_str());
         }
@@ -152,7 +153,7 @@ int main(int argc, char* argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_path_sym_points("p",
                                                      "path",
-                                                     "path of high symmetry points, e.g. LKWGXWLGK ",
+                                                     "path of high symmetry points, e.g. LGXWKULWXK ",
                                                      false,
                                                      "LGXWKULWXK",
                                                      "string");
@@ -168,7 +169,7 @@ int main(int argc, char* argv[]) {
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<std::string> arg_res_dir("r", "resultdir", "directory to store the results.", false, "EPP_RESULTS", "str");
     TCLAP::SwitchArg             all_path_mat("A", "all", "Compute the band structure on all the paths for all the materials", false);
-    TCLAP::SwitchArg             plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
+    TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     cmd.add(arg_path_sym_points);
     cmd.add(arg_material);
     cmd.add(arg_nb_bands);

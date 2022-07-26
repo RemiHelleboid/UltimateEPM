@@ -17,7 +17,7 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k) {
     for (unsigned int i = 0; i < basisSize; ++i) {
         for (unsigned int j = 0; j < i; ++j) {
             // only the lower triangular of matrix is set because the diagonalization method only needs that
-            matrix(i, j) = m_material.pseudopotential.GetValue(m_basisVectors[i] - m_basisVectors[j]);
+            matrix(i, j) = m_material.m_pseudopotential.GetValue(m_basisVectors[i] - m_basisVectors[j]);
         }
     }
     for (unsigned int i = 0; i < basisSize; ++i) {

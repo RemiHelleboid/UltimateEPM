@@ -15,6 +15,8 @@ target_include_directories(lib_bzmesh PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 
 # Link with reuired libraries
+
+target_link_libraries(lib_bzmesh PUBLIC libepp)
 target_link_libraries(lib_bzmesh PUBLIC pthread Eigen3::Eigen)
 target_link_libraries(lib_bzmesh PUBLIC ${GMSH_LIB})
 target_include_directories(lib_bzmesh PUBLIC ${GMSH_INC})
@@ -23,4 +25,4 @@ if(USE_OPENMP_ACCELERATION)
 endif(USE_OPENMP_ACCELERATION)
 
 # All users of this library will need at least C++20
-target_compile_features(lib_bzmesh PRIVATE cxx_std_20)
+target_compile_features(lib_bzmesh PRIVATE cxx_std_20)  

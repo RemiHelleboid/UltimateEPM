@@ -1,6 +1,7 @@
 set(HEADER_FILES_LIBEPP
     SymmetryPoints.h
     bz_meshfile.hpp
+    NonLocalParameters.hpp
     Options.h
     Material.h
     Hamiltonian.h

@@ -11,9 +11,11 @@
 
 #pragma once
 
+#include "Material.h"
 #include "iso_triangle.hpp"
 #include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
+
 
 namespace bz_mesh {
 
@@ -21,6 +23,12 @@ enum class BandType { valence, conduction };
 
 class MeshBZ {
  private:
+    /**
+     * @brief The material of the Brillouin zone.
+     *
+     */
+    EmpiricalPseudopotential::Material m_material;
+
     /**
      * @brief List of the vertices of the BZ mesh. Each vertices represent a vector k within the Brillouin Zone.
      *
@@ -62,9 +70,9 @@ class MeshBZ {
     std::vector<double> m_max_band{};
 
  public:
-    MeshBZ() = default;
+    MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material) {};
 
-    void read_mesh_geometry_from_msh_file(const std::string& filename, double lattice_constant);
+    void read_mesh_geometry_from_msh_file(const std::string& filename);
     void read_mesh_bands_from_msh_file(const std::string& filename);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
     void compute_min_max_energies_at_tetras();
@@ -90,7 +98,6 @@ class MeshBZ {
     std::vector<std::vector<double>> compute_dos_band_at_band_auto(int band_index, std::size_t nb_points, int num_threads) const;
 
     void export_k_points_to_file(const std::string& filename) const;
-
 };
 
 }  // namespace bz_mesh

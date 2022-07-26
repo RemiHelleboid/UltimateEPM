@@ -3,7 +3,7 @@
 #define _USE_MATH_DEFINES 1
 #include <cmath>
 
-
+#include "Constants.hpp"
 
 namespace EmpiricalPseudopotential {
 
@@ -13,7 +13,7 @@ Pseudopotential::Pseudopotential(double V3S, double V8S, double V11S, double V3A
       m_V11S(V11S),
       m_V3A(V3A),
       m_V4A(V4A),
-      m_V11A(V11A) {}
+      m_V11A(V11A){}
 
 std::complex<double> Pseudopotential::GetValue(const Vector3D<int>& G, const Vector3D<double>& tau) const {
     constexpr double const_two = 2.0;
@@ -38,6 +38,8 @@ std::complex<double> Pseudopotential::GetValue(const Vector3D<int>& G, const Vec
     return std::complex<double>(cos(Gtau) * VS, sin(Gtau) * VA);
 }
 
+
+
 void Pseudopotential::print_parameters() const {
     std::cout << "V3S = " << m_V3S << std::endl;
     std::cout << "V8S = " << m_V8S << std::endl;
@@ -46,6 +48,5 @@ void Pseudopotential::print_parameters() const {
     std::cout << "V4A = " << m_V4A << std::endl;
     std::cout << "V11A = " << m_V11A << std::endl;
 }
-
 
 }  // namespace EmpiricalPseudopotential

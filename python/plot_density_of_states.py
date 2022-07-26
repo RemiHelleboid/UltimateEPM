@@ -41,7 +41,7 @@ def plot_dos_per_band(filename, ax_plot=None, band_type="all"):
     axs.set_ylim(0.00, )
     if band_type == "conduction":
         axs.set_xlim(-1, )
-    axs.set_yticklabels([])
+    # axs.set_yticklabels([])
     axs.set_title("Silicon Bands Density of States")
 
 
@@ -78,7 +78,7 @@ def plot_dos_sum_bands(filename, ax_plot=None, band_type="all"):
     # axs.set_xlim(-6, 5)
     axs.set_ylim(0.00, )
     axs.set_xlim(min_linspace, max_linspace)
-    axs.set_yticklabels([])
+    # axs.set_yticklabels([])
     axs.set_title("Silicon Total Density of States")
 
 

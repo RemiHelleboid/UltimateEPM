@@ -6,6 +6,7 @@
 
 namespace EmpiricalPseudopotential {
 
+
 class Pseudopotential {
  public:
     Pseudopotential(double V3S = 0, double V8S = 0, double V11S = 0, double V3A = 0, double V4A = 0, double V11A = 0);
@@ -21,7 +22,10 @@ class Pseudopotential {
 
  public:
     std::complex<double> GetValue(const Vector3D<int>& G, const Vector3D<double>& tau = Vector3D<double>(1. / 8., 1. / 8., 1. / 8.)) const;
-    void print_parameters() const;
+    std::complex<double> GetNonLocalCorrection(const Vector3D<int>&    K1,
+                                               const Vector3D<int>&    K2,
+                                               const Vector3D<double>& tau = Vector3D<double>(1. / 8., 1. / 8., 1. / 8.)) const;
+    void                 print_parameters() const;
 };
 
 }  // namespace EmpiricalPseudopotential

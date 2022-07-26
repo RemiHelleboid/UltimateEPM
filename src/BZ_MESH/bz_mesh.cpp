@@ -32,7 +32,7 @@ namespace bz_mesh {
  * @param filename
  * @param lattice_constant
  */
-void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, double lattice_constant) {
+void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
     std::cout << "Opening file " << filename << std::endl;
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 1);
@@ -50,12 +50,15 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, doubl
         throw std::runtime_error("Number of coordinates is not 3 times the number of vertices. Abort.");
     }
 
+    
     m_list_vertices.reserve(size_nodes_tags);
+    double lattice_constant = m_material.get_lattice_constant_meter();
+    double normalization_factor = 2.0 * M_PI / lattice_constant;
     for (std::size_t index_vertex = 0; index_vertex < size_nodes_tags; ++index_vertex) {
         m_list_vertices.push_back(Vertex(index_vertex,
-                                         lattice_constant * nodeCoords[3 * index_vertex],
-                                         lattice_constant * nodeCoords[3 * index_vertex + 1],
-                                         lattice_constant * nodeCoords[3 * index_vertex + 2]));
+                                         normalization_factor * nodeCoords[3 * index_vertex],
+                                         normalization_factor * nodeCoords[3 * index_vertex + 1],
+                                         normalization_factor * nodeCoords[3 * index_vertex + 2]));
     }
     std::cout << "Number of k-points vertices: " << m_list_vertices.size() << std::endl;
 
@@ -167,6 +170,7 @@ double MeshBZ::compute_mesh_volume() const {
     for (auto&& tetra : m_list_tetrahedra) {
         total_volume += fabs(tetra.get_signed_volume());
     }
+    total_volume *= (1.0 / pow(2.0 * M_PI, 3.0));
     return total_volume;
 }
 

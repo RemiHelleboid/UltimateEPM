@@ -56,6 +56,19 @@ public:
 		return atan2(Y, X);
 	}
 
+	/**
+	 * @brief Compute the cosinus of the angle between two vectors.
+	 * 
+	 * @param V1 
+	 * @param V2 
+	 * @return double 
+	 */
+	friend double compte_cos_angle(const Vector3D & V1, const Vector3D & V2) {
+		double dot_product = V1 * V2;
+		return dot_product == 0 ? 1.0 : dot_product / (V1.Length() * V2.Length());
+	}
+	
+
 	friend std::ostream &operator<<(std::ostream &os, const Vector3D &v) {
 		os << "(" << v.X << ", " << v.Y << ", " << v.Z << ")";
         return os;
