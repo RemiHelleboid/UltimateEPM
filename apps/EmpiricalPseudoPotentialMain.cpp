@@ -44,6 +44,7 @@ int compute_path_mat(const EmpiricalPseudopotential::Material& material,
                      unsigned int                              nb_points,
                      unsigned int                              nb_bands,
                      unsigned int                              nearestNeighbors,
+                     bool                                      enable_non_local_corretion,
                      const std::string&                        result_dir,
                      bool                                      call_python_plot) {
     Options my_options;
@@ -51,7 +52,8 @@ int compute_path_mat(const EmpiricalPseudopotential::Material& material,
     my_options.nrPoints         = nb_points;
     my_options.nrLevels         = nb_bands;
     EmpiricalPseudopotential::BandStructure my_bandstructure;
-    my_bandstructure.Initialize(material, my_options.nrLevels, path, my_options.nrPoints, my_options.nearestNeighbors);
+    my_bandstructure
+        .Initialize(material, my_options.nrLevels, path, my_options.nrPoints, my_options.nearestNeighbors, enable_non_local_corretion);
     my_bandstructure.Compute();
     my_bandstructure.AdjustValues();
     const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() + ".txt";
@@ -71,6 +73,7 @@ int compute_all_mat(EmpiricalPseudopotential::Materials list_materials,
                     int                                 nb_bands,
                     int                                 nearestNeighbors,
                     int                                 nrPoints,
+                    bool                                enable_non_local_correction,
                     int                                 nb_threads,
                     const std::string&                  result_dir,
                     bool                                call_python_plot) {
@@ -88,7 +91,8 @@ int compute_all_mat(EmpiricalPseudopotential::Materials list_materials,
         }
         std::cout << std::endl;
         EmpiricalPseudopotential::BandStructure my_bandstructure;
-        my_bandstructure.Initialize(mat, my_options.nrLevels, path, my_options.nrPoints, my_options.nearestNeighbors);
+        my_bandstructure
+            .Initialize(mat, my_options.nrLevels, path, my_options.nrPoints, my_options.nearestNeighbors, enable_non_local_correction);
 
         auto res = my_bandstructure.Compute_parralel(my_options.nrThreads);
         my_bandstructure.AdjustValues();
@@ -109,6 +113,7 @@ int compute_all_path_all_mat(EmpiricalPseudopotential::Materials list_materials,
                              int                                 nb_bands,
                              int                                 nearestNeighbors,
                              int                                 nrPoints,
+                             bool                                enable_non_local_correction,
                              int                                 nb_threads,
                              const std::string&                  result_dir,
                              bool                                call_python_plot) {
@@ -132,7 +137,8 @@ int compute_all_path_all_mat(EmpiricalPseudopotential::Materials list_materials,
                                         my_options.nrLevels,
                                         my_options.paths[path_index],
                                         my_options.nrPoints,
-                                        my_options.nearestNeighbors);
+                                        my_options.nearestNeighbors,
+                                        enable_non_local_correction);
 
             auto res = my_bandstructure.Compute_parralel(my_options.nrThreads);
             my_bandstructure.AdjustValues();
@@ -168,7 +174,8 @@ int main(int argc, char* argv[]) {
                                                "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<std::string> arg_res_dir("r", "resultdir", "directory to store the results.", false, "EPP_RESULTS", "str");
-    TCLAP::SwitchArg             all_path_mat("A", "all", "Compute the band structure on all the paths for all the materials", false);
+    TCLAP::SwitchArg arg_enable_nonlocal_correction("C", "nonlocal-correction", "Enable the non-local-correction for the EPM model", false);
+    TCLAP::SwitchArg all_path_mat("A", "all", "Compute the band structure on all the paths for all the materials", false);
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     cmd.add(arg_path_sym_points);
     cmd.add(arg_material);
@@ -177,6 +184,7 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_nearest_neighbors);
     cmd.add(arg_nb_threads);
     cmd.add(arg_res_dir);
+    cmd.add(arg_enable_nonlocal_correction);
     cmd.add(all_path_mat);
     cmd.add(plot_with_python);
 
@@ -209,7 +217,8 @@ int main(int argc, char* argv[]) {
                     arg_res_dir.getValue());
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    bool call_python_plot = plot_with_python.isSet();
+    bool call_python_plot           = plot_with_python.isSet();
+    bool enable_nonlocal_correction = arg_enable_nonlocal_correction.isSet();
 
     if (all_path_mat.getValue()) {
         std::cout << "Compute the band structure on all the paths for all the materials" << std::endl;
@@ -217,6 +226,7 @@ int main(int argc, char* argv[]) {
                                         arg_nb_bands.getValue(),
                                         arg_nearest_neighbors.getValue(),
                                         arg_nb_points.getValue(),
+                                        enable_nonlocal_correction,
                                         arg_nb_threads.getValue(),
                                         arg_res_dir.getValue(),
                                         call_python_plot);
@@ -228,6 +238,7 @@ int main(int argc, char* argv[]) {
                          arg_nb_points.getValue(),
                          arg_nb_bands.getValue(),
                          arg_nearest_neighbors.getValue(),
+                         enable_nonlocal_correction,
                          arg_res_dir.getValue(),
                          call_python_plot);
     } else if (!arg_material.isSet() && arg_path_sym_points.isSet()) {
@@ -237,6 +248,7 @@ int main(int argc, char* argv[]) {
                         arg_nb_bands.getValue(),
                         arg_nearest_neighbors.getValue(),
                         arg_nb_points.getValue(),
+                        enable_nonlocal_correction,
                         arg_nb_threads.getValue(),
                         arg_res_dir.getValue(),
                         call_python_plot);

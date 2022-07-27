@@ -133,7 +133,6 @@ std::complex<double> Material::compute_pseudopotential_non_local_correction(cons
     const double     Gtau      = const_two * M_PI * tau * G_diff;
     
     return std::complex<double>(cos(Gtau) * V_symetric, sin(Gtau) * V_antisymetric);
-
 }
 
 void Materials::print_materials_list() const {

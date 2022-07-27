@@ -22,12 +22,14 @@ class BandStructure {
      * @param path
      * @param nrPoints
      * @param nearestNeighborsNumber
+     * @param enable_non_local_correction
      */
     void Initialize(const Material&                 material,
                     std::size_t                     nb_bands,
                     const std::vector<std::string>& path,
                     unsigned int                    nrPoints,
-                    unsigned int                    nearestNeighborsNumber);
+                    unsigned int                    nearestNeighborsNumber,
+                    bool                            enable_non_local_correction);
 
     /**
      * @brief Initialize the band structure with the given material and the k-points on which we want
@@ -37,11 +39,13 @@ class BandStructure {
      * @param nb_bands
      * @param list_k_points
      * @param nearestNeighborsNumber
+     * @param enable_non_local_correction
      */
     void Initialize(const Material&               material,
                     std::size_t                   nb_bands,
                     std::vector<Vector3D<double>> list_k_points,
-                    unsigned int                  nearestNeighborsNumber);
+                    unsigned int                  nearestNeighborsNumber,
+                    bool                          enable_non_local_correction);
 
     const std::vector<std::string>&  GetPath() const { return m_path; }
     unsigned int                     GetPointsNumber() const { return static_cast<unsigned int>(m_kpoints.size()); }
@@ -69,6 +73,7 @@ class BandStructure {
     Material     m_material;
     unsigned int m_nb_bands;
     unsigned int m_nearestNeighborsNumber;
+    bool         m_enable_non_local_correction;
 
     std::vector<Vector3D<int>>       basisVectors;
     std::vector<Vector3D<double>>    m_kpoints;

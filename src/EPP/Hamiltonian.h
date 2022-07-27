@@ -11,7 +11,7 @@ class Hamiltonian {
  public:
     Hamiltonian(const Material& material, const std::vector<Vector3D<int>>& basisVectors);
 
-    void SetMatrix(const Vector3D<double>& k);
+    void SetMatrix(const Vector3D<double>& k, bool add_non_local_correction = false);
     void Diagonalize();
 
     const Eigen::VectorXd& eigenvalues() const { return solver.eigenvalues(); }

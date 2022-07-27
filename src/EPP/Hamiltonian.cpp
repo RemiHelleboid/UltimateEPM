@@ -12,12 +12,17 @@ Hamiltonian::Hamiltonian(const Material& material, const std::vector<Vector3D<in
     matrix.resize(basisSize, basisSize);
 }
 
-void Hamiltonian::SetMatrix(const Vector3D<double>& k) {
+void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correction) {
     const unsigned int basisSize = static_cast<unsigned int>(m_basisVectors.size());
+    constexpr double one_eight = 1.0 / 8.0;
+    const Vector3D tau{one_eight, one_eight, one_eight};
     for (unsigned int i = 0; i < basisSize; ++i) {
         for (unsigned int j = 0; j < i; ++j) {
             // only the lower triangular of matrix is set because the diagonalization method only needs that
             matrix(i, j) = m_material.m_pseudopotential.GetValue(m_basisVectors[i] - m_basisVectors[j]);
+            if (add_non_local_correction) {
+                matrix(i, j) += m_material.compute_pseudopotential_non_local_correction(k + m_basisVectors[i], k + m_basisVectors[j], tau);
+            }
         }
     }
     for (unsigned int i = 0; i < basisSize; ++i) {
@@ -26,6 +31,9 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k) {
         const Vector3D<double> KG        = M_PI / m_material.m_lattice_constant * (k + m_basisVectors[i]);
         constexpr double       const_two = 2.0;
         matrix(i, i) = std::complex<double>(const_two * KG * KG);  // 2* comes from the above optimization, instead of a /2
+        if (add_non_local_correction) {
+            matrix(i, i) += m_material.compute_pseudopotential_non_local_correction(k + m_basisVectors[i], k + m_basisVectors[i], tau);
+        }
     }
 }
 

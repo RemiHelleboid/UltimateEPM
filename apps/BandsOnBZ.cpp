@@ -30,19 +30,22 @@ int main(int argc, char* argv[]) {
                                                false,
                                                10,
                                                "int");
-    TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
+    TCLAP::SwitchArg arg_enable_nonlocal_correction("C", "nonlocal-correction", "Enable the non-local-correction for the EPM model", false);
+    TCLAP::ValueArg<int> arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
     cmd.add(arg_nb_bands);
     cmd.add(arg_outfile);
     cmd.add(arg_nearest_neighbors);
     cmd.add(arg_nb_threads);
+    cmd.add(arg_enable_nonlocal_correction);
 
     cmd.parse(argc, argv);
 
     EmpiricalPseudopotential::Materials materials;
     const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
     materials.load_material_parameters(file_material_parameters);
+    bool enable_nonlocal_correction = arg_enable_nonlocal_correction.isSet();
 
     Options my_options;
     my_options.materialName     = arg_material.getValue();
@@ -55,12 +58,12 @@ int main(int argc, char* argv[]) {
 
     // bz_mesh my_mesh("mesh.msh");
     const std::string mesh_filename = arg_mesh_file.getValue();
-    bz_mesh_points           my_mesh(mesh_filename);
+    bz_mesh_points    my_mesh(mesh_filename);
     my_mesh.read_mesh();
     std::vector<Vector3D<double>>& mesh_kpoints = my_mesh.get_kpoints();
 
     EmpiricalPseudopotential::BandStructure my_bandstructure;
-    my_bandstructure.Initialize(mat, my_options.nrLevels, mesh_kpoints, my_options.nearestNeighbors);
+    my_bandstructure.Initialize(mat, my_options.nrLevels, mesh_kpoints, my_options.nearestNeighbors, enable_nonlocal_correction);
 
     if (my_options.nrThreads > 1) {
         my_bandstructure.Compute_parralel(my_options.nrThreads);
@@ -69,9 +72,8 @@ int main(int argc, char* argv[]) {
     }
     my_bandstructure.AdjustValues();
 
-
     std::filesystem::path in_path(mesh_filename);
-    std::string out_file_bands = in_path.stem().replace_extension("").string() + "_" + my_bandstructure.path_band_filename();
+    std::string           out_file_bands = in_path.stem().replace_extension("").string() + "_" + my_bandstructure.path_band_filename();
 
     if (arg_outfile.isSet()) {
         out_file_bands = arg_outfile.getValue();
