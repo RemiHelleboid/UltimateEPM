@@ -102,9 +102,9 @@ To compute the electronic band structure over a mesh of the Brillouin zone, the 
 * `-o output_file` can be used to set the name of the __output file__.
 
 ___MPI___  
-This program has an __MPI version__, for the same arguments as previously, the command is: 
-`mpirun -np 8 ./apps/mpiBandsOnBZ -f bz_mesh.msh -m Si -b 12 -n 10 -o output_file` 
-The parallelization is performed over the k-points of the BZ mesh.
+This program has an __MPI version__, for the same arguments as previously, the command is:  
+`mpirun -np 8 ./apps/mpiBandsOnBZ -f bz_mesh.msh -m Si -b 12 -n 10 -o output_file`  
+* The parallelization is performed over the k-points of the BZ mesh.
 
 
 ___Output___ 
