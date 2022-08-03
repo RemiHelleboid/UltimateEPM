@@ -111,10 +111,10 @@ int main(int argc, char* argv[]) {
 
     std::vector<vector_k> all_k_vectors;
     long int              number_k_vectors = 0;
+    // bz_mesh my_mesh("mesh.msh");
+    const std::string mesh_filename = arg_mesh_file.getValue();
+    bz_mesh_points    my_mesh(mesh_filename);
     if (process_rank == MASTER) {
-        // bz_mesh my_mesh("mesh.msh");
-        const std::string mesh_filename = arg_mesh_file.getValue();
-        bz_mesh_points    my_mesh(mesh_filename);
         my_mesh.read_mesh();
         std::vector<Vector3D<double>>& mesh_k_points = my_mesh.get_kpoints();
         number_k_vectors                             = mesh_k_points.size();
@@ -185,7 +185,7 @@ int main(int argc, char* argv[]) {
     std::vector<double> chunk_list_energies(counts_element_per_process[process_rank] * my_options.nrLevels);
     for (int i = 0; i < counts_element_per_process[process_rank]; ++i) {
         for (int j = 0; j < number_bands; ++j) {
-            chunk_list_energies[i * number_bands+ j] = my_bandstructure.get_energy_at_k_band(j, i);
+            chunk_list_energies[i * number_bands + j] = my_bandstructure.get_energy_at_k_band(j, i);
         }
     }
 
@@ -213,18 +213,22 @@ int main(int argc, char* argv[]) {
                 MPI_COMM_WORLD);
 
     if (process_rank == MASTER) {
-        std::ofstream outfile;
-        outfile.open("TEST_MPI_2.txt");
+        std::ofstream output_file;
+        output_file.open("TEST_MPI_EXPORT.txt");
         for (int i = 0; i < number_k_vectors; ++i) {
             for (int j = 0; j < number_bands; ++j) {
-                outfile << all_energies_all_bands[i * number_bands + j] << " ";
+                output_file << all_energies_all_bands[i * number_bands + j] << " ";
             }
-            outfile << std::endl;
+            output_file << std::endl;
         }
-        outfile.close();
-    
-    }   
+        output_file.close();
+    }
 
+    if (process_rank == MASTER) {
+        std::filesystem::path in_path(mesh_filename);
+        std::string           out_file_bands = in_path.stem().replace_extension("").string() + "_MPI_" + my_bandstructure.path_band_filename();
+        my_mesh.add_all_bands_on_mesh(out_file_bands + "_all_bands.msh", all_energies_all_bands, number_bands);
+    }
 
     MPI_Finalize();
 }

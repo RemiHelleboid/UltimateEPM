@@ -55,7 +55,7 @@ class BandStructure {
 
     void        print_results() const;
     std::string path_band_filename() const;
-    void        export_kpoints_to_file(std::string filename) const;
+    void        export_k_points_to_file(std::string filename) const;
     void        export_result_in_file(const std::string& filename) const;
     void        export_result_in_file_with_kpoints(const std::string& filename) const;
 

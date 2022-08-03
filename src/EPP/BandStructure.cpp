@@ -102,7 +102,7 @@ std::vector<std::vector<double>> BandStructure::Compute() {
 
     Hamiltonian hamiltonian(m_material, basisVectors);
     for (unsigned int i = 0; i < m_nb_points; ++i) {
-        std::cout << "\rComputing band structure at point " << i + 1 << "/" << m_nb_points << std::flush;
+        // std::cout << "\rComputing band structure at point " << i + 1 << "/" << m_nb_points << std::flush;
         // std::cout << "Computing band structure at point " << m_kpoints[i] << std::endl;
         hamiltonian.SetMatrix(m_kpoints[i], m_enable_non_local_correction);
         hamiltonian.Diagonalize();
@@ -227,7 +227,7 @@ void BandStructure::print_results() const {
     }
 }
 
-void BandStructure::export_kpoints_to_file(std::string filename) const {
+void BandStructure::export_k_points_to_file(std::string filename) const {
     std::ofstream file(filename);
     for (auto& p : m_kpoints) {
         file << p.Y << " " << p.X << " " << p.Z << std::endl;

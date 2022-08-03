@@ -37,4 +37,5 @@ class bz_mesh_points {
 
     void add_band_on_mesh(const std::string& band_name, const std::vector<double>& band_values);
     void add_all_bands_on_mesh(const std::string& out_filename, const EmpiricalPseudopotential::BandStructure &my_band);
+    void add_all_bands_on_mesh(const std::string& out_filename, const std::vector<double>& band_values, int number_bands);
 };
