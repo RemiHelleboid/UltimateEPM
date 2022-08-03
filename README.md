@@ -101,7 +101,7 @@ To compute the electronic band structure over a mesh of the Brillouin zone, the 
 * The `-j 8` option requires the computation to be run with __parallelization on 8 CPUs.__ (OpenMP)
 * `-o output_file` can be used to set the name of the __output file__.
 
-__MPI__
+___MPI___  
 This program has an __MPI version__, for the same arguments as previously, the command is: 
 `mpirun -np 8 ./apps/mpiBandsOnBZ -f bz_mesh.msh -m Si -b 12 -n 10 -o output_file` 
 The parallelization is performed over the k-points of the BZ mesh.
