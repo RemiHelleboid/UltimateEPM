@@ -138,7 +138,11 @@ _Band structure computation of Silicon for 16 bands, on a full BZ mesh of around
 For band structure code, the parallelization is done over the k-points.
 Computation for every k-points is completely independent from the others, which leads to a very good scaling, as the above image shows. MPI enables to reach higher number of cores, so that the total computation time falls under one minute.
 
+### Density of states computation
 
+Coming soon.
+
+---
 
 ## Available Material
 
