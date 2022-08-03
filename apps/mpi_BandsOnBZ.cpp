@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
     // END Creating a new MPI type for the struct k_vector.
 
     std::vector<vector_k> all_k_vectors;
-    long int              number_k_vectors = 0;
+    long                  number_k_vectors = 0;
     // bz_mesh my_mesh("mesh.msh");
     const std::string mesh_filename = arg_mesh_file.getValue();
     bz_mesh_points    my_mesh(mesh_filename);
@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
             all_k_vectors[i].set_k(mesh_k_points[i].X, mesh_k_points[i].Y, mesh_k_points[i].Z);
         }
     }
-    MPI_Bcast(&number_k_vectors, 1, MPI::LONG, MASTER, MPI_COMM_WORLD);
+    MPI_Bcast(&number_k_vectors, 1, MPI_LONG, MASTER, MPI_COMM_WORLD);
     int number_bands = my_options.nrLevels;
 
     // Scatter the k_vectors to all processes.
@@ -176,7 +176,6 @@ int main(int argc, char* argv[]) {
     my_bandstructure.Compute();
     my_bandstructure.AdjustValues();
 
-
     std::vector<double> chunk_list_energies(counts_element_per_process[process_rank] * my_options.nrLevels);
     for (int i = 0; i < counts_element_per_process[process_rank]; ++i) {
         for (int j = 0; j < number_bands; ++j) {
@@ -221,7 +220,7 @@ int main(int argc, char* argv[]) {
 
     if (process_rank == MASTER) {
         std::filesystem::path in_path(mesh_filename);
-        std::string           out_file_bands = in_path.stem().replace_extension("").string() + "_MPI_" + my_bandstructure.path_band_filename();
+        std::string out_file_bands = in_path.stem().replace_extension("").string() + "_MPI_" + my_bandstructure.path_band_filename();
         my_mesh.add_all_bands_on_mesh(out_file_bands + "_all_bands.msh", all_energies_all_bands, number_bands);
     }
 
