@@ -61,6 +61,10 @@ class BandStructure {
 
     unsigned int        get_number_of_bands() const { return m_nb_bands; }
     std::vector<double> get_band(unsigned int band_index) const;
+    double              get_energy_at_k_band(unsigned int band_index, unsigned int index_k) const { return m_results[index_k][band_index]; }
+
+    std::vector<Vector3D<double>>    get_kpoints() const { return m_kpoints; }
+    std::vector<std::vector<double>> get_band_energies() const { return m_results; }
 
  private:
     Materials materials;

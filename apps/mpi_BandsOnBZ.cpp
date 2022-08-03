@@ -44,7 +44,8 @@ typedef struct vector_k {
         m_ky = ky;
         m_kz = kz;
     }
-    double norm() const { return std::sqrt(m_kx * m_kx + m_ky * m_ky + m_kz * m_kz); }
+    double           norm() const { return std::sqrt(m_kx * m_kx + m_ky * m_ky + m_kz * m_kz); }
+    Vector3D<double> to_Vector3D() const { return Vector3D<double>(m_kx, m_ky, m_kz); }
 } vector_k;
 
 int main(int argc, char* argv[]) {
@@ -109,20 +110,21 @@ int main(int argc, char* argv[]) {
     // END Creating a new MPI type for the struct k_vector.
 
     std::vector<vector_k> all_k_vectors;
-    long int number_k_vectors = 0;
+    long int              number_k_vectors = 0;
     if (process_rank == MASTER) {
         // bz_mesh my_mesh("mesh.msh");
         const std::string mesh_filename = arg_mesh_file.getValue();
         bz_mesh_points    my_mesh(mesh_filename);
         my_mesh.read_mesh();
         std::vector<Vector3D<double>>& mesh_k_points = my_mesh.get_kpoints();
-        number_k_vectors = mesh_k_points.size();
+        number_k_vectors                             = mesh_k_points.size();
         all_k_vectors.resize(mesh_k_points.size());
         for (size_t i = 0; i < mesh_k_points.size(); i++) {
             all_k_vectors[i].set_k(mesh_k_points[i].X, mesh_k_points[i].Y, mesh_k_points[i].Z);
         }
     }
-    MPI_Bcast(&number_k_vectors, 1, MPI_LONG_INT, MASTER, MPI_COMM_WORLD);
+    MPI_Bcast(&number_k_vectors, 1, MPI::LONG, MASTER, MPI_COMM_WORLD);
+    int number_bands = my_options.nrLevels;
 
     // Scatter the k_vectors to all processes.
 
@@ -156,11 +158,72 @@ int main(int argc, char* argv[]) {
                  MPI_COMM_WORLD);
 
     // Compute the norm of each element.
-    std::vector<double> chunk_list_norm_k;
-    chunk_list_norm_k.resize(counts_element_per_process[process_rank]);
+    // std::vector<double> chunk_list_norm_k;
+    // chunk_list_norm_k.resize(counts_element_per_process[process_rank]);
+    // for (int i = 0; i < counts_element_per_process[process_rank]; ++i) {
+    //     chunk_list_norm_k[i] = chunk_vector_of_k[i].norm();
+    // }
+
+    std::vector<Vector3D<double>> Chunk_list_k_points;
+    Chunk_list_k_points.resize(counts_element_per_process[process_rank]);
     for (int i = 0; i < counts_element_per_process[process_rank]; ++i) {
-        chunk_list_norm_k[i] = chunk_vector_of_k[i].norm();
+        Chunk_list_k_points[i] = chunk_vector_of_k[i].to_Vector3D();
     }
+
+    bool                                    enable_nonlocal_correction = false;
+    EmpiricalPseudopotential::BandStructure my_bandstructure;
+    my_bandstructure.Initialize(mat, my_options.nrLevels, Chunk_list_k_points, my_options.nearestNeighbors, enable_nonlocal_correction);
+    my_bandstructure.Compute();
+
+    std::cout << "Process " << process_rank << " handled " << counts_element_per_process[process_rank] << " elements" << std::endl;
+
+    my_bandstructure.AdjustValues();
+
+    std::cout << "Process " << process_rank << "  "
+              << "ADJUSTED VALUES" << std::endl;
+
+    std::vector<double> chunk_list_energies(counts_element_per_process[process_rank] * my_options.nrLevels);
+    for (int i = 0; i < counts_element_per_process[process_rank]; ++i) {
+        for (int j = 0; j < number_bands; ++j) {
+            chunk_list_energies[i * number_bands+ j] = my_bandstructure.get_energy_at_k_band(j, i);
+        }
+    }
+
+    std::vector<int> gather_counts_element_per_process(number_processes);
+    std::vector<int> gather_displacements_element_per_process(number_processes);
+    for (int i = 0; i < number_processes; i++) {
+        gather_counts_element_per_process[i]        = counts_element_per_process[i] * number_bands;
+        gather_displacements_element_per_process[i] = displacements_element_per_process[i] * number_bands;
+    }
+
+    // Gather the results
+    std::vector<double> all_energies_all_bands;
+    if (process_rank == MASTER) {
+        all_energies_all_bands.resize(number_k_vectors * number_bands);
+    }
+
+    MPI_Gatherv(chunk_list_energies.data(),
+                counts_element_per_process[process_rank] * number_bands,
+                MPI_DOUBLE,
+                all_energies_all_bands.data(),
+                gather_counts_element_per_process.data(),
+                gather_displacements_element_per_process.data(),
+                MPI_DOUBLE,
+                MASTER,
+                MPI_COMM_WORLD);
+
+    if (process_rank == MASTER) {
+        std::ofstream outfile;
+        outfile.open("TEST_MPI_2.txt");
+        for (int i = 0; i < number_k_vectors; ++i) {
+            for (int j = 0; j < number_bands; ++j) {
+                outfile << all_energies_all_bands[i * number_bands + j] << " ";
+            }
+            outfile << std::endl;
+        }
+        outfile.close();
+    
+    }   
 
 
     MPI_Finalize();
