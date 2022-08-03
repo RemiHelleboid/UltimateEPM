@@ -13,7 +13,8 @@ add_compile_definitions(CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 # -----------------------------------------------------------------------------
 # Set the project options.
 
-option(ENABLE_OPEN_MP "Build test programs" ON)
+option(ENABLE_OPEN_MP "Build programs with suppot of OpenMP." ON)
+option(ENABLE_MPI_BUILD "Build some programs with MPI parralelization." ON)
 option(ENABLE_CLANG_TIDY "Enable clang tidy at compilation" OFF)
 option(ENABLE_BUILD_DOC "Enable the documentation build (doxygen)" OFF)
 
@@ -119,25 +120,6 @@ if(NOT yaml-cpp_FOUND)
   FetchContent_MakeAvailable(yaml-cpp)
 endif()
 
-# # find python libraries
-# find_package(
-#   Python3
-#   COMPONENTS Interpreter Development NumPy
-#   REQUIRED)
-# find_package(PythonLibs 3.0 REQUIRED)
-# include_directories(${PYTHON3_INCLUDE_DIRS} ${NumPy_INCLUDE_DIRS})
-
-# # populate matplotlib repository
-# include(FetchContent)
-# FetchContent_Declare(
-#   matplotlib
-#   GIT_REPOSITORY https://github.com/lava/matplotlib-cpp.git
-#   GIT_TAG f23347fca25219d1c42cbb91608b5556814bf572)
-# FetchContent_GetProperties(matplotlib)
-# if(NOT matplotlib_POPULATED)
-#   FetchContent_Populate(matplotlib)
-# endif()
-# include_directories(SYSTEM ${matplotlib_SOURCE_DIR})
 
 # check if Doxygen is installed
 find_package(Doxygen)
@@ -165,6 +147,24 @@ else(DOXYGEN_FOUND)
   message("Doxygen need to be installed to generate the doxygen documentation")
 endif()
 
+
+## MPI SUPPORT
+
+if (ENABLE_MPI_BUILD)
+  message("MPI support activated.")
+  find_package(MPI)
+  if(MPI_FOUND)
+    set(USE_MPI_ACCELERATION 1)
+    add_compile_definitions(USE_MPI=1)
+    add_definitions(-DOMPI_SKIP_MPICXX)
+    include_directories(SYSTEM ${MPI_INCLUDE_PATH})
+    message("MPI ACCELERATION ENABLED.")
+  endif()
+else()
+  set(USE_MPI_ACCELERATION 0)
+  add_compile_definitions(USE_MPI=0)
+  message("MPI support deactivated. Not found.")
+endif(ENABLE_MPI_BUILD)
 # tclap library for argument parsing
 include_directories(${PROJECT_SOURCE_DIR}/external/tclap/include)
 

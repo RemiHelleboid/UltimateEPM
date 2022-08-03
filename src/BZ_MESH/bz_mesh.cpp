@@ -9,6 +9,7 @@
  *
  */
 
+
 #include "bz_mesh.hpp"
 
 #include <algorithm>
@@ -19,7 +20,6 @@
 #include "gmsh.h"
 #include "omp.h"
 
-
 #pragma omp declare reduction(merge : std::vector <double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
 namespace bz_mesh {
@@ -27,7 +27,7 @@ namespace bz_mesh {
 /**
  * @brief Read the geometry of the mesh from the .msh file: the vertices and the elements are added to
  * the m_list_vertices and m_list_elements lists.
- * All the points coordinates are renormalized by the lattice constant passed as argument.
+ * All the points coordinates are re-normalized by the lattice constant passed as argument.
  *
  * @param filename
  * @param lattice_constant
