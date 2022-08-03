@@ -119,6 +119,19 @@ The command to compute the Density of State is:
 * `-o output_file` can be used to set the name of the __output file.__
 
 ---
+
+## Performances
+
+This section reports some performances of the code. We show comparison between parallelization with OpenMP and MPI. The numbers are shown only as a rough estimation, and one should not rely to much on the accuracy here.
+### Band structure computation
+<img src="doc/BandsOnBZ_Computation_Time.png" width="500">  
+
+Band structure computation of Silicon for 16 bands, on a full BZ mesh of around 300K points with local EPM.
+For band structure code, the parallelization is done over the k-points.
+Computation for every k-points is completely independent from the others, which leads to a very good scaling, as the above image shows. MPI enables to reach higher number of cores, so that the total computation time falls under one minute.
+
+
+
 ## Available Material
 
 ## Brillouin Zone Meshing

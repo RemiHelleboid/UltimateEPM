@@ -147,9 +147,9 @@ std::vector<std::vector<double>> BandStructure::Compute_parralel(int nb_threads)
         for (unsigned int level = 0; level < m_nb_bands && level < eigenvals.rows(); ++level) {
             m_results[index_k][level] = eigenvals(level);
         }
-        if (tid == 0) {
-            std::cout << "\rComputing band structure at point " << index_k + 1 << "/" << m_nb_points << std::flush;
-        }
+        // if (tid == 0) {
+        //     std::cout << "\rComputing band structure at point " << index_k + 1 << "/" << m_nb_points << std::flush;
+        // }
     }
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();

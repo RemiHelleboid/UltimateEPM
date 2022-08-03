@@ -58,6 +58,7 @@ int main(int argc, char* argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &number_processes);
     MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
 
+
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshfile", "Name to print", true, "bz.msh", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
@@ -111,7 +112,6 @@ int main(int argc, char* argv[]) {
 
     std::vector<vector_k> all_k_vectors;
     long                  number_k_vectors = 0;
-    // bz_mesh my_mesh("mesh.msh");
     const std::string mesh_filename = arg_mesh_file.getValue();
     bz_mesh_points    my_mesh(mesh_filename);
     if (process_rank == MASTER) {
@@ -127,6 +127,7 @@ int main(int argc, char* argv[]) {
     int number_bands = my_options.nrLevels;
 
     // Scatter the k_vectors to all processes.
+    double t_start = MPI_Wtime();
 
     // Define the number of elements each process will handle.
     int count     = (number_k_vectors / number_processes);
@@ -144,7 +145,7 @@ int main(int argc, char* argv[]) {
     std::vector<vector_k> chunk_vector_of_k;
     chunk_vector_of_k.resize(counts_element_per_process[process_rank]);
 
-    std::cout << "Process " << process_rank << " will handle " << counts_element_per_process[process_rank] << " elements" << std::endl;
+    std::cout << "Process " << process_rank << " will handle " << counts_element_per_process[process_rank] << " k-points" << std::endl;
 
     // Scatter the vector of structs.
     MPI_Scatterv(all_k_vectors.data(),
@@ -206,16 +207,16 @@ int main(int argc, char* argv[]) {
                 MASTER,
                 MPI_COMM_WORLD);
 
+    double t_end = MPI_Wtime();
+
     if (process_rank == MASTER) {
-        std::ofstream output_file;
-        output_file.open("TEST_MPI_EXPORT.txt");
-        for (int i = 0; i < number_k_vectors; ++i) {
-            for (int j = 0; j < number_bands; ++j) {
-                output_file << all_energies_all_bands[i * number_bands + j] << " ";
-            }
-            output_file << std::endl;
-        }
-        output_file.close();
+        double total_time = t_end - t_start;
+        // std::ofstream f_time("mpiBands_times.csv", std::ios::app);
+        // f_time << number_processes << "," << total_time << std::endl;
+        // f_time.close();
+        std::cout << "------------------------------------------------------------\n";
+        std::cout << "TOTAL COMPUTATION TIME : " << total_time << std::endl;
+        std::cout << "------------------------------------------------------------\n";
     }
 
     if (process_rank == MASTER) {
