@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
     my_options.nrLevels         = arg_nb_bands.getValue();
     my_options.nearestNeighbors = arg_nearest_neighbors.getValue();
     my_options.nrThreads        = arg_nb_threads.getValue();
-    my_options.print_options();
+    // my_options.print_options();
 
     EmpiricalPseudopotential::Material mat = materials.materials.at(my_options.materialName);
 
@@ -174,13 +174,8 @@ int main(int argc, char* argv[]) {
     EmpiricalPseudopotential::BandStructure my_bandstructure;
     my_bandstructure.Initialize(mat, my_options.nrLevels, Chunk_list_k_points, my_options.nearestNeighbors, enable_nonlocal_correction);
     my_bandstructure.Compute();
-
-    std::cout << "Process " << process_rank << " handled " << counts_element_per_process[process_rank] << " elements" << std::endl;
-
     my_bandstructure.AdjustValues();
 
-    std::cout << "Process " << process_rank << "  "
-              << "ADJUSTED VALUES" << std::endl;
 
     std::vector<double> chunk_list_energies(counts_element_per_process[process_rank] * my_options.nrLevels);
     for (int i = 0; i < counts_element_per_process[process_rank]; ++i) {
