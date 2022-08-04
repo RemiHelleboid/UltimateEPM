@@ -132,8 +132,10 @@ int main(int argc, char *argv[]) {
     if (process_rank == MASTER) {
         std::cout << "Number of bands : " << number_bands << std::endl;
         for (std::size_t index_band = 0; index_band < number_bands; index_band++) {
+            double              margin_eV      = 0.01;
             auto                min_max_energy = my_bz_mesh.get_min_max_energy_at_band(index_band);
-            std::vector<double> energies       = linspace<double>(min_max_energy.first, min_max_energy.second, number_energies);
+            std::vector<double> energies =
+                linspace<double>(min_max_energy.first - margin_eV, min_max_energy.second + margin_eV, number_energies);
             std::cout << "Band " << index_band << " : " << min_max_energy.first << " " << min_max_energy.second << std::endl;
             std::vector<int> bands = std::vector<int>(number_energies, index_band);
             list_bands.insert(list_bands.end(), bands.begin(), bands.end());

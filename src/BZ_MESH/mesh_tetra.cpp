@@ -52,6 +52,9 @@ void Tetra::compute_gradient_energy_at_bands() {
         const double                eps_13               = (e_0 - energies_at_vertices[indices_sort[2]]);
         const double                eps_14               = (e_0 - energies_at_vertices[indices_sort[3]]);
         const double                gradient_energy      = sqrt((eps_12 * eps_12 + eps_13 * eps_13 + eps_14 * eps_14));
+        if (gradient_energy == 0) {
+            std::cout << "Warning: gradient energy is zero for tetra " << m_index << " at band " << band_index << std::endl;
+        }
         m_gradient_energy_per_band.push_back(gradient_energy);
     }
 }

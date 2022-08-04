@@ -68,6 +68,8 @@ class MeshBZ {
      */
     std::vector<double> m_max_band{};
 
+    double m_total_volume = 0.0;
+
  public:
     MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material){};
 

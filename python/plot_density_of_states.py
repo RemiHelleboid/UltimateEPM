@@ -83,10 +83,6 @@ def plot_dos_sum_bands(filename, ax_plot=None, band_type="all"):
 
 
 
-
-
-
-
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-f", "--file", dest="path_file",

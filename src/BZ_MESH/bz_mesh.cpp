@@ -89,6 +89,7 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
     }
 
     gmsh::finalize();
+    m_total_volume = compute_mesh_volume();
 }
 
 /**
@@ -183,7 +184,7 @@ double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index)
     for (auto&& tetra : m_list_tetrahedra) {
         total_dos += tetra.compute_tetra_dos_energy_band(iso_energy, band_index);
     }
-    total_dos /= this->compute_mesh_volume();
+    total_dos /= this->m_total_volume;
     return total_dos;
 }
 
