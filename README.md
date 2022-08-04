@@ -116,14 +116,20 @@ ___Output___
 ---
 ### __Density of States Computation__
 The command to compute the Density of State is:  
-` ./apps/DOS_MeshBZ -f bz_mesh_1_fine_EEP_Si_nb_bands_12_path__size_basis_137_all_bands.msh -m Si -b 12 -e 500  -j 8 `
+` ./apps/DOS_MeshBZ -f bz_mesh_1_fine_EEP_Si_nb_bands_12_path__size_basis_137_all_bands.msh -m Si -b 12 -e 500  -j 8 -P`
 `
 * The `-f input_mesh_with_bands.msh` the __mesh file with the energy bands computed__, resulting from the computation with `BandsOnBZ` program.
 * The `-m Si` sets the __material__ on which the band structure is computed to Germanium.
 * The `-b 12` the number of bands to consider, here: __16 bands.__
 * The `-e 500` option sets the __number of energies with whom the energy range of each band is discretized.__ 
 * The `-j 8` option requires the computation to be run with __parallelization on 8 CPUs.__
+* * The -P option will trigger a call to a __python script that will plot__ the density of states after it has been computed.
 * `-o output_file` can be used to set the name of the __output file.__
+
+___MPI___  
+This program has an __MPI version__, for the same arguments as previously, the command is:  
+`mpirun -np 8 ./apps/mpiDOS_MeshBZ -f bz_mesh_1_fine_EEP_Si_nb_bands_12_path__size_basis_137_all_bands.msh -m Si -b 12 -e 500 -P`   
+* The parallelization is performed over the bands and the energies.
 
 ---
 
