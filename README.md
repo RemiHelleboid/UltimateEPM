@@ -1,8 +1,10 @@
 # BzMeshBandsDos 
 Band structure and DOS computation using empirical pseudopotentials on the full Brillouin-Zone.
 
-[![Build & Unit Test](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml/badge.svg)](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml)
-[![Codacy Code Quality](https://app.codacy.com/project/badge/Grade/bdf5fb66f01347e096f807d113cc2985)](https://www.codacy.com/gh/RemiHelleboid/BzMeshBandsDos/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=RemiHelleboid/BzMeshBandsDos&amp;utm_campaign=Badge_Grade)
+[![Build & Unit Test](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml/badge.svg)](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml)  
+[![Codacy Code Quality](https://app.codacy.com/project/badge/Grade/bdf5fb66f01347e096f807d113cc2985)](https://www.codacy.com/gh/RemiHelleboid/BzMeshBandsDos/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=RemiHelleboid/BzMeshBandsDos&amp;utm_campaign=Badge_Grade)  
+[![CodeQL](https://github.com/RemiHelleboid/BzMeshBandsDos/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/RemiHelleboid/BzMeshBandsDos/actions/workflows/codeql-analysis.yml)  
+
 ---
 
 This repository was initially a fork from : [EmpiricalPseudopotential](https://github.com/aromanro/EmpiricalPseudopotential) of [Adrian Roman](https://compphys.go.ro/empirical-pseudopotential/).
@@ -96,11 +98,18 @@ To compute the electronic band structure over a mesh of the Brillouin zone, the 
 `
 * The `-m Si` sets the __material__ on which the band structure is computed to Silicon.
 * The `-b 12` option means to compute and export __16 bands__. 
-* The `-j 8` option requires the computation to be run with __parallelization on 8 CPUs.__
+* The `-j 8` option requires the computation to be run with __parallelization on 8 CPUs.__ (OpenMP)
 * `-o output_file` can be used to set the name of the __output file__.
+
+___MPI___  
+This program has an __MPI version__, for the same arguments as previously, the command is:  
+`mpirun -np 8 ./apps/mpiBandsOnBZ -f bz_mesh.msh -m Si -b 12 -n 10 -o output_file`  
+* The parallelization is performed over the k-points of the BZ mesh.
+
 
 ___Output___ 
 * The result of the computation, i.e. the energy of each band at each vertex of the input mesh, is stored as follows: for each band the energies are store as a gmsh "view" which is the name for the physical data (scalar, vector field, tensor, ...) in the mesh. 
+
   
 <img src="doc/gmsh_band_views.png" width="500">
 
@@ -117,6 +126,24 @@ The command to compute the Density of State is:
 * `-o output_file` can be used to set the name of the __output file.__
 
 ---
+
+## Performances
+
+This section reports some performances of the code. We show comparison between parallelization with OpenMP and MPI. The numbers are shown only as a rough estimation, and one should not rely to much on the accuracy here.
+### Band structure computation
+<img src="doc/BandsOnBZ_Computation_Time.png" width="500">  
+
+_Band structure computation of Silicon for 16 bands, on a full BZ mesh of around 300K points with local EPM._
+
+For band structure code, the parallelization is done over the k-points.
+Computation for every k-points is completely independent from the others, which leads to a very good scaling, as the above image shows. MPI enables to reach higher number of cores, so that the total computation time falls under one minute.
+
+### Density of states computation
+
+Coming soon.
+
+---
+
 ## Available Material
 
 ## Brillouin Zone Meshing

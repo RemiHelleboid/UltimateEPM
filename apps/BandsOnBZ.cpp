@@ -12,6 +12,8 @@
 #include <tclap/CmdLine.h>
 
 #include <filesystem>
+#include <fstream>
+#include <iostream>
 
 #include "BandStructure.h"
 #include "Material.h"
@@ -62,6 +64,9 @@ int main(int argc, char* argv[]) {
     my_mesh.read_mesh();
     std::vector<Vector3D<double>>& mesh_kpoints = my_mesh.get_kpoints();
 
+    
+    auto start              = std::chrono::high_resolution_clock::now();
+
     EmpiricalPseudopotential::BandStructure my_bandstructure;
     my_bandstructure.Initialize(mat, my_options.nrLevels, mesh_kpoints, my_options.nearestNeighbors, enable_nonlocal_correction);
 
@@ -71,6 +76,15 @@ int main(int argc, char* argv[]) {
         my_bandstructure.Compute();
     }
     my_bandstructure.AdjustValues();
+
+    auto end              = std::chrono::high_resolution_clock::now();
+    auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    
+    // std::ofstream f_time("OpenMP_Bands_times.csv", std::ios::app);
+    // f_time << my_options.nrThreads << "," << total_time_count / double(1000) << std::endl;
+    // f_time.close();
+
+    std::cout << "Total computation time: " << total_time_count / double(1000) << std::endl;
 
     std::filesystem::path in_path(mesh_filename);
     std::string           out_file_bands = in_path.stem().replace_extension("").string() + "_" + my_bandstructure.path_band_filename();

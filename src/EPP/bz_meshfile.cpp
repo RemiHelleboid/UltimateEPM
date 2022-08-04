@@ -67,7 +67,7 @@ void bz_mesh_points::add_band_on_mesh(const std::string& band_name, const std::v
 
 void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, const EmpiricalPseudopotential::BandStructure& my_band) {
     gmsh::initialize();
-    gmsh::option::setNumber("General.Verbosity", 99999999);
+    gmsh::option::setNumber("General.Verbosity", 0);
     gmsh::model::add("bz_mesh");
     gmsh::open(m_filename);
 
@@ -107,7 +107,7 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, cons
         throw std::runtime_error("band_values vector is not the same size as the number of bands times the number of nodes. Abort.");
     }
     gmsh::initialize();
-    gmsh::option::setNumber("General.Verbosity", 99999999);
+    gmsh::option::setNumber("General.Verbosity", 0);
     gmsh::model::add("bz_mesh");
     gmsh::open(m_filename);
 
