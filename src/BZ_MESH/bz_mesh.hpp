@@ -16,7 +16,6 @@
 #include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
 
-
 namespace bz_mesh {
 
 enum class BandType { valence, conduction };
@@ -70,7 +69,7 @@ class MeshBZ {
     std::vector<double> m_max_band{};
 
  public:
-    MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material) {};
+    MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material){};
 
     void read_mesh_geometry_from_msh_file(const std::string& filename);
     void read_mesh_bands_from_msh_file(const std::string& filename);
@@ -81,6 +80,10 @@ class MeshBZ {
     std::size_t get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t get_number_elements() const { return m_list_tetrahedra.size(); }
     std::size_t get_number_bands() const { return m_min_band.size(); }
+
+    std::pair<double, double> get_min_max_energy_at_band(const int& band_index) const {
+        return std::make_pair(m_min_band[band_index], m_max_band[band_index]);
+    }
 
     const std::vector<Vertex>& get_list_vertices() const { return m_list_vertices; }
     const std::vector<Tetra>&  get_list_elements() const { return m_list_tetrahedra; }

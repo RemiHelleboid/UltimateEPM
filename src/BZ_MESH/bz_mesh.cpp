@@ -62,7 +62,6 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
     }
     std::cout << "Number of k-points vertices: " << m_list_vertices.size() << std::endl;
 
-    std::cout << "Reading elements ..." << std::endl;
     // Get the mesh elements for the entity (dim, tag):
     const int                             dim = 3;
     const int                             tag = -1;
@@ -74,9 +73,6 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
         throw std::runtime_error("ElementTags is zero when the mesh was imported... Abort.");
     }
     std::size_t number_elements = elemTags[0].size();
-
-    std::cout << "Number of elements: " << number_elements << std::endl;
-    std::cout << "Number of elements: " << elemNodeTags[0].size() << std::endl;
 
     if (elemNodeTags[0].size() != 4 * number_elements) {
         throw std::runtime_error("Number of elements vertices index is not 4 x NumberOfElements. Abort.");
@@ -91,7 +87,6 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
         Tetra                        new_tetra(index_element, array_element_vertices);
         m_list_tetrahedra.push_back(new_tetra);
     }
-    std::cout << "Number of elements added: " << m_list_tetrahedra.size() << std::endl;
 
     gmsh::finalize();
 }
@@ -104,12 +99,12 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
 void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename) {
     std::cout << "Opening file " << filename << std::endl;
     gmsh::initialize();
-    gmsh::option::setNumber("General.Verbosity", 1);
+    gmsh::option::setNumber("General.Verbosity", 0);
     gmsh::open(filename);
-    std::cout << "Read gmsh views (band energy values) ..." << std::endl;
+    // std::cout << "Read gmsh views (band energy values) ..." << std::endl;
     std::vector<int> viewTags;
     gmsh::view::getTags(viewTags);
-    std::cout << "Number of view (bands) found: " << viewTags.size() << std::endl;
+    // std::cout << "Number of view (bands) found: " << viewTags.size() << std::endl;
     int count_band = 0;
     for (auto&& tag : viewTags) {
         const int   index_view  = gmsh::view::getIndex(tag);

@@ -157,13 +157,6 @@ int main(int argc, char* argv[]) {
                  MASTER,
                  MPI_COMM_WORLD);
 
-    // Compute the norm of each element.
-    // std::vector<double> chunk_list_norm_k;
-    // chunk_list_norm_k.resize(counts_element_per_process[process_rank]);
-    // for (int i = 0; i < counts_element_per_process[process_rank]; ++i) {
-    //     chunk_list_norm_k[i] = chunk_vector_of_k[i].norm();
-    // }
-
     std::vector<Vector3D<double>> Chunk_list_k_points;
     Chunk_list_k_points.resize(counts_element_per_process[process_rank]);
     for (int i = 0; i < counts_element_per_process[process_rank]; ++i) {
@@ -175,7 +168,6 @@ int main(int argc, char* argv[]) {
     my_bandstructure.Initialize(mat, my_options.nrLevels, Chunk_list_k_points, my_options.nearestNeighbors, enable_nonlocal_correction);
     my_bandstructure.Compute();
     my_bandstructure.AdjustValues();
-
 
     std::vector<double> chunk_list_energies(counts_element_per_process[process_rank] * my_options.nrLevels);
     for (int i = 0; i < counts_element_per_process[process_rank]; ++i) {
@@ -221,7 +213,7 @@ int main(int argc, char* argv[]) {
 
     if (process_rank == MASTER) {
         std::filesystem::path in_path(mesh_filename);
-        std::string           out_file_bands = in_path.stem().replace_extension("").string() + "_MPI_" + my_bandstructure.path_band_filename();
+        std::string out_file_bands = in_path.stem().replace_extension("").string() + "_MPI_" + my_bandstructure.path_band_filename();
         my_mesh.add_all_bands_on_mesh(out_file_bands + "_all_bands.msh", all_energies_all_bands, number_bands);
     }
 
