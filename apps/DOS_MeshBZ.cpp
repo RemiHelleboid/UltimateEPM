@@ -78,6 +78,8 @@ int main(int argc, char *argv[]) {
     my_options.nrThreads    = arg_nb_threads.getValue();
     my_options.print_options();
 
+    auto start = std::chrono::high_resolution_clock::now();
+
     EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
     const std::string mesh_band_input_file = arg_mesh_file.getValue();
@@ -106,13 +108,22 @@ int main(int argc, char *argv[]) {
         bz_mesh::Tetra::reset_stat_iso_computing();
     }
 
+    auto end              = std::chrono::high_resolution_clock::now();
+    auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+    std::ofstream f_time("OpenMP_DOS_times.csv", std::ios::app);
+    f_time << my_options.nrThreads << "," << total_time_count / double(1000) << std::endl;
+    f_time.close();
+
+    std::cout << "Total computation time: " << total_time_count / double(1000) << std::endl;
+
     std::filesystem::path in_path(mesh_band_input_file);
     std::string           out_file_bands = "DOS_" + in_path.stem().replace_extension("").string();
 
     export_multiple_vector_to_csv(out_file_bands + ".csv", list_header, list_list_dos);
 
-    const std::string python_plot_dos = std::string(CMAKE_SOURCE_DIR) + "/python/plot_density_of_states.py";
-    bool call_python_plot = plot_with_python.isSet();
+    const std::string python_plot_dos  = std::string(CMAKE_SOURCE_DIR) + "/python/plot_density_of_states.py";
+    bool              call_python_plot = plot_with_python.isSet();
     if (call_python_plot) {
         std::string python_call = "python3 " + python_plot_dos + " --file " + out_file_bands + ".csv";
         std::cout << "Executing: " << python_call << std::endl;
