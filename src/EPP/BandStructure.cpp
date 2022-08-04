@@ -123,7 +123,7 @@ std::vector<std::vector<double>> BandStructure::Compute() {
 }
 
 std::vector<std::vector<double>> BandStructure::Compute_parralel(int nb_threads) {
-    std::cout << "Computing band structure..." << std::endl;
+    // std::cout << "Computing band structure..." << std::endl;
     auto                             start = std::chrono::high_resolution_clock::now();
     std::vector<std::vector<double>> res;
     m_results.clear();
@@ -153,9 +153,9 @@ std::vector<std::vector<double>> BandStructure::Compute_parralel(int nb_threads)
     }
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "Band structure computed in " << total_time_count / 1000.0 << " s\t"
-              << m_nb_points / static_cast<double>(total_time_count / 1000.0) << " points/s" << std::endl;
-    std::cout << "Done!" << std::endl;
+    // std::cout << "Band structure computed in " << total_time_count / 1000.0 << " s\t"
+    //           << m_nb_points / static_cast<double>(total_time_count / 1000.0) << " points/s" << std::endl;
+    // std::cout << "Done!" << std::endl;
     return std::move(res);
 }
 
