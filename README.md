@@ -146,7 +146,9 @@ Computation for every k-points is completely independent from the others, which 
 
 ### Density of states computation
 
-Coming soon.
+<img src="doc/DOS_Computation_Time.png" width="500">  
+
+
 
 ---
 
