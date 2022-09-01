@@ -5,13 +5,13 @@ materials:
     symbol: Si
     lattice-constant: 5.43
     pseudo-potential-parameters:
-      V3S: -0.2241
-      V8S: 0.0551
-      V11S: 0.0724
+      V3S: -0.257
+      V8S: -0.203
+      V11S: -0.040
       V3A: 0.0
       V4A: 0.0
       V11A: 0.0
-    non-local-parameter:
+    non-local-parameters:
       alpha_0_cation: 0.55
       beta_0_cation: 0.32
       A2_cation: 0.0
@@ -22,7 +22,7 @@ materials:
       R2_cation: 0.0
       R0_anion: 1.06
       R2_anion: 0.0
-      non_local_well: "square"
+      well_type: "square"
 
   - name: Germanium
     symbol: Ge

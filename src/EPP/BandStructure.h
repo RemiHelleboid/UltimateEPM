@@ -50,7 +50,7 @@ class BandStructure {
     const std::vector<std::string>&  GetPath() const { return m_path; }
     unsigned int                     GetPointsNumber() const { return static_cast<unsigned int>(m_kpoints.size()); }
     std::vector<std::vector<double>> Compute();
-    std::vector<std::vector<double>> Compute_parralel(int nb_threads);
+    std::vector<std::vector<double>> Compute_parallel(int nb_threads);
     double                           AdjustValues();
 
     void        print_results() const;

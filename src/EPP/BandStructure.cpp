@@ -122,7 +122,7 @@ std::vector<std::vector<double>> BandStructure::Compute() {
     return std::move(res);
 }
 
-std::vector<std::vector<double>> BandStructure::Compute_parralel(int nb_threads) {
+std::vector<std::vector<double>> BandStructure::Compute_parallel(int nb_threads) {
     // std::cout << "Computing band structure..." << std::endl;
     auto                             start = std::chrono::high_resolution_clock::now();
     std::vector<std::vector<double>> res;

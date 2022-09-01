@@ -120,7 +120,6 @@ if(NOT yaml-cpp_FOUND)
   FetchContent_MakeAvailable(yaml-cpp)
 endif()
 
-
 # check if Doxygen is installed
 find_package(Doxygen)
 if(DOXYGEN_FOUND AND ENABLE_BUILD_DOC)
@@ -147,10 +146,9 @@ else(DOXYGEN_FOUND)
   message("Doxygen need to be installed to generate the doxygen documentation")
 endif()
 
+# MPI SUPPORT
 
-## MPI SUPPORT
-
-if (ENABLE_MPI_BUILD)
+if(ENABLE_MPI_BUILD)
   message("MPI support activated.")
   find_package(MPI)
   if(MPI_FOUND)
@@ -165,6 +163,7 @@ else()
   add_compile_definitions(USE_MPI=0)
   message("MPI support deactivated. Not found.")
 endif(ENABLE_MPI_BUILD)
+
 # tclap library for argument parsing
 include_directories(${PROJECT_SOURCE_DIR}/external/tclap/include)
 

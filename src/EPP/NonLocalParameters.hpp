@@ -13,6 +13,7 @@
 #include <string>
 #include <system_error>
 
+#include "Constants.hpp"
 #include "yaml-cpp/yaml.h"
 
 namespace EmpiricalPseudopotential {
@@ -76,12 +77,12 @@ struct NonLocalParameters {
           m_well_type(well_type) {}
 
     void populate_non_local_parameters(const YAML::Node& node) {
-        m_alpha_0_cation                        = node["alpha_0_cation"].as<double>();
+        m_alpha_0_cation                        = Constants::ryd_to_hartree * node["alpha_0_cation"].as<double>();
         m_beta_0_cation                         = node["beta_0_cation"].as<double>();
-        m_A2_cation                             = node["A2_cation"].as<double>();
-        m_alpha_0_anion                         = node["alpha_0_anion"].as<double>();
+        m_A2_cation                             = Constants::ryd_to_hartree * node["A2_cation"].as<double>();
+        m_alpha_0_anion                         = Constants::ryd_to_hartree * node["alpha_0_anion"].as<double>();
         m_beta_0_anion                          = node["beta_0_anion"].as<double>();
-        m_A2_anion                              = node["A2_anion"].as<double>();
+        m_A2_anion                              = Constants::ryd_to_hartree * node["A2_anion"].as<double>();
         m_R0_cation                             = node["R0_cation"].as<double>();
         m_R2_cation                             = node["R2_cation"].as<double>();
         m_R0_anion                              = node["R0_anion"].as<double>();
@@ -96,5 +97,19 @@ struct NonLocalParameters {
             throw std::runtime_error("Unknown non-local well type");
         }
     }
+
+    void print_non_local_parameters() const {
+        std::cout << "alpha_0_cation: " << m_alpha_0_cation << std::endl;
+        std::cout << "beta_0_cation: " << m_beta_0_cation << std::endl;
+        std::cout << "A2_cation: " << m_A2_cation << std::endl;
+        std::cout << "alpha_0_anion: " << m_alpha_0_anion << std::endl;
+        std::cout << "beta_0_anion: " << m_beta_0_anion << std::endl;
+        std::cout << "A2_anion: " << m_A2_anion << std::endl;
+        std::cout << "R0_cation: " << m_R0_cation << std::endl;
+        std::cout << "R2_cation: " << m_R2_cation << std::endl;
+        std::cout << "R0_anion: " << m_R0_anion << std::endl;
+        std::cout << "R2_anion: " << m_R2_anion << std::endl;
+        std::cout << "well_type: " << static_cast<int>(m_well_type) << std::endl;
+    }
 };
-}  // namespace EmpiricalPseudoPotential
+}  // namespace EmpiricalPseudopotential

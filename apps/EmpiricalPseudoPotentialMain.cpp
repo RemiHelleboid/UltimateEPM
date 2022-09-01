@@ -94,7 +94,7 @@ int compute_all_mat(EmpiricalPseudopotential::Materials list_materials,
         my_bandstructure
             .Initialize(mat, my_options.nrLevels, path, my_options.nrPoints, my_options.nearestNeighbors, enable_non_local_correction);
 
-        auto res = my_bandstructure.Compute_parralel(my_options.nrThreads);
+        auto res = my_bandstructure.Compute_parallel(my_options.nrThreads);
         my_bandstructure.AdjustValues();
         const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() + ".txt";
         my_bandstructure.export_result_in_file(file_output);
@@ -140,7 +140,7 @@ int compute_all_path_all_mat(EmpiricalPseudopotential::Materials list_materials,
                                         my_options.nearestNeighbors,
                                         enable_non_local_correction);
 
-            auto res = my_bandstructure.Compute_parralel(my_options.nrThreads);
+            auto res = my_bandstructure.Compute_parallel(my_options.nrThreads);
             my_bandstructure.AdjustValues();
             const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() + ".txt";
             my_bandstructure.export_result_in_file(file_output);
@@ -204,7 +204,10 @@ int main(int argc, char* argv[]) {
     }
 
     EmpiricalPseudopotential::Materials materials;
-    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
+    std::string                         file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
+    if (!arg_enable_nonlocal_correction.isSet()) {
+        file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
+    }
     materials.load_material_parameters(file_material_parameters);
     materials.print_material_parameters();
 

@@ -64,14 +64,13 @@ int main(int argc, char* argv[]) {
     my_mesh.read_mesh();
     std::vector<Vector3D<double>>& mesh_kpoints = my_mesh.get_kpoints();
 
-    
-    auto start              = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::high_resolution_clock::now();
 
     EmpiricalPseudopotential::BandStructure my_bandstructure;
     my_bandstructure.Initialize(mat, my_options.nrLevels, mesh_kpoints, my_options.nearestNeighbors, enable_nonlocal_correction);
 
     if (my_options.nrThreads > 1) {
-        my_bandstructure.Compute_parralel(my_options.nrThreads);
+        my_bandstructure.Compute_parallel(my_options.nrThreads);
     } else {
         my_bandstructure.Compute();
     }
@@ -79,7 +78,7 @@ int main(int argc, char* argv[]) {
 
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    
+
     // std::ofstream f_time("OpenMP_Bands_times.csv", std::ios::app);
     // f_time << my_options.nrThreads << "," << total_time_count / double(1000) << std::endl;
     // f_time.close();

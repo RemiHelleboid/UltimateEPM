@@ -9,7 +9,6 @@
  *
  */
 
-
 #include "bz_mesh.hpp"
 
 #include <algorithm>
@@ -50,9 +49,8 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
         throw std::runtime_error("Number of coordinates is not 3 times the number of vertices. Abort.");
     }
 
-    
     m_list_vertices.reserve(size_nodes_tags);
-    double lattice_constant = m_material.get_lattice_constant_meter();
+    double lattice_constant     = m_material.get_lattice_constant_meter();
     double normalization_factor = 2.0 * M_PI / lattice_constant;
     for (std::size_t index_vertex = 0; index_vertex < size_nodes_tags; ++index_vertex) {
         m_list_vertices.push_back(Vertex(index_vertex,
