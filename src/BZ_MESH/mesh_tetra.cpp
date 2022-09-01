@@ -259,7 +259,7 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
         double  lA_U = (iso_energy - e_0) / (e_2 - e_0);
         vector3 U    = compute_euclidean_coordinates_with_indices({1.0 - lA_U, 0.0, lA_U, 0.0}, indices_sort);
         double  lA_V = (iso_energy - e_0) / (e_3 - e_0);
-        vector3 V    = compute_euclidean_coordinates_with_indices({1.0 - lA_V, 0.0, 0.0, lA_U}, indices_sort);
+        vector3 V    = compute_euclidean_coordinates_with_indices({1.0 - lA_V, 0.0, 0.0, lA_V}, indices_sort);
         double  lA_W = (e_2 - iso_energy) / (e_2 - e_1);
         vector3 W    = compute_euclidean_coordinates_with_indices({0.0, lA_W, 1.0 - lA_W, 0.0}, indices_sort);
         double  lA_X = (iso_energy - e_1) / (e_3 - e_1);
