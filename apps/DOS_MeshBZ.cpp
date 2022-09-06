@@ -77,8 +77,8 @@ int main(int argc, char *argv[]) {
     my_options.nrLevels     = arg_nb_bands.getValue();
     my_options.nrThreads    = arg_nb_threads.getValue();
     my_options.print_options();
-
-    auto start = std::chrono::high_resolution_clock::now();
+    int  nb_bands_to_use = arg_nb_bands.getValue();
+    auto start           = std::chrono::high_resolution_clock::now();
 
     EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
@@ -95,9 +95,9 @@ int main(int argc, char *argv[]) {
 
     std::size_t number_bands = my_bz_mesh.get_number_bands();
 
-    std::cout << "Compute DOS on " << number_bands << " bands.\n";
+    std::cout << "Compute DOS on " << nb_bands_to_use << " bands.\n";
 
-    for (int band_index = 0; band_index < number_bands; ++band_index) {
+    for (int band_index = 0; band_index < nb_bands_to_use; ++band_index) {
         std::vector<std::vector<double>> lists_energies_dos =
             my_bz_mesh.compute_dos_band_at_band_auto(band_index, arg_nb_energies.getValue(), my_options.nrThreads);
         list_list_dos.push_back(lists_energies_dos[0]);
