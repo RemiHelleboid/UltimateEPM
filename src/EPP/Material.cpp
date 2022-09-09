@@ -11,13 +11,13 @@ const double Bohr = 0.52917721092;  // in Angstroms
 
 Material::Material(const std::string& Name, double a, double V3S, double V8S, double V11S, double V3A, double V4A, double V11A)
     : name(Name),
-      m_lattice_constant(a / Bohr),  // convert it to Bohrs, the value is given in Angstroms
-      m_pseudopotential(V3S / 2.,
-                        V8S / 2.,
-                        V11S / 2.,
-                        V3A / 2.,
-                        V4A / 2.,
-                        V11A / 2.)  // the values are in Rydbergs, convert them to Hartree, one Rydberg is half a Hartree
+      m_lattice_constant(a),
+      m_pseudopotential(V3S / 1.,
+                        V8S / 1.,
+                        V11S / 1.,
+                        V3A / 1.,
+                        V4A / 1.,
+                        V11A / 1.)  // the values are in Rydbergs, convert them to Hartree, one Rydberg is half a Hartree
 {}
 
 /**
@@ -131,7 +131,7 @@ std::complex<double> Material::compute_pseudopotential_non_local_correction(cons
 
     constexpr double const_two = 2.0;
     const double     Gtau      = const_two * M_PI * tau * G_diff;
-    
+
     return std::complex<double>(cos(Gtau) * V_symetric, sin(Gtau) * V_antisymetric);
 }
 

@@ -164,24 +164,22 @@ double BandStructure::AdjustValues() {
     double           maxValValence;
     double           minValConduction;
 
-    double bandgap = 0;
+    double band_gap = 0;
 
-    if (FindBandgap(m_results, maxValValence, minValConduction)) bandgap = minValConduction - maxValValence;
+    if (FindBandGap(m_results, maxValValence, minValConduction)) {
+        band_gap = minValConduction - maxValValence;
+    }
 
     // adjust values to a guessed zero
     for (auto& p : m_results)
         for (auto& v : p) {
             v -= maxValValence;
-
-            // computation is done with atomic units
-            // results are in Hartree, here they are converted to eV
-            v *= hartree_to_eV;
         }
 
-    return bandgap * hartree_to_eV;
+    return band_gap;
 }
 
-bool BandStructure::FindBandgap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction) {
+bool BandStructure::FindBandGap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction) {
     maxValValence = DBL_MIN;
     if (results.empty() || results.front().size() < 2) return false;
 

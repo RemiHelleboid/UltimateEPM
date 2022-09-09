@@ -12,7 +12,6 @@ add_compile_definitions(CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
 # -----------------------------------------------------------------------------
 # Set the project options.
-
 option(ENABLE_OPEN_MP "Build programs with suppot of OpenMP." ON)
 option(ENABLE_MPI_BUILD "Build some programs with MPI parralelization." ON)
 option(ENABLE_CLANG_TIDY "Enable clang tidy at compilation" OFF)
@@ -24,6 +23,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Handling build type nicely Set a default build type if none was specified
 set(default_build_type "Release")
+
 if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
   set(default_build_type "RelWithDebInfo")
 endif()
@@ -31,13 +31,14 @@ endif()
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(
     STATUS
-      "Setting build type to '${default_build_type}' as none was specified.")
+    "Setting build type to '${default_build_type}' as none was specified.")
   set(CMAKE_BUILD_TYPE
-      "${default_build_type}"
-      CACHE STRING "Choose the type of build." FORCE)
+    "${default_build_type}"
+    CACHE STRING "Choose the type of build." FORCE)
+
   # Set the possible values of build type for cmake-gui
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release"
-                                               "MinSizeRel" "RelWithDebInfo")
+    "MinSizeRel" "RelWithDebInfo")
 endif()
 
 if(ENABLE_CLANG_TIDY)
@@ -48,6 +49,7 @@ endif()
 # -----------------------------------------------------------------------------
 # FIND / GET RELEVANT LIBRARIES
 include(FetchContent)
+
 # Find Eigen library Find Eigen library
 FetchContent_Declare(
   Eigen
@@ -57,6 +59,7 @@ FetchContent_Declare(
   GIT_PROGRESS TRUE)
 
 find_package(Eigen3 NO_MODULE)
+
 if(NOT Eigen3_FOUND)
   set(EIGEN_BUILD_DOC OFF)
   set(BUILD_TESTING OFF)
@@ -70,6 +73,7 @@ endif()
 if(ENABLE_OPEN_MP)
   message("OpenMP optimization activated.")
   find_package(OpenMP)
+
   if(OpenMP_FOUND)
     set(USE_OPENMP_ACCELERATION 1)
     add_compile_definitions(USE_OPEN_MP=1)
@@ -81,27 +85,33 @@ endif(ENABLE_OPEN_MP)
 
 # FIND GMSH Adds GMSH
 find_library(GMSH_LIB gmsh HINTS $ENV{GMSH_LIB})
+
 if(NOT GMSH_LIB)
   message(FATAL_ERROR "Could not find libgmsh")
 endif()
-message("GMSH.a FOUND" ${GMSH_LIB})
 
 find_path(GMSH_INC gmsh.h HINTS $ENV{GMSH_INC})
+
 if(NOT GMSH_INC)
   message(FATAL_ERROR "Could not find gmsh.h")
 endif()
-message("GMSH.H FOUND" ${GMSH_INC})
+
+message("---------------- GMSH.a FOUND" ${GMSH_LIB})
+message("---------------- GMSH.H FOUND" ${GMSH_INC})
 
 cmake_print_variables(GMSH_LIB)
 cmake_print_variables(GMSH_INC)
 
 if(GMSH_LIB MATCHES ".a") # FIXME - generalize this
   find_library(BLAS_LIB blas)
+
   if(BLAS_LIB)
     list(APPEND EXTRA_LIBS ${BLAS_LIB})
     message("BLAS FOUND : " ${BLAS_LIB})
   endif()
+
   find_library(LAPACK_LIB lapack)
+
   if(LAPACK_LIB)
     list(APPEND EXTRA_LIBS ${LAPACK_LIB})
     message("LAPACK FOUND : " ${BLAS_LIB})
@@ -115,14 +125,15 @@ FetchContent_Declare(
 
 # Get yaml_cpp lib
 find_package(yaml-cpp NO_MODULE)
+
 if(NOT yaml-cpp_FOUND)
   message("Fetching yaml-cpp lib ...")
   FetchContent_MakeAvailable(yaml-cpp)
 endif()
 
-
 # check if Doxygen is installed
 find_package(Doxygen)
+
 if(DOXYGEN_FOUND AND ENABLE_BUILD_DOC)
   # set input and output files
   set(DOXYGEN_IN ${PROJECT_SOURCE_DIR}/doc/Doxyfile)
@@ -147,12 +158,11 @@ else(DOXYGEN_FOUND)
   message("Doxygen need to be installed to generate the doxygen documentation")
 endif()
 
-
-## MPI SUPPORT
-
-if (ENABLE_MPI_BUILD)
+# # MPI SUPPORT
+if(ENABLE_MPI_BUILD)
   message("MPI support activated.")
   find_package(MPI)
+
   if(MPI_FOUND)
     set(USE_MPI_ACCELERATION 1)
     add_compile_definitions(USE_MPI=1)
@@ -165,6 +175,7 @@ else()
   add_compile_definitions(USE_MPI=0)
   message("MPI support deactivated. Not found.")
 endif(ENABLE_MPI_BUILD)
+
 # tclap library for argument parsing
 include_directories(${PROJECT_SOURCE_DIR}/external/tclap/include)
 

@@ -3,6 +3,12 @@
 #define _USE_MATH_DEFINES 1
 #include <math.h>
 
+#include <complex>
+#include <iostream>
+#include <vector>
+
+#include "Constants.hpp"
+
 namespace EmpiricalPseudopotential {
 
 Hamiltonian::Hamiltonian(const Material& material, const std::vector<Vector3D<int>>& basisVectors)
@@ -13,27 +19,23 @@ Hamiltonian::Hamiltonian(const Material& material, const std::vector<Vector3D<in
 }
 
 void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correction) {
-    const unsigned int basisSize = static_cast<unsigned int>(m_basisVectors.size());
-    constexpr double one_eight = 1.0 / 8.0;
-    const Vector3D tau{one_eight, one_eight, one_eight};
+    const unsigned int basisSize       = static_cast<unsigned int>(m_basisVectors.size());
+    const double       latticeConstant = m_material.get_lattice_constant_meter();
+    constexpr double   one_eight       = 1.0 / 8.0;
+    Vector3D           tau{one_eight * latticeConstant, one_eight * latticeConstant, one_eight * latticeConstant};
+    double             factor = 2 * M_PI / latticeConstant;
     for (unsigned int i = 0; i < basisSize; ++i) {
         for (unsigned int j = 0; j < i; ++j) {
-            // only the lower triangular of matrix is set because the diagonalization method only needs that
-            matrix(i, j) = m_material.m_pseudopotential.GetValue(m_basisVectors[i] - m_basisVectors[j]);
-            if (add_non_local_correction) {
-                matrix(i, j) += m_material.compute_pseudopotential_non_local_correction(k + m_basisVectors[i], k + m_basisVectors[j], tau);
-            }
+            // only the lower triangular of matrix is set because the diagonalization method only needs that.
+            matrix(i, j) = 1.0 * m_material.m_pseudopotential.GetValue(m_basisVectors[i] - m_basisVectors[j], tau, latticeConstant);
         }
     }
     for (unsigned int i = 0; i < basisSize; ++i) {
         // diagonal elements
-        // this is actually with 2 * M_PI, but I optimized it with the /2. from the kinetic energy term
-        const Vector3D<double> KG        = M_PI / m_material.m_lattice_constant * (k + m_basisVectors[i]);
-        constexpr double       const_two = 2.0;
-        matrix(i, i) = std::complex<double>(const_two * KG * KG);  // 2* comes from the above optimization, instead of a /2
-        if (add_non_local_correction) {
-            matrix(i, i) += m_material.compute_pseudopotential_non_local_correction(k + m_basisVectors[i], k + m_basisVectors[i], tau);
-        }
+        const double factor      = 2 * M_PI / latticeConstant;
+        const double diag_factor = pow(Constants::h_bar, 2) / (2.0 * Constants::m0 * Constants::q);
+        const double KG2         = diag_factor * factor * factor * (k + m_basisVectors[i]) * (k + m_basisVectors[i]);
+        matrix(i, i)             = std::complex<double>(KG2);
     }
 }
 
