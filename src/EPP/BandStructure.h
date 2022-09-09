@@ -83,7 +83,7 @@ class BandStructure {
     std::vector<Vector3D<double>>    m_kpoints;
     std::vector<std::vector<double>> m_results;
 
-    static bool FindBandgap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction);
+    static bool FindBandGap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction);
     bool        GenerateBasisVectors(unsigned int nearestNeighborsNumber);
 };
 

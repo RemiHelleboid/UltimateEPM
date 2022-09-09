@@ -13,12 +13,12 @@ Pseudopotential::Pseudopotential(double V3S, double V8S, double V11S, double V3A
       m_V11S(V11S),
       m_V3A(V3A),
       m_V4A(V4A),
-      m_V11A(V11A){}
+      m_V11A(V11A) {}
 
-std::complex<double> Pseudopotential::GetValue(const Vector3D<int>& G, const Vector3D<double>& tau) const {
+std::complex<double> Pseudopotential::GetValue(const Vector3D<int>& G, const Vector3D<double>& tau, double lattice_constant) const {
     constexpr double const_two = 2.0;
     const int        G2        = G * G;
-    const double     Gtau      = const_two * M_PI * tau * G;
+    const double     Gtau      = (const_two * M_PI / lattice_constant) * tau * G;
 
     double VS = 0;
     double VA = 0;
@@ -35,10 +35,8 @@ std::complex<double> Pseudopotential::GetValue(const Vector3D<int>& G, const Vec
         VA = m_V11A;
     }
 
-    return std::complex<double>(cos(Gtau) * VS, sin(Gtau) * VA);
+    return std::complex<double>(cos(Gtau) * VS * Constants::Ryd_to_eV, sin(Gtau) * VA * Constants::Ryd_to_eV);
 }
-
-
 
 void Pseudopotential::print_parameters() const {
     std::cout << "V3S = " << m_V3S << std::endl;
