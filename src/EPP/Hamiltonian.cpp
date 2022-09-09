@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "Constants.hpp"
+#include "Vector3D.h"
 
 namespace EmpiricalPseudopotential {
 

@@ -8,7 +8,7 @@ try:
     plt.style.use(['science', 'high-vis'])
 except Exception:
     plt.style.use(['seaborn'])
-    
+
 import matplotlib as mpl
 mpl.rcParams['figure.figsize'] = [3.5, 2.8]
 
@@ -75,12 +75,17 @@ def plot_band_structure(filename, OUT_DIR=".", nb_bands=10, plot=True):
     filename = Path(filename).stem
     fig.savefig(f"{OUT_DIR}/{filename[:-4:]}.png", dpi=600)
     if plot:
+        fig.set_size_inches(10.5, 8.5, forward=True)
+        for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
+            item.set_fontsize(20)
+        fig.tight_layout()
         plt.show()
     # ax.set_ylim(bottom=-2, top=3)
     # fig.savefig(f"{filename[:-4:]}.pdf", dpi=600)
     # fig.savefig(f"{OUT_DIR}/ZOOM_{filename[:-4:]}.png", dpi=600)
     return 0
-    
+
+
 def extract_special_quantities(filename, nb_bands=10):
     list_points_string, dist_btw_points, material = get_path_from_filename(
         filename)
@@ -93,12 +98,12 @@ def extract_special_quantities(filename, nb_bands=10):
     band_energies = np.loadtxt(
         filename, delimiter=",", usecols=tuple(i for i in range(nb_bands)), skiprows=1)
     band_energies = band_energies.T
-    
+
     min_conduction_bands = []
     max_conduction_bands = []
     min_valence_bands = []
     max_valence_bands = []
-    
+
     for band in band_energies[::]:
         if band.min() > 0.01:
             min_conduction_bands.append(band.min())
@@ -106,11 +111,8 @@ def extract_special_quantities(filename, nb_bands=10):
         else:
             min_valence_bands.append(band.min())
             max_valence_bands.append(band.max())
-            
+
     band_gap = np.min(min_conduction_bands) - np.max(max_valence_bands)
-        
-    
-    
 
 
 if __name__ == "__main__":

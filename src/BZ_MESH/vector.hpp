@@ -72,8 +72,8 @@ class vector3 {
     /**
      * @brief Apply a permutation on the vector.
      * There is 6 possible permutations.
-     * 
-     * @param permutation 
+     *
+     * @param permutation
      */
     void apply_permutation(permutaion_type permutation) {
         switch (permutation) {
