@@ -49,6 +49,7 @@ typedef struct vector_k {
 } vector_k;
 
 int main(int argc, char* argv[]) {
+    std::cout << "Starting MPI version of BandsOnBZ" << std::endl;
     // Initialize the MPI environment.
     MPI_Status status;
     int        number_processes;
@@ -117,6 +118,7 @@ int main(int argc, char* argv[]) {
         my_mesh.read_mesh();
         std::vector<Vector3D<double>>& mesh_k_points = my_mesh.get_kpoints();
         number_k_vectors                             = mesh_k_points.size();
+        std::cout << "Total number of k points: " << number_k_vectors << std::endl;
         all_k_vectors.resize(mesh_k_points.size());
         for (size_t i = 0; i < mesh_k_points.size(); i++) {
             all_k_vectors[i].set_k(mesh_k_points[i].X, mesh_k_points[i].Y, mesh_k_points[i].Z);
