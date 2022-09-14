@@ -15,7 +15,7 @@ class Vector3D {
     Vector3D(const T& v);
     template <typename O>
     Vector3D(const Vector3D<O>& other);
-    Vector3D(const T& x, const T& y, const T& z);
+    explicit Vector3D(const T& x, const T& y, const T& z);
 
     template <typename O>
     Vector3D& operator=(const Vector3D<O>& other);
@@ -74,7 +74,7 @@ class Vector3D {
     friend double compte_cos_angle(const Vector3D& V1, const Vector3D& V2) {
         double dot_product  = V1 * V2;
         double norm_product = V1.Length() * V2.Length();
-        return norm_product == 0.0 ? 1.0 : dot_product / (V1.Length() * V2.Length());
+        return norm_product == 0.0 ? 0.0 : dot_product / (V1.Length() * V2.Length());
     }
 
     friend std::ostream& operator<<(std::ostream& os, const Vector3D& v) {

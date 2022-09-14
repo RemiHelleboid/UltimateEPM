@@ -38,8 +38,8 @@ class Material {
     Material(const std::string& Name, double a, double V3S, double V8S, double V11S, double V3A = 0, double V4A = 0, double V11A = 0);
     void populate_non_local_parameters(const YAML::Node& node);
 
-    std::complex<double> compute_pseudopotential_non_local_correction(const Vector3D<int>&    K1,
-                                                                      const Vector3D<int>&    K2,
+    std::complex<double> compute_pseudopotential_non_local_correction(const Vector3D<double>& K1,
+                                                                      const Vector3D<double>& K2,
                                                                       const Vector3D<double>& tau) const;
 
     double get_lattice_constant_meter() const {
@@ -47,9 +47,9 @@ class Material {
         return angstrom_to_m * m_lattice_constant;
     }
 
-    double get_atomic_volume_angstrom()const {
-        return (1.0 / 8.0) * pow(m_lattice_constant, 3.0);
-    }
+    double get_atomic_volume_angstrom() const { return (1.0 / 8.0) * pow(m_lattice_constant, 3.0); }
+
+    double get_atomic_volume() const { return (1.0 / 8.0) * pow(get_lattice_constant_meter(), 3.0); }
 
     bool get_is_non_local_parameters_populated() const { return m_is_non_local_parameters_populated; }
 
@@ -61,7 +61,7 @@ class Material {
      * @brief Return the fermi momentum of the material: (96*pi^2)**(1/3) / lattice_constant
      *
      */
-    double get_fermi_momentum() const { return pow(96 * M_PI * M_PI, 1.0 / 3.0) / m_lattice_constant; }
+    double get_fermi_momentum() const { return pow(96 * M_PI * M_PI, 1.0 / 3.0) / get_lattice_constant_meter(); }
 };
 
 class Materials {

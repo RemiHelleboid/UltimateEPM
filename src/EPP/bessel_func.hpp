@@ -27,7 +27,7 @@ inline double generalized_bessel_cylindrical(double nu, double x) {
 }
 
 inline double generalized_bessel(double nu, double x) {
-    constexpr double epsilon = 1e-9;
+    constexpr double epsilon = 1e-14;
     if (x < 0) {
         throw std::invalid_argument("Bessel function x argument must be positive. (x = " + std::to_string(x) + ")");
     }

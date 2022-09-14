@@ -51,13 +51,12 @@ typedef struct vector_k {
 int main(int argc, char* argv[]) {
     // Initialize the MPI environment.
     MPI_Status status;
+    int        number_processes;
+    int        process_rank;
 
-    int number_processes;
-    int process_rank;
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &number_processes);
     MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
-
 
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshfile", "Name to print", true, "bz.msh", "string");
@@ -112,8 +111,8 @@ int main(int argc, char* argv[]) {
 
     std::vector<vector_k> all_k_vectors;
     long                  number_k_vectors = 0;
-    const std::string mesh_filename = arg_mesh_file.getValue();
-    bz_mesh_points    my_mesh(mesh_filename);
+    const std::string     mesh_filename    = arg_mesh_file.getValue();
+    bz_mesh_points        my_mesh(mesh_filename);
     if (process_rank == MASTER) {
         my_mesh.read_mesh();
         std::vector<Vector3D<double>>& mesh_k_points = my_mesh.get_kpoints();
