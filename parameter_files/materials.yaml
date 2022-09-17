@@ -6,10 +6,12 @@ materials:
     lattice-constant: 5.43
     pseudo-potential-parameters:
       V3S: -0.257
-      V8S: -0.203
-      V11S: -0.040
+      V4S: -0.203
+      V8S: -0.040
+      V11S: 0.033
       V3A: 0.0
       V4A: 0.0
+      V8A: 0.0
       V11A: 0.0
     non-local-parameters:
       alpha_0_cation: 0.55

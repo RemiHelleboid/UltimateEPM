@@ -74,7 +74,7 @@ class Vector3D {
     friend double compte_cos_angle(const Vector3D& V1, const Vector3D& V2) {
         double dot_product  = V1 * V2;
         double norm_product = V1.Length() * V2.Length();
-        return norm_product == 0.0 ? 0.0 : dot_product / (V1.Length() * V2.Length());
+        return (norm_product < 1.0e-13) ? 1.0 : dot_product / (V1.Length() * V2.Length());
     }
 
     friend std::ostream& operator<<(std::ostream& os, const Vector3D& v) {

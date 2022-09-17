@@ -16,6 +16,7 @@ option(ENABLE_OPEN_MP "Build programs with suppot of OpenMP." ON)
 option(ENABLE_MPI_BUILD "Build some programs with MPI parralelization." ON)
 option(ENABLE_CLANG_TIDY "Enable clang tidy at compilation" OFF)
 option(ENABLE_BUILD_DOC "Enable the documentation build (doxygen)" OFF)
+option(ENABLE_BUILD_TEST "Enable the documentation build (doxygen)" ON)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -119,6 +120,11 @@ if(GMSH_LIB MATCHES ".a") # FIXME - generalize this
 endif()
 
 FetchContent_Declare(
+  DocTest
+  GIT_REPOSITORY "https://github.com/onqtam/doctest"
+  GIT_TAG "4d8716f1efc1d14aa736ef52ee727bd4204f4c40")
+
+FetchContent_Declare(
   yaml-cpp
   GIT_REPOSITORY "https://github.com/jbeder/yaml-cpp"
   GIT_TAG "328d2d85e833be7cb5a0ab246cc3f5d7e16fc67a")
@@ -175,6 +181,13 @@ else()
   add_compile_definitions(USE_MPI=0)
   message("MPI support deactivated. Not found.")
 endif(ENABLE_MPI_BUILD)
+
+# The tests are here
+if(ENABLE_BUILD_TEST)
+  message("Fetching DocTest lib ...")
+  FetchContent_MakeAvailable(DocTest)
+  add_subdirectory(tests/)
+endif(ENABLE_BUILD_TEST)
 
 # tclap library for argument parsing
 include_directories(${PROJECT_SOURCE_DIR}/external/tclap/include)

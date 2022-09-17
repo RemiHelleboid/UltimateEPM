@@ -34,8 +34,11 @@ inline double generalized_bessel(double nu, double x) {
     if (x < epsilon && nu == 0) {
         return 1.0;
     }
-    if (x < epsilon && nu > 0) {
-        return pow(x, nu) / std::tgamma(nu + 1);
+    if (x < epsilon && nu == 1) {
+        return 0.0;
+    }
+    if (x < epsilon && nu >= 2) {
+        return 0.0;
     }
 
     return sqrt(M_PI / (2.0 * x)) * generalized_bessel_cylindrical(nu + 0.5, x);

@@ -35,7 +35,16 @@ class Material {
     bool m_is_non_local_parameters_populated = false;
 
     Material() : m_lattice_constant(0) {}
-    Material(const std::string& Name, double a, double V3S, double V8S, double V11S, double V3A = 0, double V4A = 0, double V11A = 0);
+    Material(const std::string& Name,
+             double             a,
+             double             V3S,
+             double             V4S,
+             double             V8S,
+             double             V11S,
+             double             V3A  = 0,
+             double             V4A  = 0,
+             double             V8A  = 0,
+             double             V11A = 0);
     void populate_non_local_parameters(const YAML::Node& node);
 
     std::complex<double> compute_pseudopotential_non_local_correction(const Vector3D<double>& K1,

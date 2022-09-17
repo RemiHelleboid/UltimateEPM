@@ -87,12 +87,12 @@ struct NonLocalParameters {
     }
 
     void populate_non_local_parameters(const YAML::Node& node) {
-        m_alpha_0_cation                        = Constants::ryd_to_hartree * node["alpha_0_cation"].as<double>();
+        m_alpha_0_cation                        = Constants::Ryd_to_eV * node["alpha_0_cation"].as<double>();
         m_beta_0_cation                         = node["beta_0_cation"].as<double>();
-        m_A2_cation                             = Constants::ryd_to_hartree * node["A2_cation"].as<double>();
-        m_alpha_0_anion                         = Constants::ryd_to_hartree * node["alpha_0_anion"].as<double>();
+        m_A2_cation                             = Constants::Ryd_to_eV * node["A2_cation"].as<double>();
+        m_alpha_0_anion                         = Constants::Ryd_to_eV * node["alpha_0_anion"].as<double>();
         m_beta_0_anion                          = node["beta_0_anion"].as<double>();
-        m_A2_anion                              = Constants::ryd_to_hartree * node["A2_anion"].as<double>();
+        m_A2_anion                              = Constants::Ryd_to_eV * node["A2_anion"].as<double>();
         m_R0_cation                             = node["R0_cation"].as<double>();
         m_R2_cation                             = node["R2_cation"].as<double>();
         m_R0_anion                              = node["R0_anion"].as<double>();

@@ -15,13 +15,13 @@ class Hamiltonian {
     void Diagonalize();
 
     const Eigen::VectorXd& eigenvalues() const { return solver.eigenvalues(); }
+    bool                   check_matrix_is_symmetric() const { return matrix.isApprox(matrix.transpose()); }
 
  protected:
     const Material&                   m_material;
     const std::vector<Vector3D<int>>& m_basisVectors;
 
-    Eigen::MatrixXcd matrix;
-
+    Eigen::MatrixXcd                                matrix;
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXcd> solver;
 };
 
