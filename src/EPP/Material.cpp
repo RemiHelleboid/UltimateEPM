@@ -80,10 +80,11 @@ void Materials::load_material_parameters(const std::string& filename) {
  * @return double
  */
 double compute_F_l_function(const Vector3D<double>& K1, const Vector3D<double>& K2, double atomic_radii, int l) {
-    constexpr double EPSILON = 1e-6;
+    constexpr double EPSILON = 1e-14;
     const double     norm_K1 = K1.Length();
     const double     norm_K2 = K2.Length();
-    // std::cout << "norm_K1: " << norm_K1 << std::endl;
+    std::cout << "norm_K1: " << norm_K1 * atomic_radii << std::endl;
+    std::cout << "norm_K2: " << norm_K2 * atomic_radii << std::endl;
     // std::cout << "norm_K2: " << norm_K2 << std::endl;
     if (fabs(norm_K1 - norm_K2) > EPSILON) {
         const double pre_factor = pow(atomic_radii, 2.0) / (norm_K1 * norm_K1 - norm_K2 * norm_K2);
@@ -141,9 +142,9 @@ std::complex<double> Material::compute_pseudopotential_non_local_correction(cons
     double                 V_pre_factor      = 4.0 * M_PI / get_atomic_volume();
     double                 A_0_anion         = m_non_local_parameters.m_alpha_0_anion +
                        diag_factor * m_non_local_parameters.m_beta_0_anion * (norm_K1 * norm_K2 - pow(this->get_fermi_momentum(), 2.0));
-    double A_2_anion  = m_non_local_parameters.m_A2_anion;
-    double F_0_anion  = compute_F_l_function(K1, K2, m_non_local_parameters.m_R0_anion, 0);
-    double F_2_anion  = compute_F_l_function(K1, K2, m_non_local_parameters.m_R2_anion, 2);
+    double A_2_anion = m_non_local_parameters.m_A2_anion;
+    double F_0_anion = compute_F_l_function(K1, K2, m_non_local_parameters.m_R0_anion, 0);
+    // double F_2_anion  = compute_F_l_function(K1, K2, m_non_local_parameters.m_R2_anion, 2);
     double legendre_0 = 1.0;
     double legendre_2 = 0.5 * (3 * cos_angle_K1_K2 * cos_angle_K1_K2 - 1);
     double V_anion    = 0;
@@ -162,8 +163,8 @@ std::complex<double> Material::compute_pseudopotential_non_local_correction(cons
 
     double A_2_cation = m_non_local_parameters.m_A2_cation;
     double F_0_cation = compute_F_l_function(K1, K2, m_non_local_parameters.m_R0_cation, 0);
-    double F_2_cation = compute_F_l_function(K1, K2, m_non_local_parameters.m_R2_cation, 2);
-    double V_cation   = 0;
+    // double F_2_cation = compute_F_l_function(K1, K2, m_non_local_parameters.m_R2_cation, 2);
+    double V_cation = 0;
     // l = 0
     V_cation += A_0_cation * (2 * 0 + 1) * legendre_0 * F_0_cation;
     // std::cout << "A_0_cation: " << A_0_cation << std::endl;
