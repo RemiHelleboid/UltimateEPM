@@ -71,6 +71,7 @@ void BandStructure::Initialize(const Material&                 material,
             "BandStructure::Initialize: GeneratePoints failed. No points generated.\
         \nPlease increase the number of points such as there is twice as many points as the number of symetry points.");
     }
+    m_material.m_non_local_parameters.print_non_local_parameters();
 }
 
 void BandStructure::Initialize(const Material&               material,
@@ -93,11 +94,10 @@ void BandStructure::Initialize(const Material&               material,
     }
 }
 
-std::vector<std::vector<double>> BandStructure::Compute() {
+void BandStructure::Compute() {
     std::cout << "Computing band structure..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
-    std::vector<std::vector<double>> res;
     m_results.clear();
 
     Hamiltonian hamiltonian(m_material, basisVectors);
@@ -115,17 +115,12 @@ std::vector<std::vector<double>> BandStructure::Compute() {
             m_results.back().push_back(eigenvals(level));
         }
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "\nDone!" << std::endl;
-    std::cout << "Band structure computed in " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0
-              << " s" << std::endl;
-    return std::move(res);
+    auto end             = std::chrono::high_resolution_clock::now();
+    m_computation_time_s = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
 }
 
-std::vector<std::vector<double>> BandStructure::Compute_parallel(int nb_threads) {
-    // std::cout << "Computing band structure..." << std::endl;
-    auto                             start = std::chrono::high_resolution_clock::now();
-    std::vector<std::vector<double>> res;
+void BandStructure::Compute_parallel(int nb_threads) {
+    auto start = std::chrono::high_resolution_clock::now();
     m_results.clear();
     m_results.resize(m_nb_points);
     for (auto& row : m_results) {
@@ -147,22 +142,14 @@ std::vector<std::vector<double>> BandStructure::Compute_parallel(int nb_threads)
         for (unsigned int level = 0; level < m_nb_bands && level < eigenvals.rows(); ++level) {
             m_results[index_k][level] = eigenvals(level);
         }
-        // if (tid == 0) {
-        //     std::cout << "\rComputing band structure at point " << index_k + 1 << "/" << m_nb_points << std::flush;
-        // }
     }
-    auto end              = std::chrono::high_resolution_clock::now();
-    auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    // std::cout << "Band structure computed in " << total_time_count / 1000.0 << " s\t"
-    //           << m_nb_points / static_cast<double>(total_time_count / 1000.0) << " points/s" << std::endl;
-    // std::cout << "Done!" << std::endl;
-    return std::move(res);
+    auto end             = std::chrono::high_resolution_clock::now();
+    m_computation_time_s = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
 }
 
 double BandStructure::AdjustValues() {
-    constexpr double hartree_to_eV = 27.2113845;
-    double           maxValValence;
-    double           minValConduction;
+    double maxValValence;
+    double minValConduction;
 
     double band_gap = 0;
 
@@ -276,7 +263,7 @@ std::string BandStructure::path_band_filename() const {
             path_string += point;
         }
     }
-    std::string filename = "EEP_" + m_material.name + "_nb_bands_" + std::to_string(m_results.front().size()) + "_path_" + path_string +
+    std::string filename = "EPM_" + m_material.name + "_nb_bands_" + std::to_string(m_results.front().size()) + "_path_" + path_string +
                            "_size_basis_" + std::to_string(basisVectors.size());
     return filename;
 }

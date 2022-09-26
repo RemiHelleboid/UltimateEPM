@@ -35,7 +35,6 @@ void bz_mesh_points::read_mesh() {
         throw std::runtime_error("Number of coordinates is not 3 times the number of vertices. Abort.");
     }
     for (std::size_t index_vertex = 0; index_vertex < size_nodes_tags; ++index_vertex) {
-        std::size_t node_tag = m_node_tags[index_vertex];
         add_k_point(nodeCoords[3 * index_vertex], nodeCoords[3 * index_vertex + 1], nodeCoords[3 * index_vertex + 2]);
     }
     gmsh::finalize();
@@ -74,7 +73,7 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, cons
     std::string model_file_name;
     gmsh::model::getCurrent(model_file_name);
 
-    for (int index_band = 0; index_band < my_band.get_number_of_bands(); ++index_band) {
+    for (unsigned int index_band = 0; index_band < my_band.get_number_of_bands(); ++index_band) {
         std::string         band_name   = "band_" + std::to_string(index_band);
         std::vector<double> band_values = my_band.get_band(index_band);
         int                 data_tag    = gmsh::view::add(band_name);

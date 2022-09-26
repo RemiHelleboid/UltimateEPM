@@ -1,4 +1,6 @@
 # Materials parameters for the Empirical Pseudopotential Method.
+# All the parameters are from: Pötz, W. & Vogl, P. Theory of optical-phonon deformation
+# potentials in tetrahedral semiconductors. Phys. Rev. B 24, 2025–2037 (1981)
 ---
 materials:
   - name: Silicon
@@ -28,14 +30,28 @@ materials:
 
   - name: Germanium
     symbol: Ge
-    lattice-constant: 5.66
+    lattice-constant: 5.65
     pseudo-potential-parameters:
-      V3S: -0.23
-      V8S: 0.01
-      V11S: 0.06
+      V3S: -0.221
+      V4S: -0.160
+      V8S: 0.019
+      V11S: 0.056
       V3A: 0.0
       V4A: 0.0
+      V8A: 0.0
       V11A: 0.0
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.0
+      A2_cation: 0.275
+      alpha_0_anion: 0.0
+      beta_0_anion: 0.0
+      A2_anion: 0.275
+      R0_cation: 0.0
+      R2_cation: 1.22
+      R0_anion: 0.0
+      R2_anion: 1.22
+      well_type: "gaussian"
 
   - name: Tin
     symbol: Sn

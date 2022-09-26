@@ -200,7 +200,6 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
         double dos    = compute_dos_at_energy_and_band(energy, band_index);
-        int    tid    = omp_get_thread_num();
 #pragma omp critical
         list_energies.push_back(energy);
         list_dos.push_back(dos);
@@ -225,7 +224,6 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int band_
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
         double dos    = compute_dos_at_energy_and_band(energy, band_index);
-        int    tid    = omp_get_thread_num();
 #pragma omp critical
         list_energies.push_back(energy);
         list_dos.push_back(dos);

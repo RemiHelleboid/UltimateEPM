@@ -18,7 +18,12 @@
 #include "BandStructure.h"
 #include "Options.h"
 
-const std::string python_plot_band_structure_script = std::string(CMAKE_SOURCE_DIR) + "/python/plot_band_structure.py";
+const std::string python_plot_band_structure_script = std::string(CMAKE_SOURCE_DIR) + "/python/plots/plot_band_structure.py";
+
+std::string python_plot_command(const std::string& output_file, int nb_bands = 10) {
+    std::string python_call = "python3 " + python_plot_band_structure_script + " --file " + output_file + " -b " + std::to_string(nb_bands);
+    return python_call;
+}
 
 void print_arguments(const std::vector<std::string>& path,
                      const std::string&              material,
@@ -44,7 +49,7 @@ int compute_path_mat(const EmpiricalPseudopotential::Material& material,
                      unsigned int                              nb_points,
                      unsigned int                              nb_bands,
                      unsigned int                              nearestNeighbors,
-                     bool                                      enable_non_local_corretion,
+                     bool                                      enable_non_local_correction,
                      const std::string&                        result_dir,
                      bool                                      call_python_plot) {
     Options my_options;
@@ -53,14 +58,14 @@ int compute_path_mat(const EmpiricalPseudopotential::Material& material,
     my_options.nrLevels         = nb_bands;
     EmpiricalPseudopotential::BandStructure my_bandstructure;
     my_bandstructure
-        .Initialize(material, my_options.nrLevels, path, my_options.nrPoints, my_options.nearestNeighbors, enable_non_local_corretion);
+        .Initialize(material, my_options.nrLevels, path, my_options.nrPoints, my_options.nearestNeighbors, enable_non_local_correction);
     my_bandstructure.Compute();
     my_bandstructure.AdjustValues();
-    const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() + ".txt";
+    const std::string file_output =
+        result_dir + "/" + my_bandstructure.path_band_filename() + (enable_non_local_correction ? "_non_local" : "") + ".txt";
     my_bandstructure.export_result_in_file(file_output);
     if (call_python_plot) {
-        std::string python_call =
-            "python3 " + python_plot_band_structure_script + " --file " + file_output + " -b " + std::to_string(nb_bands);
+        std::string python_call = python_plot_command(file_output, nb_bands);
         std::cout << "Executing: " << python_call << std::endl;
         int succes_plot = system(python_call.c_str());
         return succes_plot;
@@ -94,15 +99,19 @@ int compute_all_mat(EmpiricalPseudopotential::Materials list_materials,
         my_bandstructure
             .Initialize(mat, my_options.nrLevels, path, my_options.nrPoints, my_options.nearestNeighbors, enable_non_local_correction);
 
-        auto res = my_bandstructure.Compute_parallel(my_options.nrThreads);
+        my_bandstructure.Compute_parallel(my_options.nrThreads);
         my_bandstructure.AdjustValues();
-        const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() + ".txt";
+        const std::string file_output =
+            result_dir + "/" + my_bandstructure.path_band_filename() + (enable_non_local_correction ? "_non_local" : "") + ".txt";
         my_bandstructure.export_result_in_file(file_output);
         if (call_python_plot) {
-            std::string python_call =
-                "python3 " + python_plot_band_structure_script + " --file " + file_output + " -b " + std::to_string(nb_bands);
+            std::string python_call = python_plot_command(file_output, nb_bands);
             std::cout << "Executing: " << python_call << std::endl;
             int succes_plot = system(python_call.c_str());
+            if (succes_plot != 0) {
+                std::cout << "Error while plotting the band structure" << std::endl;
+                return succes_plot;
+            }
         }
     }
 
@@ -125,7 +134,7 @@ int compute_all_path_all_mat(EmpiricalPseudopotential::Materials list_materials,
     for (auto const& [name, mat] : list_materials.materials) {
         std::cout << "----------------------------------------------------" << std::endl;
         std::cout << "Material: " << name << std::endl;
-        for (int path_index = 0; path_index < my_options.paths.size(); path_index++) {
+        for (std::size_t path_index = 0; path_index < my_options.paths.size(); path_index++) {
             std::vector<std::string> path = my_options.paths[path_index];
             std::cout << "path: ";
             for (auto& point : path) {
@@ -140,14 +149,19 @@ int compute_all_path_all_mat(EmpiricalPseudopotential::Materials list_materials,
                                         my_options.nearestNeighbors,
                                         enable_non_local_correction);
 
-            auto res = my_bandstructure.Compute_parallel(my_options.nrThreads);
+            my_bandstructure.Compute_parallel(my_options.nrThreads);
             my_bandstructure.AdjustValues();
-            const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() + ".txt";
+            const std::string file_output =
+                result_dir + "/" + my_bandstructure.path_band_filename() + (enable_non_local_correction ? "_non_local" : "") + ".txt";
             my_bandstructure.export_result_in_file(file_output);
             if (call_python_plot) {
-                std::string python_call = "python3 " + python_plot_band_structure_script + " --file " + file_output;
+                std::string python_call = python_plot_command(file_output, nb_bands);
                 std::cout << "Executing: " << python_call << std::endl;
                 int succes_plot = system(python_call.c_str());
+                if (succes_plot != 0) {
+                    std::cout << "Error while plotting the band structure" << std::endl;
+                    return succes_plot;
+                }
             }
         }
     }
@@ -173,7 +187,7 @@ int main(int argc, char* argv[]) {
                                                10,
                                                "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
-    TCLAP::ValueArg<std::string> arg_res_dir("r", "resultdir", "directory to store the results.", false, "EPP_RESULTS", "str");
+    TCLAP::ValueArg<std::string> arg_res_dir("r", "resultdir", "directory to store the results.", false, "./", "str");
     TCLAP::SwitchArg arg_enable_nonlocal_correction("C", "nonlocal-correction", "Enable the non-local-correction for the EPM model", false);
     TCLAP::SwitchArg all_path_mat("A", "all", "Compute the band structure on all the paths for all the materials", false);
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
@@ -197,7 +211,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> path_list;
     if (arg_path_sym_points.isSet()) {
         path_list.resize(arg_path_sym_points.getValue().size());
-        for (int i = 0; i < arg_path_sym_points.getValue().size(); i++) {
+        for (std::size_t i = 0; i < arg_path_sym_points.getValue().size(); i++) {
             path_list[i] = arg_path_sym_points.getValue()[i];
             std::cout << path_list[i] << std::endl;
         }

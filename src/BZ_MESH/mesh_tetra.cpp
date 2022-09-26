@@ -324,9 +324,7 @@ double Tetra::compute_tetra_dos_energy_band(double energy, std::size_t band_inde
     if (energy < m_min_energy_per_band[band_index] || energy > m_max_energy_per_band[band_index]) {
         return 0.0;
     }
-    const double                renormalization      = 6.0 * fabs(this->m_signed_volume);
-    const std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
-    const std::array<int, 4>    indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
+    const double renormalization = 6.0 * fabs(this->m_signed_volume);
     return renormalization * (1.0 / m_gradient_energy_per_band[band_index]) *
            this->compute_tetra_iso_surface_energy_band(energy, band_index);
 }

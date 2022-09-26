@@ -9,7 +9,9 @@
  *
  */
 
-#include <mpi.h>     // must have a system with an MPI library
+#include <limits.h>
+#include <mpi.h>  // must have a system with an MPI library
+#include <stdint.h>
 #include <stdio.h>   //printf
 #include <stdlib.h>  //malloc
 #include <tclap/CmdLine.h>
@@ -27,6 +29,20 @@
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
+
+#if SIZE_MAX == UCHAR_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED_CHAR
+#elif SIZE_MAX == USHRT_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED_SHORT
+#elif SIZE_MAX == UINT_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED
+#elif SIZE_MAX == ULONG_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED_LONG
+#elif SIZE_MAX == ULLONG_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED_LONG_LONG
+#else
+#error "what is happening here?"
+#endif
 
 #define MASTER 0
 
@@ -83,7 +99,7 @@ std::vector<T> linspace(T x_min, T x_max, std::size_t number_points) {
 
 int main(int argc, char *argv[]) {
     // Initialize the MPI environment.
-    MPI_Status status;
+    // MPI_Status status;
 
     int number_processes;
     int process_rank;
@@ -127,7 +143,7 @@ int main(int argc, char *argv[]) {
     std::size_t         number_bands = my_bz_mesh.get_number_bands();
     std::vector<int>    list_bands;
     std::vector<double> list_energies;
-    long                total_number_dos = 0;
+    std::size_t         total_number_dos = 0;
 
     if (process_rank == MASTER) {
         std::cout << "Number of bands : " << number_bands << std::endl;
@@ -146,7 +162,7 @@ int main(int argc, char *argv[]) {
         std::cout << "Size bands : " << list_bands.size() << std::endl;
         std::cout << "Size energies : " << list_energies.size() << std::endl;
     }
-    MPI_Bcast(&total_number_dos, 1, MPI_LONG, MASTER, MPI_COMM_WORLD);
+    MPI_Bcast(&total_number_dos, 1, my_MPI_SIZE_T, MASTER, MPI_COMM_WORLD);
 
     double t_start = MPI_Wtime();
 
@@ -192,7 +208,7 @@ int main(int argc, char *argv[]) {
     std::vector<double> dos_values(counts_dos_per_process[process_rank]);
     std::cout << "Process " << process_rank << " will compute " << counts_dos_per_process[process_rank] << " DOS values." << std::endl;
 
-    for (std::size_t index_dos = 0; index_dos < counts_dos_per_process[process_rank]; index_dos++) {
+    for (int index_dos = 0; index_dos < counts_dos_per_process[process_rank]; index_dos++) {
         dos_values[index_dos] = my_bz_mesh.compute_dos_at_energy_and_band(chunk_energies[index_dos], chunk_band_indices[index_dos]);
     }
 
@@ -248,6 +264,9 @@ int main(int argc, char *argv[]) {
             std::string python_call = "python3 " + python_plot_dos + " --file " + out_file_bands + ".csv";
             std::cout << "Executing: " << python_call << std::endl;
             int succes_plot = system(python_call.c_str());
+            if (succes_plot != 0) {
+                std::cout << "Error while executing python script to plot DOS." << std::endl;
+            }
         }
     }
 

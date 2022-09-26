@@ -63,7 +63,7 @@ class Vertex {
      * @param index
      * @param postion
      */
-    Vertex(std::size_t index, const vector3& postion) : m_index(index), m_position{} {}
+    Vertex(std::size_t index, const vector3& position) : m_index(index), m_position{position} {}
 
     /**
      * @brief Construct a new Vertex object with a given index and position (x, y, z).

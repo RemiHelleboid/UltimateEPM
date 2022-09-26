@@ -11,7 +11,7 @@ namespace EmpiricalPseudopotential {
 
 class BandStructure {
  public:
-    BandStructure() : m_nb_points(0), m_nb_bands(10), m_nearestNeighborsNumber(10){};
+    BandStructure() : m_nb_points(0), m_nb_bands(10), m_nearestNeighborsNumber(10), m_computation_time_s(-1.0){};
 
     /**
      * @brief Initialize the band structure with the given material and the given symmetry points that form a path
@@ -47,11 +47,11 @@ class BandStructure {
                     unsigned int                  nearestNeighborsNumber,
                     bool                          enable_non_local_correction);
 
-    const std::vector<std::string>&  GetPath() const { return m_path; }
-    unsigned int                     GetPointsNumber() const { return static_cast<unsigned int>(m_kpoints.size()); }
-    std::vector<std::vector<double>> Compute();
-    std::vector<std::vector<double>> Compute_parallel(int nb_threads);
-    double                           AdjustValues();
+    const std::vector<std::string>& GetPath() const { return m_path; }
+    unsigned int                    GetPointsNumber() const { return static_cast<unsigned int>(m_kpoints.size()); }
+    void                            Compute();
+    void                            Compute_parallel(int nb_threads);
+    double                          AdjustValues();
 
     void        print_results() const;
     std::string path_band_filename() const;
@@ -82,6 +82,8 @@ class BandStructure {
     std::vector<Vector3D<int>>       basisVectors;
     std::vector<Vector3D<double>>    m_kpoints;
     std::vector<std::vector<double>> m_results;
+
+    double m_computation_time_s;
 
     static bool FindBandGap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction);
     bool        GenerateBasisVectors(unsigned int nearestNeighborsNumber);

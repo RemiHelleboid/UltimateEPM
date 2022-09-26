@@ -11,20 +11,19 @@ SymmetryPoints::SymmetryPoints() {
     symmetryPoints["U"] = SymmetryPoint("U", Vector3D<double>(1., 0.25, 0.25));
 }
 
-
 /**
  * @brief Generates the list of k points for the given path of "symetry points".
- * 
+ *
  * The path will be for example {"G", "X", "W", "L", "G", "K", "X"}
  * The number of points will be the total of points in the output.
  * The symmetryPointsPositions will be the positions (indexes) of the symmetry points in the output.
- * 
+ *
  * The points are spaced in such way that the number of points between two symmetry points is "proportional" to the distance between them.
- * 
- * @param path 
- * @param nrPoints 
- * @param symmetryPointsPositions 
- * @return std::vector<Vector3D<double>> 
+ *
+ * @param path
+ * @param nrPoints
+ * @param symmetryPointsPositions
+ * @return std::vector<Vector3D<double>>
  */
 std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<std::string>& path,
                                                              unsigned int                    nrPoints,
@@ -36,12 +35,12 @@ std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<s
 
     if (nrPoints <= path.size() * 2 + 1) {
         std::cout << "Error: nrPoints must be greater than twice the number of symmetry points in the path + 1" << std::endl;
-		return result;
-	};
+        return result;
+    };
 
     result.reserve(nrPoints);
 
-	// Calculate the length of each path segment, and add it to the total length.
+    // Calculate the length of each path segment, and add it to the total length.
     double length = 0.0;
     for (unsigned int i = 1; i < path.size(); ++i) {
         const Vector3D<double> dif = symmetryPoints[path[i]].position - symmetryPoints[path[i - 1ULL]].position;
@@ -62,12 +61,12 @@ std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<s
         else
             symmetryPointsPositions.push_back(static_cast<unsigned int>(result.size() + 1));
 
-		// Fill the path segment with k points spaced by stepVec.
+        // Fill the path segment with k points spaced by stepVec.
         for (Vector3D<double> pos = startPos; (pos - startPos).Length() < difLength; pos += stepVec)
             result.push_back(pos);
     }
 
-    return std::move(result);
+    return result;
 }
 
 }  // namespace EmpiricalPseudopotential

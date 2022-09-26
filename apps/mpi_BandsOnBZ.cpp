@@ -51,9 +51,9 @@ typedef struct vector_k {
 int main(int argc, char* argv[]) {
     std::cout << "Starting MPI version of BandsOnBZ" << std::endl;
     // Initialize the MPI environment.
-    MPI_Status status;
-    int        number_processes;
-    int        process_rank;
+    // MPI_Status status;
+    int number_processes;
+    int process_rank;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &number_processes);

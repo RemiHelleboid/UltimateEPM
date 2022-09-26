@@ -106,6 +106,7 @@ struct NonLocalParameters {
         } else {
             throw std::runtime_error("Unknown non-local well type");
         }
+        m_well_type = non_local_well_type;
         m_R0_anion *= Constants::angstrom_to_m;
         m_R2_anion *= Constants::angstrom_to_m;
         m_R0_cation *= Constants::angstrom_to_m;

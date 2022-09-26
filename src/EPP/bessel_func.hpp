@@ -43,3 +43,10 @@ inline double generalized_bessel(double nu, double x) {
 
     return sqrt(M_PI / (2.0 * x)) * generalized_bessel_cylindrical(nu + 0.5, x);
 }
+
+inline double bessel_2nd_order_first_kind(double x) {
+    if (x == 0.0) {
+        return 0.0;
+    }
+    return ((x * x + 3) * sinh(x) - 3 * x * cosh(x)) / (x * x * x);
+}

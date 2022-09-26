@@ -47,6 +47,19 @@ if(ENABLE_CLANG_TIDY)
   set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,readability-*)
 endif()
 
+# Flags for the compiler
+if(MSVC)
+  add_compile_options("/W4" "$<$<CONFIG:RELEASE>:/O2>")
+else()
+  add_compile_options("-Wall" "-Wextra" "-Werror" "-pedantic")
+
+  if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    add_compile_options("-stdlib=libc++")
+  else()
+    # nothing special for gcc at the moment
+  endif()
+endif()
+
 # -----------------------------------------------------------------------------
 # FIND / GET RELEVANT LIBRARIES
 include(FetchContent)

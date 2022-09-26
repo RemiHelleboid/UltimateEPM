@@ -79,7 +79,7 @@ void Materials::load_material_parameters(const std::string& filename) {
  * @param l
  * @return double
  */
-double compute_F_l_function(const Vector3D<double>& K1, const Vector3D<double>& K2, double atomic_radii, int l) {
+double F_l_function(const Vector3D<double>& K1, const Vector3D<double>& K2, double atomic_radii, int l) {
     // This epsilon is used to avoid division by zero in the case of K1 == K2.
     // The value is quite big, but lower values lead to numerical instabilities (noisy bands).
     // Reason: K1 and K2 are of the order of  2PI / a_0 ~ 1e10 !
@@ -88,18 +88,25 @@ double compute_F_l_function(const Vector3D<double>& K1, const Vector3D<double>& 
     const double     norm_K2 = K2.Length();
     if (fabs(norm_K1 - norm_K2) > EPSILON) {
         const double pre_factor = pow(atomic_radii, 2.0) / (norm_K1 * norm_K1 - norm_K2 * norm_K2);
-        double       F = norm_K1 * generalized_bessel(l + 1, norm_K1 * atomic_radii) * generalized_bessel(l, norm_K2 * atomic_radii) -
-                   norm_K2 * generalized_bessel(l + 1, norm_K2 * atomic_radii) * generalized_bessel(l, norm_K1 * atomic_radii);
+        const double F = norm_K1 * generalized_bessel(l + 1, norm_K1 * atomic_radii) * generalized_bessel(l, norm_K2 * atomic_radii) -
+                         norm_K2 * generalized_bessel(l + 1, norm_K2 * atomic_radii) * generalized_bessel(l, norm_K1 * atomic_radii);
         return pre_factor * F;
     } else if (norm_K1 > EPSILON) {
         const double pre_factor = pow(atomic_radii, 3.0) / (2.0);
-        double       F          = pow(generalized_bessel(l, norm_K1 * atomic_radii), 2.0) -
-                   generalized_bessel(l - 1, norm_K1 * atomic_radii) * generalized_bessel(l + 1, norm_K1 * atomic_radii);
+        const double F          = pow(generalized_bessel(l, norm_K1 * atomic_radii), 2.0) -
+                         generalized_bessel(l - 1, norm_K1 * atomic_radii) * generalized_bessel(l + 1, norm_K1 * atomic_radii);
 
         return pre_factor * F;
     } else {
         return pow(atomic_radii, 3.0) / (3.0);
     }
+}
+
+double F_2_function_gaussian(const Vector3D<double>& K1, const Vector3D<double>& K2, double atomic_radii) {
+    const double norm_K1    = K1.Length();
+    const double norm_K2    = K2.Length();
+    const double bessel_arg = 0.5 * (atomic_radii * atomic_radii) * norm_K1 * norm_K2;
+    return bessel_2nd_order_first_kind(bessel_arg) * exp(-0.25 * (norm_K1 * norm_K1 + norm_K2 * norm_K2) * atomic_radii * atomic_radii);
 }
 
 /**
@@ -129,51 +136,63 @@ std::complex<double> Material::compute_pseudopotential_non_local_correction(cons
     const double           diag_factor       = pow(Constants::h_bar, 2) / (2.0 * Constants::m0 * Constants::q);
     const double           fourier_factor    = 2.0 * M_PI / get_lattice_constant_meter();
     const Vector3D<double> G_diff_normalized = (K1_normalized - K2_normalized);
-    const Vector3D<double> G_diff            = G_diff_normalized * fourier_factor;
     const Vector3D<double> K1                = K1_normalized * fourier_factor;
     const Vector3D<double> K2                = K2_normalized * fourier_factor;
-    double                 norm_K1           = K1.Length();
-    double                 norm_K2           = K2.Length();
-    double                 cos_angle_K1_K2   = compte_cos_angle(K1, K2);
-    double                 V_pre_factor      = 4.0 * M_PI / get_atomic_volume();
-    double                 legendre_0        = 1.0;
-    double                 legendre_2        = 0.5 * (3 * cos_angle_K1_K2 * cos_angle_K1_K2 - 1);
+    const double           norm_K1           = K1.Length();
+    const double           norm_K2           = K2.Length();
+    const double           cos_angle_K1_K2   = compte_cos_angle(K1, K2);
+    const double           V_pre_factor      = 4.0 * M_PI / get_atomic_volume();
+    const double           legendre_0        = 1.0;
+    const double           legendre_2        = 0.5 * (3 * cos_angle_K1_K2 * cos_angle_K1_K2 - 1);
 
     // First atomic species: anion
     double V_anion = 0;
     // l = 0
-    double A_0_anion = m_non_local_parameters.m_alpha_0_anion +
-                       diag_factor * m_non_local_parameters.m_beta_0_anion * (norm_K1 * norm_K2 - pow(this->get_fermi_momentum(), 2.0));
-    double F_0_anion = compute_F_l_function(K1, K2, m_non_local_parameters.m_R0_anion, 0);
-    V_anion += A_0_anion * (2 * 0 + 1) * 1.0 * F_0_anion;
+    const double A_0_anion = m_non_local_parameters.m_alpha_0_anion + diag_factor * m_non_local_parameters.m_beta_0_anion *
+                                                                          (norm_K1 * norm_K2 - pow(this->get_fermi_momentum(), 2.0));
+    const double F_0_anion = (m_non_local_parameters.m_R0_anion == 0.0) ? 0.0 : F_l_function(K1, K2, m_non_local_parameters.m_R0_anion, 0);
+    V_anion += V_pre_factor * A_0_anion * (2 * 0 + 1) * 1.0 * F_0_anion;
     // l = 2
+    double V_anion_2 = 0.0;
     if (m_non_local_parameters.m_A2_anion != 0) {
-        double A_2_anion = m_non_local_parameters.m_A2_anion;
-        double F_2_anion = compute_F_l_function(K1, K2, m_non_local_parameters.m_R2_anion, 2);
-        V_anion += A_2_anion * (2 * 2 + 1) * legendre_2 * F_2_anion;
+        const double A_2_anion = m_non_local_parameters.m_A2_anion;
+        double       F_2_anion = 0.0;
+        if (m_non_local_parameters.m_well_type == non_local_well_type::square) {
+            F_2_anion = F_l_function(K1, K2, m_non_local_parameters.m_R2_anion, 2);
+            V_anion_2 = V_pre_factor * A_2_anion * (2 * 2 + 1) * legendre_2 * F_2_anion;
+        } else {
+            F_2_anion = F_2_function_gaussian(K1, K2, m_non_local_parameters.m_R2_anion);
+            V_anion_2 = 5.0 * pow(M_PI, 1.5) * (pow(m_non_local_parameters.m_R2_anion, 3.0) / get_atomic_volume()) * A_2_anion *
+                        legendre_2 * F_2_anion;
+        }
+        V_anion += V_anion_2;
     }
-    V_anion *= V_pre_factor;
 
     // Second atomic species: cation
-
     double V_cation = 0;
     // l = 0
-    double F_0_cation = compute_F_l_function(K1, K2, m_non_local_parameters.m_R0_cation, 0);
-    double A_0_cation = m_non_local_parameters.m_alpha_0_cation +
-                        m_non_local_parameters.m_beta_0_cation * diag_factor * (norm_K1 * norm_K2 - pow(this->get_fermi_momentum(), 2.0));
-    V_cation += A_0_cation * (2 * 0 + 1) * legendre_0 * F_0_cation;
+    const double F_0_cation = (m_non_local_parameters.m_R0_cation == 0) ? 0.0 : F_l_function(K1, K2, m_non_local_parameters.m_R0_cation, 0);
+    const double A_0_cation = m_non_local_parameters.m_alpha_0_cation + m_non_local_parameters.m_beta_0_cation * diag_factor *
+                                                                            (norm_K1 * norm_K2 - pow(this->get_fermi_momentum(), 2.0));
+    V_cation += V_pre_factor * A_0_cation * (2 * 0 + 1) * legendre_0 * F_0_cation;
     // l = 2
+    double V_cation_2 = 0.0;
     if (m_non_local_parameters.m_A2_cation != 0.0) {
-        double A_2_cation = m_non_local_parameters.m_A2_cation;
-        double F_2_cation = compute_F_l_function(K1, K2, m_non_local_parameters.m_R2_cation, 2);
-        double V_cation_2 = A_2_cation * (2 * 2 + 1) * legendre_2 * F_2_cation;
+        const double A_2_cation = m_non_local_parameters.m_A2_cation;
+        double       F_2_cation = 0.0;
+        if (m_non_local_parameters.m_well_type == non_local_well_type::square) {
+            F_2_cation = F_l_function(K1, K2, m_non_local_parameters.m_R2_cation, 2);
+            V_cation_2 = V_pre_factor * A_2_cation * (2 * 2 + 1) * legendre_2 * F_2_cation;
+        } else {
+            F_2_cation = F_2_function_gaussian(K1, K2, m_non_local_parameters.m_R2_cation);
+            V_cation_2 = 5.0 * pow(M_PI, 1.5) * (pow(m_non_local_parameters.m_R2_cation, 3.0) / get_atomic_volume()) * A_2_cation *
+                         legendre_2 * F_2_cation;
+        }
         V_cation += V_cation_2;
     }
 
-    V_cation *= V_pre_factor;
-
-    double V_symmetric     = 1.0 * (V_anion + V_cation) / 2.0;
-    double V_antisymmetric = 1.0 * (V_anion - V_cation) / 2.0;
+    const double V_symmetric     = 1.0 * (V_anion + V_cation) / 2.0;
+    const double V_antisymmetric = 1.0 * (V_anion - V_cation) / 2.0;
 
     constexpr double const_two        = 2.0;
     const double     lattice_constant = this->get_lattice_constant_meter();

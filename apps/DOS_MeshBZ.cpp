@@ -93,8 +93,6 @@ int main(int argc, char *argv[]) {
     std::vector<std::vector<double>> list_list_dos{};
     std::vector<std::string>         list_header = {};
 
-    std::size_t number_bands = my_bz_mesh.get_number_bands();
-
     std::cout << "Compute DOS on " << nb_bands_to_use << " bands.\n";
 
     for (int band_index = 0; band_index < nb_bands_to_use; ++band_index) {
@@ -128,6 +126,9 @@ int main(int argc, char *argv[]) {
         std::string python_call = "python3 " + python_plot_dos + " --file " + out_file_bands + ".csv";
         std::cout << "Executing: " << python_call << std::endl;
         int succes_plot = system(python_call.c_str());
+        if (succes_plot != 0) {
+            std::cout << "Error while calling python script to plot DOS.\n";
+        }
     }
 
     return 0;
