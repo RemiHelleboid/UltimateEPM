@@ -1,8 +1,12 @@
 # BzMeshBandsDos 
-Band structure and DOS computation using empirical pseudopotentials on the full Brillouin-Zone. 
+Band structure and DOS computation using empirical pseudopotentials on the full Brillouin-Zone. It includes the following features:
+* Standard EPM over high symmetry k-points in the Brillouin zone.
+* Calculation of the band structure and DOS on a mesh of k-points in the Brillouin zone.
+* Non-local corrections to the EPM.
+* MPI and OpenMP parallelization.
 
-[![Build & Unit Test](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml/badge.svg)](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml)  
-[![Codacy Code Quality](https://app.codacy.com/project/badge/Grade/bdf5fb66f01347e096f807d113cc2985)](https://www.codacy.com/gh/RemiHelleboid/BzMeshBandsDos/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=RemiHelleboid/BzMeshBandsDos&amp;utm_campaign=Badge_Grade)  
+[![Build & Unit Test](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml/badge.svg)](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml)
+[![Codacy Code Quality](https://app.codacy.com/project/badge/Grade/bdf5fb66f01347e096f807d113cc2985)](https://www.codacy.com/gh/RemiHelleboid/BzMeshBandsDos/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=RemiHelleboid/BzMeshBandsDos&amp;utm_campaign=Badge_Grade)
 [![CodeQL](https://github.com/RemiHelleboid/BzMeshBandsDos/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/RemiHelleboid/BzMeshBandsDos/actions/workflows/codeql-analysis.yml)  
 
 ---
@@ -160,3 +164,14 @@ To get the required mesh of the Brillouin Zone, you can use the BZ.py script fro
 <img src="doc/bz_mesh_jg_8.png" width="500">
 
 ---
+
+## References
+1. Cohen, M. L. & Bergstresser, T. K. Band Structures and Pseudopotential Form Factors for Fourteen Semiconductors of the Diamond and Zinc-blende Structures. Phys. Rev. 141, 789–796 (1966).    
+2. Chelikowsky, J. R. & Cohen, M. L. Nonlocal pseudopotential calculations for the electronic structure of eleven diamond and zinc-blende semiconductors. Phys. Rev. B 14, 556–582 (1976).    
+3. Pötz, W. & Vogl, P. Theory of optical-phonon deformation potentials in tetrahedral semiconductors. Phys. Rev. B 24, 2025–2037 (1981).  
+
+
+## Acknowledgements
+* Adrian Roman for the initial version of the code.
+* Jeremy Grebot for the BZ meshing script.
+* Marco Pala and Alessandro Pilotto: support with the non-local corrections.
