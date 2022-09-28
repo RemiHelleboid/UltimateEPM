@@ -254,24 +254,24 @@ materials:
       R0_anion: 1.40
       well_type: "square"
 
-  - name: AluminiumAntimonide
-    symbol: AlSb
-    lattice-constant: 6.13
-    pseudo-potential-parameters:
-      V3S: -0.21
-      V8S: 0.02
-      V11S: 0.06
-      V3A: 0.06
-      V4A: 0.04
-      V11A: 0.02
+  # - name: AluminiumAntimonide
+  #   symbol: AlSb
+  #   lattice-constant: 6.13
+  #   pseudo-potential-parameters:
+  #     V3S: -0.21
+  #     V8S: 0.02
+  #     V11S: 0.06
+  #     V3A: 0.06
+  #     V4A: 0.04
+  #     V11A: 0.02
 
-  - name: AlAs
-    symbol: AluminiumArsenide
-    lattice-constant: 5.6605
-    pseudo-potential-parameters:
-      V3S: -0.221
-      V8S: 0.025
-      V11S: 0.07
-      V3A: 0.08
-      V4A: 0.05
-      V11A: -0.04
+  # - name: AlAs
+  #   symbol: AluminiumArsenide
+  #   lattice-constant: 5.6605
+  #   pseudo-potential-parameters:
+  #     V3S: -0.221
+  #     V8S: 0.025
+  #     V11S: 0.07
+  #     V3A: 0.08
+  #     V4A: 0.05
+  #     V11A: -0.04
