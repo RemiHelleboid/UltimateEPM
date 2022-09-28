@@ -57,12 +57,26 @@ materials:
     symbol: Sn
     lattice-constant: 6.49
     pseudo-potential-parameters:
-      V3S: -0.20
-      V8S: 0.00
-      V11S: 0.04
+      V3S: -0.190
+      V4S: -0.144
+      V8S: -0.008
+      V11S: 0.040
       V3A: 0.0
       V4A: 0.0
+      V8A: 0.0
       V11A: 0.0
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.40
+      A2_cation: 0.70
+      alpha_0_anion: 0.0
+      beta_0_anion: 0.40
+      A2_anion: 0.70
+      R0_cation: 1.06
+      R2_cation: 1.41
+      R0_anion: 1.06
+      R2_anion: 1.41
+      well_type: "square"
 
   - name: GalliumPhosphide
     symbol: GaP
@@ -113,17 +127,6 @@ materials:
       R0_anion: 1.06
       R2_anion: 1.223
       well_type: "gaussian"
-
-  - name: AluminiumAntimonide
-    symbol: AlSb
-    lattice-constant: 6.13
-    pseudo-potential-parameters:
-      V3S: -0.21
-      V8S: 0.02
-      V11S: 0.06
-      V3A: 0.06
-      V4A: 0.04
-      V11A: 0.02
 
   - name: IndiumPhosphide
     symbol: InP
@@ -178,14 +181,89 @@ materials:
 
   - name: IndiumAntimonide
     symbol: InSb
+    lattice-constant: 6.47
+    pseudo-potential-parameters:
+      V3S: -0.200
+      V4S: -0.153
+      V8S: 0.010
+      V11S: 0.044
+      V3A: 0.044
+      V4A: 0.030
+      V8A: 0.017
+      V11A: 0.015
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.45
+      A2_cation: 0.55
+      alpha_0_anion: 0.0
+      beta_0_anion: 0.48
+      A2_anion: 0.70
+      R0_cation: 1.27
+      R2_cation: 1.40
+      R0_anion: 1.06
+      R2_anion: 1.40
+      well_type: "square"
+
+  - name: ZincSelenide 
+    symbol: ZnSe
+    lattice-constant: 5.65
+    pseudo-potential-parameters:
+      V3S: -0.218
+      V4S: -0.155
+      V8S: 0.029
+      V11S: 0.064
+      V3A: 0.139
+      V4A: 0.062
+      V8A: 0.023
+      V11A: 0.016
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.0
+      A2_cation: -0.125
+      alpha_0_anion: 0.0
+      beta_0_anion: 0.0
+      A2_anion: 0.925
+      R0_cation: 0.0
+      R2_cation: 1.223
+      R0_anion: 0.0
+      R2_anion: 1.223
+      well_type: "gaussian"
+
+  - name: CadmiumTelluride 
+    symbol: CdTe
     lattice-constant: 6.48
     pseudo-potential-parameters:
-      V3S: -0.20
+      V3S: -0.220
+      V4S: -0.165
       V8S: 0.00
-      V11S: 0.04
+      V11S: 0.062
+      V3A: 0.060
+      V4A: 0.050
+      V8A: 0.029
+      V11A: 0.025
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.4
+      A2_cation: 0.00
+      alpha_0_anion: 1.37
+      beta_0_anion: 0.4
+      A2_anion: 2.0
+      R0_cation: 1.37
+      R2_cation: 1.40
+      R2_anion: 1.223
+      R0_anion: 1.40
+      well_type: "square"
+
+  - name: AluminiumAntimonide
+    symbol: AlSb
+    lattice-constant: 6.13
+    pseudo-potential-parameters:
+      V3S: -0.21
+      V8S: 0.02
+      V11S: 0.06
       V3A: 0.06
-      V4A: 0.05
-      V11A: 0.01
+      V4A: 0.04
+      V11A: 0.02
 
   - name: AlAs
     symbol: AluminiumArsenide
