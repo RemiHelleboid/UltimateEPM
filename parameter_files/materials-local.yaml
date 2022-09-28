@@ -1,4 +1,9 @@
 # Materials parameters for the Empirical Pseudopotential Method.
+# The values are from:
+# Cohen, M. L. & Bergstresser, T. K. *
+# Band Structures and Pseudopotential Form Factors for Fourteen Semiconductors of the Diamond and Zinc-blende Structures.
+# Phys. Rev. 141, 789–796 (1966).
+
 ---
 materials:
   - name: Silicon
@@ -47,7 +52,7 @@ materials:
 
   - name: GalliumArsenide
     symbol: GaAs
-    lattice-constant: 5.44
+    lattice-constant: 5.64
     pseudo-potential-parameters:
       V3S: -0.23
       V8S: 0.01
