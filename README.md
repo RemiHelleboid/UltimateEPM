@@ -1,9 +1,9 @@
 # BzMeshBandsDos 
 Band structure and DOS computation using empirical pseudopotentials on the full Brillouin-Zone. It includes the following features:
-* Standard EPM over high symmetry k-points in the Brillouin zone.
-* Calculation of the band structure and DOS on a mesh of k-points in the Brillouin zone.
-* Non-local corrections to the EPM.
-* MPI and OpenMP parallelization.
+* Standard __EPM over high symmetry k-points__ in the Brillouin zone.
+* Calculation of the __band structure and DOS on a mesh of k-points in the Brillouin zone__.
+* __Nonlocal corrections__ to the EPM.
+* MPI and OpenMP __parallelization__.
 
 [![Build & Unit Test](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml/badge.svg)](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml)
 [![Codacy Code Quality](https://app.codacy.com/project/badge/Grade/bdf5fb66f01347e096f807d113cc2985)](https://www.codacy.com/gh/RemiHelleboid/BzMeshBandsDos/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=RemiHelleboid/BzMeshBandsDos&amp;utm_campaign=Badge_Grade)
@@ -19,19 +19,19 @@ This repository was initially a fork from : [EmpiricalPseudopotential](https://g
 
 You can do three types of calculations:
 
-__Compute the electronic band structure over a path of high-symmetry points (e.g. $L \Gamma XWKULWXK \Gamma$) for a given material, and plot the results.__  
-<img src="doc/EEP_Si_nb_bands_16_path_LGXWKULWXKG_size_basis.png" width="500">
+__Compute the electronic band structure over a path of high-symmetry points (e.g. $L \Gamma XWKULWXK \Gamma$) for a given material, and plot the results.__ 
+![Band structure of Silicon](doc/band_structure_Si.png)
 
 ---
 
 __Compute the electronic band structure over all k-points of an input mesh of the Brillouin Zone (or a fraction of it). The result can then be visualized, for example, through iso-energy surface.__  
-<img src="doc/rotation_animation_4th_band_iso.gif" width="500">
+<img src="doc/rotation_animation_4th_band_iso.gif" width="600">
 
 ---
 
-__Compute the density of states over the all Brillouin Zone.__  
-<img src="doc/silicon_dos_per_band.png" width="500">
-<img src="doc/dos_total_silicon.png" width="500">
+__Compute the density of states over the all Brillouin Zone.__   
+![Band structure of Silicon](doc/silicon_dos_per_band.png)
+![Band structure of Silicon](doc/dos_total_silicon.png)
 
 ---
 
@@ -74,11 +74,12 @@ Find more informations on [GMSH Website](https://gmsh.info/).
 ### Band structure plot over a __path of high symmetry points__
 
 To plot the band structure over a path $LKW \Gamma XWL \Gamma K$ for a given materials, use:  
-`./apps/EmpiricalPseudoPotentialMain -m Si -b 16 -N 2000 -n 10 -r output_dir -j 4 -p LGXWKULWXKG -P`  
+`./apps/EmpiricalPseudoPotentialMain -m Si -b 16 -N 2000 -n 10 -r output_dir -j 4 -p LGXWKULWXKG -C -P`  
 * The `-m Si` sets the __material__ on which the band structure is computed to Silicon.
 * The `-b 16` option means to compute and export __16 bands__. 
 * The `-N 2000` option means that the path will be __discretized in 2000 points__.
 * The `-n 10` option specifies the __number of nearest neighbors__ used to compute the band structure. 
+* The `-C` option means that the __nonlocal corrections__ are used.  
 * The `-r output_dir` means that the results of the computation will be __stored in the output_dir directory__ (it is created if it does not exist yet).
 * The `-j 4` option requires the computation to be run with __parallelization on 4 CPUs.__
 * The `-p LGXWKULWXKG ` option specifies the __path__ on which the band structure must be computed. G stands for $\Gamma$.
@@ -98,9 +99,10 @@ ___Outputs___
 
 
 To compute the electronic band structure over a mesh of the Brillouin zone, the command is:  
-`./apps/BandsOnBZ -f bz_mesh.msh -m Si -b 12 -n 10 -j 8 -o output_file 
+`./apps/BandsOnBZ -f bz_mesh.msh -m Si -b 12 -n 10 -C -j 8 -o output_file 
 `
 * The `-m Si` sets the __material__ on which the band structure is computed to Silicon.
+* The `-C` option means that the __nonlocal corrections__ are used.  
 * The `-b 12` option means to compute and export __16 bands__. 
 * The `-j 8` option requires the computation to be run with __parallelization on 8 CPUs.__ (OpenMP)
 * `-o output_file` can be used to set the name of the __output file__.
@@ -114,8 +116,7 @@ This program has an __MPI version__, for the same arguments as previously, the c
 ___Output___ 
 * The result of the computation, i.e. the energy of each band at each vertex of the input mesh, is stored as follows: for each band the energies are store as a gmsh "view" which is the name for the physical data (scalar, vector field, tensor, ...) in the mesh. 
 
-  
-<img src="doc/gmsh_band_views.png" width="500">
+![Band structure of Silicon](doc/gmsh_band_views.png)
 
 ---
 ### __Density of States Computation__
@@ -141,7 +142,8 @@ This program has an __MPI version__, for the same arguments as previously, the c
 
 This section reports some performances of the code. We show comparison between parallelization with OpenMP and MPI. The numbers are shown only as a rough estimation, and one should not rely to much on the accuracy here.
 ### Band structure computation
-<img src="doc/BandsOnBZ_Computation_Time.png" width="500">  
+![Band structure of Silicon](doc/BandsOnBZ_Computation_Time.png)
+
 
 _Band structure computation of Silicon for 16 bands, on a full BZ mesh of around 300K points with local EPM._
 
@@ -150,9 +152,7 @@ Computation for every k-points is completely independent from the others, which 
 
 ### Density of states computation
 
-<img src="doc/DOS_Computation_Time.png" width="500">  
-
-
+![Band structure of Silicon](doc/DOS_Computation_Time.png)
 
 ---
 
@@ -161,7 +161,7 @@ Computation for every k-points is completely independent from the others, which 
 ## Brillouin Zone Meshing
 To get the required mesh of the Brillouin Zone, you can use the BZ.py script from the great J. Grebot, there: [fcc-bz-mesh](https://github.com/JGrebot/fcc-bz-mesh).
 
-<img src="doc/bz_mesh_jg_8.png" width="500">
+![Band structure of Silicon](doc/bz_mesh_jg_8.png)
 
 ---
 
@@ -174,4 +174,4 @@ To get the required mesh of the Brillouin Zone, you can use the BZ.py script fro
 ## Acknowledgements
 * Adrian Roman for the initial version of the code.
 * Jeremy Grebot for the BZ meshing script.
-* Marco Pala and Alessandro Pilotto: support with the non-local corrections.
+* Marco Pala and Alessandro Pilotto: support for the non-local corrections. 
