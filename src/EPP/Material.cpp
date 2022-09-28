@@ -83,7 +83,7 @@ double F_l_function(const Vector3D<double>& K1, const Vector3D<double>& K2, doub
     // This epsilon is used to avoid division by zero in the case of K1 == K2.
     // The value is quite big, but lower values lead to numerical instabilities (noisy bands).
     // Reason: K1 and K2 are of the order of  2PI / a_0 ~ 1e10 !
-    constexpr double EPSILON = 1e-4;
+    constexpr double EPSILON = 1.0e-4;
     const double     norm_K1 = K1.Length();
     const double     norm_K2 = K2.Length();
     if (fabs(norm_K1 - norm_K2) > EPSILON) {
@@ -98,7 +98,7 @@ double F_l_function(const Vector3D<double>& K1, const Vector3D<double>& K2, doub
 
         return pre_factor * F;
     } else {
-        return pow(atomic_radii, 3.0) / (3.0);
+        return (l==0) ? pow(atomic_radii, 3.0) / (3.0) : 0.0;
     }
 }
 

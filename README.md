@@ -155,9 +155,6 @@ Computation for every k-points is completely independent from the others, which 
 ![Band structure of Silicon](doc/DOS_Computation_Time.png)
 
 ---
-
-## Available Material
-
 ## Brillouin Zone Meshing
 To get the required mesh of the Brillouin Zone, you can use the BZ.py script from the great J. Grebot, there: [fcc-bz-mesh](https://github.com/JGrebot/fcc-bz-mesh).
 
@@ -165,6 +162,27 @@ To get the required mesh of the Brillouin Zone, you can use the BZ.py script fro
 
 ---
 
+## Available Materials
+
+If you have data for materials that are not yet available in the code, feel free to contact us, we would be glad to add it.
+
+| Material   |  Local  |  Nonlocal |
+|------------|:-------:|----------:|
+| Si         |   Yes   |    Yes    |
+| Ge         |   Yes   |    Yes    |
+| GaP        |   Yes   |    Yes    |
+| GaAs       |   Yes   |    Yes    |
+| AlSb       |   Yes   |    No     |
+| InP        |   Yes   |    Yes    |
+| InAs       |   Yes   |    Yes    |
+| InSb       |   Yes   |    Yes    |
+| AlAs       |   Yes   |    No     |
+| ZnSe       |   No    |    Yes    |
+| CdTe       |   No    |    Yes    |
+
+### Comparison of the standard EPM with the nonlocal EPM for 8 materials. 
+![With and without nonlocal correction](doc/bands_many_mat_vert.png)
+---
 ## References
 1. Cohen, M. L. & Bergstresser, T. K. Band Structures and Pseudopotential Form Factors for Fourteen Semiconductors of the Diamond and Zinc-blende Structures. Phys. Rev. 141, 789–796 (1966).    
 2. Chelikowsky, J. R. & Cohen, M. L. Nonlocal pseudopotential calculations for the electronic structure of eleven diamond and zinc-blende semiconductors. Phys. Rev. B 14, 556–582 (1976).    

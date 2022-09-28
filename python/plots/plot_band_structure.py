@@ -24,6 +24,7 @@ BZ_points = {
     "K":  np.array([3/8, 3/8, 0]),
 }
 
+
 def get_gap(bands: np.array) -> tuple:
     """Get the gap of the band structure.
 
@@ -108,11 +109,11 @@ def plot_band_structure(filename: str, ax, index_plot, nb_bands=10):
 
     for band in band_energies[::]:
         ax.plot(band, ls=plot_ls, color='k', lw=0.5)
-        
+
     band_gap = get_gap(band_energies)
     print(f"Band gap: {band_gap}")
 
-    return 0
+    return band_gap
 
 
 if __name__ == "__main__":
@@ -124,7 +125,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--outputdir", dest="output_path_dir",
                         help="The directory to save the results.", default="./")
     parser.add_argument("-p", "--plot", dest="show_plot",
-                        help="If true, the plot is displayed.", default="False", type=bool)
+                        help="If true, the plot is displayed.", default=False, type=bool)
     args = parser.parse_args()
     OUT_DIR = args.output_path_dir
 
@@ -135,11 +136,11 @@ if __name__ == "__main__":
     nb_points = num_lines = sum(1 for line in open(FILE_PATH_0)) - 1
 
     fig, ax = plt.subplots()
-
+    band_gap = 0.0
     for index, file in enumerate(list_files):
-        plot_band_structure(file, ax, index, nb_bands=args.nb_bands)
+        band_gap = plot_band_structure(file, ax, index, nb_bands=args.nb_bands)
 
-    ax.set_ylim(bottom=-16, top=10)
+    # ax.set_ylim(bottom=-20, top=12)
     ax.grid(True, which='both', axis='both', ls="-",
             lw=0.25, alpha=0.5, color='grey')
     ax.set_title(f"Band structure of {material}")
@@ -159,11 +160,15 @@ if __name__ == "__main__":
     lines = [Line2D([0], [0], color='k', lw=0.5, ls=lstyle)
              for lstyle in ["-", "--"]]
     labels = ["non-local", "local"]
-    ax.legend(lines, labels, loc='best', fancybox=True, framealpha=0.5)
 
+    ax.legend(lines, labels, loc='lower right', fancybox=True,  frameon=True, edgecolor='k', facecolor='w', fontsize=6, framealpha=0.75)
     fig.tight_layout()
     fig.savefig(f"{OUT_DIR}/band_structure_{material}.png", dpi=300)
+
     if args.show_plot:
         plt.show()
+
+    ax.set_ylim(-2.0, band_gap + 1.0)
+    fig.savefig(f"{OUT_DIR}/band_structure_{material}_zoom.png", dpi=300)
 
     # plot_band_structure(FILE_PATH, OUT_DIR, args.nb_bands)
