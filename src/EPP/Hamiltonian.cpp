@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "Constants.hpp"
+#include "NonLocalFunctional.hpp"
 #include "Vector3D.h"
 
 namespace EmpiricalPseudopotential {
@@ -25,37 +26,30 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
     constexpr double   one_eight       = 1.0 / 8.0;
     Vector3D<double>   tau{one_eight * latticeConstant, one_eight * latticeConstant, one_eight * latticeConstant};
     const double       fourier_factor = 2.0 * M_PI / latticeConstant;
+
+    // NonLocalFunctor non_local_functor(m_material.get_non_local_parameters(), m_material, tau);
+
+    const Pseudopotential pseudopotential = m_material.get_pseudopotential();
     for (unsigned int i = 0; i < basisSize; ++i) {
         for (unsigned int j = 0; j < basisSize; ++j) {
-            // matrix(i, j) = 0.0;
-            // std::cout << "k + vi = " << (k + m_basisVectors[j]) << std::endl;
-            Vector3D<double> real_k_vector_i = (k + m_basisVectors[i]);
-            Vector3D<double> real_k_vector_j = (k + m_basisVectors[j]);
-            matrix(i, j) = m_material.m_pseudopotential.GetValue(m_basisVectors[i] - m_basisVectors[j], tau, latticeConstant);
-            // std::cout << "Local: " << matrix(i, j) << std::endl;
-            // Non local correction
+            Vector3D<double> k_vector_i = (k + m_basisVectors[i]);
+            Vector3D<double> k_vector_j = (k + m_basisVectors[j]);
+            matrix(i, j)                = pseudopotential.GetValue(m_basisVectors[i] - m_basisVectors[j], tau, latticeConstant);
             if (add_non_local_correction) {
-                // std::cout << "real_k_vector_i: " << real_k_vector_i << std::endl;
-                std::complex<double> nl_correction =
-                    m_material.compute_pseudopotential_non_local_correction(real_k_vector_i, real_k_vector_j, tau);
-                // std::cout << "nl_correction UNDIAG = " << real_k_vector_i << "   ->   " << nl_correction << std::endl;
-
-                matrix(i, j) += nl_correction;
+                matrix(i, j) += m_material.compute_pseudopotential_non_local_correction(k_vector_i, k_vector_j, tau);
             }
         }
     }
 
+    // diagonal elements
     const double diag_factor = pow(Constants::h_bar, 2) / (2.0 * Constants::m0 * Constants::q);
     for (unsigned int i = 0; i < basisSize; ++i) {
-        // diagonal elements
         Vector3D<double> real_k_vector = (k + m_basisVectors[i]);
         const double     KG2           = fourier_factor * fourier_factor * diag_factor * real_k_vector * real_k_vector;
         matrix(i, i)                   = std::complex<double>(KG2, 0);
         // Non local correction
         if (add_non_local_correction) {
             std::complex<double> nl_correction = m_material.compute_pseudopotential_non_local_correction(real_k_vector, real_k_vector, tau);
-            // std::cout << "local diag         = " << real_k_vector << "   ->   " << KG2 << std::endl;
-            // std::cout << "nl_correction diag = " << real_k_vector << "   ->   " << nl_correction << std::endl;
             matrix(i, i) += nl_correction;
         }
     }

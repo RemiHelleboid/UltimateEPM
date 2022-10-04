@@ -48,6 +48,7 @@ class BandStructure {
                     bool                          enable_non_local_correction);
 
     const std::vector<std::string>& GetPath() const { return m_path; }
+    std::string                     get_path_as_string() const;
     unsigned int                    GetPointsNumber() const { return static_cast<unsigned int>(m_kpoints.size()); }
     void                            Compute();
     void                            Compute_parallel(int nb_threads);
@@ -87,6 +88,8 @@ class BandStructure {
 
     static bool FindBandGap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction);
     bool        GenerateBasisVectors(unsigned int nearestNeighborsNumber);
+
+    void export_path_band_in_file(const std::string& filename) const;
 };
 
 void export_vector_bands_result_in_file(const std::string& filename, std::vector<std::vector<double>>);

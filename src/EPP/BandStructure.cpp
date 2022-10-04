@@ -14,6 +14,15 @@
 
 namespace EmpiricalPseudopotential {
 
+
+std::string BandStructure::get_path_as_string() const {
+    std::string path = "";
+    for (const auto& point : m_path) {
+        path += point;
+    }
+    return path;
+}
+
 bool BandStructure::GenerateBasisVectors(unsigned int nearestNeighborsNumber) {
     static const std::vector<unsigned int> G2{
         0,   3,   4,   8,   11,  12,  16,  19,  20,  24,  27,  32,  35,  36,  40,  43,  44,  48,  51,  52,  56,  59,  67,  68,
@@ -71,7 +80,6 @@ void BandStructure::Initialize(const Material&                 material,
             "BandStructure::Initialize: GeneratePoints failed. No points generated.\
         \nPlease increase the number of points such as there is twice as many points as the number of symetry points.");
     }
-    m_material.m_non_local_parameters.print_non_local_parameters();
 }
 
 void BandStructure::Initialize(const Material&               material,
@@ -223,7 +231,10 @@ void BandStructure::export_k_points_to_file(std::string filename) const {
 void BandStructure::export_result_in_file(const std::string& filename) const {
     std::cout << "Exporting band structure to file:     " << filename << std::endl;
     std::ofstream file(filename);
-    // file << "kx,ky,kz,";
+    file << "# Path " << get_path_as_string() << std::endl;
+    file << "# Material " << m_material.get_name() << std::endl;
+    file << "# NBands " << m_nb_bands << std::endl;
+    file << "# Nonlocal " << (m_enable_non_local_correction ? "Yes" : "No") << std::endl;
 
     for (unsigned int i = 0; i < m_results.front().size() - 1; ++i) {
         file << "band_" << i << ",";
@@ -263,10 +274,12 @@ std::string BandStructure::path_band_filename() const {
             path_string += point;
         }
     }
-    std::string filename = "EPM_" + m_material.name + "_nb_bands_" + std::to_string(m_results.front().size()) + "_path_" + path_string +
+    std::string filename = "EPM_" + m_material.get_name() + "_nb_bands_" + std::to_string(m_results.front().size()) + "_path_" + path_string +
                            "_size_basis_" + std::to_string(basisVectors.size());
     return filename;
 }
+
+
 
 void export_vector_bands_result_in_file(const std::string& filename, std::vector<std::vector<double>> results) {
     std::cout << "Exporting band structure to file:     " << filename << std::endl;

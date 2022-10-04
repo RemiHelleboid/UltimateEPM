@@ -105,8 +105,8 @@ materials:
       V4A: 0.05
       V11A: 0.01
 
-  - name: AlAs
-    symbol: AluminiumArsenide
+  - name: AluminiumArsenide
+    symbol: AlAs
     lattice-constant: 5.6605
     pseudo-potential-parameters:
       V3S: -0.221

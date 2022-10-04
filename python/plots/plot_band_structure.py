@@ -5,6 +5,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 from matplotlib.lines import Line2D
+from scipy.interpolate import CubicSpline
+
 
 try:
     plt.style.use(['science', 'high-vis'])
@@ -23,6 +25,32 @@ BZ_points = {
     "U":  np.array([1/8, 1/2, 1/8]),
     "K":  np.array([3/8, 3/8, 0]),
 }
+
+def get_epm_parameters_from_file(filename: str) -> dict:
+    """Extract the EPM parameters from the band structure file.
+
+    Args:
+        filename (str): Filename of the band structure file.
+
+    Returns:
+        dic: The EPM p0arameters.
+    """
+    comment_char = '#'
+    dict_params = {}
+    with open(filename, "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            if comment_char in line:
+                line = line.split(comment_char)[1]
+                split = line.split(' ')
+                if len(split) == 2:
+                    dict_params[split[0]] = split[1]
+                elif len(split) > 3:
+                    dict_params[split[0]] = split[1:]
+            else:
+                break
+    return dict_params
+
 
 def get_gap(bands: np.array) -> tuple:
     """Get the gap of the band structure.
@@ -72,11 +100,37 @@ def get_path_from_filename(filename: str) -> tuple:
     dist_btw_points = [np.linalg.norm(
         list_points[k+1] - list_points[k]) for k in range(len(list_points)-1)]
 
-    # Treatment of UK path, which distance is set to 0.0
-    if "UK" in path:
-        index_UK = path.index("UK")
-        dist_btw_points[index_UK] = 0.0
+
     return list_points_plot, dist_btw_points, material
+
+
+def extract_reference_values(filename: str, nb_bands=10):
+    """Extract the reference values from the band structure file.
+
+    Args:
+        filename (str): Filename of the band structure file.
+        nb_bands (int, optional): Number of band to keep in the plot. Defaults to 10.
+
+    Returns:
+        tuple: The reference values.
+    """
+    dict_parameters = get_epm_parameters_from_file(filename)
+    list_points_string, dist_btw_points, material = get_path_from_filename(
+        filename)
+    point_sym_positions = [0]
+    for k in range(1, len(list_points_string)):
+        point_sym_positions.append(
+            point_sym_positions[k-1] + dist_btw_points[k-1])
+    print(point_sym_positions)
+
+    cnv = {1: lambda s: np.float(s.strip() or 'Nan')}
+    band_energies = np.loadtxt(
+        filename, delimiter=",", usecols=tuple(i for i in range(nb_bands)), skiprows=1)
+    band_energies = band_energies.T
+    print(dist_btw_points)
+
+    for band in band_energies[::]:
+        spline_interp = CubicSpline(point_sym_positions, band)
 
 
 def plot_band_structure(filename: str, ax, index_plot, nb_bands=10):
@@ -91,6 +145,8 @@ def plot_band_structure(filename: str, ax, index_plot, nb_bands=10):
     Returns:
         _type_: _description_
     """
+    dict_params = get_epm_parameters_from_file(filename)
+    print(len(dict_params))
     print("Plotting band structure")
     list_points_string, dist_btw_points, material = get_path_from_filename(
         filename)
@@ -103,16 +159,18 @@ def plot_band_structure(filename: str, ax, index_plot, nb_bands=10):
 
     cnv = {1: lambda s: np.float(s.strip() or 'Nan')}
     band_energies = np.loadtxt(
-        filename, delimiter=",", usecols=tuple(i for i in range(nb_bands)), skiprows=1)
+        filename, delimiter=",", usecols=tuple(i for i in range(nb_bands)), skiprows=5)
     band_energies = band_energies.T
+    print(dist_btw_points)
+    
 
     for band in band_energies[::]:
         ax.plot(band, ls=plot_ls, color='k', lw=0.5)
-        
+
     band_gap = get_gap(band_energies)
     print(f"Band gap: {band_gap}")
 
-    return 0
+    return band_gap
 
 
 if __name__ == "__main__":
@@ -124,7 +182,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--outputdir", dest="output_path_dir",
                         help="The directory to save the results.", default="./")
     parser.add_argument("-p", "--plot", dest="show_plot",
-                        help="If true, the plot is displayed.", default="False", type=bool)
+                        help="If true, the plot is displayed.", default=False, type=bool)
     args = parser.parse_args()
     OUT_DIR = args.output_path_dir
 
@@ -135,11 +193,12 @@ if __name__ == "__main__":
     nb_points = num_lines = sum(1 for line in open(FILE_PATH_0)) - 1
 
     fig, ax = plt.subplots()
-
+    band_gap = 0.0
     for index, file in enumerate(list_files):
-        plot_band_structure(file, ax, index, nb_bands=args.nb_bands)
+        get_epm_parameters_from_file(file)
+        band_gap = plot_band_structure(file, ax, index, nb_bands=args.nb_bands)
 
-    ax.set_ylim(bottom=-16, top=10)
+    # ax.set_ylim(bottom=-20, top=12)
     ax.grid(True, which='both', axis='both', ls="-",
             lw=0.25, alpha=0.5, color='grey')
     ax.set_title(f"Band structure of {material}")
@@ -159,11 +218,16 @@ if __name__ == "__main__":
     lines = [Line2D([0], [0], color='k', lw=0.5, ls=lstyle)
              for lstyle in ["-", "--"]]
     labels = ["non-local", "local"]
-    ax.legend(lines, labels, loc='best', fancybox=True, framealpha=0.5)
 
+    ax.legend(lines, labels, loc='lower right', fancybox=True,  frameon=True,
+              edgecolor='k', facecolor='w', fontsize=6, framealpha=0.75)
     fig.tight_layout()
     fig.savefig(f"{OUT_DIR}/band_structure_{material}.png", dpi=300)
+
     if args.show_plot:
         plt.show()
+
+    ax.set_ylim(-2.0, band_gap + 1.0)
+    fig.savefig(f"{OUT_DIR}/band_structure_{material}_zoom.png", dpi=300)
 
     # plot_band_structure(FILE_PATH, OUT_DIR, args.nb_bands)

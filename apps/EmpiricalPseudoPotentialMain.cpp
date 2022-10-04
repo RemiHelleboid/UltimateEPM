@@ -223,7 +223,7 @@ int main(int argc, char* argv[]) {
         file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
     }
     materials.load_material_parameters(file_material_parameters);
-    materials.print_material_parameters();
+    // materials.print_material_parameters();
 
     print_arguments(path_list,
                     arg_material.getValue(),

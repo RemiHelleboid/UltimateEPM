@@ -42,22 +42,22 @@ std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<s
 
     // Calculate the length of each path segment, and add it to the total length.
     double length = 0.0;
-    for (unsigned int i = 1; i < path.size(); ++i) {
-        const Vector3D<double> dif = symmetryPoints[path[i]].position - symmetryPoints[path[i - 1ULL]].position;
+    for (std::size_t index_HS_point = 1; index_HS_point < path.size(); ++index_HS_point) {
+        const Vector3D<double> dif = symmetryPoints[path[index_HS_point]].position - symmetryPoints[path[index_HS_point - 1]].position;
         length += dif.Length();
     }
 
     const double stepSize = length / (nrPoints - 1.);
 
-    for (unsigned int i = 1; i < path.size(); ++i) {
-        const Vector3D<double> startPos  = symmetryPoints[path[i - 1ULL]].position;
-        const Vector3D<double> dif       = symmetryPoints[path[i]].position - startPos;
+    for (std::size_t indexHSpoint = 1; indexHSpoint < path.size(); ++indexHSpoint) {
+        const Vector3D<double> startPos  = symmetryPoints[path[indexHSpoint - 1ULL]].position;
+        const Vector3D<double> dif       = symmetryPoints[path[indexHSpoint]].position - startPos;
         const double           difLength = dif.Length();
 
         Vector3D<double> stepVec = dif / difLength * stepSize;
 
-        if (1 == i)
-            symmetryPointsPositions.push_back(0);
+        if (indexHSpoint == 1)
+            symmetryPointsPositions.push_back(0.0);
         else
             symmetryPointsPositions.push_back(static_cast<unsigned int>(result.size() + 1));
 

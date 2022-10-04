@@ -27,6 +27,13 @@ materials:
       R0_anion: 1.06
       R2_anion: 0.0
       well_type: "square"
+    spin-orbit-parameters:
+      period_anion: 3
+      period_cation: 3
+      radial_extent_anion: 4.60
+      radial_extent_cation: 4.60
+      alpha_soc: 1.00
+      mu_soc: 0.0
 
   - name: Germanium
     symbol: Ge
@@ -52,6 +59,13 @@ materials:
       R0_anion: 0.0
       R2_anion: 1.22
       well_type: "gaussian"
+    spin-orbit-parameters:
+      period_anion: 4
+      period_cation: 4
+      radial_extent_anion: 5.34
+      radial_extent_cation: 5.34
+      alpha_soc: 1.00
+      mu_soc: 0.00069
 
   - name: Tin
     symbol: Sn
@@ -77,6 +91,13 @@ materials:
       R0_anion: 1.06
       R2_anion: 1.41
       well_type: "square"
+    spin-orbit-parameters:
+      period_anion: 5
+      period_cation: 5
+      radial_extent_anion: 4.95
+      radial_extent_cation: 4.95
+      alpha_soc: 1.00
+      mu_soc: 0.00225
 
   - name: GalliumPhosphide
     symbol: GaP
@@ -102,6 +123,13 @@ materials:
       R0_anion: 1.06
       R2_anion: 1.180
       well_type: "square"
+    spin-orbit-parameters:
+      period_anion: 4
+      period_cation: 3
+      radial_extent_anion: 5.34
+      radial_extent_cation: 4.60
+      alpha_soc: 0.52
+      mu_soc: 0.0
 
   - name: GalliumArsenide
     symbol: GaAs
@@ -127,6 +155,13 @@ materials:
       R0_anion: 1.06
       R2_anion: 1.223
       well_type: "gaussian"
+    spin-orbit-parameters:
+      period_anion: 4
+      period_cation: 4
+      radial_extent_anion: 5.34
+      radial_extent_cation: 5.34
+      alpha_soc: 2.58
+      mu_soc: 0.00080
 
   - name: IndiumPhosphide
     symbol: InP
@@ -152,6 +187,13 @@ materials:
       R0_anion: 1.06
       R2_anion: 1.269
       well_type: "square"
+    spin-orbit-parameters:
+      period_anion: 5
+      period_cation: 3
+      radial_extent_anion: 4.95
+      radial_extent_cation: 4.60
+      alpha_soc: 0.20
+      mu_soc: 0.00076
 
   - name: IndiumArsenide
     symbol: InAs
@@ -177,6 +219,13 @@ materials:
       R0_anion: 1.06
       R2_anion: 1.310
       well_type: "square"
+    spin-orbit-parameters:
+      period_anion: 5
+      period_cation: 4
+      radial_extent_anion: 4.95
+      radial_extent_cation: 5.34
+      alpha_soc: 1.0
+      mu_soc: 0.00113
       
 
   - name: IndiumAntimonide
@@ -203,6 +252,13 @@ materials:
       R0_anion: 1.06
       R2_anion: 1.40
       well_type: "square"
+    spin-orbit-parameters:
+      period_anion: 5
+      period_cation: 5
+      radial_extent_anion: 4.95
+      radial_extent_cation: 4.95
+      alpha_soc: 2.16
+      mu_soc: 0.00112
 
   - name: ZincSelenide 
     symbol: ZnSe
@@ -228,6 +284,13 @@ materials:
       R0_anion: 0.0
       R2_anion: 1.223
       well_type: "gaussian"
+    spin-orbit-parameters:
+      period_anion: 4
+      period_cation: 4
+      radial_extent_anion: 5.34
+      radial_extent_cation: 5.34
+      alpha_soc: 7.78
+      mu_soc: 0.00105
 
   - name: CadmiumTelluride 
     symbol: CdTe
@@ -253,25 +316,11 @@ materials:
       R2_anion: 1.223
       R0_anion: 1.40
       well_type: "square"
+    spin-orbit-parameters:
+      period_anion: 5
+      period_cation: 5
+      radial_extent_anion: 4.95
+      radial_extent_cation: 4.95
+      alpha_soc: 5.73
+      mu_soc: 0.00046
 
-  # - name: AluminiumAntimonide
-  #   symbol: AlSb
-  #   lattice-constant: 6.13
-  #   pseudo-potential-parameters:
-  #     V3S: -0.21
-  #     V8S: 0.02
-  #     V11S: 0.06
-  #     V3A: 0.06
-  #     V4A: 0.04
-  #     V11A: 0.02
-
-  # - name: AlAs
-  #   symbol: AluminiumArsenide
-  #   lattice-constant: 5.6605
-  #   pseudo-potential-parameters:
-  #     V3S: -0.221
-  #     V8S: 0.025
-  #     V11S: 0.07
-  #     V3A: 0.08
-  #     V4A: 0.05
-  #     V11A: -0.04

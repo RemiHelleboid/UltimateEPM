@@ -2,6 +2,9 @@ set(HEADER_FILES_LIBEPP
   SymmetryPoints.h
   bz_meshfile.hpp
   NonLocalParameters.hpp
+  NonLocalFunctional.hpp
+  SpinOrbitParameters.hpp
+  SpinOrbitFunctional.hpp
   Options.h
   Material.h
   bessel_func.hpp
@@ -16,8 +19,10 @@ set(SOURCE_FILES_LIBEPP
   SymmetryPoints.cpp
   Options.cpp
   Hamiltonian.cpp
+  NonLocalFunctional.cpp
   BandStructure.cpp
   Pseudopotential.cpp
+  SpinOrbitFunctional.cpp
   bz_meshfile.cpp)
 
 add_library(libepp STATIC ${SOURCE_FILES_LIBEPP} ${HEADER_FILES_LIBEPP})
