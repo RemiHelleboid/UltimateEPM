@@ -100,37 +100,11 @@ def get_path_from_filename(filename: str) -> tuple:
     dist_btw_points = [np.linalg.norm(
         list_points[k+1] - list_points[k]) for k in range(len(list_points)-1)]
 
-
+    # Treatment of UK path, which distance is set to 0.0
+    if "UK" in path:
+        index_UK = path.index("UK")
+        dist_btw_points[index_UK] = 0.0
     return list_points_plot, dist_btw_points, material
-
-
-def extract_reference_values(filename: str, nb_bands=10):
-    """Extract the reference values from the band structure file.
-
-    Args:
-        filename (str): Filename of the band structure file.
-        nb_bands (int, optional): Number of band to keep in the plot. Defaults to 10.
-
-    Returns:
-        tuple: The reference values.
-    """
-    dict_parameters = get_epm_parameters_from_file(filename)
-    list_points_string, dist_btw_points, material = get_path_from_filename(
-        filename)
-    point_sym_positions = [0]
-    for k in range(1, len(list_points_string)):
-        point_sym_positions.append(
-            point_sym_positions[k-1] + dist_btw_points[k-1])
-    print(point_sym_positions)
-
-    cnv = {1: lambda s: np.float(s.strip() or 'Nan')}
-    band_energies = np.loadtxt(
-        filename, delimiter=",", usecols=tuple(i for i in range(nb_bands)), skiprows=1)
-    band_energies = band_energies.T
-    print(dist_btw_points)
-
-    for band in band_energies[::]:
-        spline_interp = CubicSpline(point_sym_positions, band)
 
 
 def plot_band_structure(filename: str, ax, index_plot, nb_bands=10):
