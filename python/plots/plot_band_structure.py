@@ -156,7 +156,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--outputdir", dest="output_path_dir",
                         help="The directory to save the results.", default="./")
     parser.add_argument("-p", "--plot", dest="show_plot",
-                        help="If true, the plot is displayed.", default=False, type=bool)
+                        help="If true, the plot is displayed.", default=True, type=bool)
     args = parser.parse_args()
     OUT_DIR = args.output_path_dir
 

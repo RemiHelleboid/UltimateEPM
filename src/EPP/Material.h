@@ -5,6 +5,7 @@
 #include <string>
 
 #include "NonLocalParameters.hpp"
+#include "SpinOrbitParameters.hpp"
 #include "Pseudopotential.h"
 #include "yaml-cpp/yaml.h"
 
@@ -37,10 +38,22 @@ class Material {
     NonLocalParameters m_non_local_parameters;
 
     /**
+     * @brief Spin-orbit coupling parameters struct of the material.
+     *
+     */
+    SpinOrbitParameters m_spin_orbit_parameters;
+
+    /**
      * @brief Flag to indicate if the non-local corrections parameters are set.
      *
      */
     bool m_is_non_local_parameters_populated = false;
+
+    /**
+     * @brief Flag to indicate if the spin-orbit coupling parameters are set.
+     *
+     */
+    bool m_is_spin_orbit_parameters_populated = false;
 
  public:
     Material() : m_lattice_constant(0) {}
@@ -64,6 +77,10 @@ class Material {
      */
     void populate_non_local_parameters(const YAML::Node& node) {
         m_non_local_parameters.populate_non_local_parameters(node);
+    }
+
+    void populate_spin_orbit_parameters(const YAML::Node& node) {
+        m_spin_orbit_parameters.populate_from_yaml(node);
     }
 
     /**
@@ -111,12 +128,29 @@ class Material {
     bool is_non_local_parameters_populated() const { return m_is_non_local_parameters_populated; }
 
     /**
+     * @brief Check if the spin-orbit parameters are populated.
+     * 
+     * @return true 
+     * @return false 
+     */
+    bool is_spin_orbit_parameters_populated() const { return m_is_spin_orbit_parameters_populated; }
+
+    /**
      * @brief Set the flag to indicate if the non-local parameters are populated.
      * 
      * @param is_non_local_parameters_populated 
      */
     void set_is_non_local_parameters_populated(bool is_non_local_parameters_populated) {
         m_is_non_local_parameters_populated = is_non_local_parameters_populated;
+    }
+
+    /**
+     * @brief Set the flag to indicate if the spin-orbit parameters are populated.
+     * 
+     * @param is_spin_orbit_parameters_populated 
+     */
+    void set_is_spin_orbit_parameters_populated(bool is_spin_orbit_parameters_populated) {
+        m_is_spin_orbit_parameters_populated = is_spin_orbit_parameters_populated;
     }
 
     /**

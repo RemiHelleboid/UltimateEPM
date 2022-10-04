@@ -60,6 +60,13 @@ void Materials::load_material_parameters(const std::string& filename) {
             materials[symbol].populate_non_local_parameters(node_non_local_parameters);
             materials[symbol].set_is_non_local_parameters_populated(true);
         }
+
+        auto node_spin_orbit_parameters = material["spin-orbit-parameters"];
+        if (node_spin_orbit_parameters) {
+            materials[symbol].populate_spin_orbit_parameters(node_spin_orbit_parameters);
+            materials[symbol].set_is_spin_orbit_parameters_populated(true);
+            
+        }
     }
 }
 

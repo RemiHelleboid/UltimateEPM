@@ -1,12 +1,12 @@
 /**
  * @file SpinOrbitParameters.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2022-09-30
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 
 #pragma once
@@ -18,58 +18,83 @@
 #include "Constants.hpp"
 #include "yaml-cpp/yaml.h"
 
+namespace EmpiricalPseudopotential {
 
+/**
+ * @brief Struct to store the Spin-Orbit Coupling (SOC) parameters.
+ *
+ */
 struct SpinOrbitParameters {
     /**
-     * @brief Length scale of the radial wave function for the cation.
-     * 
+     * @brief Period of the anion (line number in the periodic table).
+     *
      */
-    double m_zeta_cation;
+    unsigned int m_period_anion;
+
+    /**
+     * @brief Period of the cation (line number in the periodic table).
+     *
+     */
+    unsigned int m_period_cation;
+
+    /**
+     * @brief Length scale of the radial wave function for the cation.
+     *
+     */
+    double m_radial_extent_cation;
 
     /**
      * @brief Length scale of the radial wave function for the anion.
-     * 
+     *
      */
-    double m_zeta_anion;
+    double m_radial_extent_anion;
 
     /**
      * @brief Fitting parameter alpha.
-     * 
+     *
      */
     double m_alpha;
 
     /**
      * @brief Fitting parameter beta.
-     * 
+     *
      */
     double m_mu;
-    
+
     /**
      * @brief Default constructor.
-     * 
+     *
      */
     SpinOrbitParameters() = default;
 
     /**
      * @brief Populate the spin-orbit parameters from a YAML node.
-     * 
-     * @param node 
+     *
+     * @param node
      */
     void populate_from_yaml(const YAML::Node& node) {
-        m_zeta_cation = node["zeta_cation"].as<double>();
-        m_zeta_anion  = node["zeta_anion"].as<double>();
-        m_alpha       = node["alpha"].as<double>();
-        m_mu          = node["mu"].as<double>();
+        m_period_anion         = node["period_anion"].as<unsigned int>();
+        m_period_cation        = node["period_cation"].as<unsigned int>();
+        m_radial_extent_anion  = node["radial_extent_anion"].as<double>();
+        m_radial_extent_cation = node["radial_extent_cation"].as<double>();
+        m_alpha                = node["alpha_soc"].as<double>();
+        m_mu                   = Constants::Ryd_to_eV * node["mu_soc"].as<double>();
+        print_parameters();
     }
 
     /**
      * @brief Display the spin-orbit parameters.
-     * 
+     *
      */
-    void print() const {
-        std::cout << "zeta_cation = " << m_zeta_cation << std::endl;
-        std::cout << "zeta_anion = " << m_zeta_anion << std::endl;
-        std::cout << "alpha = " << m_alpha << std::endl;
-        std::cout << "mu = " << m_mu << std::endl;
+    void print_parameters() const {
+        std::cout << "Spin-Orbit Coupling parameters:" << std::endl;
+        std::cout << "Period anion: " << m_period_anion << std::endl;
+        std::cout << "Period cation: " << m_period_cation << std::endl;
+        std::cout << "Radial extent anion: " << m_radial_extent_anion << std::endl;
+        std::cout << "Radial extent cation: " << m_radial_extent_cation << std::endl;
+        std::cout << "Alpha: " << m_alpha << std::endl;
+        std::cout << "Mu: " << m_mu << std::endl;
     }
 };
+
+}  // namespace EmpiricalPseudopotential
