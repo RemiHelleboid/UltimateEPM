@@ -19,13 +19,13 @@ namespace EmpiricalPseudopotential {
 
 // double SpinOrbitCorrection::compute_B2_cation(const Vector3D<double>& K) const {
 //     const Vector3D<double> kappa = K * (Constants::bohr_radius / m_soc_parameters.m_zeta_cation);
-//     double                 B2    = 1.0 / std::pow((1.0 + kappa * kappa), 0.33);
+//     double                 B2    = 1.0 / std::pow((1.0 + kappa * kappa), 3.0);
 //     return B2;
 // }
 
 // double SpinOrbitCorrection::compute_B2_anion(const Vector3D<double>& K) const {
 //     const Vector3D<double> kappa = K * (Constants::bohr_radius / m_soc_parameters.m_zeta_anion);
-//     double                 B2    = 1.0 / std::pow((1.0 + kappa * kappa), 0.33);
+//     double                 B2    = 1.0 / std::pow((1.0 + kappa * kappa), 3.0);
 //     return B2;
 // }
 
