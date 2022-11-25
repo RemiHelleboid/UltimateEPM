@@ -29,13 +29,16 @@ bool is_in_irreducible_wedge(const Vector3D<double>& k) {
 }
 
 bool is_in_first_BZ(const Vector3D<double>& k) {
-    return (k.X >= 0.0) && (k.X <= 1.0) && (k.Y >= 0.0) && (k.Y <= 1.0) && (k.Z >= 0.0) && (k.Z <= 1.0);
+    bool cond_1 = fabs(k.X) <= 1.0 && fabs(k.Y) <= 1.0 && fabs(k.Z) <= 1.0;
+    bool cond_2 = fabs(k.X) + fabs(k.Y) + fabs(k.Z) <= 3.0 / 2.0;
+    return cond_1 && cond_2;
 }
 
 DielectricFunction::DielectricFunction(const Material& material, const std::vector<Vector3D<int>>& basisVectors, const int nb_bands)
     : m_basisVectors(basisVectors),
       m_material(material),
       m_nb_bands(nb_bands) {}
+
 
 void DielectricFunction::generate_k_points_random(std::size_t nb_points) {
     std::random_device               rd;
@@ -55,7 +58,7 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, 
         for (std::size_t j = 0; j < Ny; ++j) {
             for (std::size_t k = 0; k < Nz; ++k) {
                 Vector3D<double> k_vect(i / static_cast<double>(Nx), j / static_cast<double>(Ny), k / static_cast<double>(Nz));
-                if (is_in_irreducible_wedge(k_vect)) {
+                if (is_in_first_BZ(k_vect)) {
                     m_kpoints.push_back(k_vect);
                 }
             }

@@ -8,6 +8,13 @@ def IsInIrreducibleWedge(k):
         (np.sum(k) <= 3.0/2.0)
 
 
+def is_in_fcc_bz(k):
+    kx, ky, kz = k
+    cond_1 = abs(kx) <= 1.0 and abs(ky) <= 1.0 and abs(kz) <= 1.0
+    cond_2 = abs(kx) + abs(ky) + abs(kz) <= 3.0 / 2.0
+
+    return cond_1 and cond_2
+
 def Monkhorst_Pack(Nk1: int, Nk2: int, Nk3: int, irreducible_wedge=True) -> np.ndarray:
     b_1 = np.array([-1, 1, 1])
     b_2 = np.array([1, -1, 1])
@@ -141,6 +148,26 @@ def RandomKPointsIrreducibleWedge(Npoints, plot=False):
         plt.show()
     return kpointsBZ
 
+def RandomKpointsFullBZ(Npoints, plot=False):
+    kpointsBZ = []
+    kpoints_notBZ = []
+    while len(kpointsBZ) < Npoints:
+        k = np.random.uniform(-1.0, 1.0, 3)
+        if is_in_fcc_bz(k):
+            kpointsBZ.append(k)
+        else:
+            kpoints_notBZ.append(k)
+    if plot:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        plot_bz_outline(ax)
+        ax.scatter([k[0] for k in kpointsBZ], [k[1]
+                for k in kpointsBZ], [k[2] for k in kpointsBZ], c='r', marker='.')
+        # ax.scatter([k[0] for k in kpoints_notBZ], [k[1]
+        #            for k in kpoints_notBZ], [k[2] for k in kpoints_notBZ], c='b', alpha=0.25)
+        plt.show()
+    return kpointsBZ
+
 def comparison(Nk):
     k_random = RandomKPointsIrreducibleWedge(Nk, plot=False)
     k_Monkhorst = Monkhorst_Pack(10, 10, 10)
@@ -164,7 +191,8 @@ if __name__ == "__main__":
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     plot_bz_outline(ax)
-    ax.scatter(list_k[:, 0], list_k[:, 1], list_k[:, 2], c='r', s=4)
+    # ax.scatter(list_k[:, 0], list_k[:, 1], list_k[:, 2], c='r', s=4)
+    RandomKpointsFullBZ(10000, plot=True)
     plt.show()
     # RandomKPointsIrreducibleWedge(5000, plot=True)
     # comparison(150)
