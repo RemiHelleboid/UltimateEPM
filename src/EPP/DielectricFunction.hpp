@@ -59,7 +59,10 @@ class DielectricFunction {
      * @param omega
      * @return Eigen::Matrix3cd
      */
-    std::vector<double> compute_dielectric_function(const Vector3D<double>& q_vect, const std::vector<double>& list_energies) const;
+    std::vector<double> compute_dielectric_function(const Vector3D<double>&    q_vect,
+                                                    const std::vector<double>& list_energies,
+                                                    double                     eta_smearing=1e-2,
+                                                    int                        nb_threads=1) const;
 
     void export_kpoints(const std::string& filename) const;
 };

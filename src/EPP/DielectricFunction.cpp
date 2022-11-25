@@ -64,7 +64,9 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, 
 }
 
 std::vector<double> DielectricFunction::compute_dielectric_function(const Vector3D<double>&    q_vect,
-                                                                    const std::vector<double>& list_energies) const {
+                                                                    const std::vector<double>& list_energies,
+                                                                    double                     eta_smearing,
+                                                                    int                        nb_threads) const {
     const int                     index_first_conduction_band = 4;
     double                        q_squared                   = pow(q_vect.Length(), 2);
     std::vector<Vector3D<double>> k_plus_q_vects(m_kpoints.size());
@@ -73,7 +75,6 @@ std::vector<double> DielectricFunction::compute_dielectric_function(const Vector
     // Hamiltonian         hamiltonian_k_plus_q(m_material, m_basisVectors);
     std::vector<double>      iter_dielectric_function(m_kpoints.size());
     bool                     keep_eigenvectors = true;
-    int                      nb_threads        = 8;
     std::vector<Hamiltonian> hamiltonian_k_per_thread;
     std::vector<Hamiltonian> hamiltonian_k_plus_q_per_thread;
 
@@ -88,26 +89,14 @@ std::vector<double> DielectricFunction::compute_dielectric_function(const Vector
         auto k_vect        = m_kpoints[index_k];
         auto k_plus_q_vect = k_plus_q_vects[index_k];
         int  thread_id     = omp_get_thread_num();
-        // hamiltonian_k_per_thread[thread_id]
-
-        // hamiltonian_k.SetMatrix(k_vect);
-        // hamiltonian_k_plus_q.SetMatrix(k_plus_q_vect);
-        // hamiltonian_k.Diagonalize(keep_eigenvectors);
-        // hamiltonian_k_plus_q.Diagonalize(keep_eigenvectors);
-        // const auto&         eigenvalues_k         = hamiltonian_k.eigenvalues();
-        // const auto&         eigenvalues_k_plus_q  = hamiltonian_k_plus_q.eigenvalues();
-        // const auto&         eigenvectors_k        = hamiltonian_k.get_eigenvectors();
-        // const auto&         eigenvectors_k_plus_q = hamiltonian_k_plus_q.get_eigenvectors();
-        // std::cout << "thread id: " << thread_id << std::endl;
         hamiltonian_k_per_thread[thread_id].SetMatrix(k_vect);
         hamiltonian_k_plus_q_per_thread[thread_id].SetMatrix(k_plus_q_vect);
         hamiltonian_k_per_thread[thread_id].Diagonalize(keep_eigenvectors);
         hamiltonian_k_plus_q_per_thread[thread_id].Diagonalize(keep_eigenvectors);
-        const auto& eigenvalues_k         = hamiltonian_k_per_thread[thread_id].eigenvalues();
-        const auto& eigenvalues_k_plus_q  = hamiltonian_k_plus_q_per_thread[thread_id].eigenvalues();
-        const auto& eigenvectors_k        = hamiltonian_k_per_thread[thread_id].get_eigenvectors();
-        const auto& eigenvectors_k_plus_q = hamiltonian_k_plus_q_per_thread[thread_id].get_eigenvectors();
-        double eta_smearing = 1.0e-2;
+        const auto&         eigenvalues_k         = hamiltonian_k_per_thread[thread_id].eigenvalues();
+        const auto&         eigenvalues_k_plus_q  = hamiltonian_k_plus_q_per_thread[thread_id].eigenvalues();
+        const auto&         eigenvectors_k        = hamiltonian_k_per_thread[thread_id].get_eigenvectors();
+        const auto&         eigenvectors_k_plus_q = hamiltonian_k_plus_q_per_thread[thread_id].get_eigenvectors();
         std::vector<double> list_k_sum(list_energies.size());
         for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands; ++idx_conduction_band) {
             for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
@@ -116,24 +105,21 @@ std::vector<double> DielectricFunction::compute_dielectric_function(const Vector
                 double delta_energy = eigenvalues_k_plus_q[idx_conduction_band] - eigenvalues_k[idx_valence_band];
                 for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
                     double energy = list_energies[index_energy];
-                    // double factor = 1.0 / (delta_energy - energy) + 1.0 / (delta_energy + energy);
-                    double factor_1 = (delta_energy - energy) / ((delta_energy - energy) * (delta_energy - energy) + eta_smearing * eta_smearing);
-                    double factor_2 = (delta_energy + energy) / ((delta_energy + energy) * (delta_energy + energy) + eta_smearing * eta_smearing);
+                    double factor_1 =
+                        (delta_energy - energy) / ((delta_energy - energy) * (delta_energy - energy) + eta_smearing * eta_smearing);
+                    double factor_2 =
+                        (delta_energy + energy) / ((delta_energy + energy) * (delta_energy + energy) + eta_smearing * eta_smearing);
                     double total_factor = factor_1 + factor_2;
                     list_k_sum[index_energy] += overlap_integral * total_factor;
-                    // list_k_sum[index_energy] += overlap_integral * factor;
                 }
             }
+        }
+        for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
+            list_total_sum[index_energy] += list_k_sum[index_energy];
         }
         if (thread_id == 0) {
             std::cout << "\r"
                       << "Computing dielectric function: " << index_k << "/" << m_kpoints.size() << std::flush;
-        }
-#pragma omp critical
-        {
-            for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
-                list_total_sum[index_energy] += list_k_sum[index_energy];
-            }
         }
     }
     for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {

@@ -57,7 +57,7 @@ TEST_CASE("Epsilon_Si") {
     EmpiricalPseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
     // const std::size_t                            nb_kpoints = 2000;
     // MyDielectricFunc.generate_k_points_random(nb_kpoints);
-    std::size_t Nxyz = 30;
+    std::size_t Nxyz = 40;
     MyDielectricFunc.generate_k_points_grid(Nxyz, Nxyz, Nxyz);
     std::cout << "Number of kpoints in the irreducible wedge: " << MyDielectricFunc.get_kpoints().size() << std::endl;
     MyDielectricFunc.export_kpoints("TestKpoints.csv");
@@ -74,7 +74,10 @@ TEST_CASE("Epsilon_Si") {
         list_energy.push_back(energy);
     }
     std::cout << "Number of energies: " << list_energy.size() << std::endl;
-    std::vector<double> list_epsilon = MyDielectricFunc.compute_dielectric_function(q_vect, list_energy);
+
+    int nb_threads = 1;
+    double eta_smearing = 1.0e-2;
+    std::vector<double> list_epsilon = MyDielectricFunc.compute_dielectric_function(q_vect, list_energy, eta_smearing, nb_threads);
 
     std::ofstream      file_dielectric_function("TestEpsilonMC.csv");
     file_dielectric_function << "energy,epsilon" << std::endl;
