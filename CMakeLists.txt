@@ -60,6 +60,16 @@ else()
   endif()
 endif()
 
+# exclude Anaconda directories from search
+if(DEFINED ENV{CONDA_PREFIX})
+  set(h5_ignore_path
+    $ENV{CONDA_PREFIX}/bin $ENV{CONDA_PREFIX}/lib $ENV{CONDA_PREFIX}/include
+    $ENV{CONDA_PREFIX}/Library/bin $ENV{CONDA_PREFIX}/Library/lib $ENV{CONDA_PREFIX}/Library/include
+  )
+  list(APPEND CMAKE_IGNORE_PATH ${h5_ignore_path})
+endif()
+
+
 # -----------------------------------------------------------------------------
 # FIND / GET RELEVANT LIBRARIES
 include(FetchContent)
@@ -72,16 +82,17 @@ FetchContent_Declare(
   GIT_SHALLOW TRUE
   GIT_PROGRESS TRUE)
 
-find_package(Eigen3 NO_MODULE)
+# find_package(Eigen3)
 
-if(NOT Eigen3_FOUND)
+# if(NOT Eigen3_FOUND)
   set(EIGEN_BUILD_DOC OFF)
   set(BUILD_TESTING OFF)
   set(EIGEN_BUILD_PKGCONFIG OFF)
   message("Fetching Eigen3 lib ...")
-  add_compile_definitions(EIGEN_USE_LAPACK=0)
+  # add_compile_definitions(EIGEN_USE_LAPACK=0)
   FetchContent_MakeAvailable(Eigen)
-endif()
+  find_package(Eigen3 REQUIRED)
+# endif()
 
 # Find OpenMP
 if(ENABLE_OPEN_MP)

@@ -12,6 +12,7 @@ set(HEADER_FILES_LIBEPP
   Vector3D.h
   Vector3D.inl
   BandStructure.h
+  DielectricFunction.hpp
   Pseudopotential.h)
 
 set(SOURCE_FILES_LIBEPP
@@ -23,6 +24,7 @@ set(SOURCE_FILES_LIBEPP
   BandStructure.cpp
   Pseudopotential.cpp
   SpinOrbitFunctional.cpp
+  DielectricFunction.cpp
   bz_meshfile.cpp)
 
 add_library(libepp STATIC ${SOURCE_FILES_LIBEPP} ${HEADER_FILES_LIBEPP})

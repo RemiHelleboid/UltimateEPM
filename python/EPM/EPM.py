@@ -89,12 +89,16 @@ def non_diag_hamiltonian(basis_G: np.ndarray) -> np.ndarray:
     a_0 = 5.431 * 1e-10
     BasisSize = len(basis_G)
     Hamiltonian = np.zeros((BasisSize, BasisSize))
+    nnz = 0
     for i in range(BasisSize):
         for j in range(i+1):
             G1 = basis_G[i]
             G2 = basis_G[j]
             Gdiff = G1 - G2
             Hamiltonian[i, j] = PseudoPotential(Gdiff)
+            if Hamiltonian[i, j] != 0:
+                nnz += 1
+    print("Ratio of non zero elements in the Hamiltonian matrix: ", nnz / (BasisSize**2))
     return Hamiltonian
 
 
@@ -195,23 +199,26 @@ def dielectric_function_mc(energy, q_vect, n_valence, n_conduction, Nk):
     sum_total = 0.0
     list_eps = []
     list_k_contrib = []
-    for index_k in range(Nk):
+    for index_k in range(len(list_kpoints)):
         # print(f"\r{index_k} values over {Nk}", end="")
         k = list_kpoints[index_k]
         k_plus_q = list_k_plus_q[index_k]
         H_k = hamiltonian(k, basis_vectors)
         H_k_plus_q = hamiltonian(k_plus_q, basis_vectors)
+        # print(f"Norm Sq: {np.linalg.norm(H_k)}")
         eigval_k, eigvec_k = la.eigh(H_k)
         eigval_k_plus_q, eigvec_k_plus_q = la.eigh(H_k_plus_q)
         sum_k = 0.0
         for idx_cond in range(first_condcution_idx, first_condcution_idx + n_conduction):
-            # plt.plot(EPM_BASIS_NORM**2, eigvec_k_plus_q[:, idx_cond], '.', c=list_colors[idx_cond], alpha=0.51, markersize=5)
-            # plt.pause(0.1)
             for idx_val in range(n_valence):
-                sum_k += np.abs(np.dot(eigvec_k[:, idx_val].T, eigvec_k_plus_q[:, idx_cond]))**2
-            # print(sum_k)
-        factor = 1.0 / (eigval_k_plus_q[idx_cond] - eigval_k[idx_val] - energy) + 1.0 / (eigval_k_plus_q[idx_cond] - eigval_k[idx_val] + energy)
-        sum_k *= factor
+                mat_elem = np.abs(np.dot(eigvec_k[:, idx_val], eigvec_k_plus_q[:, idx_cond]))**2
+                print("Mean k state" , np.mean(np.abs(eigvec_k[:, idx_val])**2))
+                # print("Mean k+q state" , np.linalg.norm(eigvec_k_plus_q[:, idx_cond]))
+                # print(f"mat_elem = {mat_elem:.2e}")
+                factor = 1.0 / (eigval_k_plus_q[idx_cond] - eigval_k[idx_val] - energy) + 1.0 / (eigval_k_plus_q[idx_cond] - eigval_k[idx_val] + energy)
+                mat_elem *= factor
+                # print("Factor = ", factor)
+                sum_k += mat_elem
         list_k_contrib.append(sum_k)
         total_contrib = sum(list_k_contrib) / len(list_k_contrib)
         epsilon_tot = 1.0 + ((4.0*np.pi) / (np.linalg.norm(q_vect)**2)) * total_contrib
@@ -244,8 +251,10 @@ def dielectric_function_Monkhorst_Pack(energy, q_vect, n_valence, n_conduction, 
         for idx_cond in range(first_condcution_idx, first_condcution_idx + n_conduction):
             for idx_val in range(n_valence):
                 mat_elem = np.abs(np.dot(eigvec_k[:, idx_val].T, eigvec_k_plus_q[:, idx_cond]))**2
+                # print(f"mat_elem = {mat_elem:.2e}")
                 factor = 1.0 / (eigval_k_plus_q[idx_cond] - eigval_k[idx_val] - energy) + 1.0 / (eigval_k_plus_q[idx_cond] - eigval_k[idx_val] + energy)
                 mat_elem *= factor
+                # print("Factor = ", factor)
                 sum_k += mat_elem
         list_k_contrib.append(sum_k)
         total_contrib = sum(list_k_contrib) / len(list_k_contrib)
@@ -264,8 +273,8 @@ def convergence_Monkhorst_Pack(energy, q_vect, n_valence, n_conduction, maxNxyz)
     axs.plot(list_Nxyz, list_eps, '-o', color='blue')
     plt.show()
         
-def main_epsilon_mc(N_k, energy, q_vect, n_valence, n_conduction):
-    list_energies = np.linspace(0.0, 3.5, 2, endpoint=True)
+def main_epsilon_mc(N_k, q_vect, n_valence, n_conduction):
+    list_energies = np.linspace(0.0, 10, 11, endpoint=True)
     list_eps = []
     for e in list_energies:
         print(f"\r{e} values over {list_energies[-1]}", end="")
@@ -281,6 +290,7 @@ def main_epsilon_mc(N_k, energy, q_vect, n_valence, n_conduction):
         print(f"Energy = {list_energies[idx]} eV ----> epsilon_real = {eps:.2e}")
         
 def main_epsilon(Nxyz, q_vect, n_valence, n_conduction):
+    print("Calculating epsilon...")
     list_energies = np.linspace(0.0, 10, 41, endpoint=True)
     list_eps = []
     for e in list_energies:
@@ -297,10 +307,10 @@ def main_epsilon(Nxyz, q_vect, n_valence, n_conduction):
         print(f"Energy = {list_energies[idx]} eV ----> epsilon_real = {eps:.2e}")
     
     
-def main_band_structure():
+def main_band_structure(n_points):
     N_basis = 20
     basis_G = generate_basis_vector(N_basis)
-    n = 50
+    n = n_points
     k = k_path(n)
     bands = band_structure(k)
     bands -= max(bands[3])
@@ -360,20 +370,21 @@ def main_band_structure():
     
 if __name__ == "__main__":
     energy = 0.0
-    q_vect = np.array([1.0, 1.0, 1.0]) * 1.0e-6
+    q_vect = np.array([1.0, 1.0, 1.0]) * 1.0e-9
     n_valence = 4
     n_conduction = 8
-    Nk = 500
-    # main_band_structure()
-    # main_epsilon(N_k=Nk, energy=energy, q_vect=q_vect, n_valence=n_valence, n_conduction=n_conduction)
-    # convergence_Monkhorst_Pack(energy, q_vect, n_valence, n_conduction, 25)
-    # eps_mc = dielectric_function_mc(energy, q_vect, n_valence, n_conduction, Nk)
-    # print(f"epsilon_real MC = {eps_mc:.2e}")
+    Nk = 1000
+    # main_band_structure(500)
+    # # # main_epsilon(N_k=Nk, energy=energy, q_vect=q_vect, n_valence=n_valence, n_conduction=n_conduction)
+    # # # convergence_Monkhorst_Pack(energy, q_vect, n_valence, n_conduction, 25)
+    # # # eps_mc = dielectric_function_mc(energy, q_vect, n_valence, n_conduction, Nk)
+    # # # print(f"epsilon_real MC = {eps_mc:.2e}")
     
-    # Nxyz = 40
-    # eps = dielectric_function_Monkhorst_Pack(energy, q_vect, n_valence, n_conduction, Nxyz)
-    # print(f"epsilon_real = {eps:.2e}")
+    # # # Nxyz = 40
+    # # # eps = dielectric_function_Monkhorst_Pack(energy, q_vect, n_valence, n_conduction, Nxyz)
+    # # # print(f"epsilon_real = {eps:.2e}")
     
-    main_epsilon(Nxyz=20, q_vect=q_vect, n_valence=n_valence, n_conduction=n_conduction)
+    # # # main_epsilon(Nxyz=60, q_vect=q_vect, n_valence=n_valence, n_conduction=n_conduction)
+    main_epsilon_mc(N_k=Nk, q_vect=q_vect, n_valence=n_valence, n_conduction=n_conduction)
     
     

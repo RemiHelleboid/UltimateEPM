@@ -61,6 +61,7 @@ int compute_path_mat(const EmpiricalPseudopotential::Material& material,
         .Initialize(material, my_options.nrLevels, path, my_options.nrPoints, my_options.nearestNeighbors, enable_non_local_correction);
     my_bandstructure.Compute();
     my_bandstructure.AdjustValues();
+    std::cout << "Time to compute: " << my_bandstructure.get_computation_time_s() << " s" << std::endl;
     const std::string file_output =
         result_dir + "/" + my_bandstructure.path_band_filename() + (enable_non_local_correction ? "_non_local" : "") + ".txt";
     my_bandstructure.export_result_in_file(file_output);
