@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 from matplotlib.lines import Line2D
 from scipy.interpolate import CubicSpline
+from pathlib import Path
+
+filename = "mysequence.fasta"
+new_filename = Path(filename).stem + ".aln"
 
 
 try:
@@ -20,11 +24,14 @@ mpl.rcParams['figure.figsize'] = [3.5, 2.8]
 def plot_dielectric_function_vs_energy(filename: str):
     energies, eps = np.loadtxt(filename, unpack=True, skiprows=1, delimiter=',')
     fig, ax = plt.subplots()
-    ax.plot(energies, eps)
+    ax.plot(energies, eps, label="Real part")
     ax.set_xlabel('Energy [eV]')
     ax.set_ylabel('$\epsilon$')
+    ax.legend()
     # ax.set_title('Eps vs Energy')
     fig.tight_layout()
+    filename =f"plot_{Path(filename).stem}.pdf"
+    fig.savefig(filename + ".pdf")
     
 if __name__ == '__main__':
     parser = ArgumentParser()

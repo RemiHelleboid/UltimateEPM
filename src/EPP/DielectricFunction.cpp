@@ -54,6 +54,10 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, 
     for (std::size_t i = 0; i < Nx; ++i) {
         for (std::size_t j = 0; j < Ny; ++j) {
             for (std::size_t k = 0; k < Nz; ++k) {
+                // Vector3D<double> k_vect((2 * i - Nx + 1) / static_cast<double>(2 * Nx),
+                //                         (2 * j - Ny + 1) / static_cast<double>(2 * Ny),
+                //                         (2 * k - Nz + 1) / static_cast<double>(2 * Nz));
+
                 Vector3D<double> k_vect(i / static_cast<double>(Nx), j / static_cast<double>(Ny), k / static_cast<double>(Nz));
                 if (is_in_irreducible_wedge(k_vect)) {
                     m_kpoints.push_back(k_vect);
