@@ -55,11 +55,11 @@ TEST_CASE("Epsilon_Si") {
     band_structure.Initialize(current_material, nb_bands, {}, nearest_neightbors, non_local_corr);
 
     EmpiricalPseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
-    const std::size_t                            nb_kpoints = 20000;
-    MyDielectricFunc.generate_k_points_random(nb_kpoints);
-    // std::size_t Nxyz = 40;
-    // MyDielectricFunc.generate_k_points_grid(Nxyz, Nxyz, Nxyz);
-    // std::cout << "Number of kpoints in the irreducible wedge: " << MyDielectricFunc.get_kpoints().size() << std::endl;
+    // const std::size_t                            nb_kpoints = 2000;
+    // MyDielectricFunc.generate_k_points_random(nb_kpoints);
+    std::size_t Nxyz = 30;
+    MyDielectricFunc.generate_k_points_grid(Nxyz, Nxyz, Nxyz);
+    std::cout << "Number of kpoints in the irreducible wedge: " << MyDielectricFunc.get_kpoints().size() << std::endl;
     MyDielectricFunc.export_kpoints("TestKpoints.csv");
 
     // small q

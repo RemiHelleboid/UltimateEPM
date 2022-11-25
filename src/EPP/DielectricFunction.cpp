@@ -107,7 +107,7 @@ std::vector<double> DielectricFunction::compute_dielectric_function(const Vector
         const auto& eigenvalues_k_plus_q  = hamiltonian_k_plus_q_per_thread[thread_id].eigenvalues();
         const auto& eigenvectors_k        = hamiltonian_k_per_thread[thread_id].get_eigenvectors();
         const auto& eigenvectors_k_plus_q = hamiltonian_k_plus_q_per_thread[thread_id].get_eigenvectors();
-
+        double eta_smearing = 1.0e-2;
         std::vector<double> list_k_sum(list_energies.size());
         for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands; ++idx_conduction_band) {
             for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
@@ -116,13 +116,12 @@ std::vector<double> DielectricFunction::compute_dielectric_function(const Vector
                 double delta_energy = eigenvalues_k_plus_q[idx_conduction_band] - eigenvalues_k[idx_valence_band];
                 for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
                     double energy = list_energies[index_energy];
-                    double factor = 1.0 / (delta_energy - energy) + 1.0 / (delta_energy + energy);
-                    if (abs(factor) > 1000) {
-                        // std::cout << "Warning: factor is too large: " << (delta_energy - energy) << std::endl;
-                        // std::cout << "energy: " << energy << std::endl;
-                        factor = 0.0;
-                    }
-                    list_k_sum[index_energy] += overlap_integral * factor;
+                    // double factor = 1.0 / (delta_energy - energy) + 1.0 / (delta_energy + energy);
+                    double factor_1 = (delta_energy - energy) / ((delta_energy - energy) * (delta_energy - energy) + eta_smearing * eta_smearing);
+                    double factor_2 = (delta_energy + energy) / ((delta_energy + energy) * (delta_energy + energy) + eta_smearing * eta_smearing);
+                    double total_factor = factor_1 + factor_2;
+                    list_k_sum[index_energy] += overlap_integral * total_factor;
+                    // list_k_sum[index_energy] += overlap_integral * factor;
                 }
             }
         }
