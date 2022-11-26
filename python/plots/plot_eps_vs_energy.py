@@ -30,12 +30,12 @@ def plot_dielectric_function_vs_energy(filename: str):
     ax.legend()
     # ax.set_title('Eps vs Energy')
     fig.tight_layout()
-    filename =f"plot_{Path(filename).stem}.pdf"
-    fig.savefig(filename + ".pdf")
+    filename =f"{Path(filename).with_suffix('.pdf')}"
+    fig.savefig(filename)
     
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-f', '--filename', type=str, help='Filename of the dielectric function.')
     args = parser.parse_args()
     plot_dielectric_function_vs_energy(args.filename)
-    plt.show()
+    # plt.show()

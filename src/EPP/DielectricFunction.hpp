@@ -46,7 +46,7 @@ class DielectricFunction {
      *
      * @param nb_points
      */
-    void generate_k_points_grid(std::size_t Nx, std::size_t Ny, std::size_t Nz);
+    void generate_k_points_grid(std::size_t Nx, std::size_t Ny, std::size_t Nz, bool irreducible_wedge);
 
     /** Get the list of k-points.
      * @return const std::vector<Vector3D<double>>&
