@@ -6,12 +6,12 @@ nonlocal: False
 nb-bands: 16
 min-energy: 0.0
 max-energy: 20.0
-step-energy: 0.01
+step-energy: 0.001
 eta-smearing: 0.05
-Nkx: 60
-Nky: 60
-Nkz: 60
-bz-sampling: 48
+Nkx: 40
+Nky: 40
+Nkz: 40
+bz-sampling: 1
 
 file-list-q: "q_points.dat"
 
