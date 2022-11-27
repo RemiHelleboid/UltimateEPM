@@ -29,9 +29,9 @@ bool is_in_irreducible_wedge(const Vector3D<double>& k) {
     return (k.Z >= 0.0) && (k.Y >= k.Z) && (k.X >= k.Y) && (k.X <= 1.0) && (k.X + k.Y + k.Z <= 3.0 / 2.0);
 }
 
-bool is_in_first_BZ(const Vector3D<double>& k, bool one_eighth=false) {
-    bool cond_1 = fabs(k.X) <= 1.0 && fabs(k.Y) <= 1.0 && fabs(k.Z) <= 1.0;
-    bool cond_2 = fabs(k.X) + fabs(k.Y) + fabs(k.Z) <= 3.0 / 2.0;
+bool is_in_first_BZ(const Vector3D<double>& k, bool one_eighth = false) {
+    bool cond_1      = fabs(k.X) <= 1.0 && fabs(k.Y) <= 1.0 && fabs(k.Z) <= 1.0;
+    bool cond_2      = fabs(k.X) + fabs(k.Y) + fabs(k.Z) <= 3.0 / 2.0;
     bool cond_eighth = (k.X >= 0.0 && k.Y >= 0.0 && k.Z >= 0.0);
     return cond_1 && cond_2 && (one_eighth ? cond_eighth : true);
 }
@@ -44,7 +44,7 @@ DielectricFunction::DielectricFunction(const Material& material, const std::vect
 void DielectricFunction::generate_k_points_random(std::size_t nb_points) {
     std::random_device               rd;
     std::mt19937                     gen(rd());
-    std::uniform_real_distribution<> dis(-1-.0, 1.0);
+    std::uniform_real_distribution<> dis(-1 - .0, 1.0);
     while (m_kpoints.size() < nb_points) {
         Vector3D<double> k(dis(gen), dis(gen), dis(gen));
         if (is_in_first_BZ(k)) {
@@ -60,7 +60,9 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, 
     for (std::size_t i = 0; i < Nx; ++i) {
         for (std::size_t j = 0; j < Ny; ++j) {
             for (std::size_t k = 0; k < Nz; ++k) {
-                Vector3D<double> k_vect(min + (max - min) * i / (Nx - 1), min + (max - min) * j / (Ny - 1), min + (max - min) * k / (Nz - 1));
+                Vector3D<double> k_vect(min + (max - min) * i / (Nx - 1),
+                                        min + (max - min) * j / (Ny - 1),
+                                        min + (max - min) * k / (Nz - 1));
                 if (is_in_first_BZ(k_vect) && (!irreducible_wedge || is_in_irreducible_wedge(k_vect))) {
                     m_kpoints.push_back(k_vect);
                 }
@@ -89,7 +91,7 @@ std::vector<double> DielectricFunction::compute_dielectric_function(const Vector
 
     std::vector<double> list_total_sum(list_energies.size());
     auto                start = std::chrono::high_resolution_clock::now();
-#pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
+#pragma omp parallel for schedule(dynamic) num_threads(nb_threads) if (nb_threads > 1)
     for (std::size_t index_k = 0; index_k < m_kpoints.size(); ++index_k) {
         auto k_vect        = m_kpoints[index_k];
         auto k_plus_q_vect = k_plus_q_vects[index_k];
@@ -98,7 +100,7 @@ std::vector<double> DielectricFunction::compute_dielectric_function(const Vector
         hamiltonian_k_plus_q_per_thread[thread_id].SetMatrix(k_plus_q_vect);
         hamiltonian_k_per_thread[thread_id].Diagonalize(keep_eigenvectors);
         hamiltonian_k_plus_q_per_thread[thread_id].Diagonalize(keep_eigenvectors);
-        const auto&         eigenvalues_k         = hamiltonian_k_per_thread[thread_id].eigenvalues();
+        const auto& eigenvalues_k                 = hamiltonian_k_per_thread[thread_id].eigenvalues();
         const auto&         eigenvalues_k_plus_q  = hamiltonian_k_plus_q_per_thread[thread_id].eigenvalues();
         const auto&         eigenvectors_k        = hamiltonian_k_per_thread[thread_id].get_eigenvectors();
         const auto&         eigenvectors_k_plus_q = hamiltonian_k_plus_q_per_thread[thread_id].get_eigenvectors();

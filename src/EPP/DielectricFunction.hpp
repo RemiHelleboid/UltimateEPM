@@ -30,6 +30,9 @@ class DielectricFunction {
     const Material&               m_material;
     const int                     m_nb_bands;
 
+    std::vector<Eigen::VectorXd> m_eigenvalues_k;
+    std::vector<Eigen::MatrixXcd> m_eigenvectors_k;
+
  public:
     DielectricFunction() = default;
     DielectricFunction(const Material& material, const std::vector<Vector3D<int>>& basisVectors, const int nb_bands);
@@ -64,7 +67,6 @@ class DielectricFunction {
                                                     const std::vector<double>& list_energies,
                                                     double                     eta_smearing = 1e-2,
                                                     int                        nb_threads   = 1) const;
-
 
     void export_kpoints(const std::string& filename) const;
 };
