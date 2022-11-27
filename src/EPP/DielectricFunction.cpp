@@ -21,7 +21,6 @@
 
 #include "Hamiltonian.h"
 #include "Material.h"
-#include "omp.h"
 
 namespace EmpiricalPseudopotential {
 
@@ -73,37 +72,29 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, 
 
 std::vector<double> DielectricFunction::compute_dielectric_function(const Vector3D<double>&    q_vect,
                                                                     const std::vector<double>& list_energies,
-                                                                    double                     eta_smearing,
-                                                                    int                        nb_threads) const {
+                                                                    double                     eta_smearing) const {
     const int                     index_first_conduction_band = 4;
     double                        q_squared                   = pow(q_vect.Length(), 2);
     std::vector<Vector3D<double>> k_plus_q_vects(m_kpoints.size());
     std::transform(m_kpoints.begin(), m_kpoints.end(), k_plus_q_vects.begin(), [&q_vect](const Vector3D<double>& k) { return k + q_vect; });
     std::vector<double>      iter_dielectric_function(m_kpoints.size());
     bool                     keep_eigenvectors = true;
-    std::vector<Hamiltonian> hamiltonian_k_per_thread;
-    std::vector<Hamiltonian> hamiltonian_k_plus_q_per_thread;
-
-    for (int i = 0; i < nb_threads; i++) {
-        hamiltonian_k_per_thread.push_back(Hamiltonian(m_material, m_basisVectors));
-        hamiltonian_k_plus_q_per_thread.push_back(Hamiltonian(m_material, m_basisVectors));
-    }
+    Hamiltonian hamiltonian_k(m_material, m_basisVectors);
+    Hamiltonian hamiltonian_k_plus_q(m_material, m_basisVectors);
 
     std::vector<double> list_total_sum(list_energies.size());
     auto                start = std::chrono::high_resolution_clock::now();
-#pragma omp parallel for schedule(dynamic) num_threads(nb_threads) if (nb_threads > 1)
     for (std::size_t index_k = 0; index_k < m_kpoints.size(); ++index_k) {
         auto k_vect        = m_kpoints[index_k];
         auto k_plus_q_vect = k_plus_q_vects[index_k];
-        int  thread_id     = omp_get_thread_num();
-        hamiltonian_k_per_thread[thread_id].SetMatrix(k_vect);
-        hamiltonian_k_plus_q_per_thread[thread_id].SetMatrix(k_plus_q_vect);
-        hamiltonian_k_per_thread[thread_id].Diagonalize(keep_eigenvectors);
-        hamiltonian_k_plus_q_per_thread[thread_id].Diagonalize(keep_eigenvectors);
-        const auto& eigenvalues_k                 = hamiltonian_k_per_thread[thread_id].eigenvalues();
-        const auto&         eigenvalues_k_plus_q  = hamiltonian_k_plus_q_per_thread[thread_id].eigenvalues();
-        const auto&         eigenvectors_k        = hamiltonian_k_per_thread[thread_id].get_eigenvectors();
-        const auto&         eigenvectors_k_plus_q = hamiltonian_k_plus_q_per_thread[thread_id].get_eigenvectors();
+        hamiltonian_k.SetMatrix(k_vect);
+        hamiltonian_k_plus_q.SetMatrix(k_plus_q_vect);
+        hamiltonian_k.Diagonalize(keep_eigenvectors);
+        hamiltonian_k_plus_q.Diagonalize(keep_eigenvectors);
+        const auto& eigenvalues_k                 = hamiltonian_k.eigenvalues();
+        const auto&         eigenvalues_k_plus_q  = hamiltonian_k_plus_q.eigenvalues();
+        const auto&         eigenvectors_k        = hamiltonian_k.get_eigenvectors();
+        const auto&         eigenvectors_k_plus_q = hamiltonian_k_plus_q.get_eigenvectors();
         std::vector<double> list_k_sum(list_energies.size());
         for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands; ++idx_conduction_band) {
             for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {

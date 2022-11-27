@@ -14,6 +14,7 @@ target_compile_features(DOS_MeshBZ PRIVATE cxx_std_20)
 add_executable(epsilon.epm epsilon.cpp)
 target_link_libraries(epsilon.epm PUBLIC libepp lib_bzmesh)
 target_compile_features(epsilon.epm PRIVATE cxx_std_20)
+target_link_libraries(epsilon.epm PUBLIC MPI::MPI_CXX)
 
 if(USE_MPI_ACCELERATION)
   add_executable(mpiBandsOnBZ mpi_BandsOnBZ.cpp)

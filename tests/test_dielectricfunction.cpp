@@ -78,7 +78,7 @@ TEST_CASE("Epsilon_Si") {
         std::cout << "q_x : " << qx << std::endl;
 
         Vector3D<double> q_vect{qx, 0, 0};
-        std::vector<double> list_epsilon = MyDielectricFunc.compute_dielectric_function(q_vect, list_energy, eta_smearing, nb_threads);
+        std::vector<double> list_epsilon = MyDielectricFunc.compute_dielectric_function(q_vect, list_energy, eta_smearing);
         std::string filename = std::string("Experiment_qx/") + "epsilon_Smearing" + std::to_string(eta_smearing) + "_Qx" +
                                std::to_string(qx) + "Nxyz" + std::to_string(Nxyz) + ".csv";
         std::ofstream file_dielectric_function(filename);
