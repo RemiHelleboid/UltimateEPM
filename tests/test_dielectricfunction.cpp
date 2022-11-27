@@ -57,7 +57,7 @@ TEST_CASE("Epsilon_Si") {
 
     std::size_t Nxyz              = 100;
     bool        irreducible_wedge = true;
-    MyDielectricFunc.generate_k_points_grid(Nxyz, Nxyz, Nxyz, irreducible_wedge);
+    MyDielectricFunc.generate_k_points_grid(Nxyz, Nxyz, Nxyz, 0.0, irreducible_wedge);
     std::cout << "Number of kpoints in the irreducible wedge: " << MyDielectricFunc.get_kpoints().size() << std::endl;
     MyDielectricFunc.export_kpoints("TestKpoints.csv");
 
