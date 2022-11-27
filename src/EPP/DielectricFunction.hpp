@@ -26,6 +26,7 @@ class DielectricFunction {
  protected:
     std::vector<Vector3D<int>>    m_basisVectors;
     std::vector<Vector3D<double>> m_kpoints;
+    std::vector<Vector3D<double>> m_qpoints;
     const Material&               m_material;
     const int                     m_nb_bands;
 
@@ -61,9 +62,10 @@ class DielectricFunction {
      */
     std::vector<double> compute_dielectric_function(const Vector3D<double>&    q_vect,
                                                     const std::vector<double>& list_energies,
-                                                    double                     eta_smearing=1e-2,
-                                                    int                        nb_threads=1) const;
+                                                    double                     eta_smearing = 1e-2,
+                                                    int                        nb_threads   = 1) const;
 
+   
     void export_kpoints(const std::string& filename) const;
 };
 

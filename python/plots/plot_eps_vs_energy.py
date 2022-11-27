@@ -8,9 +8,6 @@ from matplotlib.lines import Line2D
 from scipy.interpolate import CubicSpline
 from pathlib import Path
 
-filename = "mysequence.fasta"
-new_filename = Path(filename).stem + ".aln"
-
 
 try:
     plt.style.use(['science', 'high-vis'])

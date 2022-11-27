@@ -1,0 +1,20 @@
+---
+material: "Si"
+nearest-neigbors: 10
+nonlocal: False
+
+nb-bands: 16
+min-energy: 0.0
+max-energy: 20.0
+step-energy: 0.01
+eta-smearing: 0.05
+Nkx: 60
+Nky: 60
+Nkz: 60
+bz-sampling: 48
+
+file-list-q: "q_points.dat"
+
+Nqx: 100
+Nqy: 1
+Nqz: 1

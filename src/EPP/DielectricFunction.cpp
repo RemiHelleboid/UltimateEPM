@@ -17,6 +17,7 @@
 #include <iostream>
 #include <random>
 #include <vector>
+#include <chrono>
 
 #include "Hamiltonian.h"
 #include "Material.h"
@@ -38,7 +39,6 @@ DielectricFunction::DielectricFunction(const Material& material, const std::vect
     : m_basisVectors(basisVectors),
       m_material(material),
       m_nb_bands(nb_bands) {}
-
 
 void DielectricFunction::generate_k_points_random(std::size_t nb_points) {
     std::random_device               rd;
@@ -62,7 +62,7 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, 
                 //                         (2 * k - Nz + 1) / static_cast<double>(2 * Nz));
 
                 Vector3D<double> k_vect(i / static_cast<double>(Nx), j / static_cast<double>(Ny), k / static_cast<double>(Nz));
-                if ((!irreducible_wedge && is_in_first_BZ(k_vect)) || (irreducible_wedge && is_in_irreducible_wedge(k_vect)) ) {
+                if ((!irreducible_wedge && is_in_first_BZ(k_vect)) || (irreducible_wedge && is_in_irreducible_wedge(k_vect))) {
                     m_kpoints.push_back(k_vect);
                 }
             }
@@ -74,12 +74,11 @@ std::vector<double> DielectricFunction::compute_dielectric_function(const Vector
                                                                     const std::vector<double>& list_energies,
                                                                     double                     eta_smearing,
                                                                     int                        nb_threads) const {
+    std::cout << "Computing dielectric function for q = " << q_vect << std::endl;
     const int                     index_first_conduction_band = 4;
     double                        q_squared                   = pow(q_vect.Length(), 2);
     std::vector<Vector3D<double>> k_plus_q_vects(m_kpoints.size());
     std::transform(m_kpoints.begin(), m_kpoints.end(), k_plus_q_vects.begin(), [&q_vect](const Vector3D<double>& k) { return k + q_vect; });
-    // Hamiltonian         hamiltonian_k(m_material, m_basisVectors);
-    // Hamiltonian         hamiltonian_k_plus_q(m_material, m_basisVectors);
     std::vector<double>      iter_dielectric_function(m_kpoints.size());
     bool                     keep_eigenvectors = true;
     std::vector<Hamiltonian> hamiltonian_k_per_thread;
@@ -91,6 +90,7 @@ std::vector<double> DielectricFunction::compute_dielectric_function(const Vector
     }
 
     std::vector<double> list_total_sum(list_energies.size());
+    auto start = std::chrono::high_resolution_clock::now();
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (std::size_t index_k = 0; index_k < m_kpoints.size(); ++index_k) {
         auto k_vect        = m_kpoints[index_k];
@@ -136,8 +136,13 @@ std::vector<double> DielectricFunction::compute_dielectric_function(const Vector
     for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
         list_epsilon[index_energy] = 1.0 + (4.0 * M_PI / q_squared) * list_total_sum[index_energy];
     }
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << std::endl;
+    std::cout << "Time elapsed: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms" << std::endl;
     return list_epsilon;
 }
+
+
 
 void DielectricFunction::export_kpoints(const std::string& filename) const {
     std::ofstream file(filename);

@@ -47,6 +47,8 @@ if(ENABLE_CLANG_TIDY)
   set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,readability-*)
 endif()
 
+add_compile_options(-march=native)
+
 # # Flags for the compiler
 # if(MSVC)
 #   add_compile_options("/W4" "$<$<CONFIG:RELEASE>:/O2>")
@@ -186,6 +188,14 @@ if(DOXYGEN_FOUND AND ENABLE_BUILD_DOC)
     VERBATIM)
 else(DOXYGEN_FOUND)
   message("Doxygen need to be installed to generate the doxygen documentation")
+endif()
+
+# Get yaml_cpp lib
+find_package(yaml-cpp NO_MODULE)
+
+if(NOT yaml-cpp_FOUND)
+  message("Fetching yaml-cpp lib ...")
+  FetchContent_MakeAvailable(yaml-cpp)
 endif()
 
 # MPI SUPPORT
