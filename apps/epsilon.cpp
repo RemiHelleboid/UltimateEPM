@@ -91,10 +91,7 @@ int main(int argc, char** argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &number_processes);
     MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
 
-    std::cout << "Process rank: " << process_rank << std::endl;
-    std::cout << "Number of processes: " << number_processes << std::endl;
-
-    std::cout << "EPSILON PROGRAM" << std::endl;
+    // std::cout << "EPSILON PROGRAM" << std::endl;
     TCLAP::CmdLine               cmd("Epsilon", ' ', "0.1");
     TCLAP::ValueArg<std::string> arg_yaml_config("c", "config", "YAML config file", true, "", "string");
     TCLAP::ValueArg<int>         arg_crystal_dir("d", "dir", "Crystalographic direction (100, 110, 111)", false, 100, "int");
@@ -113,31 +110,34 @@ int main(int argc, char** argv) {
         exit(0);
     }
     std::string material_name = config["material"].as<std::string>();
-    std::cout << "Material: " << material_name << std::endl;
     int nb_nearest_neighbors = config["nearest-neigbors"].as<int>();
     int nb_bands             = config["nb-bands"].as<int>();
 
-    std::cout << "Number of nearest neighbors: " << nb_nearest_neighbors << std::endl;
-    std::cout << "Number of bands: " << nb_bands << std::endl;
     bool nonlocal_corrections = config["nonlocal"].as<bool>();
-    std::cout << "Nonlocal corrections: " << nonlocal_corrections << std::endl;
 
     double min_energy   = config["min-energy"].as<double>();
     double max_energy   = config["max-energy"].as<double>();
     double energy_step  = config["step-energy"].as<double>();
     double eta_smearing = config["eta-smearing"].as<double>();
 
-    std::cout << "Min energy: " << min_energy << std::endl;
-    std::cout << "Max energy: " << max_energy << std::endl;
-    std::cout << "Energy step: " << energy_step << std::endl;
-    std::cout << "Eta smearing: " << eta_smearing << std::endl;
 
     int Nkx = config["Nkx"].as<int>();
     int Nky = config["Nky"].as<int>();
     int Nkz = config["Nkz"].as<int>();
-    std::cout << "Nkx: " << Nkx << std::endl;
-    std::cout << "Nky: " << Nky << std::endl;
-    std::cout << "Nkz: " << Nkz << std::endl;
+
+    if (process_rank == 0) {
+        std::cout << "Material: " << material_name << std::endl;
+        std::cout << "Number of nearest neighbors: " << nb_nearest_neighbors << std::endl;
+        std::cout << "Number of bands: " << nb_bands << std::endl;
+        std::cout << "Nonlocal corrections: " << nonlocal_corrections << std::endl;
+        std::cout << "Min energy: " << min_energy << std::endl;
+        std::cout << "Max energy: " << max_energy << std::endl;
+        std::cout << "Energy step: " << energy_step << std::endl;
+        std::cout << "Eta smearing: " << eta_smearing << std::endl;
+        std::cout << "Nkx: " << Nkx << std::endl;
+        std::cout << "Nky: " << Nky << std::endl;
+        std::cout << "Nkz: " << Nkz << std::endl;
+    }
 
     int bz_sampling = config["bz-sampling"].as<int>();
 
@@ -159,7 +159,7 @@ int main(int argc, char** argv) {
 
     bool                irreducible_wedge = (bz_sampling == 1) ? true : false;
     std::vector<double> list_energy;
-    for (double energy = min_energy; energy <= max_energy; energy += energy_step) {
+    for (double energy = min_energy; energy <= max_energy+energy_step; energy += energy_step) {
         list_energy.push_back(energy);
     }
 
@@ -181,34 +181,41 @@ int main(int argc, char** argv) {
     if (process_rank == 0) {
         std::cout << "Number of energies: " << list_energy.size() << std::endl;
         double min_q  = 1.0e-12;
-        double max_q  = 1.0;
+        double max_q  = 2.0;
         double step_q = 0.01;
-        for (double qx = min_q; qx <= max_q; qx += step_q) {
+        for (double qx = min_q; qx <= max_q+step_q; qx += step_q) {
             Vector3D<double> q = get_q(qx, crystal_dir);
             list_q.push_back(q);
         }
-
         nb_qpoints = list_q.size();
+        std::cout << "Number of energies: " << list_energy.size() << std::endl;
+        std::cout << "Crystalo dir: " << arg_crystal_dir.getValue() << std::endl;
+        std::cout << "Number of q points: " << nb_qpoints << std::endl;
     }
-    std::cout << "Number of energies: " << list_energy.size() << std::endl;
-    std::cout << "Crystalo dir: " << arg_crystal_dir.getValue() << std::endl;
-    std::cout << "Number of q points: " << nb_qpoints << std::endl;
 
     MPI_Bcast(&nb_qpoints, 1, MPI_LONG, MASTER, MPI_COMM_WORLD);
 
     // Define the number of elements each process will handle.
     int count     = (nb_qpoints / number_processes);
     int remainder = (nb_qpoints % number_processes);
-    std::cout << "Count: " << count << std::endl;
 
     std::vector<int> counts_element_per_process(number_processes);
     std::vector<int> displacements_element_per_process(number_processes);
-    for (int i = 0; i < number_processes - 1; i++) {
-        counts_element_per_process[i]        = count;
-        displacements_element_per_process[i] = i * count;
+    int nb_points = nb_qpoints;
+    while (nb_points > 0) {
+        int displacement = 0; 
+        for (int i = 0; i < number_processes; i++) {
+            counts_element_per_process[i]++;
+            displacements_element_per_process[i] = displacement;
+            displacement += counts_element_per_process[i];
+            nb_points--;
+            if (nb_points <= 0) {
+                break;
+            }
+        }
     }
-    counts_element_per_process.back()        = (count + remainder);
-    displacements_element_per_process.back() = ((number_processes - 1) * count);
+    // counts_element_per_process.back()        = (count + remainder);
+    // displacements_element_per_process.back() = ((number_processes - 1) * count);
 
     std::vector<vector_k> chunk_vector_of_q;
     chunk_vector_of_q.resize(counts_element_per_process[process_rank]);
@@ -230,7 +237,6 @@ int main(int argc, char** argv) {
         chunk_list_q.push_back(Vector3D<double>{q.m_kx, q.m_ky, q.m_kz});
     }
     for (auto& q_vect : chunk_list_q) {
-        std::cout << "Process " << process_rank << " q: " << q_vect << std::endl;
         std::vector<double> list_epsilon    = MyDielectricFunc.compute_dielectric_function(q_vect, list_energy, eta_smearing);
         std::string         export_dir      = "Q" + std::to_string(crystal_dir) + "/";
         std::string         export_filename = export_dir + "epsilon_dir" + std::to_string(arg_crystal_dir.getValue()) + "_Qx" +

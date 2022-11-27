@@ -47,7 +47,7 @@ if(ENABLE_CLANG_TIDY)
   set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,readability-*)
 endif()
 
-add_compile_options(-march=native)
+# add_compile_options(-march=native)
 
 # # Flags for the compiler
 # if(MSVC)
