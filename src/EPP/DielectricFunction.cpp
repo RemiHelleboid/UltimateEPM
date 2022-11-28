@@ -135,6 +135,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
             if (m_qpoints.size() <= 1) {
                 // if there is only one q point in the list, we don't keep the eigenvectors, to save memory.
                 m_eigenvectors_k[index_k].resize(1, 1);
+                m_eigenvalues_k[index_k].resize(1);
             }
             for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
                 list_total_sum[index_energy] += list_k_sum[index_energy];
