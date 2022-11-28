@@ -238,6 +238,8 @@ int main(int argc, char** argv) {
     for (auto& q : chunk_vector_of_q) {
         chunk_list_q.push_back(Vector3D<double>{q.m_kx, q.m_ky, q.m_kz});
     }
+
+    MyDielectricFunc.set_export_prefix("Q" + std::to_string(crystal_dir) + "/Si_dielectric_function");
     MyDielectricFunc.set_qpoints(chunk_list_q);
     MyDielectricFunc.set_energies(list_energy);
     MyDielectricFunc.compute_dielectric_function(eta_smearing);

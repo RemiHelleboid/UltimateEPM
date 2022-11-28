@@ -35,6 +35,8 @@ class DielectricFunction {
     std::vector<Eigen::VectorXd>  m_eigenvalues_k;
     std::vector<Eigen::MatrixXcd> m_eigenvectors_k;
 
+    std::string m_export_prefix = "dielectric_function";
+
     /**
      * @brief m_dielectric_function[idx_q][idx_energy] is the dielectric function
      * q = m_qpoints[idx_q]
@@ -80,6 +82,8 @@ class DielectricFunction {
      * @param energies
      */
     void set_energies(const std::vector<double>& energies) { m_energies = energies; }
+
+    void set_export_prefix(const std::string& prefix) { m_export_prefix = prefix; }
 
     /**
      * @brief Compute the dielectric function at a given frequency and q-vector.

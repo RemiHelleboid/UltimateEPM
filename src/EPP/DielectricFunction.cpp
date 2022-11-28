@@ -73,8 +73,8 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, 
 /**
  * @brief Compute the energy and wavevector dependent dielectric function.
  * The formula used is the one from the paper "
- * 
- * @param eta_smearing 
+ *
+ * @param eta_smearing
  */
 void DielectricFunction::compute_dielectric_function(double eta_smearing) {
     const int           index_first_conduction_band = 4;
@@ -132,7 +132,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
                     }
                 }
             }
-            if (m_qpoints.size()<=1) {
+            if (m_qpoints.size() <= 1) {
                 // if there is only one q point in the list, we don't keep the eigenvectors, to save memory.
                 m_eigenvectors_k[index_k].resize(1, 1);
             }
@@ -164,7 +164,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
 void DielectricFunction::export_dielectric_function_at_q(const std::string& filename, std::size_t idx_q, bool name_auto) const {
     std::string outname;
     if (name_auto) {
-        outname = "Q100/dielectric_function_q_" + std::to_string(m_qpoints[idx_q].X) + "_" + std::to_string(m_qpoints[idx_q].Y) + "_" +
+        outname = m_export_prefix + '_' + std::to_string(m_qpoints[idx_q].X) + "_" + std::to_string(m_qpoints[idx_q].Y) + "_" +
                   std::to_string(m_qpoints[idx_q].Z) + ".csv";
     } else {
         outname = filename;
