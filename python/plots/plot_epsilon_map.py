@@ -35,6 +35,7 @@ def parse_epsilon_files(dirname):
     list_energies = []
     dir = 0
     for idx, filename in enumerate(files):
+        print(f"\r File n° {idx} / {len(files)}", end="", flush=True)
         stem_name = Path(filename).stem
         qx, qy, qz = stem_name.split(
             "_")[-3], stem_name.split("_")[-2], stem_name.split("_")[-1]
@@ -47,7 +48,6 @@ def parse_epsilon_files(dirname):
         # print("Type and shape eps_r: ", type(eps_r), eps_r.shape)
         list_energies = energies
         data.append(list(eps_r))
-        print(len(data[idx]))
     dir = get_crystal_dir(list_qxyz)
     data_sorted = [x for _, x in sorted(zip(list_norm_q, data))]
     array_data = np.array(data_sorted)
