@@ -240,14 +240,6 @@ int main(int argc, char** argv) {
     MyDielectricFunc.set_qpoints(chunk_list_q);
     MyDielectricFunc.set_energies(list_energy);
     MyDielectricFunc.compute_dielectric_function(eta_smearing);
-    std::vector<std::vector<double>> list_epsilon = MyDielectricFunc.get_dielectric_function();
-    // for (auto& q_vect : chunk_list_q) {
-    //     std::string         export_dir      = "Q" + std::to_string(crystal_dir) + "/";
-    //     std::string         export_filename = export_dir + "epsilon_dir" + std::to_string(arg_crystal_dir.getValue()) + "_Qx" +
-    //                                   std::to_string(q_vect.Length()) + "_Nxyz" + std::to_string(Nkx) + ".csv";
-    //     bool run_python_script = false;
-    //     export_eps_result(export_filename, list_energy, list_epsilon, run_python_script);
-    // }
 
     MPI_Finalize();
     return 0;
