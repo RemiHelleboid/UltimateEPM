@@ -218,10 +218,11 @@ int main(int argc, char** argv) {
     // counts_element_per_process.back()        = (count + remainder);
     // displacements_element_per_process.back() = ((number_processes - 1) * count);
 
+
     std::vector<vector_k> chunk_vector_of_q;
     chunk_vector_of_q.resize(counts_element_per_process[process_rank]);
     std::cout << "Process " << process_rank << " will handle " << counts_element_per_process[process_rank] << " q-points" << std::endl;
-
+    MPI_Barrier(MPI_COMM_WORLD);
     // Scatter the q-points to each process.
     MPI_Scatterv(list_q.data(),
                  counts_element_per_process.data(),
