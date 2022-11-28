@@ -17,6 +17,7 @@ option(ENABLE_MPI_BUILD "Build some programs with MPI parralelization." ON)
 option(ENABLE_CLANG_TIDY "Enable clang tidy at compilation" OFF)
 option(ENABLE_BUILD_DOC "Enable the documentation build (doxygen)" OFF)
 option(ENABLE_BUILD_TEST "Enable the documentation build (doxygen)" ON)
+option(ENABLE_MARCH_NATIVE "Enable optimization for the local machine." ON)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -47,7 +48,11 @@ if(ENABLE_CLANG_TIDY)
   set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,readability-*)
 endif()
 
-# add_compile_options(-march=native)
+if (ENABLE_MARCH_NATIVE)
+  message("Optimization for the local machine is enabled")
+  add_compile_options(-march=native)
+endif()
+
 
 # # Flags for the compiler
 # if(MSVC)

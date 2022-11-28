@@ -74,27 +74,27 @@ TEST_CASE("Epsilon_Si") {
         list_energy.push_back(energy);
     }
 
-    for (double qx = q_xyz; qx <= 1.0+dqx; qx += dqx) {
-        std::cout << "q_x : " << qx << std::endl;
+    // for (double qx = q_xyz; qx <= 1.0+dqx; qx += dqx) {
+    //     std::cout << "q_x : " << qx << std::endl;
 
-        Vector3D<double> q_vect{qx, 0, 0};
-        std::vector<double> list_epsilon = MyDielectricFunc.compute_dielectric_function(q_vect, list_energy, eta_smearing);
-        std::string filename = std::string("Experiment_qx/") + "epsilon_Smearing" + std::to_string(eta_smearing) + "_Qx" +
-                               std::to_string(qx) + "Nxyz" + std::to_string(Nxyz) + ".csv";
-        std::ofstream file_dielectric_function(filename);
-        file_dielectric_function << "energy,epsilon" << std::endl;
-        for (std::size_t i = 0; i < list_energy.size(); ++i) {
-            file_dielectric_function << list_energy[i] << "," << list_epsilon[i] << std::endl;
-        }
-        file_dielectric_function.close();
-        const std::string python_plot_band_structure_script = std::string(CMAKE_SOURCE_DIR) + "/python/plots/plot_eps_vs_energy.py";
-        std::string       python_call                       = "python3 " + python_plot_band_structure_script + " --filename " + filename;
-        bool              call_python_plot                  = false;
-        // bool call_python_plot = true;
-        if (call_python_plot) {
-            std::cout << "Executing: " << python_call << std::endl;
-            int succes_plot = system(python_call.c_str());
-            std::cout << "Succes plot: " << succes_plot << std::endl;
-        }
-    }
+    //     Vector3D<double> q_vect{qx, 0, 0};
+    //     std::vector<double> list_epsilon = MyDielectricFunc.compute_dielectric_function(q_vect, list_energy, eta_smearing);
+    //     std::string filename = std::string("Experiment_qx/") + "epsilon_Smearing" + std::to_string(eta_smearing) + "_Qx" +
+    //                            std::to_string(qx) + "Nxyz" + std::to_string(Nxyz) + ".csv";
+    //     std::ofstream file_dielectric_function(filename);
+    //     file_dielectric_function << "energy,epsilon" << std::endl;
+    //     for (std::size_t i = 0; i < list_energy.size(); ++i) {
+    //         file_dielectric_function << list_energy[i] << "," << list_epsilon[i] << std::endl;
+    //     }
+    //     file_dielectric_function.close();
+    //     const std::string python_plot_band_structure_script = std::string(CMAKE_SOURCE_DIR) + "/python/plots/plot_eps_vs_energy.py";
+    //     std::string       python_call                       = "python3 " + python_plot_band_structure_script + " --filename " + filename;
+    //     bool              call_python_plot                  = false;
+    //     // bool call_python_plot = true;
+    //     if (call_python_plot) {
+    //         std::cout << "Executing: " << python_call << std::endl;
+    //         int succes_plot = system(python_call.c_str());
+    //         std::cout << "Succes plot: " << succes_plot << std::endl;
+    //     }
+    // }
 }

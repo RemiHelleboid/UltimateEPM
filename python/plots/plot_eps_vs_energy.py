@@ -35,4 +35,4 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--filename', type=str, help='Filename of the dielectric function.')
     args = parser.parse_args()
     plot_dielectric_function_vs_energy(args.filename)
-    # plt.show()
+    plt.show()

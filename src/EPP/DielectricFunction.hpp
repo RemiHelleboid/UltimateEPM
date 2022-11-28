@@ -26,12 +26,22 @@ class DielectricFunction {
  protected:
     std::vector<Vector3D<int>>    m_basisVectors;
     std::vector<Vector3D<double>> m_kpoints;
-    std::vector<Vector3D<double>> m_qpoints;
     const Material&               m_material;
     const int                     m_nb_bands;
 
+    std::vector<Vector3D<double>> m_qpoints;
+    std::vector<double>           m_energies;
+
     std::vector<Eigen::VectorXd>  m_eigenvalues_k;
     std::vector<Eigen::MatrixXcd> m_eigenvectors_k;
+
+    /**
+     * @brief m_dielectric_function[idx_q][idx_energy] is the dielectric function
+     * q = m_qpoints[idx_q]
+     * energy = m_energies[idx_energy]
+     *
+     */
+    std::vector<std::vector<double>> m_dielectric_function;
 
  public:
     DielectricFunction() = default;
@@ -58,16 +68,37 @@ class DielectricFunction {
     const std::vector<Vector3D<double>>& get_kpoints() const { return m_kpoints; }
 
     /**
+     * @brief Set the list of q-points for which the dielectric function will be computed.
+     *
+     * @param kpoints
+     */
+    void set_qpoints(const std::vector<Vector3D<double>>& qpoints) { m_qpoints = qpoints; }
+
+    /**
+     * @brief Set the list of energies for which the dielectric function will be computed.
+     *
+     * @param energies
+     */
+    void set_energies(const std::vector<double>& energies) { m_energies = energies; }
+
+    /**
      * @brief Compute the dielectric function at a given frequency and q-vector.
      *
      * @param omega
      * @return Eigen::Matrix3cd
      */
-    std::vector<double> compute_dielectric_function(const Vector3D<double>&    q_vect,
-                                                    const std::vector<double>& list_energies,
-                                                    double                     eta_smearing = 1e-2) const;
+    void compute_dielectric_function(double eta_smearing = 1e-2);
+
+    /**
+     * @brief Get the dielectric function result.
+     *
+     * @return const std::vector<std::vector<double>>&
+     */
+    const std::vector<std::vector<double>>& get_dielectric_function() const { return m_dielectric_function; }
 
     void export_kpoints(const std::string& filename) const;
+
+    void export_dielectric_function_at_q(const std::string& filename, std::size_t idx_q, bool name_auto) const;
 };
 
 }  // namespace EmpiricalPseudopotential

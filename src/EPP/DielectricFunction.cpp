@@ -70,67 +70,106 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, 
     }
 }
 
-std::vector<double> DielectricFunction::compute_dielectric_function(const Vector3D<double>&    q_vect,
-                                                                    const std::vector<double>& list_energies,
-                                                                    double                     eta_smearing) const {
-    const int                     index_first_conduction_band = 4;
-    double                        q_squared                   = pow(q_vect.Length(), 2);
-    std::vector<Vector3D<double>> k_plus_q_vects(m_kpoints.size());
-    std::transform(m_kpoints.begin(), m_kpoints.end(), k_plus_q_vects.begin(), [&q_vect](const Vector3D<double>& k) { return k + q_vect; });
-    std::vector<double>      iter_dielectric_function(m_kpoints.size());
-    bool                     keep_eigenvectors = true;
+/**
+ * @brief Compute the energy and wavevector dependent dielectric function.
+ * The formula used is the one from the paper "
+ * 
+ * @param eta_smearing 
+ */
+void DielectricFunction::compute_dielectric_function(double eta_smearing) {
+    const int           index_first_conduction_band = 4;
+    std::vector<double> iter_dielectric_function(m_kpoints.size());
+    bool                keep_eigenvectors = true;
+
+    std::size_t nb_kpoints = m_kpoints.size();
+    m_eigenvalues_k.resize(nb_kpoints);
+    m_eigenvectors_k.resize(nb_kpoints);
+    auto        start = std::chrono::high_resolution_clock::now();
     Hamiltonian hamiltonian_k(m_material, m_basisVectors);
     Hamiltonian hamiltonian_k_plus_q(m_material, m_basisVectors);
-
-    std::vector<double> list_total_sum(list_energies.size());
-    auto                start = std::chrono::high_resolution_clock::now();
-    for (std::size_t index_k = 0; index_k < m_kpoints.size(); ++index_k) {
-        auto k_vect        = m_kpoints[index_k];
-        auto k_plus_q_vect = k_plus_q_vects[index_k];
-        hamiltonian_k.SetMatrix(k_vect);
-        hamiltonian_k_plus_q.SetMatrix(k_plus_q_vect);
-        hamiltonian_k.Diagonalize(keep_eigenvectors);
-        hamiltonian_k_plus_q.Diagonalize(keep_eigenvectors);
-        const auto& eigenvalues_k                 = hamiltonian_k.eigenvalues();
-        const auto&         eigenvalues_k_plus_q  = hamiltonian_k_plus_q.eigenvalues();
-        const auto&         eigenvectors_k        = hamiltonian_k.get_eigenvectors();
-        const auto&         eigenvectors_k_plus_q = hamiltonian_k_plus_q.get_eigenvectors();
-        std::vector<double> list_k_sum(list_energies.size());
-        for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands; ++idx_conduction_band) {
-            for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
-                double overlap_integral =
-                    pow(std::abs(eigenvectors_k_plus_q.col(idx_conduction_band).dot(eigenvectors_k.col(idx_valence_band))), 2);
-                double delta_energy = eigenvalues_k_plus_q[idx_conduction_band] - eigenvalues_k[idx_valence_band];
-                for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
-                    double energy = list_energies[index_energy];
-                    double factor_1 =
-                        (delta_energy - energy) / ((delta_energy - energy) * (delta_energy - energy) + eta_smearing * eta_smearing);
-                    double factor_2 =
-                        (delta_energy + energy) / ((delta_energy + energy) * (delta_energy + energy) + eta_smearing * eta_smearing);
-                    double total_factor = factor_1 + factor_2;
-                    list_k_sum[index_energy] += overlap_integral * total_factor;
+    for (std::size_t index_q; index_q < m_qpoints.size(); ++index_q) {
+        std::cout << "Computing dielectric function for q = " << m_qpoints[index_q] << std::endl;
+        Vector3D<double>              q_vect    = m_qpoints[index_q];
+        double                        q_squared = pow(q_vect.Length(), 2);
+        std::vector<Vector3D<double>> k_plus_q_vects(m_kpoints.size());
+        std::transform(m_kpoints.begin(), m_kpoints.end(), k_plus_q_vects.begin(), [&q_vect](const Vector3D<double>& k) {
+            return k + q_vect;
+        });
+        std::vector<double> list_total_sum(m_energies.size());
+        for (std::size_t index_k = 0; index_k < m_kpoints.size(); ++index_k) {
+            std::cout << "\rIndex k = " << index_k << std::flush;
+            if (index_q == 0) {
+                auto k_vect = m_kpoints[index_k];
+                hamiltonian_k.SetMatrix(k_vect);
+                hamiltonian_k.Diagonalize(keep_eigenvectors);
+                m_eigenvalues_k[index_k]  = hamiltonian_k.eigenvalues();
+                m_eigenvectors_k[index_k] = hamiltonian_k.get_eigenvectors();
+                // Keep only firsts columns
+                m_eigenvectors_k[index_k].conservativeResize(m_eigenvectors_k[index_k].size(), m_nb_bands);
+            }
+            auto k_plus_q_vect = k_plus_q_vects[index_k];
+            hamiltonian_k_plus_q.SetMatrix(k_plus_q_vect);
+            hamiltonian_k_plus_q.Diagonalize(keep_eigenvectors);
+            const auto&         eigenvalues_k_plus_q  = hamiltonian_k_plus_q.eigenvalues();
+            const auto&         eigenvectors_k_plus_q = hamiltonian_k_plus_q.get_eigenvectors();
+            std::vector<double> list_k_sum(m_energies.size());
+            for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands; ++idx_conduction_band) {
+                for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
+                    const auto& eigen_vect_k = m_eigenvectors_k[index_k].col(idx_valence_band);
+                    double      overlap_integral =
+                        pow(std::abs(eigenvectors_k_plus_q.col(idx_conduction_band).dot(m_eigenvectors_k[index_k].col(idx_valence_band))),
+                            2);
+                    double delta_energy = eigenvalues_k_plus_q[idx_conduction_band] - m_eigenvalues_k[index_k][idx_valence_band];
+                    for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
+                        double energy = m_energies[index_energy];
+                        double factor_1 =
+                            (delta_energy - energy) / ((delta_energy - energy) * (delta_energy - energy) + eta_smearing * eta_smearing);
+                        double factor_2 =
+                            (delta_energy + energy) / ((delta_energy + energy) * (delta_energy + energy) + eta_smearing * eta_smearing);
+                        double total_factor = factor_1 + factor_2;
+                        list_k_sum[index_energy] += overlap_integral * total_factor;
+                    }
                 }
             }
+            for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
+                list_total_sum[index_energy] += list_k_sum[index_energy];
+            }
+            // if (thread_id == 0) {
+            //     std::cout << "\r"
+            //               << "Computing dielectric function: " << index_k << "/" << m_kpoints.size() << std::flush;
+            // }
         }
-        for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
-            list_total_sum[index_energy] += list_k_sum[index_energy];
+        for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
+            list_total_sum[index_energy] /= m_kpoints.size();
         }
-        // if (thread_id == 0) {
-        //     std::cout << "\r"
-        //               << "Computing dielectric function: " << index_k << "/" << m_kpoints.size() << std::flush;
-        // }
+        std::vector<double> list_epsilon(m_energies.size());
+        for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
+            list_epsilon[index_energy] = 1.0 + (4.0 * M_PI / q_squared) * list_total_sum[index_energy];
+        }
+        auto end = std::chrono::high_resolution_clock::now();
+        // std::cout << std::endl;
+        std::cout << "Time elapsed: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0 << " s"
+                  << std::endl;
+        start = std::chrono::high_resolution_clock::now();
+        m_dielectric_function.push_back(list_epsilon);
+        this->export_dielectric_function_at_q("", index_q, true);
     }
-    for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
-        list_total_sum[index_energy] /= m_kpoints.size();
+}
+
+void DielectricFunction::export_dielectric_function_at_q(const std::string& filename, std::size_t idx_q, bool name_auto) const {
+    std::string outname;
+    if (name_auto) {
+        outname = "Q100/dielectric_function_q_" + std::to_string(m_qpoints[idx_q].X) + "_" + std::to_string(m_qpoints[idx_q].Y) + "_" +
+                  std::to_string(m_qpoints[idx_q].Z) + ".csv";
+    } else {
+        outname = filename;
     }
-    std::vector<double> list_epsilon(list_energies.size());
-    for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
-        list_epsilon[index_energy] = 1.0 + (4.0 * M_PI / q_squared) * list_total_sum[index_energy];
+    std::ofstream outfile(outname);
+    outfile << "Energy (eV),Epsilon" << std::endl;
+    for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
+        outfile << m_energies[index_energy] << "," << m_dielectric_function[idx_q][index_energy] << std::endl;
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    // std::cout << std::endl;
-    // std::cout << "Time elapsed: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms" << std::endl;
-    return list_epsilon;
+    outfile.close();
 }
 
 void DielectricFunction::export_kpoints(const std::string& filename) const {

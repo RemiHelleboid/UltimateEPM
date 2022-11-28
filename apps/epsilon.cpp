@@ -109,9 +109,9 @@ int main(int argc, char** argv) {
         std::cout << "No material section in the config file" << std::endl;
         exit(0);
     }
-    std::string material_name = config["material"].as<std::string>();
-    int nb_nearest_neighbors = config["nearest-neigbors"].as<int>();
-    int nb_bands             = config["nb-bands"].as<int>();
+    std::string material_name        = config["material"].as<std::string>();
+    int         nb_nearest_neighbors = config["nearest-neigbors"].as<int>();
+    int         nb_bands             = config["nb-bands"].as<int>();
 
     bool nonlocal_corrections = config["nonlocal"].as<bool>();
 
@@ -119,7 +119,6 @@ int main(int argc, char** argv) {
     double max_energy   = config["max-energy"].as<double>();
     double energy_step  = config["step-energy"].as<double>();
     double eta_smearing = config["eta-smearing"].as<double>();
-
 
     int Nkx = config["Nkx"].as<int>();
     int Nky = config["Nky"].as<int>();
@@ -137,6 +136,7 @@ int main(int argc, char** argv) {
         std::cout << "Nkx: " << Nkx << std::endl;
         std::cout << "Nky: " << Nky << std::endl;
         std::cout << "Nkz: " << Nkz << std::endl;
+
     }
 
     int bz_sampling = config["bz-sampling"].as<int>();
@@ -154,12 +154,13 @@ int main(int argc, char** argv) {
 
     double shift = 1.0e-2;
     MyDielectricFunc.generate_k_points_grid(Nkx, Nky, Nkz, shift, use_irreducible_wedge);
-    // MyDielectricFunc.generate_k_points_random(5000);
-    // MyDielectricFunc.export_kpoints("kpoints.dat");
+    if (process_rank == 0) {
+        std::cout << "Number of k-points: " << MyDielectricFunc.get_kpoints().size() << std::endl;
+    }
 
     bool                irreducible_wedge = (bz_sampling == 1) ? true : false;
     std::vector<double> list_energy;
-    for (double energy = min_energy; energy <= max_energy+energy_step; energy += energy_step) {
+    for (double energy = min_energy; energy <= max_energy + energy_step; energy += energy_step) {
         list_energy.push_back(energy);
     }
 
@@ -183,7 +184,7 @@ int main(int argc, char** argv) {
         double min_q  = 1.0e-12;
         double max_q  = 2.0;
         double step_q = 0.01;
-        for (double qx = min_q; qx <= max_q+step_q; qx += step_q) {
+        for (double qx = min_q; qx <= max_q + step_q; qx += step_q) {
             Vector3D<double> q = get_q(qx, crystal_dir);
             list_q.push_back(q);
         }
@@ -201,9 +202,9 @@ int main(int argc, char** argv) {
 
     std::vector<int> counts_element_per_process(number_processes);
     std::vector<int> displacements_element_per_process(number_processes);
-    int nb_points = nb_qpoints;
+    int              nb_points = nb_qpoints;
     while (nb_points > 0) {
-        int displacement = 0; 
+        int displacement = 0;
         for (int i = 0; i < number_processes; i++) {
             counts_element_per_process[i]++;
             displacements_element_per_process[i] = displacement;
@@ -236,14 +237,17 @@ int main(int argc, char** argv) {
     for (auto& q : chunk_vector_of_q) {
         chunk_list_q.push_back(Vector3D<double>{q.m_kx, q.m_ky, q.m_kz});
     }
-    for (auto& q_vect : chunk_list_q) {
-        std::vector<double> list_epsilon    = MyDielectricFunc.compute_dielectric_function(q_vect, list_energy, eta_smearing);
-        std::string         export_dir      = "Q" + std::to_string(crystal_dir) + "/";
-        std::string         export_filename = export_dir + "epsilon_dir" + std::to_string(arg_crystal_dir.getValue()) + "_Qx" +
-                                      std::to_string(q_vect.Length()) + "_Nxyz" + std::to_string(Nkx) + ".csv";
-        bool run_python_script = false;
-        export_eps_result(export_filename, list_energy, list_epsilon, run_python_script);
-    }
+    MyDielectricFunc.set_qpoints(chunk_list_q);
+    MyDielectricFunc.set_energies(list_energy);
+    MyDielectricFunc.compute_dielectric_function(eta_smearing);
+    std::vector<std::vector<double>> list_epsilon = MyDielectricFunc.get_dielectric_function();
+    // for (auto& q_vect : chunk_list_q) {
+    //     std::string         export_dir      = "Q" + std::to_string(crystal_dir) + "/";
+    //     std::string         export_filename = export_dir + "epsilon_dir" + std::to_string(arg_crystal_dir.getValue()) + "_Qx" +
+    //                                   std::to_string(q_vect.Length()) + "_Nxyz" + std::to_string(Nkx) + ".csv";
+    //     bool run_python_script = false;
+    //     export_eps_result(export_filename, list_energy, list_epsilon, run_python_script);
+    // }
 
     MPI_Finalize();
     return 0;
