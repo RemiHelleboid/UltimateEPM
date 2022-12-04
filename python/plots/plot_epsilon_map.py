@@ -55,10 +55,9 @@ def parse_epsilon_files(dirname):
     return dir, list_norm_q, list_energies, array_data
 
 def plot_q_epsilon_map(dirname):
-    STEP = 20
     fig, ax = plt.subplots()
     dir, list_q, list_energies, data = parse_epsilon_files(dirname)
-    index = np.arange(0, len(list_q), STEP) 
+    STEP = len(list_q) // 8 
     MyMap = cm.get_cmap('autumn')
     for i, eps_r in enumerate(data[::STEP]):
         color = MyMap(float(list_q[STEP*i]))
@@ -69,9 +68,10 @@ def plot_q_epsilon_map(dirname):
     ax.legend(title="$\left| \mathbf{q} \\right|$")
     ax.set_title(f"Silicon dielectric function in the ({dir}) direction.")
     fig.tight_layout()
-    filename = f"plot_epsilon_map_{dir}.pdf"
+    filename = f"plot_epsilon_at_diff_q_{dir}"
     fig.savefig(filename + ".pdf")
-    plt.show()
+    fig.savefig(filename + ".png")
+    # plt.show()
 
 
 def plot_heatmap(dirname):
@@ -100,9 +100,11 @@ def plot_heatmap(dirname):
     #         heat_map_e_q[idx_q, idx_e] = data[idx_q, idx_e]
     # ax.imshow(heat_map_e_q)
     fig.tight_layout()
-    fig.savefig("silicon_epsilon_100.png", dpi=300)
-    fig.savefig("silicon_epsilon_100.pdf")
-    plt.show()
+    filename = f"plot_epsilon_maps_q_{dir}"
+    fig.savefig(filename + ".pdf")
+    fig.savefig(filename + ".png", dpi=300)
+
+    # plt.show()
 
 
 def plot_3d_surface(dirname):
