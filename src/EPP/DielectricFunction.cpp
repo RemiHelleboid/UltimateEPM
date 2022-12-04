@@ -88,7 +88,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
     Hamiltonian hamiltonian_k(m_material, m_basisVectors);
     Hamiltonian hamiltonian_k_plus_q(m_material, m_basisVectors);
     for (std::size_t index_q; index_q < m_qpoints.size(); ++index_q) {
-        std::cout << "Computing dielectric function for q = " << m_qpoints[index_q] << std::endl;
+        std::cout << "Computing dielectric function for q = " << m_qpoints[index_q] << index_q << "/" << m_qpoints.size() << std::endl;
         Vector3D<double>              q_vect    = m_qpoints[index_q];
         double                        q_squared = pow(q_vect.Length(), 2);
         std::vector<Vector3D<double>> k_plus_q_vects(m_kpoints.size());
@@ -96,7 +96,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
             return k + q_vect;
         });
         std::vector<double> list_total_sum(m_energies.size());
-        for (std::size_t index_k = 0; index_k < m_kpoints.size(); ++index_k) {
+        for (std::size_t index_k = m_offset_k_index; index_k < m_offset_k_index + m_nb_kpoints; ++index_k) {
             // std::cout << "\rIndex k = " << index_k << std::flush;
             if (index_q == 0) {
                 auto k_vect = m_kpoints[index_k];
@@ -158,8 +158,43 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
                   << std::endl;
         start = std::chrono::high_resolution_clock::now();
         m_dielectric_function.push_back(list_epsilon);
-        this->export_dielectric_function_at_q("", index_q, true);
     }
+}
+
+DielectricFunction DielectricFunction::merge_results(DielectricFunction                                  RootDielectricFunction,
+                                                     const std::vector<std::vector<std::vector<double>>> dielectric_function_results,
+                                                     std::vector<int>                                    nb_kpoints_per_instance) {
+    std::vector<std::vector<double>> total_dielectric_function;
+    if (dielectric_function_results.size() == 0) {
+        throw std::runtime_error("No results to merge");
+    }
+    if (dielectric_function_results.size() != nb_kpoints_per_instance.size()) {
+        throw std::runtime_error("Number of results and number of k-points per instance do not match");
+    }
+    std::size_t total_number_kpoints = 0;
+    for (std::size_t index_instance = 0; index_instance < nb_kpoints_per_instance.size(); ++index_instance) {
+        total_number_kpoints += nb_kpoints_per_instance[index_instance];
+    }
+    // Add-up the k-contributions.
+    for (std::size_t index_instance = 0; index_instance < dielectric_function_results.size(); ++index_instance) {
+        const double ratio_number_k_points =
+            static_cast<double>(nb_kpoints_per_instance[index_instance]) / static_cast<double>(total_number_kpoints);
+        // Add the contributions to epsilon for each q-point and energy.
+        for (std::size_t index_q = 0; index_q < dielectric_function_results[index_instance].size(); ++index_q) {
+            if (index_instance == 0) {
+                total_dielectric_function.push_back(dielectric_function_results[index_instance][index_q]);
+            } else {
+                for (std::size_t index_energy = 0; index_energy < dielectric_function_results[index_instance][index_q].size();
+                     ++index_energy) {
+                    total_dielectric_function[index_q][index_energy] +=
+                        ratio_number_k_points * dielectric_function_results[index_instance][index_q][index_energy];
+                }
+            }
+        }
+    }
+    DielectricFunction dielectric_function    = RootDielectricFunction;
+    dielectric_function.m_dielectric_function = total_dielectric_function;
+    return dielectric_function;
 }
 
 void DielectricFunction::export_dielectric_function_at_q(const std::string& filename, std::size_t idx_q, bool name_auto) const {
@@ -176,6 +211,12 @@ void DielectricFunction::export_dielectric_function_at_q(const std::string& file
         outfile << m_energies[index_energy] << "," << m_dielectric_function[idx_q][index_energy] << std::endl;
     }
     outfile.close();
+}
+
+void DielectricFunction::export_dielectric_function(const std::string& filename, bool name_auto) const {
+    for (std::size_t index_q = 0; index_q < m_qpoints.size(); ++index_q) {
+        export_dielectric_function_at_q(filename, index_q, name_auto);
+    }
 }
 
 void DielectricFunction::export_kpoints(const std::string& filename) const {

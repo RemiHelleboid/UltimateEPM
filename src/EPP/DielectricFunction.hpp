@@ -38,6 +38,22 @@ class DielectricFunction {
     std::string m_export_prefix = "dielectric_function";
 
     /**
+     * @brief The index of the first k-point this class is responsible for.
+     * This is used to parallelize the computation of the dielectric function where
+     * each instance of this class is responsible for a subset of the k-points.
+     *
+     */
+    std::size_t m_offset_k_index = 0;
+
+    /**
+     * @brief Number of k-points this class is responsible for.
+     * This is used to parallelize the computation of the dielectric function where
+     * each instance of this class is responsible for a subset of the k-points.
+     *
+     */
+    std::size_t m_nb_kpoints = 0;
+
+    /**
      * @brief m_dielectric_function[idx_q][idx_energy] is the dielectric function
      * q = m_qpoints[idx_q]
      * energy = m_energies[idx_energy]
@@ -46,7 +62,6 @@ class DielectricFunction {
     std::vector<std::vector<double>> m_dielectric_function;
 
  public:
-    DielectricFunction() = default;
     DielectricFunction(const Material& material, const std::vector<Vector3D<int>>& basisVectors, const int nb_bands);
 
     /**
@@ -70,6 +85,34 @@ class DielectricFunction {
     const std::vector<Vector3D<double>>& get_kpoints() const { return m_kpoints; }
 
     /**
+     * @brief Get the offset of the first k-point this class is responsible for.
+     *
+     * @param offset_k_index
+     */
+    std::size_t get_offset_k_index() const { return m_offset_k_index; }
+
+    /**
+     * @brief Get the nb kpoints the instance of this class is responsible for.
+     *
+     * @return std::size_t
+     */
+    std::size_t get_nb_kpoints() const { return m_nb_kpoints; }
+
+    /**
+     * @brief Set the offset k index.
+     *
+     * @param offset_k_index
+     */
+    void set_offset_k_index(std::size_t offset_k_index) { m_offset_k_index = offset_k_index; }
+
+    /**
+     * @brief Set the number of k-points this class is responsible for.
+     *
+     * @param nb_kpoints
+     */
+    void set_nb_kpoints(std::size_t nb_kpoints) { m_nb_kpoints = nb_kpoints; }
+
+    /**
      * @brief Set the list of q-points for which the dielectric function will be computed.
      *
      * @param kpoints
@@ -86,12 +129,15 @@ class DielectricFunction {
     void set_export_prefix(const std::string& prefix) { m_export_prefix = prefix; }
 
     /**
-     * @brief Compute the dielectric function at a given frequency and q-vector.
+     * @brief Compute the dielectric function.
      *
-     * @param omega
-     * @return Eigen::Matrix3cd
      */
     void compute_dielectric_function(double eta_smearing = 1e-2);
+
+    void clear_eigen_states() {
+        m_eigenvalues_k.clear();
+        m_eigenvectors_k.clear();
+    }
 
     /**
      * @brief Get the dielectric function result.
@@ -100,9 +146,42 @@ class DielectricFunction {
      */
     const std::vector<std::vector<double>>& get_dielectric_function() const { return m_dielectric_function; }
 
+    const std::vector<double> get_flat_dielectric_function() const {
+        std::vector<double> result;
+        for (const auto& q : m_dielectric_function) {
+            result.insert(result.end(), q.begin(), q.end());
+        }
+        return result;
+    }
+
+    /**
+     * @brief Merge the results of multiple instances of this class.
+     * This is used to parallelize the computation of the dielectric function where
+     * each instance of this class is responsible for a subset of the k-points.
+     *
+     * @param dielectric_function_results
+     * @param nb_kpoints_per_instance
+     * @return std::vector<std::vector<double>>
+     */
+    static DielectricFunction merge_results(DielectricFunction                                  RootDielectricFunction,
+                                            const std::vector<std::vector<std::vector<double>>> dielectric_function_results,
+                                            std::vector<int>                                    nb_kpoints_per_instance);
+
+    /**
+     * @brief Export the grid of k-points to a file.
+     *
+     * @param filename
+     */
     void export_kpoints(const std::string& filename) const;
 
+    /**
+     * @brief Export the results of the computation of the dielectric function to a file.
+     *
+     * @param filename
+     */
     void export_dielectric_function_at_q(const std::string& filename, std::size_t idx_q, bool name_auto) const;
+
+    void export_dielectric_function(const std::string& filename, bool name_auto) const;
 };
 
 }  // namespace EmpiricalPseudopotential

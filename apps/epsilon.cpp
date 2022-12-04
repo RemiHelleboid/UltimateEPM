@@ -143,7 +143,6 @@ int main(int argc, char** argv) {
         std::cout << "Nkx: " << Nkx << std::endl;
         std::cout << "Nky: " << Nky << std::endl;
         std::cout << "Nkz: " << Nkz << std::endl;
-
     }
 
     int bz_sampling = config["bz-sampling"].as<int>();
@@ -161,8 +160,9 @@ int main(int argc, char** argv) {
 
     double shift = 1.0e-2;
     MyDielectricFunc.generate_k_points_grid(Nkx, Nky, Nkz, shift, use_irreducible_wedge);
+    std::size_t nb_k_points = MyDielectricFunc.get_kpoints().size();
     if (process_rank == 0) {
-        std::cout << "Number of k-points: " << MyDielectricFunc.get_kpoints().size() << std::endl;
+        std::cout << "Number of k-points: " << nb_k_points << std::endl;
     }
 
     bool                irreducible_wedge = (bz_sampling == 1) ? true : false;
@@ -186,73 +186,98 @@ int main(int argc, char** argv) {
 
     std::size_t                   nb_qpoints;
     std::vector<Vector3D<double>> list_q;
+    double                        min_q      = 1.0e-12;
+    double                        max_q_norm = 4.0;
+    double                        step_q     = 0.1;
+    double                        qx         = min_q;
+    Vector3D<double>              q          = get_q(qx, crystal_dir);
+    while (q.Length() <= max_q_norm + step_q) {
+        list_q.push_back(q);
+        qx += step_q;
+        q = get_q(qx, crystal_dir);
+    }
+    nb_qpoints = list_q.size();
     if (process_rank == 0) {
         std::cout << "Number of energies: " << list_energy.size() << std::endl;
-        double min_q  = 1.0e-12;
-        double max_q_norm  = 4.0;
-        double step_q = 0.01;
-        double qx = min_q;
-        Vector3D<double> q = get_q(qx, crystal_dir);
-        while (q.Length() <= max_q_norm + step_q){
-            list_q.push_back(q);
-            qx += step_q;
-            q = get_q(qx, crystal_dir);
-        }
-        nb_qpoints = list_q.size();
         std::cout << "Number of energies: " << list_energy.size() << std::endl;
         std::cout << "Crystalo dir: " << arg_crystal_dir.getValue() << std::endl;
         std::cout << "Number of q points: " << nb_qpoints << std::endl;
     }
 
-    MPI_Bcast(&nb_qpoints, 1, MPI_LONG, MASTER, MPI_COMM_WORLD);
-
-    // Define the number of elements each process will handle.
-    int count     = (nb_qpoints / number_processes);
-    int remainder = (nb_qpoints % number_processes);
-
-    std::vector<int> counts_element_per_process(number_processes);
-    std::vector<int> displacements_element_per_process(number_processes);
-    int              nb_points = nb_qpoints;
+    // Define the number of k-points each process will be responsible for.
+    std::vector<int> counts_kpoints_per_process(number_processes);
+    std::vector<int> displacements_kpoints_per_process(number_processes);
+    int              nb_points = nb_k_points;
     while (nb_points > 0) {
         int displacement = 0;
         for (int i = 0; i < number_processes; i++) {
-            counts_element_per_process[i]++;
-            displacements_element_per_process[i] = displacement;
-            displacement += counts_element_per_process[i];
+            counts_kpoints_per_process[i]++;
+            displacements_kpoints_per_process[i] = displacement;
+            displacement += counts_kpoints_per_process[i];
             nb_points--;
             if (nb_points <= 0) {
                 break;
             }
         }
     }
-    // counts_element_per_process.back()        = (count + remainder);
-    // displacements_element_per_process.back() = ((number_processes - 1) * count);
 
-
-    std::vector<vector_k> chunk_vector_of_q;
-    chunk_vector_of_q.resize(counts_element_per_process[process_rank]);
-    std::cout << "Process " << process_rank << " will handle " << counts_element_per_process[process_rank] << " q-points" << std::endl;
+    std::cout << "Process " << process_rank << " will handle " << counts_kpoints_per_process[process_rank] << " q-points" << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
-    // Scatter the q-points to each process.
-    MPI_Scatterv(list_q.data(),
-                 counts_element_per_process.data(),
-                 displacements_element_per_process.data(),
-                 k_vector_type,
-                 chunk_vector_of_q.data(),
-                 counts_element_per_process[process_rank],
-                 k_vector_type,
-                 MASTER,
-                 MPI_COMM_WORLD);
-
-    std::vector<Vector3D<double>> chunk_list_q;
-    for (auto& q : chunk_vector_of_q) {
-        chunk_list_q.push_back(Vector3D<double>{q.m_kx, q.m_ky, q.m_kz});
-    }
 
     MyDielectricFunc.set_export_prefix("Q" + std::to_string(crystal_dir) + "/Si_dielectric_function");
-    MyDielectricFunc.set_qpoints(chunk_list_q);
+    MyDielectricFunc.set_qpoints(list_q);
     MyDielectricFunc.set_energies(list_energy);
+    MyDielectricFunc.set_offset_k_index(displacements_kpoints_per_process[process_rank]);
+    MyDielectricFunc.set_nb_kpoints(counts_kpoints_per_process[process_rank]);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    double start = MPI_Wtime();
     MyDielectricFunc.compute_dielectric_function(eta_smearing);
+    MyDielectricFunc.clear_eigen_states();
+
+    MPI_Barrier(MPI_COMM_WORLD); /* IMPORTANT */
+    double end = MPI_Wtime();
+    if (process_rank == 0) {
+        std::cout << "Total computational time: " << end - start << std::endl;
+    }
+
+    // Gather the results from all the processes.
+    std::vector<double> dielectric_function_per_process_flat;
+    if (process_rank == 0) {
+        dielectric_function_per_process_flat.resize(number_processes * nb_qpoints * list_energy.size());
+    }
+    std::vector<double> flattened_dielectric_function = MyDielectricFunc.get_flat_dielectric_function();
+    MPI_Gather(flattened_dielectric_function.data(),
+               flattened_dielectric_function.size(),
+               MPI_DOUBLE,
+               dielectric_function_per_process_flat.data(),
+               flattened_dielectric_function.size(),
+               MPI_DOUBLE,
+               0,
+               MPI_COMM_WORLD);
+    // Reconstruct the dielectric function.
+    if (process_rank == 0) {
+        std::vector<std::vector<std::vector<double>>> dielectric_function_results(number_processes);
+        for (int i = 0; i < number_processes; i++) {
+            dielectric_function_results[i].resize(nb_qpoints);
+            for (int j = 0; j < nb_qpoints; j++) {
+                dielectric_function_results[i][j].resize(list_energy.size());
+                for (int k = 0; k < list_energy.size(); k++) {
+                    dielectric_function_results[i][j][k] =
+                        dielectric_function_per_process_flat[i * nb_qpoints * list_energy.size() + j * list_energy.size() + k];
+                }
+            }
+        }
+        // Merge the results.
+        EmpiricalPseudopotential::DielectricFunction dielectric_function =
+            EmpiricalPseudopotential::DielectricFunction::merge_results(MyDielectricFunc,
+                                                                        dielectric_function_results,
+                                                                        counts_kpoints_per_process);
+        std::cout << "END" << std::endl;
+
+        // Write the results to a file.
+        dielectric_function.export_dielectric_function("", true);
+    }
 
     MPI_Finalize();
     return 0;
