@@ -188,7 +188,7 @@ int main(int argc, char** argv) {
     std::vector<Vector3D<double>> list_q;
     double                        min_q      = 1.0e-12;
     double                        max_q_norm = 4.0;
-    double                        step_q     = 0.1;
+    double                        step_q     = 0.1e4;
     double                        qx         = min_q;
     Vector3D<double>              q          = get_q(qx, crystal_dir);
     while (q.Length() <= max_q_norm + step_q) {

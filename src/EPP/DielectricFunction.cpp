@@ -88,7 +88,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
     Hamiltonian hamiltonian_k(m_material, m_basisVectors);
     Hamiltonian hamiltonian_k_plus_q(m_material, m_basisVectors);
     for (std::size_t index_q; index_q < m_qpoints.size(); ++index_q) {
-        std::cout << "Computing dielectric function for q = " << m_qpoints[index_q] << index_q << "/" << m_qpoints.size() << std::endl;
+        std::cout << "Computing dielectric function for q = " << m_qpoints[index_q] << index_q + 1 << "/" << m_qpoints.size() << std::endl;
         Vector3D<double>              q_vect    = m_qpoints[index_q];
         double                        q_squared = pow(q_vect.Length(), 2);
         std::vector<Vector3D<double>> k_plus_q_vects(m_kpoints.size());
