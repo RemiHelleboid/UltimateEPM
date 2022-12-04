@@ -182,11 +182,14 @@ int main(int argc, char** argv) {
     if (process_rank == 0) {
         std::cout << "Number of energies: " << list_energy.size() << std::endl;
         double min_q  = 1.0e-12;
-        double max_q  = 2.0;
+        double max_q_norm  = 4.0;
         double step_q = 0.01;
-        for (double qx = min_q; qx <= max_q + step_q; qx += step_q) {
-            Vector3D<double> q = get_q(qx, crystal_dir);
+        double qx = min_q;
+        Vector3D<double> q = get_q(qx, crystal_dir);
+        while (q.Length() <= max_q_norm + step_q){
             list_q.push_back(q);
+            qx += step_q;
+            q = get_q(qx, crystal_dir);
         }
         nb_qpoints = list_q.size();
         std::cout << "Number of energies: " << list_energy.size() << std::endl;
