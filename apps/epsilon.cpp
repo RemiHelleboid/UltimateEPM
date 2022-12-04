@@ -91,6 +91,13 @@ int main(int argc, char** argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &number_processes);
     MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
 
+    // Get processor name
+    char processor_name[MPI_MAX_PROCESSOR_NAME];
+    int  name_len;
+    MPI_Get_processor_name(processor_name, &name_len);
+
+    std::cout << "Process " << process_rank << " of " << number_processes << " is on " << processor_name << std::endl;
+
     // std::cout << "EPSILON PROGRAM" << std::endl;
     TCLAP::CmdLine               cmd("Epsilon", ' ', "0.1");
     TCLAP::ValueArg<std::string> arg_yaml_config("c", "config", "YAML config file", true, "", "string");

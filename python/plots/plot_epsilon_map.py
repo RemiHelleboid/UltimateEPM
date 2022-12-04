@@ -28,7 +28,7 @@ def get_crystal_dir(list_q):
 
 
 def parse_epsilon_files(dirname):
-    files = glob.glob(dirname + "/dielectric*.csv")
+    files = glob.glob(dirname + "/*.csv")
     list_qxyz = []
     list_norm_q = []
     data = []
@@ -58,6 +58,7 @@ def plot_q_epsilon_map(dirname):
     STEP = 20
     fig, ax = plt.subplots()
     dir, list_q, list_energies, data = parse_epsilon_files(dirname)
+    index = np.arange(0, len(list_q), STEP) 
     MyMap = cm.get_cmap('autumn')
     for i, eps_r in enumerate(data[::STEP]):
         color = MyMap(float(list_q[STEP*i]))
