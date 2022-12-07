@@ -38,6 +38,25 @@
 #include "DielectricFunction.hpp"
 #include "Options.h"
 
+std::vector<Vector3D<double>> read_qpoint_dat_file(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        throw std::runtime_error("Could not open file: " + filename);
+    }
+    std::vector<Vector3D<double>> kpoints;
+    std::string                   line;
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string       token;
+        std::vector<double> kpoint;
+        while (std::getline(ss, token, ' ')) {
+            kpoint.push_back(std::stod(token));
+        }
+        kpoints.push_back(Vector3D<double>(kpoint[0], kpoint[1], kpoint[2]));
+    }
+    return kpoints;
+}
+
 typedef struct vector_k {
     double m_kx;
     double m_ky;
@@ -131,6 +150,7 @@ int main(int argc, char** argv) {
     int Nky = config["Nky"].as<int>();
     int Nkz = config["Nkz"].as<int>();
 
+
     if (process_rank == 0) {
         std::cout << "Material: " << material_name << std::endl;
         std::cout << "Number of nearest neighbors: " << nb_nearest_neighbors << std::endl;
@@ -186,15 +206,21 @@ int main(int argc, char** argv) {
 
     std::size_t                   nb_qpoints;
     std::vector<Vector3D<double>> list_q;
-    double                        min_q      = 1.0e-12;
-    double                        max_q_norm = 4.0;
-    double                        step_q     = 0.1e4;
-    double                        qx         = min_q;
-    Vector3D<double>              q          = get_q(qx, crystal_dir);
-    while (q.Length() <= max_q_norm + step_q) {
-        list_q.push_back(q);
-        qx += step_q;
-        q = get_q(qx, crystal_dir);
+    if (config["file-list-q"]) {
+        std::string file_list_q = config["file-list-q"].as<std::string>();
+        std::cout << "File list q: " << file_list_q << std::endl;
+        list_q = read_qpoint_dat_file(file_list_q);
+    } else {
+        double                        min_q      = 1.0e-12;
+        double                        max_q_norm = 4.0;
+        double                        step_q     = 0.1e4;
+        double                        qx         = min_q;
+        Vector3D<double>              q          = get_q(qx, crystal_dir);
+        while (q.Length() <= max_q_norm + step_q) {
+            list_q.push_back(q);
+            qx += step_q;
+            q = get_q(qx, crystal_dir);
+        }
     }
     nb_qpoints = list_q.size();
     if (process_rank == 0) {
