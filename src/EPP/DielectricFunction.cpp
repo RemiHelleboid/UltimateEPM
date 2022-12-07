@@ -88,7 +88,8 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
     Hamiltonian hamiltonian_k(m_material, m_basisVectors);
     Hamiltonian hamiltonian_k_plus_q(m_material, m_basisVectors);
     for (std::size_t index_q; index_q < m_qpoints.size(); ++index_q) {
-        std::cout << "Computing dielectric function for q = " << m_qpoints[index_q] << index_q + 1 << "/" << m_qpoints.size() << std::endl;
+        std::cout << "Computing dielectric function for q = " << m_qpoints[index_q] << " -> " << index_q + 1 << "/" << m_qpoints.size()
+                  << std::endl;
         Vector3D<double>              q_vect    = m_qpoints[index_q];
         double                        q_squared = pow(q_vect.Length(), 2);
         std::vector<Vector3D<double>> k_plus_q_vects(m_kpoints.size());
@@ -145,12 +146,12 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
             //               << "Computing dielectric function: " << index_k << "/" << m_kpoints.size() << std::flush;
             // }
         }
-        for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
-            list_total_sum[index_energy] /= m_kpoints.size();
-        }
+        // for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
+        //     list_total_sum[index_energy] /= m_kpoints.size();
+        // }
         std::vector<double> list_epsilon(m_energies.size());
         for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
-            list_epsilon[index_energy] = 1.0 + (4.0 * M_PI / q_squared) * list_total_sum[index_energy];
+            list_epsilon[index_energy] = list_total_sum[index_energy];
         }
         auto end = std::chrono::high_resolution_clock::now();
         // std::cout << std::endl;
@@ -175,10 +176,11 @@ DielectricFunction DielectricFunction::merge_results(DielectricFunction         
     for (std::size_t index_instance = 0; index_instance < nb_kpoints_per_instance.size(); ++index_instance) {
         total_number_kpoints += nb_kpoints_per_instance[index_instance];
     }
+    std::cout << "Number total kpoint to the merge : " << total_number_kpoints << std::endl;
     // Add-up the k-contributions.
     for (std::size_t index_instance = 0; index_instance < dielectric_function_results.size(); ++index_instance) {
-        const double ratio_number_k_points =
-            static_cast<double>(nb_kpoints_per_instance[index_instance]) / static_cast<double>(total_number_kpoints);
+        // const double ratio_number_k_points =
+        //     static_cast<double>(nb_kpoints_per_instance[index_instance]) / static_cast<double>(total_number_kpoints);
         // Add the contributions to epsilon for each q-point and energy.
         for (std::size_t index_q = 0; index_q < dielectric_function_results[index_instance].size(); ++index_q) {
             if (index_instance == 0) {
@@ -186,12 +188,24 @@ DielectricFunction DielectricFunction::merge_results(DielectricFunction         
             } else {
                 for (std::size_t index_energy = 0; index_energy < dielectric_function_results[index_instance][index_q].size();
                      ++index_energy) {
-                    total_dielectric_function[index_q][index_energy] +=
-                        ratio_number_k_points * dielectric_function_results[index_instance][index_q][index_energy];
+                    total_dielectric_function[index_q][index_energy] += dielectric_function_results[index_instance][index_q][index_energy];
                 }
             }
         }
     }
+    // Renormalization
+    double renormalization = 1.0 / static_cast<double>(total_number_kpoints);
+    std::cout << "Renormalization: " << renormalization << std::endl;
+    for (std::size_t index_q = 0; index_q < total_dielectric_function.size(); ++index_q) {
+        Vector3D<double> q_vect    = RootDielectricFunction.m_qpoints[index_q];
+        double           q_squared = pow(q_vect.Length(), 2);
+        for (std::size_t index_energy = 0; index_energy < total_dielectric_function[index_q].size(); ++index_energy) {
+            total_dielectric_function[index_q][index_energy] *= renormalization;
+            total_dielectric_function[index_q][index_energy] =
+                1.0 + (4.0 * M_PI / q_squared) * total_dielectric_function[index_q][index_energy];
+        }
+    }
+
     DielectricFunction dielectric_function    = RootDielectricFunction;
     dielectric_function.m_dielectric_function = total_dielectric_function;
     return dielectric_function;

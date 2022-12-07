@@ -247,7 +247,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::cout << "Process " << process_rank << " will handle " << counts_kpoints_per_process[process_rank] << " q-points" << std::endl;
+    std::cout << "Process " << process_rank << " will handle " << counts_kpoints_per_process[process_rank] << " k-points" << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
 
     MyDielectricFunc.set_export_prefix("Q" + std::to_string(crystal_dir) + "/Si_dielectric_function");
