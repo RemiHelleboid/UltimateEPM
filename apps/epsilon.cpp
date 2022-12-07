@@ -187,8 +187,8 @@ int main(int argc, char** argv) {
     std::size_t                   nb_qpoints;
     std::vector<Vector3D<double>> list_q;
     double                        min_q      = 1.0e-12;
-    double                        max_q_norm = 4.0;
-    double                        step_q     = 0.1e4;
+    double                        max_q_norm = 5.0;
+    double                        step_q     = 0.01;
     double                        qx         = min_q;
     Vector3D<double>              q          = get_q(qx, crystal_dir);
     while (q.Length() <= max_q_norm + step_q) {
@@ -221,7 +221,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::cout << "Process " << process_rank << " will handle " << counts_kpoints_per_process[process_rank] << " q-points" << std::endl;
+    std::cout << "Process " << process_rank << " will handle " << counts_kpoints_per_process[process_rank] << " k-points" << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
 
     MyDielectricFunc.set_export_prefix("Q" + std::to_string(crystal_dir) + "/Si_dielectric_function");

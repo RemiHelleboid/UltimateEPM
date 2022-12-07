@@ -58,6 +58,7 @@ def plot_q_epsilon_map(dirname):
     fig, ax = plt.subplots()
     dir, list_q, list_energies, data = parse_epsilon_files(dirname)
     STEP = len(list_q) // 8 
+    indices = np.arrange(0, )
     MyMap = cm.get_cmap('autumn')
     for i, eps_r in enumerate(data[::STEP]):
         color = MyMap(float(list_q[STEP*i]))
@@ -83,8 +84,8 @@ def plot_heatmap(dirname):
     list_energies = np.array(list_energies, dtype=np.float64)
     # print(list_q.shape)
     X, Y = np.meshgrid(list_q, list_energies)
-    map = 'jet'
-    pc = ax.pcolormesh(Y, X, data.T, cmap=map, shading='auto', rasterized=True)
+    map = 'seismic'
+    pc = ax.pcolormesh(Y, X, data.T, cmap=map, shading='auto', rasterized=True, vmin=-30, vmax=30)
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("$\left| \mathbf{q} \\right|$")
     ax.set_title(f"Silicon dielectric function in the {dir} direction.")
@@ -104,7 +105,7 @@ def plot_heatmap(dirname):
     fig.savefig(filename + ".pdf")
     fig.savefig(filename + ".png", dpi=300)
 
-    # plt.show()
+    plt.show()
 
 
 def plot_3d_surface(dirname):
@@ -123,6 +124,6 @@ def plot_3d_surface(dirname):
 if __name__ == '__main__':
     dirname = sys.argv[1]
     # qx, data = parse_epsilon_files(dirname)
-    plot_q_epsilon_map(dirname)
+    # plot_q_epsilon_map(dirname)
     plot_heatmap(dirname)
     # plot_3d_surface(dirname)
