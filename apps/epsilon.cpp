@@ -135,6 +135,8 @@ int main(int argc, char** argv) {
         std::cout << "No material section in the config file" << std::endl;
         exit(0);
     }
+    std::string outdir = config["outdir"].as<std::string>();
+
     std::string material_name        = config["material"].as<std::string>();
     int         nb_nearest_neighbors = config["nearest-neigbors"].as<int>();
     int         nb_bands             = config["nb-bands"].as<int>();
@@ -250,7 +252,7 @@ int main(int argc, char** argv) {
     std::cout << "Process " << process_rank << " will handle " << counts_kpoints_per_process[process_rank] << " k-points" << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
 
-    MyDielectricFunc.set_export_prefix("Q" + std::to_string(crystal_dir) + "/Si_dielectric_function");
+    MyDielectricFunc.set_export_prefix(outdir + "/" + current_material.get_name() + "_");
     MyDielectricFunc.set_qpoints(list_q);
     MyDielectricFunc.set_energies(list_energy);
     MyDielectricFunc.set_offset_k_index(displacements_kpoints_per_process[process_rank]);
@@ -301,6 +303,7 @@ int main(int argc, char** argv) {
                                                                         counts_kpoints_per_process);
         std::cout << "END" << std::endl;
 
+        std::filesystem::create_directories(outdir);
         // Write the results to a file.
         dielectric_function.export_dielectric_function("", true);
     }

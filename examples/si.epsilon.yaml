@@ -1,4 +1,7 @@
 ---
+outdir: "OUTDIR"
+
+
 material: "Si"
 nearest-neigbors: 10
 nonlocal: False
