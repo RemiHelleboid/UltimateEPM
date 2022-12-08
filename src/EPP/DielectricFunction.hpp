@@ -59,7 +59,15 @@ class DielectricFunction {
      * energy = m_energies[idx_energy]
      *
      */
-    std::vector<std::vector<double>> m_dielectric_function;
+    std::vector<std::vector<double>> m_dielectric_function_real;
+
+    /**
+     * @brief m_dielectric_function_imag[idx_q][idx_energy] is the dielectric function
+     * q = m_qpoints[idx_q]
+     * energy = m_energies[idx_energy]
+     *
+     */
+    std::vector<std::vector<double>> m_dielectric_function_imag;
 
  public:
     DielectricFunction(const Material& material, const std::vector<Vector3D<int>>& basisVectors, const int nb_bands);
@@ -144,11 +152,11 @@ class DielectricFunction {
      *
      * @return const std::vector<std::vector<double>>&
      */
-    const std::vector<std::vector<double>>& get_dielectric_function() const { return m_dielectric_function; }
+    const std::vector<std::vector<double>>& get_dielectric_function() const { return m_dielectric_function_real; }
 
     const std::vector<double> get_flat_dielectric_function() const {
         std::vector<double> result;
-        for (const auto& q : m_dielectric_function) {
+        for (const auto& q : m_dielectric_function_real) {
             result.insert(result.end(), q.begin(), q.end());
         }
         return result;
@@ -166,6 +174,13 @@ class DielectricFunction {
     static DielectricFunction merge_results(DielectricFunction                                  RootDielectricFunction,
                                             const std::vector<std::vector<std::vector<double>>> dielectric_function_results,
                                             std::vector<int>                                    nb_kpoints_per_instance);
+
+
+    /**
+     * @brief Apply Kramer's Kronig relations to the dielectric function to obtain the real part.
+     * 
+     */
+    void apply_kramers_kronig();
 
     /**
      * @brief Export the grid of k-points to a file.

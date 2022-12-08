@@ -158,7 +158,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
         std::cout << "Time elapsed: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0 << " s"
                   << std::endl;
         start = std::chrono::high_resolution_clock::now();
-        m_dielectric_function.push_back(list_epsilon);
+        m_dielectric_function_real.push_back(list_epsilon);
     }
 }
 
@@ -206,9 +206,50 @@ DielectricFunction DielectricFunction::merge_results(DielectricFunction         
         }
     }
 
-    DielectricFunction dielectric_function    = RootDielectricFunction;
-    dielectric_function.m_dielectric_function = total_dielectric_function;
+    DielectricFunction dielectric_function         = RootDielectricFunction;
+    dielectric_function.m_dielectric_function_real = total_dielectric_function;
     return dielectric_function;
+}
+
+Eigen::MatrixXd create_kramers_matrix(std::size_t N) {
+    Eigen::MatrixXd kramers_matrix(N, N);
+    for (long int idx_line = 0; idx_line < N; ++idx_line) {
+        for (long int idx_col = 0; idx_col < N; ++idx_col) {
+            if (idx_line == idx_col) {
+                kramers_matrix(idx_line, idx_col) = 0.0;
+            } else {
+                double a = double(idx_line) / static_cast<double>((idx_col * idx_col - idx_line * idx_line));
+                kramers_matrix(idx_line, idx_col) = a;
+            }
+        }
+    }
+    kramers_matrix *= -2.0 / M_PI;
+    return kramers_matrix;
+}
+
+void DielectricFunction::apply_kramers_kronig() {
+    std::cout << "Applying Kramers-Kronig" << std::endl;
+    std::fstream kramers_matrix_file;
+    kramers_matrix_file.open("Akramers_matrix.dat", std::ios::out);
+    Eigen::MatrixXd kramers_matrix2 = create_kramers_matrix(6);
+    kramers_matrix_file << kramers_matrix2 << std::endl;
+    kramers_matrix_file.close();
+    std::cout << "Kramers matrix created" << std::endl;
+    // exit(0);
+    m_dielectric_function_imag.clear();
+    m_dielectric_function_imag.resize(m_dielectric_function_real.size());
+    Eigen::MatrixXd kramers_matrix = create_kramers_matrix(m_energies.size());
+    for (std::size_t idx_q = 0; idx_q < m_qpoints.size(); ++idx_q) {
+        Eigen::VectorXd epsilon(m_energies.size());
+        for (std::size_t idx_energy = 0; idx_energy < m_energies.size(); ++idx_energy) {
+            epsilon(idx_energy) = m_dielectric_function_real[idx_q][idx_energy] - 1.0;
+        }
+        Eigen::VectorXd epsilon_imag = -kramers_matrix * epsilon;
+        m_dielectric_function_imag[idx_q].resize(m_energies.size());
+        for (std::size_t idx_energy = 0; idx_energy < m_energies.size(); ++idx_energy) {
+            m_dielectric_function_imag[idx_q][idx_energy] = 1.0 - epsilon_imag(idx_energy);
+        }
+    }
 }
 
 void DielectricFunction::export_dielectric_function_at_q(const std::string& filename, std::size_t idx_q, bool name_auto) const {
@@ -220,9 +261,10 @@ void DielectricFunction::export_dielectric_function_at_q(const std::string& file
         outname = filename;
     }
     std::ofstream outfile(outname);
-    outfile << "Energy (eV),Epsilon" << std::endl;
+    outfile << "Energy (eV),EpsilonReal,EpsilonImaginary" << std::endl;
     for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
-        outfile << m_energies[index_energy] << "," << m_dielectric_function[idx_q][index_energy] << std::endl;
+        outfile << m_energies[index_energy] << "," << m_dielectric_function_real[idx_q][index_energy] << ","
+                << m_dielectric_function_imag[idx_q][index_energy] << std::endl;
     }
     outfile.close();
 }

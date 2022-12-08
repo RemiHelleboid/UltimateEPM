@@ -301,6 +301,7 @@ int main(int argc, char** argv) {
             EmpiricalPseudopotential::DielectricFunction::merge_results(MyDielectricFunc,
                                                                         dielectric_function_results,
                                                                         counts_kpoints_per_process);
+        dielectric_function.apply_kramers_kronig();
         std::cout << "END" << std::endl;
 
         std::filesystem::create_directories(outdir);
