@@ -59,9 +59,9 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, 
     for (std::size_t i = 0; i < Nx; ++i) {
         for (std::size_t j = 0; j < Ny; ++j) {
             for (std::size_t k = 0; k < Nz; ++k) {
-                Vector3D<double> k_vect(min + (max - min) * i / (Nx - 1),
-                                        min + (max - min) * j / (Ny - 1),
-                                        min + (max - min) * k / (Nz - 1));
+                Vector3D<double> k_vect(min + (max - min) * i / static_cast<double>(Nx - 1),
+                                        min + (max - min) * j / static_cast<double>(Ny - 1),
+                                        min + (max - min) * k / static_cast<double>(Nz - 1));
                 if (is_in_first_BZ(k_vect) && (!irreducible_wedge || is_in_irreducible_wedge(k_vect))) {
                     m_kpoints.push_back(k_vect);
                 }
@@ -87,7 +87,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
     auto        start = std::chrono::high_resolution_clock::now();
     Hamiltonian hamiltonian_k(m_material, m_basisVectors);
     Hamiltonian hamiltonian_k_plus_q(m_material, m_basisVectors);
-    for (std::size_t index_q; index_q < m_qpoints.size(); ++index_q) {
+    for (std::size_t index_q=0; index_q < m_qpoints.size(); ++index_q) {
         std::cout << "Computing dielectric function for q = " << m_qpoints[index_q] << " -> " << index_q + 1 << "/" << m_qpoints.size()
                   << std::endl;
         Vector3D<double>              q_vect    = m_qpoints[index_q];
@@ -107,7 +107,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
                 m_eigenvalues_k[index_k]  = hamiltonian_k.eigenvalues();
                 m_eigenvectors_k[index_k] = hamiltonian_k.get_eigenvectors();
                 // Keep only firsts columns
-                m_eigenvectors_k[index_k].conservativeResize(m_eigenvectors_k[index_k].size(), m_nb_bands);
+                m_eigenvectors_k[index_k].conservativeResize(m_eigenvectors_k[index_k].size(), m_nb_bands + 1);
             }
             auto k_plus_q_vect = k_plus_q_vects[index_k];
             hamiltonian_k_plus_q.SetMatrix(k_plus_q_vect);
@@ -218,19 +218,19 @@ Eigen::MatrixXd create_kramers_matrix(std::size_t N) {
             if (idx_line == idx_col) {
                 kramers_matrix(idx_line, idx_col) = 0.0;
             } else {
-                double a = double(idx_line) / static_cast<double>((idx_col * idx_col - idx_line * idx_line));
+                double a = double(idx_line) / double(idx_col * idx_col - idx_line * idx_line);
                 kramers_matrix(idx_line, idx_col) = a;
             }
         }
     }
-    kramers_matrix *= -2.0 / M_PI;
+    kramers_matrix *= 2.0 / M_PI;
     return kramers_matrix;
 }
 
 void DielectricFunction::apply_kramers_kronig() {
     std::cout << "Applying Kramers-Kronig" << std::endl;
     std::fstream kramers_matrix_file;
-    kramers_matrix_file.open("Akramers_matrix.dat", std::ios::out);
+    kramers_matrix_file.open("Bkramers_matrix.dat", std::ios::out);
     Eigen::MatrixXd kramers_matrix2 = create_kramers_matrix(6);
     kramers_matrix_file << kramers_matrix2 << std::endl;
     kramers_matrix_file.close();
@@ -247,7 +247,8 @@ void DielectricFunction::apply_kramers_kronig() {
         Eigen::VectorXd epsilon_imag = -kramers_matrix * epsilon;
         m_dielectric_function_imag[idx_q].resize(m_energies.size());
         for (std::size_t idx_energy = 0; idx_energy < m_energies.size(); ++idx_energy) {
-            m_dielectric_function_imag[idx_q][idx_energy] = 1.0 - epsilon_imag(idx_energy);
+            m_dielectric_function_imag[idx_q][idx_energy] = epsilon_imag(idx_energy);
+            // std::cout << m_dielectric_function_imag[idx_q][idx_energy] << std::endl;
         }
     }
 }

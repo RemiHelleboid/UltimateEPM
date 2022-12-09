@@ -180,10 +180,11 @@ int main(int argc, char** argv) {
     band_structure.Initialize(current_material, nb_bands, {}, nb_nearest_neighbors, nonlocal_corrections);
     EmpiricalPseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
 
-    double shift = 1.0e-2;
+    double shift = 0.0;
     MyDielectricFunc.generate_k_points_grid(Nkx, Nky, Nkz, shift, use_irreducible_wedge);
     std::size_t nb_k_points = MyDielectricFunc.get_kpoints().size();
     if (process_rank == 0) {
+        MyDielectricFunc.export_kpoints(outdir + "/kpoints.csv");
         std::cout << "Number of k-points: " << nb_k_points << std::endl;
     }
 
