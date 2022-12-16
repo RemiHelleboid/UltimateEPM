@@ -65,7 +65,6 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
     if (add_non_local_correction) {
         for (unsigned int i = 0; i < basisSize; ++i) {
             for (unsigned int j = 0; j < basisSize; ++j) {
-                std::cout << "NL x \n";
                 Vector3D<double> k_vector_i = (k + m_basisVectors[i]);
                 Vector3D<double> k_vector_j = (k + m_basisVectors[j]);
                 matrix(i, j) += m_material.compute_pseudopotential_non_local_correction(k_vector_i, k_vector_j, tau);

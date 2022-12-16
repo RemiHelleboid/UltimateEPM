@@ -104,7 +104,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
 
                 m_eigenvalues_k[index_k]  = hamiltonian_k.eigenvalues();
                 m_eigenvectors_k[index_k] = hamiltonian_k.get_eigenvectors();
-                std::cout << "k = " << k_vect << " -> " << m_eigenvectors_k[index_k] << std::endl;
+                // std::cout << "k = " << k_vect << " -> " << m_eigenvectors_k[index_k] << std::endl;
                 // Keep only firsts columns
                 m_eigenvectors_k[index_k].conservativeResize(m_eigenvectors_k[index_k].size(), m_nb_bands + 1);
             }

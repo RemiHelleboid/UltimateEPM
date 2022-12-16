@@ -46,8 +46,8 @@ std::vector<Vector3D<double>> read_qpoint_dat_file(const std::string& filename) 
     std::vector<Vector3D<double>> kpoints;
     std::string                   line;
     while (std::getline(file, line)) {
-        std::stringstream ss(line);
-        std::string       token;
+        std::stringstream   ss(line);
+        std::string         token;
         std::vector<double> kpoint;
         while (std::getline(ss, token, ' ')) {
             kpoint.push_back(std::stod(token));
@@ -141,7 +141,6 @@ int main(int argc, char** argv) {
     int         nb_nearest_neighbors = config["nearest-neigbors"].as<int>();
     int         nb_bands             = config["nb-bands"].as<int>();
 
-
     double min_energy   = config["min-energy"].as<double>();
     double max_energy   = config["max-energy"].as<double>();
     double energy_step  = config["step-energy"].as<double>();
@@ -154,8 +153,7 @@ int main(int argc, char** argv) {
     bool nonlocal_epm = false;
     if (config["nonlocal"]) {
         nonlocal_epm = config["nonlocal"].as<bool>();
-    } 
-
+    }
 
     if (process_rank == 0) {
         std::cout << "Material: " << material_name << std::endl;
@@ -176,7 +174,11 @@ int main(int argc, char** argv) {
     bool use_irreducible_wedge = (bz_sampling == 48) ? true : false;
 
     EmpiricalPseudopotential::Materials materials;
-    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
+    std::string                         file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
+    if (nonlocal_epm) {
+        file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
+    }
+
     materials.load_material_parameters(file_material_parameters);
     EmpiricalPseudopotential::Material      current_material = materials.materials.at("Si");
     EmpiricalPseudopotential::BandStructure band_structure{};
@@ -217,11 +219,11 @@ int main(int argc, char** argv) {
         std::cout << "File list q: " << file_list_q << std::endl;
         list_q = read_qpoint_dat_file(file_list_q);
     } else {
-        double                        min_q      = 1.0e-12;
-        double                        max_q_norm = 4.0;
-        double                        step_q     = 0.1e4;
-        double                        qx         = min_q;
-        Vector3D<double>              q          = get_q(qx, crystal_dir);
+        double           min_q      = 1.0e-12;
+        double           max_q_norm = 4.0;
+        double           step_q     = 0.1e4;
+        double           qx         = min_q;
+        Vector3D<double> q          = get_q(qx, crystal_dir);
         while (q.Length() <= max_q_norm + step_q) {
             list_q.push_back(q);
             qx += step_q;
