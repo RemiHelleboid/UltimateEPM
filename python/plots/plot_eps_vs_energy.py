@@ -44,7 +44,7 @@ def plot_dielectric_function_vs_energy(filename: str):
     energies, eps_r, eps_i = np.loadtxt(filename, unpack=True, skiprows=1, delimiter=',')
     fig, ax = plt.subplots()
     ax.plot(energies, eps_r, label="Real", c='b')
-    ax.plot(energies, eps_i, "-*", label="Imaginary", c='r')
+    # ax.plot(energies, eps_i, "-", label="Imaginary", c='r')
     ax.set_xlabel('Energy [eV]')
     ax.set_ylabel('$\epsilon$')
     ax.legend()

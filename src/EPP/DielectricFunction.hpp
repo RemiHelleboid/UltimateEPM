@@ -28,6 +28,7 @@ class DielectricFunction {
     std::vector<Vector3D<double>> m_kpoints;
     const Material&               m_material;
     const int                     m_nb_bands;
+    bool                          m_nonlocal_epm = false;
 
     std::vector<Vector3D<double>> m_qpoints;
     std::vector<double>           m_energies;
@@ -42,6 +43,8 @@ class DielectricFunction {
      * This is used to parallelize the computation of the dielectric function where
      * each instance of this class is responsible for a subset of the k-points.
      *
+     * For a calculation on a single CPU the offset is 0.
+     *
      */
     std::size_t m_offset_k_index = 0;
 
@@ -49,6 +52,8 @@ class DielectricFunction {
      * @brief Number of k-points this class is responsible for.
      * This is used to parallelize the computation of the dielectric function where
      * each instance of this class is responsible for a subset of the k-points.
+     *
+     * For a calculation on a single CPU this parameter is equal to the size of the m_list_k_points.
      *
      */
     std::size_t m_nb_kpoints = 0;
@@ -71,6 +76,8 @@ class DielectricFunction {
 
  public:
     DielectricFunction(const Material& material, const std::vector<Vector3D<int>>& basisVectors, const int nb_bands);
+
+    void set_non_local_epm(const bool new_value) {m_nonlocal_epm = new_value;}
 
     /**
      * @brief Randomly generate a list of k-points in the irreducible wedge of the first Brillouin zone.
@@ -175,10 +182,9 @@ class DielectricFunction {
                                             const std::vector<std::vector<std::vector<double>>> dielectric_function_results,
                                             std::vector<int>                                    nb_kpoints_per_instance);
 
-
     /**
      * @brief Apply Kramer's Kronig relations to the dielectric function to obtain the real part.
-     * 
+     *
      */
     void apply_kramers_kronig();
 

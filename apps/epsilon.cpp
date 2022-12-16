@@ -141,7 +141,6 @@ int main(int argc, char** argv) {
     int         nb_nearest_neighbors = config["nearest-neigbors"].as<int>();
     int         nb_bands             = config["nb-bands"].as<int>();
 
-    bool nonlocal_corrections = config["nonlocal"].as<bool>();
 
     double min_energy   = config["min-energy"].as<double>();
     double max_energy   = config["max-energy"].as<double>();
@@ -152,12 +151,17 @@ int main(int argc, char** argv) {
     int Nky = config["Nky"].as<int>();
     int Nkz = config["Nkz"].as<int>();
 
+    bool nonlocal_epm = false;
+    if (config["nonlocal"]) {
+        nonlocal_epm = config["nonlocal"].as<bool>();
+    } 
+
 
     if (process_rank == 0) {
         std::cout << "Material: " << material_name << std::endl;
         std::cout << "Number of nearest neighbors: " << nb_nearest_neighbors << std::endl;
         std::cout << "Number of bands: " << nb_bands << std::endl;
-        std::cout << "Nonlocal corrections: " << nonlocal_corrections << std::endl;
+        std::cout << "Nonlocal corrections: " << nonlocal_epm << std::endl;
         std::cout << "Min energy: " << min_energy << std::endl;
         std::cout << "Max energy: " << max_energy << std::endl;
         std::cout << "Energy step: " << energy_step << std::endl;
@@ -177,7 +181,7 @@ int main(int argc, char** argv) {
     EmpiricalPseudopotential::Material      current_material = materials.materials.at("Si");
     EmpiricalPseudopotential::BandStructure band_structure{};
 
-    band_structure.Initialize(current_material, nb_bands, {}, nb_nearest_neighbors, nonlocal_corrections);
+    band_structure.Initialize(current_material, nb_bands, {}, nb_nearest_neighbors, nonlocal_epm);
     EmpiricalPseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
 
     double shift = 0.0;
@@ -258,6 +262,7 @@ int main(int argc, char** argv) {
     MyDielectricFunc.set_energies(list_energy);
     MyDielectricFunc.set_offset_k_index(displacements_kpoints_per_process[process_rank]);
     MyDielectricFunc.set_nb_kpoints(counts_kpoints_per_process[process_rank]);
+    MyDielectricFunc.set_non_local_epm(nonlocal_epm);
 
     MPI_Barrier(MPI_COMM_WORLD);
     double start = MPI_Wtime();

@@ -101,7 +101,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
             // std::cout << "\rIndex k = " << index_k << std::flush;
             if (index_q == 0) {
                 auto k_vect = m_kpoints[index_k];
-                hamiltonian_k.SetMatrix(k_vect);
+                hamiltonian_k.SetMatrix(k_vect, m_nonlocal_epm);
                 hamiltonian_k.Diagonalize(keep_eigenvectors);
 
                 m_eigenvalues_k[index_k]  = hamiltonian_k.eigenvalues();
@@ -110,7 +110,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
                 m_eigenvectors_k[index_k].conservativeResize(m_eigenvectors_k[index_k].size(), m_nb_bands + 1);
             }
             auto k_plus_q_vect = k_plus_q_vects[index_k];
-            hamiltonian_k_plus_q.SetMatrix(k_plus_q_vect);
+            hamiltonian_k_plus_q.SetMatrix(k_plus_q_vect, m_nonlocal_epm);
             hamiltonian_k_plus_q.Diagonalize(keep_eigenvectors);
             const auto&         eigenvalues_k_plus_q  = hamiltonian_k_plus_q.eigenvalues();
             const auto&         eigenvectors_k_plus_q = hamiltonian_k_plus_q.get_eigenvectors();
@@ -141,14 +141,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
             for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
                 list_total_sum[index_energy] += list_k_sum[index_energy];
             }
-            // if (thread_id == 0) {
-            //     std::cout << "\r"
-            //               << "Computing dielectric function: " << index_k << "/" << m_kpoints.size() << std::flush;
-            // }
         }
-        // for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
-        //     list_total_sum[index_energy] /= m_kpoints.size();
-        // }
         std::vector<double> list_epsilon(m_energies.size());
         for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
             list_epsilon[index_energy] = list_total_sum[index_energy];
