@@ -40,39 +40,39 @@ TEST_CASE("Epsilon_Si") {
     // }
     // exit(0);
 
-    EmpiricalPseudopotential::Materials materials;
-    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
-    materials.load_material_parameters(file_material_parameters);
-    EmpiricalPseudopotential::Material current_material = materials.materials.at("Si");
+    // EmpiricalPseudopotential::Materials materials;
+    // const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
+    // materials.load_material_parameters(file_material_parameters);
+    // EmpiricalPseudopotential::Material current_material = materials.materials.at("Si");
 
-    EmpiricalPseudopotential::BandStructure band_structure{};
-    const std::size_t                       nb_bands           = 18;
-    const std::size_t                       nearest_neightbors = 10;
-    const bool                              non_local_corr     = false;
-    band_structure.Initialize(current_material, nb_bands, {}, nearest_neightbors, non_local_corr);
+    // EmpiricalPseudopotential::BandStructure band_structure{};
+    // const std::size_t                       nb_bands           = 18;
+    // const std::size_t                       nearest_neightbors = 10;
+    // const bool                              non_local_corr     = false;
+    // band_structure.Initialize(current_material, nb_bands, {}, nearest_neightbors, non_local_corr);
 
-    EmpiricalPseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
-    // const std::size_t                            nb_kpoints = 2000;
-    // MyDielectricFunc.generate_k_points_random(nb_kpoints);
+    // EmpiricalPseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
+    // // const std::size_t                            nb_kpoints = 2000;
+    // // MyDielectricFunc.generate_k_points_random(nb_kpoints);
 
-    std::size_t Nxyz              = 100;
-    bool        irreducible_wedge = true;
-    MyDielectricFunc.generate_k_points_grid(Nxyz, Nxyz, Nxyz, 0.0, irreducible_wedge);
-    std::cout << "Number of kpoints in the irreducible wedge: " << MyDielectricFunc.get_kpoints().size() << std::endl;
-    MyDielectricFunc.export_kpoints("TestKpoints.csv");
+    // std::size_t Nxyz              = 100;
+    // bool        irreducible_wedge = true;
+    // MyDielectricFunc.generate_k_points_grid(Nxyz, Nxyz, Nxyz, 0.0, irreducible_wedge);
+    // std::cout << "Number of kpoints in the irreducible wedge: " << MyDielectricFunc.get_kpoints().size() << std::endl;
+    // MyDielectricFunc.export_kpoints("TestKpoints.csv");
 
-    int    nb_threads   = 32;
-    double eta_smearing = 2.0e-2;
+    // int    nb_threads   = 32;
+    // double eta_smearing = 2.0e-2;
 
-    double              q_xyz      = 1.0e-12;
-    double              dqx        = 0.005;
-    const double        min_energy = 0.0;
-    const double        max_energy = 20.0;
-    const double        d_energy   = 0.01;
-    std::vector<double> list_energy;
-    for (double energy = min_energy; energy <= max_energy; energy += d_energy) {
-        list_energy.push_back(energy);
-    }
+    // double              q_xyz      = 1.0e-12;
+    // double              dqx        = 0.005;
+    // const double        min_energy = 0.0;
+    // const double        max_energy = 20.0;
+    // const double        d_energy   = 0.01;
+    // std::vector<double> list_energy;
+    // for (double energy = min_energy; energy <= max_energy; energy += d_energy) {
+    //     list_energy.push_back(energy);
+    // }
 
     // for (double qx = q_xyz; qx <= 1.0+dqx; qx += dqx) {
     //     std::cout << "q_x : " << qx << std::endl;

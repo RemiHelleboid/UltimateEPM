@@ -192,7 +192,6 @@ int main(int argc, char** argv) {
         std::cout << "Number of k-points: " << nb_k_points << std::endl;
     }
 
-    bool                irreducible_wedge = (bz_sampling == 1) ? true : false;
     std::vector<double> list_energy;
     for (double energy = min_energy; energy <= max_energy + energy_step; energy += energy_step) {
         list_energy.push_back(energy);
@@ -294,9 +293,9 @@ int main(int argc, char** argv) {
         std::vector<std::vector<std::vector<double>>> dielectric_function_results(number_processes);
         for (int i = 0; i < number_processes; i++) {
             dielectric_function_results[i].resize(nb_qpoints);
-            for (int j = 0; j < nb_qpoints; j++) {
+            for (std::size_t j = 0; j < nb_qpoints; j++) {
                 dielectric_function_results[i][j].resize(list_energy.size());
-                for (int k = 0; k < list_energy.size(); k++) {
+                for (std::size_t k = 0; k < list_energy.size(); k++) {
                     dielectric_function_results[i][j][k] =
                         dielectric_function_per_process_flat[i * nb_qpoints * list_energy.size() + j * list_energy.size() + k];
                 }
