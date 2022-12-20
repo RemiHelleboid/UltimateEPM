@@ -77,6 +77,10 @@ class DielectricFunction {
  public:
     DielectricFunction(const Material& material, const std::vector<Vector3D<int>>& basisVectors, const int nb_bands);
 
+    DielectricFunction & operator=(const DielectricFunction &) = default;
+    DielectricFunction(const DielectricFunction &) = default;
+
+
     void set_non_local_epm(const bool new_value) {m_nonlocal_epm = new_value;}
 
     /**

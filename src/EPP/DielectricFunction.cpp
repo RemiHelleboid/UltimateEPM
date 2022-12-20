@@ -79,7 +79,7 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, 
 void DielectricFunction::compute_dielectric_function(double eta_smearing) {
     const int           index_first_conduction_band = 4;
     std::vector<double> iter_dielectric_function(m_kpoints.size());
-    bool                keep_eigenvectors = true;
+    const bool          keep_eigenvectors = true;
 
     std::size_t nb_kpoints = m_kpoints.size();
     m_eigenvalues_k.resize(nb_kpoints);
@@ -87,7 +87,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
     auto        start = std::chrono::high_resolution_clock::now();
     Hamiltonian hamiltonian_k(m_material, m_basisVectors);
     Hamiltonian hamiltonian_k_plus_q(m_material, m_basisVectors);
-    for (std::size_t index_q=0; index_q < m_qpoints.size(); ++index_q) {
+    for (std::size_t index_q = 0; index_q < m_qpoints.size(); ++index_q) {
         std::cout << "Computing dielectric function for q = " << m_qpoints[index_q] << " -> " << index_q + 1 << "/" << m_qpoints.size()
                   << std::endl;
         Vector3D<double>              q_vect    = m_qpoints[index_q];
@@ -107,7 +107,8 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
                 m_eigenvalues_k[index_k]  = hamiltonian_k.eigenvalues();
                 m_eigenvectors_k[index_k] = hamiltonian_k.get_eigenvectors();
                 // Keep only firsts columns
-                m_eigenvectors_k[index_k].conservativeResize(m_eigenvectors_k[index_k].size(), m_nb_bands + 1);
+                auto nb_rows = m_eigenvectors_k[index_k].rows();
+                m_eigenvectors_k[index_k].conservativeResize(nb_rows, m_nb_bands + 1);
             }
             auto k_plus_q_vect = k_plus_q_vects[index_k];
             hamiltonian_k_plus_q.SetMatrix(k_plus_q_vect, m_nonlocal_epm);
@@ -118,10 +119,13 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
             for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands; ++idx_conduction_band) {
                 for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
                     const auto& eigen_vect_k = m_eigenvectors_k[index_k].col(idx_valence_band);
+                    // std::cout << "eigen_vect_k norm = " << eigenvectors_k_plus_q.mean() << std::endl;
                     double      overlap_integral =
                         pow(std::abs(eigenvectors_k_plus_q.col(idx_conduction_band).dot(m_eigenvectors_k[index_k].col(idx_valence_band))),
                             2);
                     double delta_energy = eigenvalues_k_plus_q[idx_conduction_band] - m_eigenvalues_k[index_k][idx_valence_band];
+                    // std::cout << "Overlap integral = " << overlap_integral << std::endl;    
+                    // std::cout << "delta_energy = " << delta_energy << std::endl;
                     for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
                         double energy = m_energies[index_energy];
                         double factor_1 =
@@ -129,6 +133,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
                         double factor_2 =
                             (delta_energy + energy) / ((delta_energy + energy) * (delta_energy + energy) + eta_smearing * eta_smearing);
                         double total_factor = factor_1 + factor_2;
+                        // std::cout << "overlap_integral = " << overlap_integral << std::endl;
                         list_k_sum[index_energy] += overlap_integral * total_factor;
                     }
                 }
@@ -140,11 +145,13 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
             }
             for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
                 list_total_sum[index_energy] += list_k_sum[index_energy];
+                // std::cout << "Energy = " << m_energies[index_energy] << " -> epsilon = " << list_total_sum[index_energy] << std::endl;
             }
         }
         std::vector<double> list_epsilon(m_energies.size());
         for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
             list_epsilon[index_energy] = list_total_sum[index_energy];
+            // std::cout << "Energy = " << m_energies[index_energy] << " -> epsilon = " << list_epsilon[index_energy] << std::endl;
         }
         auto end = std::chrono::high_resolution_clock::now();
         // std::cout << std::endl;
@@ -211,7 +218,7 @@ Eigen::MatrixXd create_kramers_matrix(std::size_t N) {
             if (idx_line == idx_col) {
                 kramers_matrix(idx_line, idx_col) = 0.0;
             } else {
-                double a = double(idx_line) / double(idx_col * idx_col - idx_line * idx_line);
+                double a                          = double(idx_line) / double(idx_col * idx_col - idx_line * idx_line);
                 kramers_matrix(idx_line, idx_col) = a;
             }
         }
