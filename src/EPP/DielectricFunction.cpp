@@ -107,7 +107,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
                 // std::cout << "k = " << k_vect << " -> " << m_eigenvectors_k[index_k] << std::endl;
                 // Keep only firsts columns
                 auto nb_rows = m_eigenvectors_k[index_k].rows();
-                m_eigenvectors_k[index_k].conservativeResize(nb_rows, m_nb_bands + 1);
+                m_eigenvectors_k[index_k].conservativeResize(nb_rows, m_nb_bands);
             }
             auto k_plus_q_vect = k_plus_q_vects[index_k];
             hamiltonian_k_plus_q.SetMatrix(k_plus_q_vect, m_nonlocal_epm);
@@ -117,13 +117,13 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
             std::vector<double> list_k_sum(m_energies.size());
             for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands; ++idx_conduction_band) {
                 for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
-                    const auto& eigen_vect_k = m_eigenvectors_k[index_k].col(idx_valence_band);
+                    // const auto& eigen_vect_k = m_eigenvectors_k[index_k].col(idx_valence_band);
                     // std::cout << "eigen_vect_k norm = " << eigenvectors_k_plus_q.mean() << std::endl;
-                    double      overlap_integral =
+                    double overlap_integral =
                         pow(std::abs(eigenvectors_k_plus_q.col(idx_conduction_band).dot(m_eigenvectors_k[index_k].col(idx_valence_band))),
                             2);
                     double delta_energy = eigenvalues_k_plus_q[idx_conduction_band] - m_eigenvalues_k[index_k][idx_valence_band];
-                    // std::cout << "Overlap integral = " << overlap_integral << std::endl;    
+                    // std::cout << "Overlap integral = " << overlap_integral << std::endl;
                     // std::cout << "delta_energy = " << delta_energy << std::endl;
                     for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
                         double energy = m_energies[index_energy];
@@ -217,12 +217,12 @@ Eigen::MatrixXd create_kramers_matrix(std::size_t N) {
             if (idx_line == idx_col) {
                 kramers_matrix(idx_line, idx_col) = 0.0;
             } else {
-                double a                          = double(idx_line) / double(idx_col * idx_col - idx_line * idx_line);
+                double a = double(idx_line) / double(static_cast<long>(idx_col * idx_col) - static_cast<long>(idx_line * idx_line));
                 kramers_matrix(idx_line, idx_col) = a;
             }
         }
     }
-    kramers_matrix *= 2.0 / M_PI;
+    kramers_matrix *= -2.0 / M_PI;
     return kramers_matrix;
 }
 
@@ -234,7 +234,6 @@ void DielectricFunction::apply_kramers_kronig() {
     kramers_matrix_file << kramers_matrix2 << std::endl;
     kramers_matrix_file.close();
     std::cout << "Kramers matrix created" << std::endl;
-    // exit(0);
     m_dielectric_function_imag.clear();
     m_dielectric_function_imag.resize(m_dielectric_function_real.size());
     Eigen::MatrixXd kramers_matrix = create_kramers_matrix(m_energies.size());
@@ -243,11 +242,10 @@ void DielectricFunction::apply_kramers_kronig() {
         for (std::size_t idx_energy = 0; idx_energy < m_energies.size(); ++idx_energy) {
             epsilon(idx_energy) = m_dielectric_function_real[idx_q][idx_energy] - 1.0;
         }
-        Eigen::VectorXd epsilon_imag = -kramers_matrix * epsilon;
+        Eigen::VectorXd epsilon_imag = kramers_matrix * epsilon;
         m_dielectric_function_imag[idx_q].resize(m_energies.size());
         for (std::size_t idx_energy = 0; idx_energy < m_energies.size(); ++idx_energy) {
             m_dielectric_function_imag[idx_q][idx_energy] = epsilon_imag(idx_energy);
-            // std::cout << m_dielectric_function_imag[idx_q][idx_energy] << std::endl;
         }
     }
 }
