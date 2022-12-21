@@ -21,7 +21,7 @@ namespace bz_mesh {
 enum class BandType { valence, conduction };
 
 class MeshBZ {
- private:
+ protected:
     /**
      * @brief The material of the Brillouin zone.
      *

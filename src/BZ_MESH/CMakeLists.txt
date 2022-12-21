@@ -3,11 +3,13 @@ set(HEADER_FILES_LIBBZMESH
   mesh_vertex.hpp
   bz_mesh.hpp
   vector.hpp
-  iso_triangle.hpp)
+  iso_triangle.hpp
+  bz_states.hpp)
 
 set(SOURCE_FILES_LIBBZMESH
   mesh_tetra.cpp
-  bz_mesh.cpp)
+  bz_mesh.cpp
+  bz_states.cpp)
 
 add_library(lib_bzmesh STATIC ${SOURCE_FILES_LIBBZMESH} ${HEADER_FILES_LIBBZMESH})
 
