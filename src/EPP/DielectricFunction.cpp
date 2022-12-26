@@ -101,10 +101,8 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
                 auto k_vect = m_kpoints[index_k];
                 hamiltonian_k.SetMatrix(k_vect, m_nonlocal_epm);
                 hamiltonian_k.Diagonalize(keep_eigenvectors);
-
                 m_eigenvalues_k[index_k]  = hamiltonian_k.eigenvalues();
                 m_eigenvectors_k[index_k] = hamiltonian_k.get_eigenvectors();
-                // std::cout << "k = " << k_vect << " -> " << m_eigenvectors_k[index_k] << std::endl;
                 // Keep only firsts columns
                 auto nb_rows = m_eigenvectors_k[index_k].rows();
                 m_eigenvectors_k[index_k].conservativeResize(nb_rows, m_nb_bands);
@@ -117,14 +115,10 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
             std::vector<double> list_k_sum(m_energies.size());
             for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands; ++idx_conduction_band) {
                 for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
-                    // const auto& eigen_vect_k = m_eigenvectors_k[index_k].col(idx_valence_band);
-                    // std::cout << "eigen_vect_k norm = " << eigenvectors_k_plus_q.mean() << std::endl;
                     double overlap_integral =
-                        pow(std::abs(eigenvectors_k_plus_q.col(idx_conduction_band).dot(m_eigenvectors_k[index_k].col(idx_valence_band))),
+                        pow(std::abs(eigenvectors_k_plus_q.col(idx_conduction_band).adjoint().dot(m_eigenvectors_k[index_k].col(idx_valence_band))),
                             2);
                     double delta_energy = eigenvalues_k_plus_q[idx_conduction_band] - m_eigenvalues_k[index_k][idx_valence_band];
-                    // std::cout << "Overlap integral = " << overlap_integral << std::endl;
-                    // std::cout << "delta_energy = " << delta_energy << std::endl;
                     for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
                         double energy = m_energies[index_energy];
                         double factor_1 =
@@ -132,7 +126,6 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
                         double factor_2 =
                             (delta_energy + energy) / ((delta_energy + energy) * (delta_energy + energy) + eta_smearing * eta_smearing);
                         double total_factor = factor_1 + factor_2;
-                        // std::cout << "overlap_integral = " << overlap_integral << std::endl;
                         list_k_sum[index_energy] += overlap_integral * total_factor;
                     }
                 }
@@ -144,17 +137,14 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
             }
             for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
                 list_total_sum[index_energy] += list_k_sum[index_energy];
-                // std::cout << "Energy = " << m_energies[index_energy] << " -> epsilon = " << list_total_sum[index_energy] << std::endl;
             }
         }
         std::vector<double> list_epsilon(m_energies.size());
         for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
             list_epsilon[index_energy] = list_total_sum[index_energy];
-            // std::cout << "Energy = " << m_energies[index_energy] << " -> epsilon = " << list_epsilon[index_energy] << std::endl;
         }
         auto end = std::chrono::high_resolution_clock::now();
-        // std::cout << std::endl;
-        std::cout << "Time elapsed: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0 << " s"
+        std::cout << "\nTime elapsed: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0 << " s"
                   << std::endl;
         start = std::chrono::high_resolution_clock::now();
         m_dielectric_function_real.push_back(list_epsilon);
@@ -178,8 +168,6 @@ DielectricFunction DielectricFunction::merge_results(DielectricFunction         
     std::cout << "Number total kpoint to the merge : " << total_number_kpoints << std::endl;
     // Add-up the k-contributions.
     for (std::size_t index_instance = 0; index_instance < dielectric_function_results.size(); ++index_instance) {
-        // const double ratio_number_k_points =
-        //     static_cast<double>(nb_kpoints_per_instance[index_instance]) / static_cast<double>(total_number_kpoints);
         // Add the contributions to epsilon for each q-point and energy.
         for (std::size_t index_q = 0; index_q < dielectric_function_results[index_instance].size(); ++index_q) {
             if (index_instance == 0) {

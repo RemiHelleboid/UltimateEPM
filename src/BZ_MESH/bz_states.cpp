@@ -34,19 +34,33 @@ void BZ_States::compute_eigenstates(int nb_threads) {
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (std::size_t idx_k = 0; idx_k < m_list_vertices.size(); ++idx_k) {
         std::cout << "\rComputing eigenstates for k = " << idx_k << "/" << m_list_vertices.size() << std::flush;
-        auto k_point = Vector3D<double>(m_list_vertices[idx_k].get_position().x(),
-                                         m_list_vertices[idx_k].get_position().y(),
-                                         m_list_vertices[idx_k].get_position().z());
-        k_point       = k_point * 1.0 / normalization_factor;
+        auto k_point    = Vector3D<double>(m_list_vertices[idx_k].get_position().x(),
+                                        m_list_vertices[idx_k].get_position().y(),
+                                        m_list_vertices[idx_k].get_position().z());
+        k_point         = k_point * 1.0 / normalization_factor;
         auto idx_thread = omp_get_thread_num();
         hamiltonian_per_thread[idx_thread].SetMatrix(k_point, m_nonlocal_epm);
         hamiltonian_per_thread[idx_thread].Diagonalize(keep_eigenvectors);
         m_eigenvalues_k[idx_k]  = hamiltonian_per_thread[idx_thread].eigenvalues();
         m_eigenvectors_k[idx_k] = hamiltonian_per_thread[idx_thread].get_eigenvectors();
-        auto nb_rows = m_eigenvectors_k[idx_k].rows();
+        auto nb_rows            = m_eigenvectors_k[idx_k].rows();
         m_eigenvectors_k[idx_k].conservativeResize(nb_rows, m_nb_bands);
     }
 }
+
+// double BZ_States::compute_direct_impact_ionization_matrix_element(int                     idx_n1,
+//                                                                   int                     idx_n1_prime,
+//                                                                   int                     idx_n2,
+//                                                                   int                     idx_n2_prime,
+//                                                                   const Vector3D<double>& k1,
+//                                                                   const Vector3D<double>& k2,
+//                                                                   const Vector3D<double>& k1_prime,
+//                                                                   const Vector3D<double>& k2_prime) const {
+//     double     matrix_element       = 0.0;
+//     double     normalization_factor = 2.0 * M_PI / m_material.get_lattice_constant_meter();
+//     const bool m_nonlocal_epm       = false;
+//     const bool keep_eigenvectors    = true;
+// }
 
 void BZ_States::export_full_eigenstates() const {
     std::filesystem::remove_all("eigenstates");
