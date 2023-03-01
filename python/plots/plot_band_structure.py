@@ -1,10 +1,10 @@
-import matplotlib as mpl
 import numpy as np
 import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 from matplotlib.lines import Line2D
+import matplotlib as mpl
 from scipy.interpolate import CubicSpline
 
 
