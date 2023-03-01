@@ -5,6 +5,7 @@
 # Phys. Rev. 141, 789–796 (1966).
 
 ---
+
 materials:
   - name: Silicon
     symbol: Si

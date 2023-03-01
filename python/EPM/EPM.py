@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 from matplotlib.lines import Line2D
 import matplotlib as mpl
+import os, sys
+
+import ParametersMat as pMat
 
 try:
     plt.style.use(['science', 'high-vis', 'grid'])
@@ -71,25 +74,29 @@ def get_basis_index_non_zero(basis_G: np.ndarray) -> np.ndarray:
             
 
     
-def PseudoPotential(G: np.ndarray) -> float:
+def PseudoPotential(G: np.ndarray, mat_params: pMat.MaterialParameterEPM) -> float:
     Ry_to_eV = 13.605698066
-    V3S = -0.2241 * Ry_to_eV
-    V8S = 0.0551 * Ry_to_eV
-    V11S = 0.0724 * Ry_to_eV
+    V3S = mat_params.V3S * Ry_to_eV
+    V8S = mat_params.V8S * Ry_to_eV
+    V11S = mat_params.V11S * Ry_to_eV
+    V3A = mat_params.V3A * Ry_to_eV
+    V8A = mat_params.V4A * Ry_to_eV
+    V11A = mat_params.V11A * Ry_to_eV
     tau = np.array([1, 1, 1]) / 8.0
     Gtau = 2.0 * np.pi * np.dot(G, tau)
     Gsquare = np.linalg.norm(G)**2
+
     if np.abs(Gsquare - 3) < 1e-6:
-        return V3S * np.cos(Gtau)
+        return V3S * np.cos(Gtau) + V3A * np.sin(Gtau)
     elif np.abs(Gsquare - 8) < 1e-6:
-        return V8S * np.cos(Gtau)
+        return V8S * np.cos(Gtau) + V8A * np.sin(Gtau)
     elif np.abs(Gsquare - 11) < 1e-6:
-        return V11S * np.cos(Gtau)
+        return V11S * np.cos(Gtau) + V11A * np.sin(Gtau)
     else:
         return 0.0
 
 
-def non_diag_hamiltonian(basis_G: np.ndarray) -> np.ndarray:
+def non_diag_hamiltonian(mat_params: pMat.MaterialParameterEPM, basis_G: np.ndarray) -> np.ndarray:
     """Generate the Hamiltonian matrix.
 
     Args:
@@ -108,7 +115,7 @@ def non_diag_hamiltonian(basis_G: np.ndarray) -> np.ndarray:
             G1 = basis_G[i]
             G2 = basis_G[j]
             Gdiff = G1 - G2
-            Hamiltonian[i, j] = PseudoPotential(Gdiff)
+            Hamiltonian[i, j] = PseudoPotential(Gdiff, mat_params)
             if Hamiltonian[i, j] != 0:
                 nnz += 1
     print("Ratio of non zero elements in the Hamiltonian matrix: ", nnz / (BasisSize**2))
@@ -117,10 +124,9 @@ def non_diag_hamiltonian(basis_G: np.ndarray) -> np.ndarray:
 
 EPM_BASIS = generate_basis_vector(10)
 EPM_BASIS_NORM = np.linalg.norm(EPM_BASIS, axis=1)
-GlobHamiltonianNonDiag = non_diag_hamiltonian(EPM_BASIS)
 
 
-def hamiltonian(k: np.ndarray, basis_G: np.ndarray) -> np.ndarray:
+def hamiltonian(mat_params: pMat.MaterialParameterEPM, k: np.ndarray, basis_G: np.ndarray) -> np.ndarray:
     """Generate the Hamiltonian matrix.
 
     Args:
@@ -130,28 +136,15 @@ def hamiltonian(k: np.ndarray, basis_G: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: The Hamiltonian matrix.
     """
-    a_0 = 5.431 * 1e-10
+    a_0 = mat_params.lattice_constant * 1e-10
     BasisSize = len(basis_G)
     kinetic_c = (2.0 * np.pi / a_0)**2
-    Hamiltonian = np.copy(GlobHamiltonianNonDiag)
+    Hamiltonian = non_diag_hamiltonian(mat_params, basis_G)
     for i in range(BasisSize):
         G1 = basis_G[i]
         Hamiltonian[i, i] = KINETIC_CONSTANT * kinetic_c * np.linalg.norm(G1 + k)**2
     return Hamiltonian
 
-def eigen_states(k: np.ndarray, basis_G: np.ndarray) -> np.ndarray:
-    """Generate the eigen states.
-
-    Args:
-        k (np.ndarray): The wave vector.
-        basis_G (np.ndarray): The basis vector.
-
-    Returns:
-        np.ndarray: The eigen states.
-    """
-    HamiltonianMatrix = hamiltonian(k, basis_G)
-    eigen_values = la.eigvalsh(HamiltonianMatrix, lower=True)
-    return eigen_values
 
 # symmetry points in the Brillouin zone
 G = np.array([0, 0, 0])
@@ -194,14 +187,14 @@ def band_structure(path):
     # vstack concatenates our list of paths into one nice array
     for idx, k in enumerate(np.vstack(path)):
         print(f"\r{idx} values over {len(np.vstack(path))}", end="")
-        E = eigen_states(k, EPM_BASIS)
+        E, _ = eigen_states(k, EPM_BASIS)
         # picks out the lowest eight eigenvalues
         bands.append(E[:8])
     
     return np.stack(bands, axis=-1)
 
 
-def eigen_states(k: np.ndarray, basis_G: np.ndarray=None) -> np.ndarray:
+def eigen_states(mat_params: pMat.MaterialParameterEPM, k: np.ndarray, basis_G: np.ndarray=None) -> np.ndarray:
     """Generate the eigen states.
 
     Args:
@@ -213,9 +206,9 @@ def eigen_states(k: np.ndarray, basis_G: np.ndarray=None) -> np.ndarray:
     """
     if basis_G is None:
         basis_G = EPM_BASIS
-    HamiltonianMatrix = hamiltonian(k, basis_G)
+    HamiltonianMatrix = hamiltonian(mat_params, k, basis_G)
     # Get eigenvalues and eigenvectors of the Hamiltonian matrix
-    eigen_values, eigen_vectors = la.eig(HamiltonianMatrix)
+    eigen_values, eigen_vectors = la.eigh(HamiltonianMatrix)
     # Sort the eigenvalues and eigenvectors
     idx = eigen_values.argsort()
     eigen_values = eigen_values[idx]
@@ -257,7 +250,7 @@ def plot_eigen_states(k: np.ndarray, basis_G: np.ndarray=None, n_states: int=8) 
     fig.savefig(f"fourier_factors_k_{k}.svg")
     plt.show()
 
-def get_wave_function_real_space(k: np.ndarray, r_min, r_max, n_points, basis_G: np.ndarray=None) -> np.ndarray:
+def get_wave_function_real_space(mat_params: pMat.MaterialParameterEPM, k: np.ndarray, r_min, r_max, n_points, basis_G: np.ndarray=None) -> np.ndarray:
     """Generate the wave function in real space.
 
     Args:
@@ -272,7 +265,10 @@ def get_wave_function_real_space(k: np.ndarray, r_min, r_max, n_points, basis_G:
     """
     if basis_G is None:
         basis_G = EPM_BASIS
-    eigen_values, eigen_vectors = eigen_states(k, basis_G)
+    eigen_values, eigen_vectors = eigen_states(mat_params, k, basis_G)
+    NVal = 3
+    eigen_vectors = eigen_vectors[:, :NVal]
+    print(f"Shape of eigen_vectors: {eigen_vectors.shape}")
     # Get the wave function in real space
     xyz = np.linspace(r_min, r_max, n_points)
     X, Y, Z = np.meshgrid(xyz, xyz, xyz)
@@ -281,53 +277,17 @@ def get_wave_function_real_space(k: np.ndarray, r_min, r_max, n_points, basis_G:
         for idx_y in range(n_points):
             for idx_z in range(n_points):
                 r_point = np.array([X[idx_x, idx_y, idx_z], Y[idx_x, idx_y, idx_z], Z[idx_x, idx_y, idx_z]])
-                for i in range(len(eigen_vectors)):
+                for i in range(NVal):
                     G_vect = basis_G[i]
-                    exp_GdotR = np.exp(-1j * np.dot(basis_G, r_point))
-                    print(f"Shape of exp_GdotR: {exp_GdotR.shape}")   
-                    SUM = np.dot(eigen_vectors, exp_GdotR)
-                    print(f"Shape of SUM: {SUM.shape}")   
                     for idx_G in range(len(G_vect)):
                         wave_function[idx_x, idx_y, idx_z] +=  np.exp(-1j * np.dot(G_vect, r_point)) * eigen_vectors[i, idx_G]
                 wave_function[idx_x, idx_y, idx_z] *= np.exp(1j * np.dot(k, r_point))
-                wave_function[idx_x, idx_y, idx_z] = np.abs(wave_function[idx_x, idx_y, idx_z])**2
+                # wave_function[idx_x, idx_y, idx_z] = np.abs(wave_function[idx_x, idx_y, idx_z])**2
     return wave_function
 
 
-def get_wave_function_real_space_vectorized(k: np.ndarray, r_min, r_max, n_points, basis_G: np.ndarray=None) -> np.ndarray:
-    """Generate the wave function in real space.
 
-    Args:
-        k (np.ndarray): The wave vector.
-        r_min (float): The minimum value of the real space.
-        r_max (float): The maximum value of the real space.
-        n_points (int): The number of points in the real space.
-        basis_G (np.ndarray): The basis vector.
-
-    Returns:
-        np.ndarray: The wave function in real space.
-    """
-    if basis_G is None:
-        basis_G = EPM_BASIS
-    eigen_values, eigen_vectors = eigen_states(k, basis_G)
-    print(f"Shape of eigen vectors: {eigen_vectors.shape}")
-    # Get the wave function in real space
-    xyz = np.linspace(r_min, r_max, n_points)
-    X, Y, Z = np.meshgrid(xyz, xyz, xyz)
-    wave_function = np.zeros((n_points, n_points, n_points), dtype=complex)
-    for i in range(len(eigen_vectors)):
-        G_vect = basis_G[i]
-        for idx_G in range(len(G_vect)):
-            wave_function +=  eigen_vectors[i, idx_G] * np.exp(-1j * np.dot(G_vect, [X, Y, Z]))
-    wave_function *= np.exp(1j * np.dot(k, [X, Y, Z]))
-    wave_function = np.abs(wave_function)**2
-
-
-        
-    return wave_function.reshape(n_points, n_points, n_points)
-
-
-def plot_wave_function_real_space(k: np.ndarray, r_min, r_max, n_points, basis_G: np.ndarray=None):
+def plot_wave_function_real_space(mat_params: pMat.MaterialParameterEPM, k: np.ndarray, r_min, r_max, n_points, basis_G: np.ndarray=None):
     """Plot the wave function in real space.
 
     Args:
@@ -339,34 +299,34 @@ def plot_wave_function_real_space(k: np.ndarray, r_min, r_max, n_points, basis_G
     """
     if basis_G is None:
         basis_G = EPM_BASIS
-    wave_function = get_wave_function_real_space(k, r_min, r_max, n_points, basis_G)
-    print(f"Wave function in real space: {wave_function.shape}")
-    # Show the wave function in real space with heatmap, at different z values
-    ListIdxZ = [0, n_points // 4, n_points // 2, 3 * n_points // 4, n_points - 1]
-    fig, ax = plt.subplots(1, len(ListIdxZ), figsize=(20, 4))
-    for idx, idx_z in enumerate(ListIdxZ):
-        im = ax[idx].imshow(np.abs(wave_function[:, :, idx_z]), cmap='jet', interpolation='nearest', extent=[r_min, r_max, r_min, r_max])
-        ax[idx].set_title(f"z={idx_z}")
-        ax[idx].set_xlabel("x")
-        ax[idx].set_ylabel("y")
-    fig.colorbar(im, ax=ax.ravel().tolist())
+    wave_function = get_wave_function_real_space(mat_params, k, r_min, r_max, n_points, basis_G)
+    # Export in a file with the form X,Y,Z,Re(WaveFunction),Im(WaveFunction),Abs(WaveFunction)
+    xyz = np.linspace(r_min, r_max, n_points)
+    X, Y, Z = np.meshgrid(xyz, xyz, xyz)
+    with open("wave_function_real_space.csv", "w") as f:
+        f.write("X,Y,Z,Re(WaveFunction),Im(WaveFunction),Abs(WaveFunction)\n")
+        for idx_x in range(n_points):
+            for idx_y in range(n_points):
+                for idx_z in range(n_points):
+                    f.write(f"{X[idx_x, idx_y, idx_z]},{Y[idx_x, idx_y, idx_z]},{Z[idx_x, idx_y, idx_z]},{wave_function[idx_x, idx_y, idx_z].real},{wave_function[idx_x, idx_y, idx_z].imag},{np.abs(wave_function[idx_x, idx_y, idx_z])}\n")
+    
+
+
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    im = ax.imshow(np.abs(wave_function[:, :, 0])**2, cmap='jet', interpolation='gaussian', extent=[r_min, r_max, r_min, r_max], origin='lower')
+    # # Isocontours
+    cf = ax.contour(np.abs(wave_function[:, :, 0])**2, c='k', extent=[r_min, r_max, r_min, r_max], levels=10)
+    ax.clabel(cf, inline=1, fontsize=10)
+    
+
+    ax.set_title(f"z=0")
+    fig.colorbar(im, ax=ax)
+
+    fig.tight_layout()
 
     plt.pause(4)
+    plt.show()
 
-
-    # Same with the fast version
-    wave_function = get_wave_function_real_space_vectorized(k, r_min, r_max, n_points, basis_G)
-    print(f"Wave function in real space: {wave_function.shape}")
-    # Show the wave function in real space with heatmap, at different z values
-    ListIdxZ = [0, n_points // 4, n_points // 2, 3 * n_points // 4, n_points - 1]
-    fig, ax = plt.subplots(1, len(ListIdxZ), figsize=(20, 4))
-    for idx, idx_z in enumerate(ListIdxZ):
-        im = ax[idx].imshow(np.abs(wave_function[:, :, idx_z]), cmap='jet', interpolation='nearest', extent=[r_min, r_max, r_min, r_max])
-        ax[idx].set_title(f"z={idx_z}")
-        ax[idx].set_xlabel("x")
-        ax[idx].set_ylabel("y")
-    fig.colorbar(im, ax=ax.ravel().tolist())
-    plt.pause(5)
 
 
 
@@ -520,18 +480,22 @@ def main_band_structure(n_points):
 
     
 if __name__ == "__main__":
+    material = sys.argv[1]
+    # Get the material parameters
+    MyMaterial = pMat.get_material_by_symbol(material)
+
     energy = 0.0
     q_vect = np.array([1.0, 1.0, 1.0]) * 1.0e-9
     n_valence = 4
     n_conduction = 8
     Nk = 1000
     # main_band_structure(250)
-    k_gamma = np.array([0.0, 0.0, 0.0])
-    rmin = -np.pi
-    rmax = np.pi
-    Nxyz = 20
+    k_gamma = np.array([1.0, 1.0, 0.0])
+    rmin = - 2.0 * np.pi
+    rmax = 2.0 * np.pi
+    Nxyz = 60
     # plot_eigen_states(k_gamma)
-    plot_wave_function_real_space(k_gamma, rmin, rmax, Nxyz)
+    plot_wave_function_real_space(MyMaterial, k_gamma, rmin, rmax, Nxyz)
 
     
     

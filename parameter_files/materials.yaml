@@ -1,7 +1,9 @@
 # Materials parameters for the Empirical Pseudopotential Method.
 # All the parameters are from: Pötz, W. & Vogl, P. Theory of optical-phonon deformation
 # potentials in tetrahedral semiconductors. Phys. Rev. B 24, 2025–2037 (1981)
+
 ---
+
 materials:
   - name: Silicon
     symbol: Si
