@@ -491,7 +491,7 @@ if __name__ == "__main__":
     Nk = 1000
     # main_band_structure(250)
     k_gamma = np.array([1.0, 1.0, 0.0])
-    rmin = - 2.0 * np.pi
+    rmin = -2.0 * np.pi
     rmax = 2.0 * np.pi
     Nxyz = 60
     # plot_eigen_states(k_gamma)
