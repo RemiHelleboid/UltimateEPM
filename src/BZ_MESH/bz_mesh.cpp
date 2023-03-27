@@ -16,6 +16,8 @@
 #include <fstream>
 #include <vector>
 
+#include "rapidcsv.h"
+
 #include "gmsh.h"
 #include "omp.h"
 

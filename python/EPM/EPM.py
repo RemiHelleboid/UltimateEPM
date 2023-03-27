@@ -118,7 +118,7 @@ def non_diag_hamiltonian(mat_params: pMat.MaterialParameterEPM, basis_G: np.ndar
             Hamiltonian[i, j] = PseudoPotential(Gdiff, mat_params)
             if Hamiltonian[i, j] != 0:
                 nnz += 1
-    print("Ratio of non zero elements in the Hamiltonian matrix: ", nnz / (BasisSize**2))
+    # print("Ratio of non zero elements in the Hamiltonian matrix: ", nnz / (BasisSize**2))
     return Hamiltonian
 
 
@@ -182,14 +182,15 @@ def k_path(n):
     return path
 
 
-def band_structure(path):
+def band_structure(mat_params: pMat.MaterialParameterEPM, path):
     bands = []
     # vstack concatenates our list of paths into one nice array
     for idx, k in enumerate(np.vstack(path)):
         print(f"\r{idx} values over {len(np.vstack(path))}", end="")
-        E, _ = eigen_states(k, EPM_BASIS)
-        # picks out the lowest eight eigenvalues
-        bands.append(E[:8])
+        E, _ = eigen_states(mat_params, k, EPM_BASIS)
+        # picks out the lowest eigt eigenvalues
+        bands.append(E[:16])
+
     
     return np.stack(bands, axis=-1)
 
@@ -266,7 +267,7 @@ def get_wave_function_real_space(mat_params: pMat.MaterialParameterEPM, k: np.nd
     if basis_G is None:
         basis_G = EPM_BASIS
     eigen_values, eigen_vectors = eigen_states(mat_params, k, basis_G)
-    NVal = 3
+    NVal = 4
     eigen_vectors = eigen_vectors[:, :NVal]
     print(f"Shape of eigen_vectors: {eigen_vectors.shape}")
     # Get the wave function in real space
@@ -280,7 +281,7 @@ def get_wave_function_real_space(mat_params: pMat.MaterialParameterEPM, k: np.nd
                 for i in range(NVal):
                     G_vect = basis_G[i]
                     for idx_G in range(len(G_vect)):
-                        wave_function[idx_x, idx_y, idx_z] +=  np.exp(-1j * np.dot(G_vect, r_point)) * eigen_vectors[i, idx_G]
+                        wave_function[idx_x, idx_y, idx_z] +=  np.exp(1j * np.dot(G_vect, r_point)) * eigen_vectors[i, idx_G]
                 wave_function[idx_x, idx_y, idx_z] *= np.exp(1j * np.dot(k, r_point))
                 # wave_function[idx_x, idx_y, idx_z] = np.abs(wave_function[idx_x, idx_y, idx_z])**2
     return wave_function
@@ -330,7 +331,7 @@ def plot_wave_function_real_space(mat_params: pMat.MaterialParameterEPM, k: np.n
 
 
 
-def dielectric_function_mc(energy, q_vect, n_valence, n_conduction, Nk):
+def dielectric_function_mc(mat_params: pMat.MaterialParameterEPM, energy, q_vect, n_valence, n_conduction, Nk):
     list_colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w', 'b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
     first_condcution_idx = 4
     list_kpoints = bzS.RandomKPointsIrreducibleWedge(Nk)
@@ -344,8 +345,8 @@ def dielectric_function_mc(energy, q_vect, n_valence, n_conduction, Nk):
         # print(f"\r{index_k} values over {Nk}", end="")
         k = list_kpoints[index_k]
         k_plus_q = list_k_plus_q[index_k]
-        H_k = hamiltonian(k, basis_vectors)
-        H_k_plus_q = hamiltonian(k_plus_q, basis_vectors)
+        H_k = hamiltonian(mat_params, k, basis_vectors)
+        H_k_plus_q = hamiltonian(mat_params, k_plus_q, basis_vectors)
         # print(f"Norm Sq: {np.linalg.norm(H_k)}")
         eigval_k, eigvec_k = la.eigh(H_k)
         eigval_k_plus_q, eigvec_k_plus_q = la.eigh(H_k_plus_q)
@@ -370,12 +371,15 @@ def dielectric_function_mc(energy, q_vect, n_valence, n_conduction, Nk):
     # plt.show()
     return list_eps[-1]
 
-def dielectric_function_Monkhorst_Pack(energy, q_vect, n_valence, n_conduction, Nxyz):
+def dielectric_function_Monkhorst_Pack(mat_params: pMat.MaterialParameterEPM, energy, q_vect, n_valence, n_conduction, Nxyz, basis_G=None):
     first_condcution_idx = 4
-    list_kpoints = bzS.Monkhorst_Pack(Nxyz, Nxyz, Nxyz)
+    irreducible_wedge =False
+    list_kpoints = bzS.Monkhorst_Pack(Nxyz, Nxyz, Nxyz, irreducible_wedge)
     list_k_plus_q = np.array([k + q_vect for k in list_kpoints])
     basis_vectors = EPM_BASIS
     basis_size = len(basis_vectors)
+    if basis_G is None:
+        basis_G = EPM_BASIS
     sum_total = 0.0
     list_eps = []
     list_k_contrib = []
@@ -384,8 +388,8 @@ def dielectric_function_Monkhorst_Pack(energy, q_vect, n_valence, n_conduction, 
         # print(f"\r{index_k} values over {Nk}", end="")
         k = list_kpoints[index_k]
         k_plus_q = list_k_plus_q[index_k]
-        H_k = hamiltonian(k, basis_vectors)
-        H_k_plus_q = hamiltonian(k_plus_q, basis_vectors)
+        H_k = hamiltonian(mat_params, k, basis_G)
+        H_k_plus_q = hamiltonian(mat_params, k_plus_q, basis_G)
         eigval_k, eigvec_k = la.eigh(H_k)
         eigval_k_plus_q, eigvec_k_plus_q = la.eigh(H_k_plus_q)
         sum_k = 0.0
@@ -403,7 +407,7 @@ def dielectric_function_Monkhorst_Pack(energy, q_vect, n_valence, n_conduction, 
         list_eps.append(epsilon_tot)
     return list_eps[-1]
 
-def convergence_Monkhorst_Pack(energy, q_vect, n_valence, n_conduction, maxNxyz):
+def convergence_Monkhorst_Pack(mat_params: pMat.MaterialParameterEPM, energy, q_vect, n_valence, n_conduction, maxNxyz):
     list_eps = []
     list_Nxyz = []
     for Nxyz in range(4, maxNxyz):
@@ -430,12 +434,12 @@ def main_epsilon_mc(N_k, q_vect, n_valence, n_conduction):
     for idx, eps in enumerate(list_eps):
         print(f"Energy = {list_energies[idx]} eV ----> epsilon_real = {eps:.2e}")
         
-def main_epsilon(Nxyz, q_vect, n_valence, n_conduction):
+def main_epsilon(mat_params: pMat.MaterialParameterEPM, Nxyz, q_vect, n_valence, n_conduction):
     print("Calculating epsilon...")
     list_energies = np.linspace(0.0, 10, 41, endpoint=True)
     list_eps = []
     for e in list_energies:
-        eps = dielectric_function_Monkhorst_Pack(e, q_vect, n_valence, n_conduction, Nxyz)
+        eps = dielectric_function_Monkhorst_Pack(mat_params, e, q_vect, n_valence, n_conduction, Nxyz)
         list_eps.append(eps)
         print(f"E = {e} eV ----> epsilon_real = {eps:.2e}")
     fig, axs = plt.subplots(1, 1, figsize=(10, 10))
@@ -448,21 +452,15 @@ def main_epsilon(Nxyz, q_vect, n_valence, n_conduction):
         print(f"Energy = {list_energies[idx]} eV ----> epsilon_real = {eps:.2e}")
     
     
-def main_band_structure(n_points):
+def main_band_structure(mat_params: pMat.MaterialParameterEPM, n_points):
     N_basis = 20
     basis_G = generate_basis_vector(N_basis)
     n = n_points
     k = k_path(n)
-    bands = band_structure(k)
+    bands = band_structure(mat_params, k)
     bands -= max(bands[3])
 
     fig, ax = plt.subplots(figsize=(10, 10))
-
-    # remove plot borders
-    # ax.spines['top'].set_visible(False)
-    # ax.spines['bottom'].set_visible(False)
-    # ax.spines['right'].set_visible(False)
-    # ax.spines['left'].set_visible(False)
 
     # limit plot area to data
     plt.xlim(0, len(bands))
@@ -475,6 +473,7 @@ def main_band_structure(n_points):
 
     for band in bands:
         ax.plot(band, lw=2.0)
+        print(f"Band min = {min(band):.2f} eV")
 
     plt.show()
 
@@ -489,13 +488,14 @@ if __name__ == "__main__":
     n_valence = 4
     n_conduction = 8
     Nk = 1000
-    # main_band_structure(250)
-    k_gamma = np.array([1.0, 1.0, 0.0])
-    rmin = -2.0 * np.pi
-    rmax = 2.0 * np.pi
-    Nxyz = 60
+    main_band_structure(MyMaterial, 150)
+    k_gamma = np.array([1.0, 1.0, 0.0]) * 1.0e-12
+    rmin = -1.0 * np.pi
+    rmax = 1.0 * np.pi
     # plot_eigen_states(k_gamma)
-    plot_wave_function_real_space(MyMaterial, k_gamma, rmin, rmax, Nxyz)
+    # plot_wave_function_real_space(MyMaterial, k_gamma, rmin, rmax, Nxyz)
 
+    Nxyz = 20
+    # main_epsilon(MyMaterial, Nxyz, q_vect, n_valence, n_conduction)
     
     

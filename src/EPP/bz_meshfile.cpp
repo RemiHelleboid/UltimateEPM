@@ -10,7 +10,7 @@
  */
 
 #include "bz_meshfile.hpp"
-
+#include "rapidcsv.h"
 #include "BandStructure.h"
 #include "gmsh.h"
 
@@ -18,8 +18,34 @@ void bz_mesh_points::add_k_point(Vector3D<double> kpoint) { m_kpoints.push_back(
 
 void bz_mesh_points::add_k_point(double k_x, double k_y, double k_z) { m_kpoints.push_back(Vector3D<double>(k_x, k_y, k_z)); }
 
+void bz_mesh_points::read_mesh_from_csv() {
+    rapidcsv::Document doc(m_filename, rapidcsv::LabelParams(-1, -1));
+    std::vector<double> k_x = doc.GetColumn<double>(0);
+    std::vector<double> k_y = doc.GetColumn<double>(1);
+    std::vector<double> k_z = doc.GetColumn<double>(2);
+
+    std::size_t size_k_x = k_x.size();
+    std::size_t size_k_y = k_y.size();
+    std::size_t size_k_z = k_z.size();
+
+    if (size_k_x != size_k_y || size_k_x != size_k_z) {
+        throw std::runtime_error("Number of k-points in x, y and z are not the same. Abort.");
+    }
+
+    for (std::size_t index_k = 0; index_k < size_k_x; ++index_k) {
+        add_k_point(k_x[index_k], k_y[index_k], k_z[index_k]);
+    }
+
+    std::cout << "Number of k-points read from csv file: " << size_k_x << std::endl;
+}
+
 void bz_mesh_points::read_mesh() {
     std::cout << "Opening file " << m_filename << std::endl;
+    if (m_filename.substr(m_filename.find_last_of(".") + 1) == "csv") {
+        read_mesh_from_csv();
+        return;
+    }
+
     gmsh::initialize();
     // gmsh::option::setNumber("General.Verbosity", 1);
     gmsh::model::add("bz_mesh");
@@ -136,4 +162,32 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, cons
         gmsh::option::setNumber(name_object_visibility, 0);
         gmsh::view::write(data_tag, out_filename, true);
     }
+}
+
+/**
+ * @brief Export band structure energies to csv files (one file per band).
+ *
+ * The band structure is assumed to be given in band_values vector under the following format:
+ * band_values[index_k_point * number_of_bands + index_band] = energy of the band with index index_band at k-point with index index_k_point.
+ *
+ * @param out_filename
+ * @param band_values
+ */
+void bz_mesh_points::export_bands_as_csv(const std::vector<double>& band_values, int number_bands) {
+    if (band_values.size() != number_bands * m_node_tags.size()) {
+        throw std::runtime_error("band_values vector is not the same size as the number of bands times the number of nodes. Abort.");
+    }
+    for (int index_band = 0; index_band < number_bands; ++index_band) {
+        std::string         band_name = "band_" + std::to_string(index_band);
+        std::vector<double> current_band_values(m_node_tags.size());
+        for (std::size_t index_node = 0; index_node < m_node_tags.size(); ++index_node) {
+            current_band_values[index_node] = band_values[index_node * number_bands + index_band];
+        }
+        std::ofstream band_file(band_name + ".csv");
+        for (std::size_t index_node = 0; index_node < m_node_tags.size(); ++index_node) {
+            band_file << current_band_values[index_node] << std::endl;
+        }
+        band_file.close();
+    }
+    
 }

@@ -58,7 +58,7 @@ endif()
 if(MSVC)
   add_compile_options("/W4" "$<$<CONFIG:RELEASE>:/O2>")
 else()
-  add_compile_options("-Wall" "-Wextra" "-Werror" "-pedantic")
+  # add_compile_options("-Wall" "-Wextra" "-Werror" "-pedantic")
 
   if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_compile_options("-stdlib=libc++")
@@ -158,13 +158,31 @@ FetchContent_Declare(
 FetchContent_Declare(
   yaml-cpp
   GIT_REPOSITORY "https://github.com/jbeder/yaml-cpp"
-  GIT_TAG "328d2d85e833be7cb5a0ab246cc3f5d7e16fc67a")
+  GIT_TAG "master")
+
+FetchContent_Declare(
+  rapidcsv
+  GIT_REPOSITORY "https://github.com/d99kris/rapidcsv.git"
+  GIT_TAG "master"
+  CONFIGURE_COMMAND "" BUILD_COMMAND "")
+
+# Get fast-parse-csv lib
+find_package(rapidcsv NO_MODULE)
+
+if(NOT rapidcsv_FOUND)
+  message("Fetching rapidcsv lib ...")
+  FetchContent_MakeAvailable(rapidcsv)
+  include_directories(${rapidcsv_SOURCE_DIR})
+endif()
 
 # Get yaml_cpp lib
 find_package(yaml-cpp NO_MODULE)
 
 if(NOT yaml-cpp_FOUND)
   message("Fetching yaml-cpp lib ...")
+  set(YAML_CPP_BUILD_TESTS OFF)
+  set(YAML_CPP_BUILD_TOOLS OFF)
+  set(YAML_CPP_BUILD_CONTRIB OFF)
   FetchContent_MakeAvailable(yaml-cpp)
 endif()
 
@@ -229,8 +247,7 @@ if(ENABLE_BUILD_TEST)
 endif(ENABLE_BUILD_TEST)
 
 # tclap library for argument parsing
-include_directories(${PROJECT_SOURCE_DIR}/external/tclap/include)
-
+include_directories(${PROJECT_SOURCE_DIR}/external/tclap-1.4.0/include)
 # -----------------------------------------------------------------------------
 # The compiled library code is here
 add_subdirectory(src/EPP)

@@ -165,7 +165,7 @@ int main(int argc, char* argv[]) {
         Chunk_list_k_points[i] = chunk_vector_of_k[i].to_Vector3D();
     }
 
-    bool                                    enable_nonlocal_correction = false;
+    bool                                    enable_nonlocal_correction = arg_enable_nonlocal_correction.getValue();
     EmpiricalPseudopotential::BandStructure my_bandstructure;
     my_bandstructure.Initialize(mat, my_options.nrLevels, Chunk_list_k_points, my_options.nearestNeighbors, enable_nonlocal_correction);
     my_bandstructure.Compute();
@@ -217,7 +217,10 @@ int main(int argc, char* argv[]) {
         std::filesystem::path in_path(mesh_filename);
         std::string out_file_bands = in_path.stem().replace_extension("").string() + "_MPI_" + my_bandstructure.path_band_filename();
         my_mesh.add_all_bands_on_mesh(out_file_bands + "_all_bands.msh", all_energies_all_bands, number_bands);
+        my_mesh.export_bands_as_csv(all_energies_all_bands, number_bands);
     }
 
     MPI_Finalize();
+
+    return EXIT_SUCCESS;
 }
