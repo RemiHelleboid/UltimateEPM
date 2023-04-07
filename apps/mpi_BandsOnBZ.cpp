@@ -71,6 +71,7 @@ int main(int argc, char* argv[]) {
                                                10,
                                                "int");
     TCLAP::SwitchArg arg_enable_nonlocal_correction("C", "nonlocal-correction", "Enable the non-local-correction for the EPM model", false);
+    TCLAP::SwitchArg arg_cond_band_zero("z", "MinCondZero", "Shift the conduction band minimum to 0 eV", false);
     TCLAP::ValueArg<int> arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -79,6 +80,7 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_nearest_neighbors);
     cmd.add(arg_nb_threads);
     cmd.add(arg_enable_nonlocal_correction);
+    cmd.add(arg_cond_band_zero);
 
     cmd.parse(argc, argv);
 
@@ -169,7 +171,7 @@ int main(int argc, char* argv[]) {
     EmpiricalPseudopotential::BandStructure my_bandstructure;
     my_bandstructure.Initialize(mat, my_options.nrLevels, Chunk_list_k_points, my_options.nearestNeighbors, enable_nonlocal_correction);
     my_bandstructure.Compute();
-    my_bandstructure.AdjustValues();
+    my_bandstructure.AdjustValues(arg_cond_band_zero.getValue());
 
     std::vector<double> chunk_list_energies(counts_element_per_process[process_rank] * my_options.nrLevels);
     for (int i = 0; i < counts_element_per_process[process_rank]; ++i) {

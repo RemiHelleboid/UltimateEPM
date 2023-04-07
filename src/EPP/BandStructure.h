@@ -52,7 +52,7 @@ class BandStructure {
     unsigned int                    GetPointsNumber() const { return static_cast<unsigned int>(m_kpoints.size()); }
     void                            Compute();
     void                            Compute_parallel(int nb_threads);
-    double                          AdjustValues();
+    double                          AdjustValues(bool minConductionBandToZero=false);
 
     void        print_results() const;
     std::string path_band_filename() const;

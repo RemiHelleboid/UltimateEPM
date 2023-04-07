@@ -14,7 +14,6 @@
 
 namespace EmpiricalPseudopotential {
 
-
 std::string BandStructure::get_path_as_string() const {
     std::string path = "";
     for (const auto& point : m_path) {
@@ -155,7 +154,7 @@ void BandStructure::Compute_parallel(int nb_threads) {
     m_computation_time_s = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
 }
 
-double BandStructure::AdjustValues() {
+double BandStructure::AdjustValues(bool minConductionBandToZero) {
     double maxValValence;
     double minValConduction;
 
@@ -165,11 +164,17 @@ double BandStructure::AdjustValues() {
         band_gap = minValConduction - maxValValence;
     }
 
-    // adjust values to a guessed zero
-    for (auto& p : m_results)
-        for (auto& v : p) {
-            v -= maxValValence;
+    for (std::size_t idx_k = 0; idx_k < m_results.size(); ++idx_k) {
+        for (std::size_t idx_band = 0; idx_band < m_results[idx_k].size(); ++idx_band) {
+            if (idx_band < 4) {
+                m_results[idx_k][idx_band] -= maxValValence;
+            } else if (minConductionBandToZero) {
+                m_results[idx_k][idx_band] -= minValConduction;
+            } else {
+                m_results[idx_k][idx_band] -= maxValValence;
+            }
         }
+    }
 
     return band_gap;
 }
@@ -274,12 +279,10 @@ std::string BandStructure::path_band_filename() const {
             path_string += point;
         }
     }
-    std::string filename = "EPM_" + m_material.get_name() + "_nb_bands_" + std::to_string(m_results.front().size()) + "_path_" + path_string +
-                           "_size_basis_" + std::to_string(basisVectors.size());
+    std::string filename = "EPM_" + m_material.get_name() + "_nb_bands_" + std::to_string(m_results.front().size()) + "_path_" +
+                           path_string + "_size_basis_" + std::to_string(basisVectors.size());
     return filename;
 }
-
-
 
 void export_vector_bands_result_in_file(const std::string& filename, std::vector<std::vector<double>> results) {
     std::cout << "Exporting band structure to file:     " << filename << std::endl;
