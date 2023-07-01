@@ -19,7 +19,7 @@
 class bz_mesh_points {
  private:
     std::string                   m_filename;
-    std::size_t                   m_nb_points;
+    std::size_t                   m_nb_points = 0;
     std::vector<std::size_t>      m_node_tags;
     std::vector<Vector3D<double>> m_kpoints;
 

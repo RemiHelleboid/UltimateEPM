@@ -10,16 +10,24 @@
  */
 
 #include "bz_meshfile.hpp"
-#include "rapidcsv.h"
+
 #include "BandStructure.h"
 #include "gmsh.h"
+#include "rapidcsv.h"
 
 void bz_mesh_points::add_k_point(Vector3D<double> kpoint) { m_kpoints.push_back(kpoint); }
 
-void bz_mesh_points::add_k_point(double k_x, double k_y, double k_z) { m_kpoints.push_back(Vector3D<double>(k_x, k_y, k_z)); }
+void bz_mesh_points::add_k_point(double k_x, double k_y, double k_z) {
+    m_kpoints.push_back(Vector3D<double>(k_x, k_y, k_z));
+    m_node_tags.push_back(m_nb_points++);
+}
 
 void bz_mesh_points::read_mesh_from_csv() {
-    rapidcsv::Document doc(m_filename, rapidcsv::LabelParams(-1, -1));
+    m_node_tags.clear();
+    m_kpoints.clear();
+    m_nb_points = 0;
+    std::cout << "Opening file " << m_filename << std::endl;
+    rapidcsv::Document  doc(m_filename, rapidcsv::LabelParams(-1, -1), rapidcsv::SeparatorParams(' '));
     std::vector<double> k_x = doc.GetColumn<double>(0);
     std::vector<double> k_y = doc.GetColumn<double>(1);
     std::vector<double> k_z = doc.GetColumn<double>(2);
@@ -174,9 +182,9 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, cons
  * @param band_values
  */
 void bz_mesh_points::export_bands_as_csv(const std::vector<double>& band_values, int number_bands) {
-    if (band_values.size() != number_bands * m_node_tags.size()) {
-        throw std::runtime_error("band_values vector is not the same size as the number of bands times the number of nodes. Abort.");
-    }
+    // if (band_values.size() != number_bands * m_node_tags.size()) {
+    //     throw std::runtime_error("band_values vector is not the same size as the number of bands times the number of nodes. Abort.");
+    // }
     for (int index_band = 0; index_band < number_bands; ++index_band) {
         std::string         band_name = "band_" + std::to_string(index_band);
         std::vector<double> current_band_values(m_node_tags.size());
@@ -189,5 +197,4 @@ void bz_mesh_points::export_bands_as_csv(const std::vector<double>& band_values,
         }
         band_file.close();
     }
-    
 }

@@ -182,6 +182,7 @@ DielectricFunction DielectricFunction::merge_results(DielectricFunction         
     }
     // Renormalization
     double renormalization = 1.0 / static_cast<double>(total_number_kpoints);
+    const double factor_discrete = 2.0 / std::pow(2.0 * M_PI, 3.0);
     std::cout << "Renormalization: " << renormalization << std::endl;
     for (std::size_t index_q = 0; index_q < total_dielectric_function.size(); ++index_q) {
         Vector3D<double> q_vect    = RootDielectricFunction.m_qpoints[index_q];

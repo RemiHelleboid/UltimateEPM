@@ -71,6 +71,9 @@ int main(int argc, char *argv[]) {
     my_bz_mesh.read_mesh_geometry_from_msh_file(arg_mesh_file.getValue());
     my_bz_mesh.compute_eigenstates(my_options.nrThreads);
 
+    Vector3D<double> q_shift = Vector3D<double>{1e-12, 0.0, 0.0};
+    my_bz_mesh.compute_shifted_eigenstates(q_shift, my_options.nrThreads);
+
     std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
 
     auto end = std::chrono::high_resolution_clock::now();

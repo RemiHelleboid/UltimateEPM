@@ -218,7 +218,7 @@ int main(int argc, char* argv[]) {
     if (process_rank == MASTER) {
         std::filesystem::path in_path(mesh_filename);
         std::string out_file_bands = in_path.stem().replace_extension("").string() + "_MPI_" + my_bandstructure.path_band_filename();
-        my_mesh.add_all_bands_on_mesh(out_file_bands + "_all_bands.msh", all_energies_all_bands, number_bands);
+        // my_mesh.add_all_bands_on_mesh(out_file_bands + "_all_bands.msh", all_energies_all_bands, number_bands);
         my_mesh.export_bands_as_csv(all_energies_all_bands, number_bands);
     }
 
