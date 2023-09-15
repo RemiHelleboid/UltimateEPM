@@ -16,6 +16,9 @@
 #include <system_error>
 #include <vector>
 
+#include <Eigen/Dense>
+#include <complex>
+
 #include "Constants.hpp"
 #include "Material.h"
 #include "SpinOrbitParameters.hpp"
@@ -55,6 +58,11 @@ class SpinOrbitCorrection {
     double compute_lambda_sym(const Vector3D<double>& K, const Vector3D<double>& Kp) const;
     double compute_lambda_antisym(const Vector3D<double>& K, const Vector3D<double>& Kp) const;
 
+    static Eigen::Matrix<std::complex<double>, 2, 2> compute_pauli_state_dot_product(Vector3D<double> a);
+
+
 };
+
+
 
 }  // namespace EmpiricalPseudopotential

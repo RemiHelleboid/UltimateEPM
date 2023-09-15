@@ -9,6 +9,7 @@
 
 #include "Constants.hpp"
 #include "NonLocalFunctional.hpp"
+#include "SpinOrbitFunctional.hpp"
 #include "Vector3D.h"
 
 namespace EmpiricalPseudopotential {
@@ -41,13 +42,13 @@ void Hamiltonian::SetConstantNonDiagonalMatrix() {
     }
 }
 
-void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correction) {
+void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correction, bool enable_soc) {
     const unsigned int basisSize       = static_cast<unsigned int>(m_basisVectors.size());
     const double       latticeConstant = m_material.get_lattice_constant_meter();
     constexpr double   one_eight       = 1.0 / 8.0;
     Vector3D<double>   tau{one_eight * latticeConstant, one_eight * latticeConstant, one_eight * latticeConstant};
     const double       fourier_factor = 2.0 * M_PI / latticeConstant;
-    matrix = m_constant_non_diagonal_matrix;
+    matrix                            = m_constant_non_diagonal_matrix;
     // diagonal elements
     const double diag_factor = pow(Constants::h_bar, 2) / (2.0 * Constants::m0 * Constants::q);
     for (unsigned int i = 0; i < basisSize; ++i) {
@@ -71,7 +72,17 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
             }
         }
     }
-} 
+
+    if (enable_soc) {
+        std::size_t      matrix_size = matrix.rows();
+        std::size_t new_matrix_size = 2 * matrix_size;
+        Eigen::MatrixXcd ZerosMat = Eigen::MatrixXcd::Zero(matrix_size, matrix_size);
+        Eigen::MatrixXcd new_matrix(new_matrix_size, new_matrix_size);
+        new_matrix << matrix, ZerosMat, ZerosMat, matrix;
+        matrix = new_matrix;
+
+    }
+}
 
 void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
     solver.compute(matrix, keep_eigenvectors ? Eigen::ComputeEigenvectors : Eigen::EigenvaluesOnly);

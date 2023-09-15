@@ -12,7 +12,7 @@ class Hamiltonian {
     Hamiltonian(const Material& material, const std::vector<Vector3D<int>>& basisVectors);
     void SetConstantNonDiagonalMatrix();
 
-    void SetMatrix(const Vector3D<double>& k, bool add_non_local_correction = false);
+    void SetMatrix(const Vector3D<double>& k, bool add_non_local_correction = false, bool enable_soc = false);
     void Diagonalize(bool keep_eigenvectors = false);
 
     const Eigen::VectorXd&  get_eigenvalues() const { return solver.eigenvalues(); }

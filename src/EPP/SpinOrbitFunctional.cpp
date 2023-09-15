@@ -77,4 +77,15 @@ double SpinOrbitCorrection::compute_lambda_antisym(const Vector3D<double>& K, co
     return lambda_antisym;
 }
 
+Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_pauli_state_dot_product(Vector3D<double> myVect) {
+    using namespace std::complex_literals;
+    std::complex<double>  a00 = myVect.Z;
+    std::complex<double>  a01 = myVect.X - myVect.Y * 1i;
+    std::complex<double>  a10 = myVect.X + myVect.Y * 1i;
+    std::complex<double>  a11 = -myVect.Z;
+    Eigen::Matrix<std::complex<double>, 2, 2> res_matrix;
+    res_matrix << a00, a10, a01, a11;
+    return res_matrix;
+}
+
 }  // namespace EmpiricalPseudopotential
