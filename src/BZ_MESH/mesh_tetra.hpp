@@ -48,7 +48,7 @@ class Tetra {
      * The sign depends on the "orientation" of the tetrahedra.
      *
      */
-    double m_signed_volume;
+    double m_signed_volume = 0.0;
 
     /**
      * @brief Number of conduction bands.
@@ -83,6 +83,17 @@ class Tetra {
 
     Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices);
     void compute_min_max_energies_at_bands();
+
+    std::size_t                   get_index() const { return m_index; }
+    const std::array<Vertex*, 4>& get_list_vertices() const { return m_list_vertices; }
+    std::array<std::size_t, 4>    get_list_indices_vertices() const {
+           return {m_list_vertices[0]->get_index(),
+                   m_list_vertices[1]->get_index(),
+                   m_list_vertices[2]->get_index(),
+                   m_list_vertices[3]->get_index()};
+    }
+    std::array<vector3, 6> get_list_edges() const { return m_list_edges; }
+    std::size_t            get_nb_bands() const { return m_nb_bands; }
 
     std::array<double, 4> get_band_energies_at_vertices(std::size_t index_band) const;
 

@@ -29,6 +29,16 @@ class BZ_States : public MeshBZ {
     std::vector<Eigen::MatrixXcd> m_eigenvectors_k;
     std::vector<Eigen::MatrixXcd> m_eigenvectors_k_plus_q;
 
+    Vector3D<double>    m_q_shift;
+    std::vector<double> m_list_energies;
+
+    /**
+     * @brief Real part of the dielectric function.
+     * m_dielectric_function_real[idx_energy] is the real part of the dielectric function at the energy m_energies[idx_energy].
+     *
+     */
+    std::vector<double> m_dielectric_function_real;
+
  public:
     BZ_States(const EmpiricalPseudopotential::Material& material) : MeshBZ(material) {}
 
@@ -37,7 +47,11 @@ class BZ_States : public MeshBZ {
     void compute_eigenstates(int nb_threads = 1);
     void compute_shifted_eigenstates(const Vector3D<double>& q_shift, int nb_threads = 1);
 
+    const std::vector<double>& get_energies() const { return m_list_energies; }
+    void                       set_energies(const std::vector<double>& energies) { m_list_energies = energies; }
+
     void compute_dielectric_function(const std::vector<double>& energies, double eta_smearing, int nb_threads = 1);
+    void export_dielectric_function(const std::string& prefix) const;
 
     double compute_direct_impact_ionization_matrix_element(int                     idx_n1,
                                                            int                     idx_n1_prime,

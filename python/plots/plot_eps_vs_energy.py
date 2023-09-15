@@ -20,7 +20,14 @@ mpl.rcParams['figure.figsize'] = [3.5, 2.8]
 
 
 def plot_dielectric_function_vs_energy(filename: str):
-    energies, eps_r, eps_i = np.loadtxt(filename, unpack=True, skiprows=1, delimiter=',')
+    # energies, eps_r, eps_i = np.loadtxt(filename, unpack=True, skiprows=1, delimiter=',')
+    data = np.loadtxt(filename, unpack=True, skiprows=1, delimiter=',')
+    energies = data[0]
+    eps_r = data[1]
+    if len(data) == 3:
+        eps_i = data[2]
+    else:
+        eps_i = np.zeros_like(eps_r)
     fig, ax = plt.subplots()
     ax.plot(energies, eps_r, label="Real", c='b')
     ax.plot(energies, eps_i, "-", label="Imaginary", c='r')

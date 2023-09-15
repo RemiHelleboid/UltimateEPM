@@ -53,7 +53,11 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
 
     m_list_vertices.reserve(size_nodes_tags);
     double lattice_constant     = m_material.get_lattice_constant_meter();
-    double normalization_factor = 2.0 * M_PI / lattice_constant;
+    std::cout << "Lattice const: " << lattice_constant << std::endl;
+    std::cout << "V: " << std::pow(2.0 * M_PI, 3) / std::pow(lattice_constant, 3.0) << std::endl;
+
+    double normalization_factor =  2.0 * M_PI / lattice_constant;
+    // double normalization_factor =  1.0;
     for (std::size_t index_vertex = 0; index_vertex < size_nodes_tags; ++index_vertex) {
         m_list_vertices.push_back(Vertex(index_vertex,
                                          normalization_factor * nodeCoords[3 * index_vertex],
@@ -164,9 +168,10 @@ void MeshBZ::compute_energy_gradient_at_tetras() {
 double MeshBZ::compute_mesh_volume() const {
     double total_volume = 0.0;
     for (auto&& tetra : m_list_tetrahedra) {
-        total_volume += fabs(tetra.get_signed_volume());
+        total_volume += std::fabs(tetra.get_signed_volume());
+        // std::cout << "Tetra " << tetra.get_index() << " volume: " << tetra.get_signed_volume() << std::endl;
     }
-    total_volume *= (1.0 / pow(2.0 * M_PI, 3.0));
+    // total_volume *= (1.0 / pow(2.0 * M_PI, 3.0));    
     return total_volume;
 }
 

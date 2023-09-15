@@ -48,8 +48,13 @@ class SpinOrbitCorrection {
     double compute_B4_cation(const Vector3D<double>& K) const;
     double compute_B4_anion(const Vector3D<double>& K) const;
 
-    double compute_lambda_1(const Vector3D<double>& K) const;
-    double compute_lambda_2(const Vector3D<double>& K) const;
+    double compute_lambda_1(const Vector3D<double>& K, const Vector3D<double>& Kp) const;
+    double compute_lambda_2(const Vector3D<double>& K, const Vector3D<double>& Kp) const;
+
+
+    double compute_lambda_sym(const Vector3D<double>& K, const Vector3D<double>& Kp) const;
+    double compute_lambda_antisym(const Vector3D<double>& K, const Vector3D<double>& Kp) const;
+
 };
 
 }  // namespace EmpiricalPseudopotential

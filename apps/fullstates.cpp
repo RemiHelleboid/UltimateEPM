@@ -69,19 +69,36 @@ int main(int argc, char *argv[]) {
     my_bz_mesh.set_basis_vectors(basis);
 
     my_bz_mesh.read_mesh_geometry_from_msh_file(arg_mesh_file.getValue());
+    std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
+
+
     my_bz_mesh.compute_eigenstates(my_options.nrThreads);
 
-    Vector3D<double> q_shift = Vector3D<double>{1e-12, 0.0, 0.0};
+    Vector3D<double> q_shift = Vector3D<double>{1e-10, 0.0, 0.0};
     my_bz_mesh.compute_shifted_eigenstates(q_shift, my_options.nrThreads);
+    std::cout << "\n\n" << std::endl;
 
-    std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
 
     auto end = std::chrono::high_resolution_clock::now();
 
     std::chrono::duration<double> elapsed_seconds = end - start;
     std::cout << "Elapsed time: " << elapsed_seconds.count() << "s" << std::endl;
 
-    my_bz_mesh.export_full_eigenstates();
+    std::vector<double> list_energy;
+    double min_energy   = 0.0;
+    double max_energy   = 20.0;
+    double energy_step  = 0.01;
+    for (double energy = min_energy; energy <= max_energy + energy_step; energy += energy_step) {
+        list_energy.push_back(energy);
+    }
+    double eta_smearing = 0.01;
+    std::cout << "Number of energies to compute: " << list_energy.size() << std::endl;
+    auto start2 = std::chrono::high_resolution_clock::now();
+    my_bz_mesh.compute_dielectric_function(list_energy, eta_smearing, my_options.nrThreads);
+    my_bz_mesh.export_dielectric_function("./TEST_DIELECTRIC_FUNCTION_");
+    auto end2 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_seconds2 = end2 - start2;
+    std::cout << "Time Dielectric Function : " << elapsed_seconds2.count() << "s" << std::endl;
 
-    return 0;
+        return 0;
 }

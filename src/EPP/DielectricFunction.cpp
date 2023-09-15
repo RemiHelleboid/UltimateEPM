@@ -71,7 +71,7 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, 
 }
 
 /**
- * @brief Compute the energy and wavevector dependent dielectric function.
+ * @brief Compute the energy and wave vector dependent dielectric function.
  * The formula used is the one from the paper "
  *
  * @param eta_smearing
