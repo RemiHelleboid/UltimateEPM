@@ -57,13 +57,15 @@ void BandStructure::Initialize(const Material&                 material,
                                const std::vector<std::string>& path,
                                unsigned int                    nbPoints,
                                unsigned int                    nearestNeighborsNumber,
-                               bool                            enable_non_local_correction) {
+                               bool                            enable_non_local_correction,
+                               bool                            enable_soc) {
     m_material                    = material;
     m_nb_bands                    = nb_bands;
     m_path                        = path;
     m_nb_points                   = nbPoints;
     m_nearestNeighborsNumber      = nearestNeighborsNumber;
     m_enable_non_local_correction = enable_non_local_correction;
+    m_enable_spin_orbit_coupling  = enable_soc;
     m_kpoints.clear();
     m_results.clear();
     m_kpoints.reserve(m_nb_points);
@@ -85,12 +87,14 @@ void BandStructure::Initialize(const Material&               material,
                                std::size_t                   nb_bands,
                                std::vector<Vector3D<double>> list_k_points,
                                unsigned int                  nearestNeighborsNumber,
-                               bool                          enable_non_local_correction) {
+                               bool                          enable_non_local_correction,
+                               bool                          enable_soc) {
     m_material                    = material;
     m_nb_bands                    = nb_bands;
     m_nb_points                   = list_k_points.size();
     m_nearestNeighborsNumber      = nearestNeighborsNumber;
     m_enable_non_local_correction = enable_non_local_correction;
+    m_enable_spin_orbit_coupling  = enable_soc;
 
     m_kpoints.clear();
     m_results.clear();

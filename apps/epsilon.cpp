@@ -151,6 +151,7 @@ int main(int argc, char** argv) {
     int Nkz = config["Nkz"].as<int>();
 
     bool nonlocal_epm = false;
+    bool enable_soc = false;
     if (config["nonlocal"]) {
         nonlocal_epm = config["nonlocal"].as<bool>();
     }
@@ -184,7 +185,7 @@ int main(int argc, char** argv) {
     EmpiricalPseudopotential::Material      current_material = materials.materials.at("Si");
     EmpiricalPseudopotential::BandStructure band_structure{};
 
-    band_structure.Initialize(current_material, nb_bands, {}, nb_nearest_neighbors, nonlocal_epm);
+    band_structure.Initialize(current_material, nb_bands, {}, nb_nearest_neighbors, nonlocal_epm, enable_soc);
     EmpiricalPseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
 
     double shift = 0.0;

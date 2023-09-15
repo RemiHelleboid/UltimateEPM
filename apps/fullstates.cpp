@@ -41,6 +41,7 @@ int main(int argc, char *argv[]) {
     cmd.parse(argc, argv);
 
     bool                                nonlocal_epm = false;
+    bool                                enable_soc   = false;
     EmpiricalPseudopotential::Materials materials;
     std::string                         file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
     if (nonlocal_epm) {
@@ -64,13 +65,12 @@ int main(int argc, char *argv[]) {
     EmpiricalPseudopotential::BandStructure band_structure{};
 
     int nb_nearest_neighbors = 10;
-    band_structure.Initialize(current_material, nb_bands_to_use, {}, nb_nearest_neighbors, nonlocal_epm);
+    band_structure.Initialize(current_material, nb_bands_to_use, {}, nb_nearest_neighbors, nonlocal_epm, enable_soc);
     auto basis = band_structure.get_basis_vectors();
     my_bz_mesh.set_basis_vectors(basis);
 
     my_bz_mesh.read_mesh_geometry_from_msh_file(arg_mesh_file.getValue());
     std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
-
 
     my_bz_mesh.compute_eigenstates(my_options.nrThreads);
 
@@ -78,16 +78,15 @@ int main(int argc, char *argv[]) {
     my_bz_mesh.compute_shifted_eigenstates(q_shift, my_options.nrThreads);
     std::cout << "\n\n" << std::endl;
 
-
     auto end = std::chrono::high_resolution_clock::now();
 
     std::chrono::duration<double> elapsed_seconds = end - start;
     std::cout << "Elapsed time: " << elapsed_seconds.count() << "s" << std::endl;
 
     std::vector<double> list_energy;
-    double min_energy   = 0.0;
-    double max_energy   = 20.0;
-    double energy_step  = 0.01;
+    double              min_energy  = 0.0;
+    double              max_energy  = 20.0;
+    double              energy_step = 0.01;
     for (double energy = min_energy; energy <= max_energy + energy_step; energy += energy_step) {
         list_energy.push_back(energy);
     }
@@ -96,9 +95,9 @@ int main(int argc, char *argv[]) {
     auto start2 = std::chrono::high_resolution_clock::now();
     my_bz_mesh.compute_dielectric_function(list_energy, eta_smearing, my_options.nrThreads);
     my_bz_mesh.export_dielectric_function("./TEST_DIELECTRIC_FUNCTION_");
-    auto end2 = std::chrono::high_resolution_clock::now();
+    auto                          end2             = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_seconds2 = end2 - start2;
     std::cout << "Time Dielectric Function : " << elapsed_seconds2.count() << "s" << std::endl;
 
-        return 0;
+    return 0;
 }
