@@ -3,6 +3,7 @@ Band structure and DOS computation using empirical pseudopotentials on the full 
 * Standard __EPM over high symmetry k-points__ in the Brillouin zone.
 * Calculation of the __band structure and DOS on a mesh of k-points in the Brillouin zone__.
 * __Nonlocal corrections__ to the EPM.
+* __Spin-orbit coupling__ (SOC) for the EPM band structure.
 * MPI and OpenMP __parallelization__.
 
 [![Build & Unit Test](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml/badge.svg)](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml)
@@ -21,6 +22,10 @@ You can do three types of calculations:
 
 __Compute the electronic band structure over a path of high-symmetry points (e.g. $L \Gamma XWKULWXK \Gamma$) for a given material, and plot the results.__ 
 ![Band structure of Silicon](doc/band_structure_Si.png)
+
+The SOC can be included in the computation:
+
+![Band structure of Ge with SOC](doc/band_structure_Ge_soc.png)
 
 ---
 

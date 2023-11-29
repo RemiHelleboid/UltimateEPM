@@ -29,43 +29,48 @@ struct SpinOrbitParameters {
      * @brief Period of the anion (line number in the periodic table).
      *
      */
-    unsigned int m_period_anion;
+    unsigned int m_period_anion = 0;
 
     /**
      * @brief Period of the cation (line number in the periodic table).
      *
      */
-    unsigned int m_period_cation;
+    unsigned int m_period_cation = 0;
 
     /**
      * @brief Length scale of the radial wave function for the cation.
      *
      */
-    double m_radial_extent_cation;
+    double m_radial_extent_cation = 0;
 
     /**
      * @brief Length scale of the radial wave function for the anion.
      *
      */
-    double m_radial_extent_anion;
+    double m_radial_extent_anion = 0;
 
     /**
      * @brief Fitting parameter alpha.
      *
      */
-    double m_alpha;
+    double m_alpha = 0;
 
     /**
      * @brief Fitting parameter beta.
      *
      */
-    double m_mu;
+    double m_mu = 0;
 
     /**
      * @brief Default constructor.
      *
      */
     SpinOrbitParameters() = default;
+
+    // Copy constructor
+    SpinOrbitParameters(const SpinOrbitParameters& other) = default;
+    SpinOrbitParameters& operator=(const SpinOrbitParameters& other) = default;
+    SpinOrbitParameters(SpinOrbitParameters&& other)                 = default;
 
     /**
      * @brief Populate the spin-orbit parameters from a YAML node.
@@ -78,7 +83,7 @@ struct SpinOrbitParameters {
         m_radial_extent_anion  = node["radial_extent_anion"].as<double>();
         m_radial_extent_cation = node["radial_extent_cation"].as<double>();
         m_alpha                = node["alpha_soc"].as<double>();
-        m_mu                   = Constants::Ryd_to_eV * node["mu_soc"].as<double>();
+        m_mu                   = 1.0 * Constants::Ryd_to_eV * node["mu_soc"].as<double>();
         print_parameters();
     }
 

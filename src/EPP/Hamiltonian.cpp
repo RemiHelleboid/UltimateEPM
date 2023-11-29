@@ -74,19 +74,36 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
     }
 
     if (enable_soc) {
-        std::size_t      matrix_size = matrix.rows();
-        std::size_t new_matrix_size = 2 * matrix_size;
-        Eigen::MatrixXcd ZerosMat = Eigen::MatrixXcd::Zero(matrix_size, matrix_size);
-        Eigen::MatrixXcd new_matrix(new_matrix_size, new_matrix_size);
-        new_matrix << matrix, ZerosMat, ZerosMat, matrix;
-        matrix = new_matrix;
-
+        // std::cout << "Spin-orbit correction enabled" << std::endl;
+        SpinOrbitParameters SpinParams = m_material.get_spin_orbit_parameters();
+        SpinOrbitCorrection soc_correction(m_material, SpinParams);
+        std::size_t         matrix_size    = matrix.rows();
+        Eigen::MatrixXcd    UpDownMatrix   = Eigen::MatrixXcd::Zero(matrix_size, matrix_size);
+        Eigen::MatrixXcd    DownUpMatrix   = Eigen::MatrixXcd::Zero(matrix_size, matrix_size);
+        Eigen::MatrixXcd    UpUpMatrix     = matrix;
+        Eigen::MatrixXcd    DownDownMatrix = matrix;
+        for (unsigned int i = 0; i < matrix_size; ++i) {
+            for (unsigned int j = 0; j < matrix_size; ++j) {
+                Vector3D<double>                          k_vector_i = (k + m_basisVectors[i]);
+                Vector3D<double>                          k_vector_j = (k + m_basisVectors[j]);
+                Eigen::Matrix<std::complex<double>, 2, 2> soc_contribution =
+                    soc_correction.compute_soc_contribution(k_vector_i, k_vector_j, m_basisVectors[i], m_basisVectors[j], tau);
+                // std::cout << soc_contribution << std::endl;
+                UpUpMatrix(i, j) += soc_contribution(0, 0);
+                UpDownMatrix(i, j) += soc_contribution(1, 0);
+                DownUpMatrix(i, j) += soc_contribution(0, 1);
+                DownDownMatrix(i, j) += soc_contribution(1, 1);
+            }
+        }
+        matrix.resize(2 * matrix_size, 2 * matrix_size);
+        matrix << UpUpMatrix, UpDownMatrix, DownUpMatrix, DownDownMatrix;
     }
 }
 
 void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
     solver.compute(matrix, keep_eigenvectors ? Eigen::ComputeEigenvectors : Eigen::EigenvaluesOnly);
     if (solver.info() != Eigen::Success) {
+        std::cout << matrix << std::endl;
         throw std::runtime_error("Eigenvalue decomposition failed");
     }
 }

@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     bool                                nonlocal_epm = false;
     bool                                enable_soc   = false;
     EmpiricalPseudopotential::Materials materials;
-    std::string                         file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
+    std::string                         file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-cohen.yaml";
     if (nonlocal_epm) {
         file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
     }
@@ -74,9 +74,10 @@ int main(int argc, char *argv[]) {
 
     my_bz_mesh.compute_eigenstates(my_options.nrThreads);
 
-    Vector3D<double> q_shift = Vector3D<double>{1e-10, 0.0, 0.0};
+    Vector3D<double> q_shift = Vector3D<double>{1e-14, 0.0, 0.0};
     my_bz_mesh.compute_shifted_eigenstates(q_shift, my_options.nrThreads);
     std::cout << "\n\n" << std::endl;
+    my_bz_mesh.export_full_eigenstates();
 
     auto end = std::chrono::high_resolution_clock::now();
 

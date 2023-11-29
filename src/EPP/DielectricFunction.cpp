@@ -54,11 +54,11 @@ void DielectricFunction::generate_k_points_random(std::size_t nb_points) {
 
 void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, std::size_t Nz, double shift, bool irreducible_wedge) {
     m_kpoints.clear();
-    double min = -1.0 - shift;
+    double min = -0.0 - shift;
     double max = 1.0 + shift;
-    for (std::size_t i = 0; i < Nx; ++i) {
-        for (std::size_t j = 0; j < Ny; ++j) {
-            for (std::size_t k = 0; k < Nz; ++k) {
+    for (std::size_t i = 0; i < Nx - 1; ++i) {
+        for (std::size_t j = 0; j < Ny - 1; ++j) {
+            for (std::size_t k = 0; k < Nz - 1; ++k) {
                 Vector3D<double> k_vect(min + (max - min) * i / static_cast<double>(Nx - 1),
                                         min + (max - min) * j / static_cast<double>(Ny - 1),
                                         min + (max - min) * k / static_cast<double>(Nz - 1));
@@ -99,6 +99,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
         for (std::size_t index_k = m_offset_k_index; index_k < m_offset_k_index + m_nb_kpoints; ++index_k) {
             if (index_q == 0) {
                 auto k_vect = m_kpoints[index_k];
+                std::cout << "Computing eigenvalues for k = " << k_vect << std::endl;
                 hamiltonian_k.SetMatrix(k_vect, m_nonlocal_epm);
                 hamiltonian_k.Diagonalize(keep_eigenvectors);
                 m_eigenvalues_k[index_k]  = hamiltonian_k.eigenvalues();
@@ -115,10 +116,12 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
             std::vector<double> list_k_sum(m_energies.size());
             for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands; ++idx_conduction_band) {
                 for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
-                    double overlap_integral =
-                        pow(std::abs(eigenvectors_k_plus_q.col(idx_conduction_band).adjoint().dot(m_eigenvectors_k[index_k].col(idx_valence_band))),
-                            2);
-                    double delta_energy = eigenvalues_k_plus_q[idx_conduction_band] - m_eigenvalues_k[index_k][idx_valence_band];
+                    double overlap_integral = pow(
+                        std::abs(
+                            eigenvectors_k_plus_q.col(idx_conduction_band).adjoint().dot(m_eigenvectors_k[index_k].col(idx_valence_band))),
+                        2);
+                    double delta_energy = (eigenvalues_k_plus_q[idx_conduction_band]) - m_eigenvalues_k[index_k][idx_valence_band];
+                    std::cout << "Energy val: " << m_eigenvalues_k[index_k][idx_valence_band] << std::endl;
                     for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
                         double energy = m_energies[index_energy];
                         double factor_1 =
@@ -181,7 +184,7 @@ DielectricFunction DielectricFunction::merge_results(DielectricFunction         
         }
     }
     // Renormalization
-    double renormalization = 1.0 / static_cast<double>(total_number_kpoints);
+    double       renormalization = 1.0 / static_cast<double>(total_number_kpoints);
     const double factor_discrete = 2.0 / std::pow(2.0 * M_PI, 3.0);
     std::cout << "Renormalization: " << renormalization << std::endl;
     for (std::size_t index_q = 0; index_q < total_dielectric_function.size(); ++index_q) {

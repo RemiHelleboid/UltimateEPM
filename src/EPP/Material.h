@@ -67,6 +67,9 @@ class Material {
              double             V4A  = 0,
              double             V8A  = 0,
              double             V11A = 0);
+    Material(const Material&) = default;
+    Material& operator=(const Material&) = default;
+    Material(Material&&)                 = default;
     
     const std::string& get_name() const { return m_name; }
 
@@ -82,6 +85,8 @@ class Material {
     void populate_spin_orbit_parameters(const YAML::Node& node) {
         m_spin_orbit_parameters.populate_from_yaml(node);
     }
+
+    const SpinOrbitParameters& get_spin_orbit_parameters() const { return m_spin_orbit_parameters; }
 
     /**
      * @brief Compute the non-local correction for (K1, K2) element of the Hamiltonian. 

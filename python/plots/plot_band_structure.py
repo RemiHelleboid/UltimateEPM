@@ -191,10 +191,11 @@ if __name__ == "__main__":
 
     lines = [Line2D([0], [0], color='k', lw=0.5, ls=lstyle)
              for lstyle in ["-", "--"]]
-    labels = ["non-local", "local"]
+    # labels = ["non-local", "local"]
+    # labels = ["non-local", "local"]
 
-    ax.legend(lines, labels, loc='lower right', fancybox=True,  frameon=True,
-              edgecolor='k', facecolor='w', fontsize=6, framealpha=0.75)
+    # ax.legend(lines, labels, loc='lower right', fancybox=True,  frameon=True,
+    #           edgecolor='k', facecolor='w', fontsize=6, framealpha=0.75)
     fig.tight_layout()
     fig.savefig(f"{OUT_DIR}/band_structure_{material}.png", dpi=300)
 

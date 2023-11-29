@@ -11,13 +11,12 @@
 
 #pragma once
 
+#include <Eigen/Dense>
+#include <complex>
 #include <iostream>
 #include <string>
 #include <system_error>
 #include <vector>
-
-#include <Eigen/Dense>
-#include <complex>
 
 #include "Constants.hpp"
 #include "Material.h"
@@ -40,9 +39,8 @@ class SpinOrbitCorrection {
 
  public:
     SpinOrbitCorrection() = delete;
-    SpinOrbitCorrection(const SpinOrbitParameters& parameters, const Material& material)
-        : m_soc_parameters(parameters),
-          m_material(material) {}
+    SpinOrbitCorrection(const Material& material, const SpinOrbitParameters& SpinParams) : m_material(material), m_soc_parameters(SpinParams){
+    };
 
     double compute_B2_cation(const Vector3D<double>& K) const;
     double compute_B2_anion(const Vector3D<double>& K) const;
@@ -54,15 +52,16 @@ class SpinOrbitCorrection {
     double compute_lambda_1(const Vector3D<double>& K, const Vector3D<double>& Kp) const;
     double compute_lambda_2(const Vector3D<double>& K, const Vector3D<double>& Kp) const;
 
-
     double compute_lambda_sym(const Vector3D<double>& K, const Vector3D<double>& Kp) const;
     double compute_lambda_antisym(const Vector3D<double>& K, const Vector3D<double>& Kp) const;
 
-    static Eigen::Matrix<std::complex<double>, 2, 2> compute_pauli_state_dot_product(Vector3D<double> a);
+    Eigen::Matrix<std::complex<double>, 2, 2> compute_soc_contribution(const Vector3D<double>& K,
+                                                                       const Vector3D<double>& Kp,
+                                                                       const Vector3D<double>& G,
+                                                                       const Vector3D<double>& Gp,
+                                                                       const Vector3D<double>& tau) const;
 
-
+    static Eigen::Matrix<std::complex<double>, 2, 2> compute_pauli_state_dot_product(const Vector3D<double>& a);
 };
-
-
 
 }  // namespace EmpiricalPseudopotential

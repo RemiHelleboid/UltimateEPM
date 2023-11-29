@@ -31,7 +31,6 @@ void BZ_States::compute_eigenstates(int nb_threads) {
     for (int i = 0; i < nb_threads; i++) {
         hamiltonian_per_thread.push_back(EmpiricalPseudopotential::Hamiltonian(m_material, m_basisVectors));
     }
-#pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (std::size_t idx_k = 0; idx_k < m_list_vertices.size(); ++idx_k) {
         std::cout << "\rComputing eigenstates for k = " << idx_k << "/" << m_list_vertices.size() << std::flush;
         auto k_point    = Vector3D<double>(m_list_vertices[idx_k].get_position().x(),
@@ -59,7 +58,6 @@ void BZ_States::compute_shifted_eigenstates(const Vector3D<double>& q_shift, int
     for (int i = 0; i < nb_threads; i++) {
         hamiltonian_per_thread.push_back(EmpiricalPseudopotential::Hamiltonian(m_material, m_basisVectors));
     }
-#pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (std::size_t idx_k = 0; idx_k < m_list_vertices.size(); ++idx_k) {
         std::cout << "\rComputing eigenstates for k+q = " << idx_k << "/" << m_list_vertices.size() << std::flush;
         auto k_point = Vector3D<double>(m_list_vertices[idx_k].get_position().x(),
@@ -93,13 +91,13 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
     constexpr double one_fourth = 1.0 / 4.0;
 
     std::vector<double> dielectric_function_real_at_energies(list_energies.size(), 0.0);
-
-#pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
+    double total_volume = 0.0;
     for (std::size_t idx_tetra = 0; idx_tetra < nb_tetra; ++idx_tetra) {
         std::cout << "\rComputing dielectric function for tetrahedron " << idx_tetra << "/" << nb_tetra << std::flush;
         std::array<std::size_t, 4>    list_idx_vertices = m_list_tetrahedra[idx_tetra].get_list_indices_vertices();
         const std::array<Vertex*, 4>& list_vertices     = m_list_tetrahedra[idx_tetra].get_list_vertices();
         double                        volume_tetra      = std::fabs(m_list_tetrahedra[idx_tetra].compute_signed_volume());
+        total_volume += volume_tetra;
         // std::cout << "Volume tetra = " << volume_tetra << std::endl;
         std::vector<double> sum_dielectric_function_real_tetra_at_energies(list_energies.size(), 0.0);
         // Loop over the vertices of the tetrahedron
@@ -130,30 +128,17 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
             dielectric_function_real_at_energies[index_energy] += sum_dielectric_function_real_tetra_at_energies[index_energy];
         }
     }
+    std::cout << "\n";
+    std::cout << "Total volume: " << total_volume << std::endl;
 
     double q_squared = m_q_shift.Length() * m_q_shift.Length();
-    std::cout << "\nq_squared = " << q_squared << std::endl;
-    // double normalization_1 = (EmpiricalPseudopotential::Constants::q * EmpiricalPseudopotential::Constants::q * 4.0 * M_PI);
-    double normalization_1 = (M_PI) / (2.0 / std::pow(2.0 * M_PI, 3));
-    // double normalization_2 = compute_mesh_volume();
-    double normalization_3 = (EmpiricalPseudopotential::Constants::q * EmpiricalPseudopotential::Constants::q);
-    std::cout << std::endl;
-    std::cout << "Normalization factor 1: " << normalization_1 << std::endl;
-    std::cout << "Normalization factor 2: " << normalization_3 << std::endl;
-    std::cout << "Normalization factor q: " << 1.0 / q_squared << std::endl;
+    double pre_factor = 4.0 * M_PI / q_squared;
     for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
-        m_dielectric_function_real[index_energy] = dielectric_function_real_at_energies[index_energy];
-        // std::cout << "Energy = " << list_energies[index_energy] << " eV, dielectric function = " <<
-        // m_dielectric_function_real[index_energy] << std::endl; m_dielectric_function_real[index_energy] *= normalization_1;
-        m_dielectric_function_real[index_energy] *= normalization_3;
-        // m_dielectric_function_real[index_energy] /= normalization_2;
-        m_dielectric_function_real[index_energy] /= q_squared;
-        m_dielectric_function_real[index_energy] += 1.0;
+        m_dielectric_function_real[index_energy] = 1.0 + pre_factor * dielectric_function_real_at_energies[index_energy] / total_volume;
     }
-    std::cout << "E = 0 --> " << dielectric_function_real_at_energies[0] << std::endl;
-    std::cout << "E = 0 --> " << dielectric_function_real_at_energies[0] / q_squared << std::endl;
-    std::cout << "E = 0 --> " << dielectric_function_real_at_energies[0] / (q_squared * compute_mesh_volume()) << std::endl;
-    std::cout << "E = 0 --> " << m_dielectric_function_real[0] << std::endl;
+    std::cout << "EPS[0] = " << m_dielectric_function_real[0] << std::endl;
+
+    
 }
 
 // Export the dielectric function to a file in the format (energy, dielectric function) (csv format).

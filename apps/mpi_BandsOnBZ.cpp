@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
     cmd.parse(argc, argv);
 
     EmpiricalPseudopotential::Materials materials;
-    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
+    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-cohen.yaml";
     materials.load_material_parameters(file_material_parameters);
 
     Options my_options;
@@ -195,6 +195,9 @@ int main(int argc, char* argv[]) {
     std::vector<double> all_energies_all_bands;
     if (process_rank == MASTER) {
         all_energies_all_bands.resize(number_k_vectors * number_bands);
+        std::cout << "number_k_vectors: " << number_k_vectors << std::endl;
+        std::cout << "number_bands: " << number_bands << std::endl;
+        std::cout << "all_energies_all_bands.size(): " << all_energies_all_bands.size() << std::endl;
     }
 
     MPI_Gatherv(chunk_list_energies.data(),
@@ -222,7 +225,7 @@ int main(int argc, char* argv[]) {
     if (process_rank == MASTER) {
         std::filesystem::path in_path(mesh_filename);
         std::string out_file_bands = in_path.stem().replace_extension("").string() + "_MPI_" + my_bandstructure.path_band_filename();
-        // my_mesh.add_all_bands_on_mesh(out_file_bands + "_all_bands.msh", all_energies_all_bands, number_bands);
+        my_mesh.add_all_bands_on_mesh(out_file_bands + "_all_bands.msh", all_energies_all_bands, number_bands);
         my_mesh.export_bands_as_csv(all_energies_all_bands, number_bands);
     }
 

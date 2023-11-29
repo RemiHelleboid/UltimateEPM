@@ -71,6 +71,12 @@ void BandStructure::Initialize(const Material&                 material,
     m_kpoints.reserve(m_nb_points);
     m_results.reserve(m_nb_points);
 
+    if (m_enable_spin_orbit_coupling) {
+        m_nb_bands *= 2;
+        std::cout << "Spin-orbit coupling enabled. Number of bands doubled to " << m_nb_bands << std::endl;
+        m_material.get_spin_orbit_parameters().print_parameters();
+    }
+
     if (!GenerateBasisVectors(nearestNeighborsNumber)) {
         throw std::runtime_error("BandStructure::Initialize: GenerateBasisVectors failed");
     }
@@ -96,6 +102,13 @@ void BandStructure::Initialize(const Material&               material,
     m_enable_non_local_correction = enable_non_local_correction;
     m_enable_spin_orbit_coupling  = enable_soc;
 
+    if (m_enable_spin_orbit_coupling) {
+        m_nb_bands *= 2;
+        std::cout << "Spin-orbit coupling enabled. Number of bands doubled to " << m_nb_bands << std::endl;
+        m_material.get_spin_orbit_parameters().print_parameters();
+
+    }
+
     m_kpoints.clear();
     m_results.clear();
     m_kpoints = list_k_points;
@@ -115,7 +128,8 @@ void BandStructure::Compute() {
     for (unsigned int i = 0; i < m_nb_points; ++i) {
         // std::cout << "\rComputing band structure at point " << i + 1 << "/" << m_nb_points << std::flush;
         // std::cout << "Computing band structure at point " << m_kpoints[i] << std::endl;
-        hamiltonian.SetMatrix(m_kpoints[i], m_enable_non_local_correction);
+
+        hamiltonian.SetMatrix(m_kpoints[i], m_enable_non_local_correction, m_enable_spin_orbit_coupling);
         hamiltonian.Diagonalize();
 
         const Eigen::VectorXd& eigenvals = hamiltonian.eigenvalues();
@@ -146,7 +160,7 @@ void BandStructure::Compute_parallel(int nb_threads) {
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (unsigned int index_k = 0; index_k < m_nb_points; ++index_k) {
         int tid = omp_get_thread_num();
-        hamiltonian_per_thread[tid].SetMatrix(m_kpoints[index_k], m_enable_non_local_correction);
+        hamiltonian_per_thread[tid].SetMatrix(m_kpoints[index_k], m_enable_non_local_correction, m_enable_spin_orbit_coupling);
         hamiltonian_per_thread[tid].Diagonalize();
 
         const Eigen::VectorXd& eigenvals = hamiltonian_per_thread[tid].eigenvalues();

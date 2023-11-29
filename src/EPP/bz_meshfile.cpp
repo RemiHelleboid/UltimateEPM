@@ -19,7 +19,6 @@ void bz_mesh_points::add_k_point(Vector3D<double> kpoint) { m_kpoints.push_back(
 
 void bz_mesh_points::add_k_point(double k_x, double k_y, double k_z) {
     m_kpoints.push_back(Vector3D<double>(k_x, k_y, k_z));
-    m_node_tags.push_back(m_nb_points++);
 }
 
 void bz_mesh_points::read_mesh_from_csv() {
@@ -137,6 +136,11 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, cons
  */
 void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, const std::vector<double>& band_values, int number_bands) {
     if (band_values.size() != number_bands * m_node_tags.size()) {
+        std::cout << "band_values.size(): " << band_values.size() << std::endl;
+        std::cout << "number_bands: " << number_bands << std::endl;
+        std::cout << "m_node_tags.size(): " << m_node_tags.size() << std::endl;
+        std::cout << "m_kpts.size(): " << m_kpoints.size() << std::endl;
+        std::cout << "number_bands * m_node_tags.size(): " << number_bands * m_node_tags.size() << std::endl;
         throw std::runtime_error("band_values vector is not the same size as the number of bands times the number of nodes. Abort.");
     }
     gmsh::initialize();

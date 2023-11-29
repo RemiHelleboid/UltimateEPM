@@ -235,12 +235,12 @@ int main(int argc, char* argv[]) {
     }
 
     EmpiricalPseudopotential::Materials materials;
-    std::string                         file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
+    std::string                         file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
     if (!arg_enable_nonlocal_correction.isSet()) {
         file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
     }
     materials.load_material_parameters(file_material_parameters);
-    // materials.print_material_parameters();
+    materials.print_material_parameters();
 
     print_arguments(path_list,
                     arg_material.getValue(),
