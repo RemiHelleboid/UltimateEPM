@@ -28,7 +28,7 @@ def get_crystal_dir(list_q):
 
 
 def parse_epsilon_files(dirname):
-    files = glob.glob(dirname + "/*.csv")
+    files = glob.glob(dirname + "/Si*.csv")
     list_qxyz = []
     list_norm_q = []
     data = []
@@ -37,13 +37,15 @@ def parse_epsilon_files(dirname):
     for idx, filename in enumerate(files):
         print(f"\r File n° {idx} / {len(files)}", end="", flush=True)
         stem_name = Path(filename).stem
+        split_name = stem_name.split("_")
+        print(split_name)
         qx, qy, qz = stem_name.split(
             "_")[-3], stem_name.split("_")[-2], stem_name.split("_")[-1]
         norm_q = np.sqrt(float(qx)**2 + float(qy)**2 + float(qz)**2)
         list_norm_q.append(norm_q)
         # print(f"q = (qx, qy, qz) = ({qx}, {qy}, {qz})")
         list_qxyz.append((qx, qy, qz))
-        energies, eps_r = np.loadtxt(
+        energies, eps_r, eps_i = np.loadtxt(
             filename, unpack=True, skiprows=1, delimiter=',')
         # print("Type and shape eps_r: ", type(eps_r), eps_r.shape)
         list_energies = energies

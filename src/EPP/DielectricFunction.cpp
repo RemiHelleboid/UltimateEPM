@@ -99,7 +99,6 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
         for (std::size_t index_k = m_offset_k_index; index_k < m_offset_k_index + m_nb_kpoints; ++index_k) {
             if (index_q == 0) {
                 auto k_vect = m_kpoints[index_k];
-                std::cout << "Computing eigenvalues for k = " << k_vect << std::endl;
                 hamiltonian_k.SetMatrix(k_vect, m_nonlocal_epm);
                 hamiltonian_k.Diagonalize(keep_eigenvectors);
                 m_eigenvalues_k[index_k]  = hamiltonian_k.eigenvalues();
@@ -121,7 +120,6 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
                             eigenvectors_k_plus_q.col(idx_conduction_band).adjoint().dot(m_eigenvectors_k[index_k].col(idx_valence_band))),
                         2);
                     double delta_energy = (eigenvalues_k_plus_q[idx_conduction_band]) - m_eigenvalues_k[index_k][idx_valence_band];
-                    std::cout << "Energy val: " << m_eigenvalues_k[index_k][idx_valence_band] << std::endl;
                     for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
                         double energy = m_energies[index_energy];
                         double factor_1 =
@@ -193,7 +191,7 @@ DielectricFunction DielectricFunction::merge_results(DielectricFunction         
         for (std::size_t index_energy = 0; index_energy < total_dielectric_function[index_q].size(); ++index_energy) {
             total_dielectric_function[index_q][index_energy] *= renormalization;
             total_dielectric_function[index_q][index_energy] =
-                1.0 + (4.0 * M_PI / q_squared) * total_dielectric_function[index_q][index_energy];
+                1.0 + (2.0 * M_PI / q_squared) * total_dielectric_function[index_q][index_energy];
         }
     }
 
@@ -251,6 +249,7 @@ void DielectricFunction::export_dielectric_function_at_q(const std::string& file
         outname = filename;
     }
     std::ofstream outfile(outname);
+    std::cout << m_energies[0] << " " << m_dielectric_function_real[idx_q][0] << std::endl;
     outfile << "Energy (eV),EpsilonReal,EpsilonImaginary" << std::endl;
     for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
         outfile << m_energies[index_energy] << "," << m_dielectric_function_real[idx_q][index_energy] << ","

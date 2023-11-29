@@ -85,6 +85,7 @@ def main():
         
     directions = [int(x) for x in args.directions]
     shift = [float(x) for x in args.shift.split(',')]
+    print(shift)
     irreducible_wedge = args.irreducible_wedge
     output = args.output
     
@@ -103,6 +104,7 @@ def main():
         kx = np.linspace(min, max, Nx)
         ky = np.linspace(min, max, Ny)
         list_kpoints = [[x, y, 0.0] for x in kx for y in ky if np.linalg.norm(np.array([x, y, 0.0]) - center) <= radius]
+        
     elif args.grid == '3D':
         kx = np.linspace(min, max, Nx)
         ky = np.linspace(min, max, Ny)
@@ -112,6 +114,9 @@ def main():
         list_kpoints = generate_3d_grid_bz_uniform(Nx, Ny, Nz, shift=shift, irreducible_wedge=irreducible_wedge)
     else:
         raise ValueError('Unknown grid type: {}'.format(args.grid))
+    
+    # Apply shift
+    list_kpoints = [np.array(k) + np.array(shift) for k in list_kpoints]
     
     print(f"Generated {len(list_kpoints)} k-points.")
     print(f"Writing k-points to {output}.")

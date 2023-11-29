@@ -132,7 +132,7 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
     std::cout << "Total volume: " << total_volume << std::endl;
 
     double q_squared = m_q_shift.Length() * m_q_shift.Length();
-    double pre_factor = 4.0 * M_PI / q_squared;
+    double pre_factor = 2.0 * M_PI / q_squared;
     for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
         m_dielectric_function_real[index_energy] = 1.0 + pre_factor * dielectric_function_real_at_energies[index_energy] / total_volume;
     }
