@@ -44,6 +44,7 @@ class BZ_States : public MeshBZ {
 
     void set_nb_bands(int nb_bands) { m_nb_bands = nb_bands; }
     void set_basis_vectors(const std::vector<Vector3D<int>>& basis_vectors) { m_basisVectors = basis_vectors; }
+    const std::vector<Vector3D<int>>& get_basis_vectors() const { return m_basisVectors; }
     void compute_eigenstates(int nb_threads = 1);
     void compute_shifted_eigenstates(const Vector3D<double>& q_shift, int nb_threads = 1);
 
@@ -53,14 +54,6 @@ class BZ_States : public MeshBZ {
     void compute_dielectric_function(const std::vector<double>& energies, double eta_smearing, int nb_threads = 1);
     void export_dielectric_function(const std::string& prefix) const;
 
-    double compute_direct_impact_ionization_matrix_element(int                     idx_n1,
-                                                           int                     idx_n1_prime,
-                                                           int                     idx_n2,
-                                                           int                     idx_n2_prime,
-                                                           const Vector3D<double>& k1,
-                                                           const Vector3D<double>& k2,
-                                                           const Vector3D<double>& k1_prime,
-                                                           const Vector3D<double>& k2_prime) const;
 
     void export_full_eigenstates() const;
 };

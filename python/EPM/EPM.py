@@ -496,6 +496,6 @@ if __name__ == "__main__":
     # plot_wave_function_real_space(MyMaterial, k_gamma, rmin, rmax, Nxyz)
 
     Nxyz = 20
-    # main_epsilon(MyMaterial, Nxyz, q_vect, n_valence, n_conduction)
+    main_epsilon(MyMaterial, Nxyz, q_vect, n_valence, n_conduction)
     
     

@@ -54,7 +54,7 @@ void DielectricFunction::generate_k_points_random(std::size_t nb_points) {
 
 void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, std::size_t Nz, double shift, bool irreducible_wedge) {
     m_kpoints.clear();
-    double min = -0.0 - shift;
+    double min = -1.0 - shift;
     double max = 1.0 + shift;
     for (std::size_t i = 0; i < Nx - 1; ++i) {
         for (std::size_t j = 0; j < Ny - 1; ++j) {
@@ -76,7 +76,7 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, 
  *
  * @param eta_smearing
  */
-void DielectricFunction::compute_dielectric_function(double eta_smearing) {
+void DielectricFunction::compute_dielectric_function(double eta_smearing, int mpi_rank) {
     const int           index_first_conduction_band = 4;
     std::vector<double> iter_dielectric_function(m_kpoints.size());
     const bool          keep_eigenvectors = true;
@@ -88,8 +88,6 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
     Hamiltonian hamiltonian_k(m_material, m_basisVectors);
     Hamiltonian hamiltonian_k_plus_q(m_material, m_basisVectors);
     for (std::size_t index_q = 0; index_q < m_qpoints.size(); ++index_q) {
-        std::cout << "Computing dielectric function for q = " << m_qpoints[index_q] << " -> " << index_q + 1 << "/" << m_qpoints.size()
-                  << std::endl;
         Vector3D<double>              q_vect = m_qpoints[index_q];
         std::vector<Vector3D<double>> k_plus_q_vects(m_kpoints.size());
         std::transform(m_kpoints.begin(), m_kpoints.end(), k_plus_q_vects.begin(), [&q_vect](const Vector3D<double>& k) {
@@ -145,8 +143,12 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing) {
             list_epsilon[index_energy] = list_total_sum[index_energy];
         }
         auto end = std::chrono::high_resolution_clock::now();
-        std::cout << "\nTime elapsed: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0 << " s"
-                  << std::endl;
+        auto elapsed =
+            std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0;
+        if (mpi_rank == 0) {
+        std::cout << "Computed dielectric function for q = " << m_qpoints[index_q] << " -> " << index_q + 1 << "/" << m_qpoints.size() << " in "
+                  << elapsed << " s" << std::endl;
+        }
         start = std::chrono::high_resolution_clock::now();
         m_dielectric_function_real.push_back(list_epsilon);
     }

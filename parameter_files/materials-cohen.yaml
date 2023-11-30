@@ -1,0 +1,277 @@
+# Materials parameters for the Empirical Pseudopotential Method.
+# All the parameters are from: Chelikowsky, J. R. & Cohen, M. L. Nonlocal pseudopotential calculations for the electronic structure of eleven diamond
+# and zinc-blende semiconductors. Phys. Rev. B 14, 556–582 (1976).
+---
+materials:
+  - name: Silicon
+    symbol: Si
+    lattice-constant: 5.43
+    pseudo-potential-parameters:
+      V3S: -0.210
+      V4S: 0.0
+      V8S: 0.040
+      V11S: 0.080
+      V3A: 0.0
+      V4A: 0.0
+      V8A: 0.0
+      V11A: 0.0
+    non-local-parameters:
+      alpha_0_cation: 0.55
+      beta_0_cation: 0.32
+      A2_cation: 0.0
+      alpha_0_anion: 0.55
+      beta_0_anion: 0.32
+      A2_anion: 0.0
+      R0_cation: 1.06
+      R2_cation: 0.0
+      R0_anion: 1.06
+      R2_anion: 0.0
+      well_type: "square"
+
+  - name: Germanium
+    symbol: Ge
+    lattice-constant: 5.65
+    pseudo-potential-parameters:
+      V3S: -0.221
+      V4S: -0.160
+      V8S: 0.019
+      V11S: 0.056
+      V3A: 0.0
+      V4A: 0.0
+      V8A: 0.0
+      V11A: 0.0
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.0
+      A2_cation: 0.275
+      alpha_0_anion: 0.0
+      beta_0_anion: 0.0
+      A2_anion: 0.275
+      R0_cation: 0.0
+      R2_cation: 1.22
+      R0_anion: 0.0
+      R2_anion: 1.22
+      well_type: "gaussian"
+
+  - name: Tin
+    symbol: Sn
+    lattice-constant: 6.49
+    pseudo-potential-parameters:
+      V3S: -0.190
+      V4S: -0.144
+      V8S: -0.008
+      V11S: 0.040
+      V3A: 0.0
+      V4A: 0.0
+      V8A: 0.0
+      V11A: 0.0
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.40
+      A2_cation: 0.70
+      alpha_0_anion: 0.0
+      beta_0_anion: 0.40
+      A2_anion: 0.70
+      R0_cation: 1.06
+      R2_cation: 1.41
+      R0_anion: 1.06
+      R2_anion: 1.41
+      well_type: "square"
+
+  - name: GalliumPhosphide
+    symbol: GaP
+    lattice-constant: 5.45
+    pseudo-potential-parameters:
+      V3S: -0.230
+      V4S: 0.0
+      V8S: 0.020
+      V11S: 0.057
+      V3A: 0.100
+      V4A: 0.070
+      V8A: 0.000
+      V11A: 0.025
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.30
+      A2_cation: 0.40
+      alpha_0_anion: 0.32
+      beta_0_anion: 0.05
+      A2_anion: 0.045
+      R0_cation: 1.27
+      R2_cation: 1.180
+      R0_anion: 1.06
+      R2_anion: 1.180
+      well_type: "square"
+
+  - name: GalliumArsenide
+    symbol: GaAs
+    lattice-constant: 5.65
+    pseudo-potential-parameters:
+      V3S: -0.214
+      V4S: -0.157
+      V8S: 0.014
+      V11S: 0.067
+      V3A: 0.055
+      V4A: 0.038
+      V8A: 0.008
+      V11A: 0.001
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.0
+      A2_cation: 0.125
+      alpha_0_anion: 0.0
+      beta_0_anion: 0.0
+      A2_anion: 0.625
+      R0_cation: 1.27
+      R2_cation: 1.223
+      R0_anion: 1.06
+      R2_anion: 1.223
+      well_type: "gaussian"
+
+  - name: IndiumPhosphide
+    symbol: InP
+    lattice-constant: 5.86
+    pseudo-potential-parameters:
+      V3S: -0.235
+      V4S: 0.0176
+      V8S: 0.000
+      V11S: 0.053
+      V3A: 0.080
+      V4A: 0.060
+      V8A: 0.0033
+      V11A: 0.030
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.25
+      A2_cation: 0.55
+      alpha_0_anion: 0.30
+      beta_0_anion: 0.05
+      A2_anion: 0.35
+      R0_cation: 1.27
+      R2_cation: 1.269
+      R0_anion: 1.06
+      R2_anion: 1.269
+      well_type: "square"
+
+  - name: IndiumArsenide
+    symbol: InAs
+    lattice-constant: 6.05
+    pseudo-potential-parameters:
+      V3S: -0.230
+      V4S: -0.172
+      V8S: 0.000
+      V11S: 0.045
+      V3A: 0.055
+      V4A: 0.045
+      V8A: 0.020
+      V11A: 0.010
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.35
+      A2_cation: 0.50
+      alpha_0_anion: 0.0
+      beta_0_anion: 0.25
+      A2_anion: 1.0
+      R0_cation: 1.27
+      R2_cation: 1.310
+      R0_anion: 1.06
+      R2_anion: 1.310
+      well_type: "square"
+      
+
+  - name: IndiumAntimonide
+    symbol: InSb
+    lattice-constant: 6.47
+    pseudo-potential-parameters:
+      V3S: -0.200
+      V4S: -0.153
+      V8S: 0.010
+      V11S: 0.044
+      V3A: 0.044
+      V4A: 0.030
+      V8A: 0.017
+      V11A: 0.015
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.45
+      A2_cation: 0.55
+      alpha_0_anion: 0.0
+      beta_0_anion: 0.48
+      A2_anion: 0.70
+      R0_cation: 1.27
+      R2_cation: 1.40
+      R0_anion: 1.06
+      R2_anion: 1.40
+      well_type: "square"
+
+  - name: ZincSelenide 
+    symbol: ZnSe
+    lattice-constant: 5.65
+    pseudo-potential-parameters:
+      V3S: -0.218
+      V4S: -0.155
+      V8S: 0.029
+      V11S: 0.064
+      V3A: 0.139
+      V4A: 0.062
+      V8A: 0.023
+      V11A: 0.016
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.0
+      A2_cation: -0.125
+      alpha_0_anion: 0.0
+      beta_0_anion: 0.0
+      A2_anion: 0.925
+      R0_cation: 0.0
+      R2_cation: 1.223
+      R0_anion: 0.0
+      R2_anion: 1.223
+      well_type: "gaussian"
+
+  - name: CadmiumTelluride 
+    symbol: CdTe
+    lattice-constant: 6.48
+    pseudo-potential-parameters:
+      V3S: -0.220
+      V4S: -0.165
+      V8S: 0.00
+      V11S: 0.062
+      V3A: 0.060
+      V4A: 0.050
+      V8A: 0.029
+      V11A: 0.025
+    non-local-parameters:
+      alpha_0_cation: 0.0
+      beta_0_cation: 0.4
+      A2_cation: 0.00
+      alpha_0_anion: 1.37
+      beta_0_anion: 0.4
+      A2_anion: 2.0
+      R0_cation: 1.37
+      R2_cation: 1.40
+      R2_anion: 1.223
+      R0_anion: 1.40
+      well_type: "square"
+
+  # - name: AluminiumAntimonide
+  #   symbol: AlSb
+  #   lattice-constant: 6.13
+  #   pseudo-potential-parameters:
+  #     V3S: -0.21
+  #     V8S: 0.02
+  #     V11S: 0.06
+  #     V3A: 0.06
+  #     V4A: 0.04
+  #     V11A: 0.02
+
+  # - name: AlAs
+  #   symbol: AluminiumArsenide
+  #   lattice-constant: 5.6605
+  #   pseudo-potential-parameters:
+  #     V3S: -0.221
+  #     V8S: 0.025
+  #     V11S: 0.07
+  #     V3A: 0.08
+  #     V4A: 0.05
+  #     V11A: -0.04

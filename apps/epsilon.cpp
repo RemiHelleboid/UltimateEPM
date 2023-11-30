@@ -269,7 +269,7 @@ int main(int argc, char** argv) {
 
     MPI_Barrier(MPI_COMM_WORLD);
     double start = MPI_Wtime();
-    MyDielectricFunc.compute_dielectric_function(eta_smearing);
+    MyDielectricFunc.compute_dielectric_function(eta_smearing, process_rank);
     MyDielectricFunc.clear_eigen_states();
 
     MPI_Barrier(MPI_COMM_WORLD); /* IMPORTANT */

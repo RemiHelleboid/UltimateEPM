@@ -4,12 +4,14 @@ set(HEADER_FILES_LIBBZMESH
   bz_mesh.hpp
   vector.hpp
   iso_triangle.hpp
-  bz_states.hpp)
+  bz_states.hpp
+  impact_ionization.hpp)
 
 set(SOURCE_FILES_LIBBZMESH
   mesh_tetra.cpp
   bz_mesh.cpp
-  bz_states.cpp)
+  bz_states.cpp
+  impact_ionization.cpp)
 
 add_library(lib_bzmesh STATIC ${SOURCE_FILES_LIBBZMESH} ${HEADER_FILES_LIBBZMESH})
 

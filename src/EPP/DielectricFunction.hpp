@@ -151,7 +151,7 @@ class DielectricFunction {
      * @brief Compute the dielectric function.
      *
      */
-    void compute_dielectric_function(double eta_smearing = 1e-2);
+    void compute_dielectric_function(double eta_smearing = 1e-2, int mpi_rank = 0);
 
     void clear_eigen_states() {
         m_eigenvalues_k.clear();
