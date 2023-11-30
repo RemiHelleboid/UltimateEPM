@@ -9,6 +9,10 @@
  *
  */
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fmt/ostream.h>
+
 #include "DielectricFunction.hpp"
 
 #include <algorithm>
@@ -190,6 +194,10 @@ DielectricFunction DielectricFunction::merge_results(DielectricFunction         
     for (std::size_t index_q = 0; index_q < total_dielectric_function.size(); ++index_q) {
         Vector3D<double> q_vect    = RootDielectricFunction.m_qpoints[index_q];
         double           q_squared = pow(q_vect.Length(), 2);
+        // TO IMPROVE: This is a hack to avoid division by zero.
+        if (q_squared == 0.0) {
+            q_squared = 1e-14;
+        }
         for (std::size_t index_energy = 0; index_energy < total_dielectric_function[index_q].size(); ++index_energy) {
             total_dielectric_function[index_q][index_energy] *= renormalization;
             total_dielectric_function[index_q][index_energy] =
@@ -245,8 +253,9 @@ void DielectricFunction::apply_kramers_kronig() {
 void DielectricFunction::export_dielectric_function_at_q(const std::string& filename, std::size_t idx_q, bool name_auto) const {
     std::string outname;
     if (name_auto) {
-        outname = m_export_prefix + '_' + std::to_string(m_qpoints[idx_q].X) + "_" + std::to_string(m_qpoints[idx_q].Y) + "_" +
-                  std::to_string(m_qpoints[idx_q].Z) + ".csv";
+        // outname = m_export_prefix + '_' + std::to_string(idx_q) + '_' + std::to_string(m_qpoints[idx_q].X) + "_" + std::to_string(m_qpoints[idx_q].Y) + "_" +
+        //           std::to_string(m_qpoints[idx_q].Z) + ".csv";
+        outname = fmt::format("{}_{:05}_{:.1f}_{:.1f}_{:.1f}.csv", m_export_prefix, idx_q, m_qpoints[idx_q].X, m_qpoints[idx_q].Y, m_qpoints[idx_q].Z);
     } else {
         outname = filename;
     }

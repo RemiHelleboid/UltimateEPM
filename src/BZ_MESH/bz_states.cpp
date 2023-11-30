@@ -173,4 +173,10 @@ void BZ_States::export_full_eigenstates() const {
     }
 }
 
+
+// void BZ_States::populate_vtx_dielectric_function(const std::vector<double>& energies, double eta_smearing);
+
+    
+
+
 }  // namespace bz_mesh

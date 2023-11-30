@@ -46,6 +46,9 @@ std::vector<Vector3D<double>> read_qpoint_dat_file(const std::string& filename) 
     std::vector<Vector3D<double>> kpoints;
     std::string                   line;
     while (std::getline(file, line)) {
+        if (line.empty()) {
+            continue;
+        }
         std::stringstream   ss(line);
         std::string         token;
         std::vector<double> kpoint;

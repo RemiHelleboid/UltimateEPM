@@ -221,6 +221,14 @@ if(NOT yaml-cpp_FOUND)
   FetchContent_MakeAvailable(yaml-cpp)
 endif()
 
+FetchContent_Declare(
+  fmt
+  GIT_REPOSITORY "https://github.com/fmtlib/fmt.git"
+  GIT_TAG master)
+FetchContent_MakeAvailable(fmt)
+
+
+
 # MPI SUPPORT
 if(ENABLE_MPI_BUILD)
   message("MPI support activated.")
