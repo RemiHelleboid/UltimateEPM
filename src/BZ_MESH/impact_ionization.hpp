@@ -21,18 +21,17 @@ namespace bz_mesh {
 
 class ImpactIonization : private BZ_States {
  private:
+    double m_impact_ionization_rate = 0.0;
  public:
-    double compute_direct_impact_ionization_matrix_element(int                     idx_n1,
-                                                           int                     idx_n1_prime,
-                                                           int                     idx_n2,
-                                                           int                     idx_n2_prime,
-                                                           const Vector3D<double>& k1,
-                                                           const Vector3D<double>& k1_prime,
-                                                           const Vector3D<double>& k2,
-                                                           const Vector3D<double>& k2_prime) const;
+    double compute_direct_impact_ionization_matrix_element(int idx_n1,
+                                                           int idx_n1_prime,
+                                                           int idx_n2,
+                                                           int idx_n2_prime,
+                                                           int idx_k1,
+                                                           int idx_k1_prime,
+                                                           int idx_k2_prime) const;
 
-    void compute_impact_ionization_rate();
+    double compute_impact_ionization_rate(int idx_n1, const Vector3D<double>& k1);
 };
-
 
 }  // namespace bz_mesh

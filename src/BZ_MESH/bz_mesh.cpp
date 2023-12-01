@@ -97,6 +97,41 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
 }
 
 /**
+ * @brief Get the nearest k index object.
+ * Brute force search of the nearest k-point index. :(
+ * 
+ * @param k 
+ * @return std::size_t 
+ */
+std::size_t MeshBZ::get_nearest_k_index(const Vector3D<double>& k) const {
+    vector3 K(k.X, k.Y, k.Z);
+    std::size_t index_nearest_k = 0;
+    double      min_distance    = std::numeric_limits<double>::max();
+    for (std::size_t index_k = 0; index_k < m_list_vertices.size(); ++index_k) {
+        double distance = (K - m_list_vertices[index_k].get_position()).norm();
+        if (distance < min_distance) {
+            min_distance    = distance;
+            index_nearest_k = index_k;
+        }
+    }
+    return index_nearest_k;
+}
+std::size_t MeshBZ::get_nearest_k_index(const vector3& k) const {
+    std::size_t index_nearest_k = 0;
+    double      min_distance    = std::numeric_limits<double>::max();
+    for (std::size_t index_k = 0; index_k < m_list_vertices.size(); ++index_k) {
+        double distance = (k - m_list_vertices[index_k].get_position()).norm();
+        if (distance < min_distance) {
+            min_distance    = distance;
+            index_nearest_k = index_k;
+        }
+    }
+    return index_nearest_k;
+}
+
+
+
+/**
  * @brief Read the energy values for each band at every k-points (vertices) of the mesh.
  *
  * @param filename

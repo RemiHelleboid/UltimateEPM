@@ -19,13 +19,14 @@
 namespace bz_mesh {
 
 class BZ_States : public MeshBZ {
- private:
+ protected:
     int m_nb_bands = 0;
 
     std::vector<Vector3D<int>> m_basisVectors;
 
     std::vector<Eigen::VectorXd>  m_eigenvalues_k;
     std::vector<Eigen::VectorXd>  m_eigenvalues_k_plus_q;
+
     std::vector<Eigen::MatrixXcd> m_eigenvectors_k;
     std::vector<Eigen::MatrixXcd> m_eigenvectors_k_plus_q;
 
@@ -79,6 +80,11 @@ class BZ_States : public MeshBZ {
     void export_dielectric_function(const std::string& prefix) const;
 
     void populate_vtx_dielectric_function(const std::vector<double>& energies, double eta_smearing);
+
+    std::complex<double> get_dielectric_function(const vector3& q, double energy) const {
+      // TODO: implement this function
+      return 1.0;
+    }
 
     void export_full_eigenstates() const;
 };

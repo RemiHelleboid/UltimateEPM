@@ -81,8 +81,13 @@ class MeshBZ {
 
     std::size_t get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t get_number_elements() const { return m_list_tetrahedra.size(); }
-    std::size_t get_number_bands() const { return m_min_band.size(); }
+    double     get_volume() const { return m_total_volume; }
 
+    vector3 get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
+    std::size_t get_nearest_k_index(const Vector3D<double>& k) const;
+    std::size_t get_nearest_k_index(const vector3& k) const;
+
+    std::size_t get_number_bands() const { return m_min_band.size(); }
     std::pair<double, double> get_min_max_energy_at_band(const int& band_index) const {
         return std::make_pair(m_min_band[band_index], m_max_band[band_index]);
     }
