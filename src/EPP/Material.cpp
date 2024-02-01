@@ -20,10 +20,9 @@ Material::Material(const std::string& Name,
                    double             V4A,
                    double             V8A,
                    double             V11A)
-    : name(Name),
+    : m_name(Name),
       m_lattice_constant(a),
       m_pseudopotential(V3S, V4S, V8S, V11S, V3A, V4A, V8A, V11A) {
-    std::cout << "V4S Mat constructor = " << V4S << std::endl;
 }
 
 /**
@@ -58,9 +57,17 @@ void Materials::load_material_parameters(const std::string& filename) {
 
         auto node_non_local_parameters = material["non-local-parameters"];
         if (node_non_local_parameters) {
-            materials[symbol].m_non_local_parameters.populate_non_local_parameters(node_non_local_parameters);
+            materials[symbol].populate_non_local_parameters(node_non_local_parameters);
             materials[symbol].set_is_non_local_parameters_populated(true);
-            materials[symbol].m_non_local_parameters.print_non_local_parameters();
+        }
+
+        auto node_spin_orbit_parameters = material["spin-orbit-parameters"];
+        if (node_spin_orbit_parameters) {
+            materials[symbol].populate_spin_orbit_parameters(node_spin_orbit_parameters);
+            materials[symbol].set_is_spin_orbit_parameters_populated(true);
+            std::cout << "Spin-orbit parameters for " << symbol << " are set." << std::endl;
+            materials[symbol].get_spin_orbit_parameters().print_parameters();
+            
         }
     }
 }
@@ -95,7 +102,6 @@ double F_l_function(const Vector3D<double>& K1, const Vector3D<double>& K2, doub
         const double pre_factor = pow(atomic_radii, 3.0) / (2.0);
         const double F          = pow(generalized_bessel(l, norm_K1 * atomic_radii), 2.0) -
                          generalized_bessel(l - 1, norm_K1 * atomic_radii) * generalized_bessel(l + 1, norm_K1 * atomic_radii);
-
         return pre_factor * F;
     } else {
         return (l==0) ? pow(atomic_radii, 3.0) / (3.0) : 0.0;
@@ -214,9 +220,7 @@ void Materials::print_material_parameters(const std::string& name) const {
     }
     const Material& material = materials.at(name);
     std::cout << "Material: " << name << std::endl;
-    std::cout << "Lattice constant: " << material.m_lattice_constant << " Bohr" << std::endl;
-    std::cout << "Empirical Pseudopotential Parameters:" << std::endl;
-    material.m_pseudopotential.print_parameters();
+    std::cout << "Lattice constant: " << material.get_lattice_constant_meter() << " Bohr" << std::endl;
     std::cout << "-------------------------------------" << std::endl;
 }
 

@@ -3,11 +3,15 @@ set(HEADER_FILES_LIBBZMESH
   mesh_vertex.hpp
   bz_mesh.hpp
   vector.hpp
-  iso_triangle.hpp)
+  iso_triangle.hpp
+  bz_states.hpp
+  impact_ionization.hpp)
 
 set(SOURCE_FILES_LIBBZMESH
   mesh_tetra.cpp
-  bz_mesh.cpp)
+  bz_mesh.cpp
+  bz_states.cpp
+  impact_ionization.cpp)
 
 add_library(lib_bzmesh STATIC ${SOURCE_FILES_LIBBZMESH} ${HEADER_FILES_LIBBZMESH})
 
@@ -15,7 +19,7 @@ target_include_directories(lib_bzmesh PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Link with reuired libraries
 target_link_libraries(lib_bzmesh PUBLIC libepp)
-target_link_libraries(lib_bzmesh PUBLIC Eigen3::Eigen)
+target_link_libraries(lib_bzmesh PUBLIC Eigen3::Eigen rapidcsv fmt::fmt)
 target_include_directories(lib_bzmesh PUBLIC ${GMSH_INC})
 target_link_libraries(lib_bzmesh PUBLIC ${GMSH_LIB})
 

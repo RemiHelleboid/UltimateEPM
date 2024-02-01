@@ -33,6 +33,8 @@ int main(int argc, char* argv[]) {
                                                10,
                                                "int");
     TCLAP::SwitchArg arg_enable_nonlocal_correction("C", "nonlocal-correction", "Enable the non-local-correction for the EPM model", false);
+    TCLAP::SwitchArg arg_enable_soc("s", "soc", "Enable the spin-orbit coupling for the EPM model", false);
+    TCLAP::SwitchArg arg_cond_band_zero("z", "MinCondZero", "Shift the conduction band minimum to 0 eV", false);
     TCLAP::ValueArg<int> arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -41,6 +43,8 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_nearest_neighbors);
     cmd.add(arg_nb_threads);
     cmd.add(arg_enable_nonlocal_correction);
+    cmd.add(arg_enable_soc);
+    cmd.add(arg_cond_band_zero);
 
     cmd.parse(argc, argv);
 
@@ -48,6 +52,7 @@ int main(int argc, char* argv[]) {
     const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
     materials.load_material_parameters(file_material_parameters);
     bool enable_nonlocal_correction = arg_enable_nonlocal_correction.isSet();
+    bool enable_soc                 = arg_enable_soc.isSet();
 
     Options my_options;
     my_options.materialName     = arg_material.getValue();
@@ -67,14 +72,15 @@ int main(int argc, char* argv[]) {
     auto start = std::chrono::high_resolution_clock::now();
 
     EmpiricalPseudopotential::BandStructure my_bandstructure;
-    my_bandstructure.Initialize(mat, my_options.nrLevels, mesh_kpoints, my_options.nearestNeighbors, enable_nonlocal_correction);
+    my_bandstructure
+        .Initialize(mat, my_options.nrLevels, mesh_kpoints, my_options.nearestNeighbors, enable_nonlocal_correction, arg_enable_soc);
 
     if (my_options.nrThreads > 1) {
         my_bandstructure.Compute_parallel(my_options.nrThreads);
     } else {
         my_bandstructure.Compute();
     }
-    my_bandstructure.AdjustValues();
+    my_bandstructure.AdjustValues(arg_cond_band_zero.getValue());
 
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();

@@ -48,7 +48,7 @@ class Tetra {
      * The sign depends on the "orientation" of the tetrahedra.
      *
      */
-    double m_signed_volume;
+    double m_signed_volume = 0.0;
 
     /**
      * @brief Number of conduction bands.
@@ -84,6 +84,17 @@ class Tetra {
     Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices);
     void compute_min_max_energies_at_bands();
 
+    std::size_t                   get_index() const { return m_index; }
+    const std::array<Vertex*, 4>& get_list_vertices() const { return m_list_vertices; }
+    std::array<std::size_t, 4>    get_list_indices_vertices() const {
+           return {m_list_vertices[0]->get_index(),
+                   m_list_vertices[1]->get_index(),
+                   m_list_vertices[2]->get_index(),
+                   m_list_vertices[3]->get_index()};
+    }
+    std::array<vector3, 6> get_list_edges() const { return m_list_edges; }
+    std::size_t            get_nb_bands() const { return m_nb_bands; }
+
     std::array<double, 4> get_band_energies_at_vertices(std::size_t index_band) const;
 
     double  compute_signed_volume() const;
@@ -101,6 +112,20 @@ class Tetra {
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
     double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;
     double               compute_tetra_dos_energy_band(double energy, std::size_t band_index) const;
+
+    double  interpolate_scalar_at_position(const std::array<double, 4>& barycentric_coordinates,
+                                           const std::vector<double>&   scalar_field) const;
+    vector3 interpolate_vector_at_position(const std::array<double, 4>& barycentric_coordinates,
+                                           const std::vector<vector3>&  vector_field) const;
+template <typename T>
+      T interpolate_at_position(const std::array<double, 4>& barycentric_coordinates,
+                                 const std::vector<T>&         field) const {
+         T interpolated_value = T::Zero();
+         for (std::size_t idx_vtx = 0; idx_vtx < 4; ++idx_vtx) {
+               interpolated_value += barycentric_coordinates[idx_vtx] * field[idx_vtx];
+         }
+         return interpolated_value;
+      }
 
     static void reset_stat_iso_computing() { ms_case_stats = std::vector<double>(5, 0.0); }
 

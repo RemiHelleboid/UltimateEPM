@@ -5,6 +5,7 @@
 # Phys. Rev. 141, 789–796 (1966).
 
 ---
+
 materials:
   - name: Silicon
     symbol: Si
@@ -16,6 +17,13 @@ materials:
       V3A: 0.0
       V4A: 0.0
       V11A: 0.0
+    spin-orbit-parameters:
+      period_anion: 3
+      period_cation: 3
+      radial_extent_anion: 4.60
+      radial_extent_cation: 4.60
+      alpha_soc: 1.00
+      mu_soc: 0.0
 
   - name: Germanium
     symbol: Ge
@@ -27,6 +35,13 @@ materials:
       V3A: 0.0
       V4A: 0.0
       V11A: 0.0
+    spin-orbit-parameters:
+      period_anion: 4
+      period_cation: 4
+      radial_extent_anion: 5.34
+      radial_extent_cation: 5.34
+      alpha_soc: 1.00
+      mu_soc: 0.00069
 
   - name: Tin
     symbol: Sn

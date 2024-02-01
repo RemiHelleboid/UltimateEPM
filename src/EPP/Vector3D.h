@@ -87,10 +87,22 @@ template <typename T>
 Vector3D<T> operator*(T o, const Vector3D<T>& t) {
     return t * o;
 }
+
+template <typename T>
+Vector3D<T> operator/(T o, const Vector3D<T>& t) {
+    return t / o;
+}
+
+template <typename T>
+Vector3D<T> cross_product(const Vector3D<T>& v1, const Vector3D<T>& v2) {
+    return Vector3D<T>(v1.Y * v2.Z - v1.Z * v2.Y, v1.Z * v2.X - v1.X * v2.Z, v1.X * v2.Y - v1.Y * v2.Z);
+}
+
 template <typename T>
 bool operator==(const Vector3D<T>& f, const Vector3D<T>& t) {
     return f.X == t.X && f.Y == t.Y && f.Z == t.Z;
 }
+
 
 template <typename T>
 bool operator<(const Vector3D<T>& lhs, const Vector3D<T>& rhs) {

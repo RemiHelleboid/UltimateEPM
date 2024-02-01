@@ -79,6 +79,8 @@ void Tetra::compute_min_max_energies_at_bands() {
  * @return double
  */
 double Tetra::compute_signed_volume() const {
+    // std::cout << m_list_edges[0] << std::endl;
+    // std::cout << m_list_edges[1] << std::endl;
     return (1.0 / 6.0) * scalar_triple_product(m_list_edges[0], m_list_edges[1], m_list_edges[2]);
 }
 

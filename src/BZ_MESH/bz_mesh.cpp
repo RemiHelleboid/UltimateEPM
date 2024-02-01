@@ -16,6 +16,8 @@
 #include <fstream>
 #include <vector>
 
+#include "rapidcsv.h"
+
 #include "gmsh.h"
 #include "omp.h"
 
@@ -51,7 +53,11 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
 
     m_list_vertices.reserve(size_nodes_tags);
     double lattice_constant     = m_material.get_lattice_constant_meter();
-    double normalization_factor = 2.0 * M_PI / lattice_constant;
+    std::cout << "Lattice const: " << lattice_constant << std::endl;
+    std::cout << "V: " << std::pow(2.0 * M_PI, 3) / std::pow(lattice_constant, 3.0) << std::endl;
+
+    double normalization_factor =  2.0 * M_PI / lattice_constant;
+    // double normalization_factor =  1.0;
     for (std::size_t index_vertex = 0; index_vertex < size_nodes_tags; ++index_vertex) {
         m_list_vertices.push_back(Vertex(index_vertex,
                                          normalization_factor * nodeCoords[3 * index_vertex],
@@ -89,6 +95,41 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
     gmsh::finalize();
     m_total_volume = compute_mesh_volume();
 }
+
+/**
+ * @brief Get the nearest k index object.
+ * Brute force search of the nearest k-point index. :(
+ * 
+ * @param k 
+ * @return std::size_t 
+ */
+std::size_t MeshBZ::get_nearest_k_index(const Vector3D<double>& k) const {
+    vector3 K(k.X, k.Y, k.Z);
+    std::size_t index_nearest_k = 0;
+    double      min_distance    = std::numeric_limits<double>::max();
+    for (std::size_t index_k = 0; index_k < m_list_vertices.size(); ++index_k) {
+        double distance = (K - m_list_vertices[index_k].get_position()).norm();
+        if (distance < min_distance) {
+            min_distance    = distance;
+            index_nearest_k = index_k;
+        }
+    }
+    return index_nearest_k;
+}
+std::size_t MeshBZ::get_nearest_k_index(const vector3& k) const {
+    std::size_t index_nearest_k = 0;
+    double      min_distance    = std::numeric_limits<double>::max();
+    for (std::size_t index_k = 0; index_k < m_list_vertices.size(); ++index_k) {
+        double distance = (k - m_list_vertices[index_k].get_position()).norm();
+        if (distance < min_distance) {
+            min_distance    = distance;
+            index_nearest_k = index_k;
+        }
+    }
+    return index_nearest_k;
+}
+
+
 
 /**
  * @brief Read the energy values for each band at every k-points (vertices) of the mesh.
@@ -162,9 +203,10 @@ void MeshBZ::compute_energy_gradient_at_tetras() {
 double MeshBZ::compute_mesh_volume() const {
     double total_volume = 0.0;
     for (auto&& tetra : m_list_tetrahedra) {
-        total_volume += fabs(tetra.get_signed_volume());
+        total_volume += std::fabs(tetra.get_signed_volume());
+        // std::cout << "Tetra " << tetra.get_index() << " volume: " << tetra.get_signed_volume() << std::endl;
     }
-    total_volume *= (1.0 / pow(2.0 * M_PI, 3.0));
+    // total_volume *= (1.0 / pow(2.0 * M_PI, 3.0));    
     return total_volume;
 }
 

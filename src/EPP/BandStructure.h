@@ -23,13 +23,15 @@ class BandStructure {
      * @param nrPoints
      * @param nearestNeighborsNumber
      * @param enable_non_local_correction
+     * @param enable_soc
      */
     void Initialize(const Material&                 material,
                     std::size_t                     nb_bands,
                     const std::vector<std::string>& path,
                     unsigned int                    nrPoints,
                     unsigned int                    nearestNeighborsNumber,
-                    bool                            enable_non_local_correction);
+                    bool                            enable_non_local_correction,
+                    bool                            enable_soc);
 
     /**
      * @brief Initialize the band structure with the given material and the k-points on which we want
@@ -40,18 +42,21 @@ class BandStructure {
      * @param list_k_points
      * @param nearestNeighborsNumber
      * @param enable_non_local_correction
+     * @param enable_soc
      */
     void Initialize(const Material&               material,
                     std::size_t                   nb_bands,
                     std::vector<Vector3D<double>> list_k_points,
                     unsigned int                  nearestNeighborsNumber,
-                    bool                          enable_non_local_correction);
+                    bool                          enable_non_local_correction,
+                    bool                          enable_soc);
 
     const std::vector<std::string>& GetPath() const { return m_path; }
+    std::string                     get_path_as_string() const;
     unsigned int                    GetPointsNumber() const { return static_cast<unsigned int>(m_kpoints.size()); }
     void                            Compute();
     void                            Compute_parallel(int nb_threads);
-    double                          AdjustValues();
+    double                          AdjustValues(bool minConductionBandToZero = false);
 
     void        print_results() const;
     std::string path_band_filename() const;
@@ -63,8 +68,11 @@ class BandStructure {
     std::vector<double> get_band(unsigned int band_index) const;
     double              get_energy_at_k_band(unsigned int band_index, unsigned int index_k) const { return m_results[index_k][band_index]; }
 
+    std::vector<Vector3D<int>>&      get_basis_vectors() { return basisVectors; }
     std::vector<Vector3D<double>>    get_kpoints() const { return m_kpoints; }
     std::vector<std::vector<double>> get_band_energies() const { return m_results; }
+
+    double get_computation_time_s() const { return m_computation_time_s; }
 
  private:
     Materials materials;
@@ -78,6 +86,7 @@ class BandStructure {
     unsigned int m_nb_bands;
     unsigned int m_nearestNeighborsNumber;
     bool         m_enable_non_local_correction;
+    bool         m_enable_spin_orbit_coupling = false;
 
     std::vector<Vector3D<int>>       basisVectors;
     std::vector<Vector3D<double>>    m_kpoints;
@@ -87,6 +96,8 @@ class BandStructure {
 
     static bool FindBandGap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction);
     bool        GenerateBasisVectors(unsigned int nearestNeighborsNumber);
+
+    void export_path_band_in_file(const std::string& filename) const;
 };
 
 void export_vector_bands_result_in_file(const std::string& filename, std::vector<std::vector<double>>);

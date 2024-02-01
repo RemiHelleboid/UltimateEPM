@@ -71,6 +71,8 @@ int main(int argc, char* argv[]) {
                                                10,
                                                "int");
     TCLAP::SwitchArg arg_enable_nonlocal_correction("C", "nonlocal-correction", "Enable the non-local-correction for the EPM model", false);
+    TCLAP::SwitchArg arg_enable_soc("S", "soc", "Enable the spin-orbit coupling for the EPM model", false);
+    TCLAP::SwitchArg arg_cond_band_zero("z", "MinCondZero", "Shift the conduction band minimum to 0 eV", false);
     TCLAP::ValueArg<int> arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -79,11 +81,13 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_nearest_neighbors);
     cmd.add(arg_nb_threads);
     cmd.add(arg_enable_nonlocal_correction);
+    cmd.add(arg_enable_soc);
+    cmd.add(arg_cond_band_zero);
 
     cmd.parse(argc, argv);
 
     EmpiricalPseudopotential::Materials materials;
-    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
+    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-cohen.yaml";
     materials.load_material_parameters(file_material_parameters);
 
     Options my_options;
@@ -165,11 +169,13 @@ int main(int argc, char* argv[]) {
         Chunk_list_k_points[i] = chunk_vector_of_k[i].to_Vector3D();
     }
 
-    bool                                    enable_nonlocal_correction = false;
+    bool                                    enable_nonlocal_correction = arg_enable_nonlocal_correction.getValue();
+    bool                                    enable_soc                 = arg_enable_soc.getValue();
     EmpiricalPseudopotential::BandStructure my_bandstructure;
-    my_bandstructure.Initialize(mat, my_options.nrLevels, Chunk_list_k_points, my_options.nearestNeighbors, enable_nonlocal_correction);
+    my_bandstructure
+        .Initialize(mat, my_options.nrLevels, Chunk_list_k_points, my_options.nearestNeighbors, enable_nonlocal_correction, enable_soc);
     my_bandstructure.Compute();
-    my_bandstructure.AdjustValues();
+    my_bandstructure.AdjustValues(arg_cond_band_zero.getValue());
 
     std::vector<double> chunk_list_energies(counts_element_per_process[process_rank] * my_options.nrLevels);
     for (int i = 0; i < counts_element_per_process[process_rank]; ++i) {
@@ -189,6 +195,9 @@ int main(int argc, char* argv[]) {
     std::vector<double> all_energies_all_bands;
     if (process_rank == MASTER) {
         all_energies_all_bands.resize(number_k_vectors * number_bands);
+        std::cout << "number_k_vectors: " << number_k_vectors << std::endl;
+        std::cout << "number_bands: " << number_bands << std::endl;
+        std::cout << "all_energies_all_bands.size(): " << all_energies_all_bands.size() << std::endl;
     }
 
     MPI_Gatherv(chunk_list_energies.data(),
@@ -217,7 +226,10 @@ int main(int argc, char* argv[]) {
         std::filesystem::path in_path(mesh_filename);
         std::string out_file_bands = in_path.stem().replace_extension("").string() + "_MPI_" + my_bandstructure.path_band_filename();
         my_mesh.add_all_bands_on_mesh(out_file_bands + "_all_bands.msh", all_energies_all_bands, number_bands);
+        my_mesh.export_bands_as_csv(all_energies_all_bands, number_bands);
     }
 
     MPI_Finalize();
+
+    return EXIT_SUCCESS;
 }

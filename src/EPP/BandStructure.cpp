@@ -14,6 +14,14 @@
 
 namespace EmpiricalPseudopotential {
 
+std::string BandStructure::get_path_as_string() const {
+    std::string path = "";
+    for (const auto& point : m_path) {
+        path += point;
+    }
+    return path;
+}
+
 bool BandStructure::GenerateBasisVectors(unsigned int nearestNeighborsNumber) {
     static const std::vector<unsigned int> G2{
         0,   3,   4,   8,   11,  12,  16,  19,  20,  24,  27,  32,  35,  36,  40,  43,  44,  48,  51,  52,  56,  59,  67,  68,
@@ -49,17 +57,25 @@ void BandStructure::Initialize(const Material&                 material,
                                const std::vector<std::string>& path,
                                unsigned int                    nbPoints,
                                unsigned int                    nearestNeighborsNumber,
-                               bool                            enable_non_local_correction) {
+                               bool                            enable_non_local_correction,
+                               bool                            enable_soc) {
     m_material                    = material;
     m_nb_bands                    = nb_bands;
     m_path                        = path;
     m_nb_points                   = nbPoints;
     m_nearestNeighborsNumber      = nearestNeighborsNumber;
     m_enable_non_local_correction = enable_non_local_correction;
+    m_enable_spin_orbit_coupling  = enable_soc;
     m_kpoints.clear();
     m_results.clear();
     m_kpoints.reserve(m_nb_points);
     m_results.reserve(m_nb_points);
+
+    if (m_enable_spin_orbit_coupling) {
+        m_nb_bands *= 2;
+        std::cout << "Spin-orbit coupling enabled. Number of bands doubled to " << m_nb_bands << std::endl;
+        m_material.get_spin_orbit_parameters().print_parameters();
+    }
 
     if (!GenerateBasisVectors(nearestNeighborsNumber)) {
         throw std::runtime_error("BandStructure::Initialize: GenerateBasisVectors failed");
@@ -71,19 +87,27 @@ void BandStructure::Initialize(const Material&                 material,
             "BandStructure::Initialize: GeneratePoints failed. No points generated.\
         \nPlease increase the number of points such as there is twice as many points as the number of symetry points.");
     }
-    m_material.m_non_local_parameters.print_non_local_parameters();
 }
 
 void BandStructure::Initialize(const Material&               material,
                                std::size_t                   nb_bands,
                                std::vector<Vector3D<double>> list_k_points,
                                unsigned int                  nearestNeighborsNumber,
-                               bool                          enable_non_local_correction) {
+                               bool                          enable_non_local_correction,
+                               bool                          enable_soc) {
     m_material                    = material;
     m_nb_bands                    = nb_bands;
     m_nb_points                   = list_k_points.size();
     m_nearestNeighborsNumber      = nearestNeighborsNumber;
     m_enable_non_local_correction = enable_non_local_correction;
+    m_enable_spin_orbit_coupling  = enable_soc;
+
+    if (m_enable_spin_orbit_coupling) {
+        m_nb_bands *= 2;
+        std::cout << "Spin-orbit coupling enabled. Number of bands doubled to " << m_nb_bands << std::endl;
+        m_material.get_spin_orbit_parameters().print_parameters();
+
+    }
 
     m_kpoints.clear();
     m_results.clear();
@@ -104,7 +128,8 @@ void BandStructure::Compute() {
     for (unsigned int i = 0; i < m_nb_points; ++i) {
         // std::cout << "\rComputing band structure at point " << i + 1 << "/" << m_nb_points << std::flush;
         // std::cout << "Computing band structure at point " << m_kpoints[i] << std::endl;
-        hamiltonian.SetMatrix(m_kpoints[i], m_enable_non_local_correction);
+
+        hamiltonian.SetMatrix(m_kpoints[i], m_enable_non_local_correction, m_enable_spin_orbit_coupling);
         hamiltonian.Diagonalize();
 
         const Eigen::VectorXd& eigenvals = hamiltonian.eigenvalues();
@@ -135,7 +160,7 @@ void BandStructure::Compute_parallel(int nb_threads) {
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (unsigned int index_k = 0; index_k < m_nb_points; ++index_k) {
         int tid = omp_get_thread_num();
-        hamiltonian_per_thread[tid].SetMatrix(m_kpoints[index_k], m_enable_non_local_correction);
+        hamiltonian_per_thread[tid].SetMatrix(m_kpoints[index_k], m_enable_non_local_correction, m_enable_spin_orbit_coupling);
         hamiltonian_per_thread[tid].Diagonalize();
 
         const Eigen::VectorXd& eigenvals = hamiltonian_per_thread[tid].eigenvalues();
@@ -147,7 +172,7 @@ void BandStructure::Compute_parallel(int nb_threads) {
     m_computation_time_s = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
 }
 
-double BandStructure::AdjustValues() {
+double BandStructure::AdjustValues(bool minConductionBandToZero) {
     double maxValValence;
     double minValConduction;
 
@@ -157,11 +182,17 @@ double BandStructure::AdjustValues() {
         band_gap = minValConduction - maxValValence;
     }
 
-    // adjust values to a guessed zero
-    for (auto& p : m_results)
-        for (auto& v : p) {
-            v -= maxValValence;
+    for (std::size_t idx_k = 0; idx_k < m_results.size(); ++idx_k) {
+        for (std::size_t idx_band = 0; idx_band < m_results[idx_k].size(); ++idx_band) {
+            if (idx_band < 4) {
+                m_results[idx_k][idx_band] -= maxValValence;
+            } else if (minConductionBandToZero) {
+                m_results[idx_k][idx_band] -= minValConduction;
+            } else {
+                m_results[idx_k][idx_band] -= maxValValence;
+            }
         }
+    }
 
     return band_gap;
 }
@@ -223,7 +254,10 @@ void BandStructure::export_k_points_to_file(std::string filename) const {
 void BandStructure::export_result_in_file(const std::string& filename) const {
     std::cout << "Exporting band structure to file:     " << filename << std::endl;
     std::ofstream file(filename);
-    // file << "kx,ky,kz,";
+    file << "# Path " << get_path_as_string() << std::endl;
+    file << "# Material " << m_material.get_name() << std::endl;
+    file << "# NBands " << m_nb_bands << std::endl;
+    file << "# Nonlocal " << (m_enable_non_local_correction ? "Yes" : "No") << std::endl;
 
     for (unsigned int i = 0; i < m_results.front().size() - 1; ++i) {
         file << "band_" << i << ",";
@@ -263,8 +297,8 @@ std::string BandStructure::path_band_filename() const {
             path_string += point;
         }
     }
-    std::string filename = "EPM_" + m_material.name + "_nb_bands_" + std::to_string(m_results.front().size()) + "_path_" + path_string +
-                           "_size_basis_" + std::to_string(basisVectors.size());
+    std::string filename = "EPM_" + m_material.get_name() + "_nb_bands_" + std::to_string(m_results.front().size()) + "_path_" +
+                           path_string + "_size_basis_" + std::to_string(basisVectors.size());
     return filename;
 }
 

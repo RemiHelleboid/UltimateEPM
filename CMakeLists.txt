@@ -17,6 +17,7 @@ option(ENABLE_MPI_BUILD "Build some programs with MPI parralelization." ON)
 option(ENABLE_CLANG_TIDY "Enable clang tidy at compilation" OFF)
 option(ENABLE_BUILD_DOC "Enable the documentation build (doxygen)" OFF)
 option(ENABLE_BUILD_TEST "Enable the documentation build (doxygen)" ON)
+option(ENABLE_MARCH_NATIVE "Enable optimization for the local machine." ON)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -47,12 +48,17 @@ if(ENABLE_CLANG_TIDY)
   set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,readability-*)
 endif()
 
+if (ENABLE_MARCH_NATIVE)
+  message("Optimization for the local machine is enabled")
+  add_compile_options(-march=native)
+endif()
+
+
 # Flags for the compiler
 if(MSVC)
   add_compile_options("/W4" "$<$<CONFIG:RELEASE>:/O2>")
 else()
-  add_compile_options("-Wall" "-Wextra" "-pedantic")
-  # add_compile_options("-Werror")
+  # add_compile_options("-Wall" "-Wextra" "-Werror" "-pedantic")
 
   if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_compile_options("-stdlib=libc++")
@@ -60,6 +66,16 @@ else()
     # nothing special for gcc at the moment
   endif()
 endif()
+
+# exclude Anaconda directories from search
+if(DEFINED ENV{CONDA_PREFIX})
+  set(h5_ignore_path
+    $ENV{CONDA_PREFIX}/bin $ENV{CONDA_PREFIX}/lib $ENV{CONDA_PREFIX}/include
+    $ENV{CONDA_PREFIX}/Library/bin $ENV{CONDA_PREFIX}/Library/lib $ENV{CONDA_PREFIX}/Library/include
+  )
+  list(APPEND CMAKE_IGNORE_PATH ${h5_ignore_path})
+endif()
+
 
 # -----------------------------------------------------------------------------
 # FIND / GET RELEVANT LIBRARIES
@@ -73,16 +89,17 @@ FetchContent_Declare(
   GIT_SHALLOW TRUE
   GIT_PROGRESS TRUE)
 
-find_package(Eigen3 NO_MODULE)
+# find_package(Eigen3)
 
-if(NOT Eigen3_FOUND)
+# if(NOT Eigen3_FOUND)
   set(EIGEN_BUILD_DOC OFF)
   set(BUILD_TESTING OFF)
   set(EIGEN_BUILD_PKGCONFIG OFF)
   message("Fetching Eigen3 lib ...")
-  add_compile_definitions(EIGEN_USE_LAPACK=0)
+  # add_compile_definitions(EIGEN_USE_LAPACK=0)
   FetchContent_MakeAvailable(Eigen)
-endif()
+  find_package(Eigen3 REQUIRED)
+# endif()
 
 # Find OpenMP
 if(ENABLE_OPEN_MP)
@@ -141,13 +158,31 @@ FetchContent_Declare(
 FetchContent_Declare(
   yaml-cpp
   GIT_REPOSITORY "https://github.com/jbeder/yaml-cpp"
-  GIT_TAG "328d2d85e833be7cb5a0ab246cc3f5d7e16fc67a")
+  GIT_TAG "master")
+
+FetchContent_Declare(
+  rapidcsv
+  GIT_REPOSITORY "https://github.com/d99kris/rapidcsv.git"
+  GIT_TAG "master"
+  CONFIGURE_COMMAND "" BUILD_COMMAND "")
+
+# Get fast-parse-csv lib
+find_package(rapidcsv NO_MODULE)
+
+if(NOT rapidcsv_FOUND)
+  message("Fetching rapidcsv lib ...")
+  FetchContent_MakeAvailable(rapidcsv)
+  include_directories(${rapidcsv_SOURCE_DIR})
+endif()
 
 # Get yaml_cpp lib
 find_package(yaml-cpp NO_MODULE)
 
 if(NOT yaml-cpp_FOUND)
   message("Fetching yaml-cpp lib ...")
+  set(YAML_CPP_BUILD_TESTS OFF)
+  set(YAML_CPP_BUILD_TOOLS OFF)
+  set(YAML_CPP_BUILD_CONTRIB OFF)
   FetchContent_MakeAvailable(yaml-cpp)
 endif()
 
@@ -178,6 +213,22 @@ else(DOXYGEN_FOUND)
   message("Doxygen need to be installed to generate the doxygen documentation")
 endif()
 
+# Get yaml_cpp lib
+find_package(yaml-cpp NO_MODULE)
+
+if(NOT yaml-cpp_FOUND)
+  message("Fetching yaml-cpp lib ...")
+  FetchContent_MakeAvailable(yaml-cpp)
+endif()
+
+FetchContent_Declare(
+  fmt
+  GIT_REPOSITORY "https://github.com/fmtlib/fmt.git"
+  GIT_TAG master)
+FetchContent_MakeAvailable(fmt)
+
+
+
 # MPI SUPPORT
 if(ENABLE_MPI_BUILD)
   message("MPI support activated.")
@@ -204,8 +255,7 @@ if(ENABLE_BUILD_TEST)
 endif(ENABLE_BUILD_TEST)
 
 # tclap library for argument parsing
-include_directories(${PROJECT_SOURCE_DIR}/external/tclap/include)
-
+include_directories(${PROJECT_SOURCE_DIR}/external/tclap-1.4.0/include)
 # -----------------------------------------------------------------------------
 # The compiled library code is here
 add_subdirectory(src/EPP)

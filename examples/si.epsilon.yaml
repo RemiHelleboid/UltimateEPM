@@ -1,0 +1,23 @@
+---
+outdir: "OUTDIR"
+
+
+material: "Si"
+nearest-neigbors: 10
+nonlocal: False
+
+nb-bands: 16
+min-energy: 0.0
+max-energy: 20.0
+step-energy: 0.001
+eta-smearing: 0.05
+Nkx: 40
+Nky: 40
+Nkz: 40
+bz-sampling: 1
+
+file-list-q: "q_points.dat"
+
+Nqx: 100
+Nqy: 1
+Nqz: 1

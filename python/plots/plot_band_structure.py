@@ -1,10 +1,12 @@
-import matplotlib as mpl
 import numpy as np
 import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 from matplotlib.lines import Line2D
+import matplotlib as mpl
+from scipy.interpolate import CubicSpline
+
 
 try:
     plt.style.use(['science', 'high-vis'])
@@ -23,6 +25,31 @@ BZ_points = {
     "U":  np.array([1/8, 1/2, 1/8]),
     "K":  np.array([3/8, 3/8, 0]),
 }
+
+def get_epm_parameters_from_file(filename: str) -> dict:
+    """Extract the EPM parameters from the band structure file.
+
+    Args:
+        filename (str): Filename of the band structure file.
+
+    Returns:
+        dic: The EPM p0arameters.
+    """
+    comment_char = '#'
+    dict_params = {}
+    with open(filename, "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            if comment_char in line:
+                line = line.split(comment_char)[1]
+                split = line.split(' ')
+                if len(split) == 2:
+                    dict_params[split[0]] = split[1]
+                elif len(split) > 3:
+                    dict_params[split[0]] = split[1:]
+            else:
+                break
+    return dict_params
 
 
 def get_gap(bands: np.array) -> tuple:
@@ -92,6 +119,8 @@ def plot_band_structure(filename: str, ax, index_plot, nb_bands=10):
     Returns:
         _type_: _description_
     """
+    dict_params = get_epm_parameters_from_file(filename)
+    print(len(dict_params))
     print("Plotting band structure")
     list_points_string, dist_btw_points, material = get_path_from_filename(
         filename)
@@ -104,8 +133,10 @@ def plot_band_structure(filename: str, ax, index_plot, nb_bands=10):
 
     cnv = {1: lambda s: np.float(s.strip() or 'Nan')}
     band_energies = np.loadtxt(
-        filename, delimiter=",", usecols=tuple(i for i in range(nb_bands)), skiprows=1)
+        filename, delimiter=",", usecols=tuple(i for i in range(nb_bands)), skiprows=5)
     band_energies = band_energies.T
+    print(dist_btw_points)
+    
 
     for band in band_energies[::]:
         ax.plot(band, ls=plot_ls, color='k', lw=0.5)
@@ -125,7 +156,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--outputdir", dest="output_path_dir",
                         help="The directory to save the results.", default="./")
     parser.add_argument("-p", "--plot", dest="show_plot",
-                        help="If true, the plot is displayed.", default=False, type=bool)
+                        help="If true, the plot is displayed.", default=True, type=bool)
     args = parser.parse_args()
     OUT_DIR = args.output_path_dir
 
@@ -138,6 +169,7 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
     band_gap = 0.0
     for index, file in enumerate(list_files):
+        get_epm_parameters_from_file(file)
         band_gap = plot_band_structure(file, ax, index, nb_bands=args.nb_bands)
 
     # ax.set_ylim(bottom=-20, top=12)
@@ -159,9 +191,11 @@ if __name__ == "__main__":
 
     lines = [Line2D([0], [0], color='k', lw=0.5, ls=lstyle)
              for lstyle in ["-", "--"]]
-    labels = ["non-local", "local"]
+    # labels = ["non-local", "local"]
+    # labels = ["non-local", "local"]
 
-    ax.legend(lines, labels, loc='lower right', fancybox=True,  frameon=True, edgecolor='k', facecolor='w', fontsize=6, framealpha=0.75)
+    # ax.legend(lines, labels, loc='lower right', fancybox=True,  frameon=True,
+    #           edgecolor='k', facecolor='w', fontsize=6, framealpha=0.75)
     fig.tight_layout()
     fig.savefig(f"{OUT_DIR}/band_structure_{material}.png", dpi=300)
 
