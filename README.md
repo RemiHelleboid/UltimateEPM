@@ -21,6 +21,7 @@ This repository was initially a fork from : [EmpiricalPseudopotential](https://g
 You can do three types of calculations:
 
 __Compute the electronic band structure over a path of high-symmetry points (e.g. $L \Gamma XWKULWXK \Gamma$) for a given material, and plot the results.__
+
 ![Band structure of Silicon](doc/band_structure_Si.png)
 
 The SOC can be included in the computation:
