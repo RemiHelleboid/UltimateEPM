@@ -8,12 +8,11 @@ from matplotlib.lines import Line2D
 from scipy.interpolate import CubicSpline
 from pathlib import Path
 
-
-import sys
+import sys, glob
 
 try:
     import scienceplots
-    plt.style.use(['science', 'high-vis'])
+    plt.style.use(['science', 'muted'])
 except Exception:
     print('Could not load style sheet')
     None
@@ -22,34 +21,42 @@ except Exception:
 mpl.rcParams['figure.figsize'] = [3.5, 2.8]
 
 
-def plot_dielectric_function_vs_energy(filename: str, ax):
-    # energies, eps_r, eps_i = np.loadtxt(filename, unpack=True, skiprows=1, delimiter=',')
-    data = np.loadtxt(filename, unpack=True, skiprows=1, delimiter=',')
-    energies = data[0]
-    eps_r = data[1]
-    if len(data) == 3:
-        eps_i = data[2]
-    else:
-        eps_i = np.zeros_like(eps_r)
-    label = Path(filename).stem.split('_')[2::]
-    label = ["{:.0f}".format(float(x)) for x in label]
-    s = "$\mathbf{k} = (" + " \ ".join(label) + ")$"
-    ax.plot(energies, eps_r, label=s)
-    # ax.plot(energies, eps_i, "-", label="Imaginary", c='r')
-    abs_eps = np.sqrt(eps_r**2 + eps_i**2)
-    # ax.plot(energies, abs_eps, label=s)
-    
-    
-if __name__ == '__main__':
-    list_files = sys.argv[1:]
-    fig, ax = plt.subplots()
+def plot_dielectric_function_vs_energy(dirname):
+    list_files = glob.glob(f"{dirname}/*.csv")
+    list_q = []
     for filename in list_files:
-        plot_dielectric_function_vs_energy(filename, ax)
+        filestem = Path(filename).stem
+        qz = float(filestem.split('_')[-1])
+        qy = float(filestem.split('_')[-2])
+        qx = float(filestem.split('_')[-3])
+        print(qx, qy, qz)
+        list_q.append(np.sqrt(qx**2 + qy**2 + qz**2))
+        
+    list_files = [x for _, x in sorted(zip(list_q, list_files))]
+    cmap = plt.get_cmap('jet')
+    norm = mpl.colors.Normalize(vmin=min(list_q), vmax=max(list_q))
+    
+    fig, ax = plt.subplots()
+    for idx, filename in enumerate(list_files):
+        data = np.loadtxt(filename, unpack=True, skiprows=1, delimiter=',')
+        energies = data[0]
+        eps_r = data[1]
+        
+        ax.plot(energies, eps_r, color=cmap(norm(list_q[idx])))
+        
+    fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, label='$|\mathbf{k}|$')
     ax.set_xlabel('Energy [eV]')
     ax.set_ylabel('$\epsilon$')
-    ax.legend()
+    # ax.legend(title="$|\mathbf{k}|$", fontsize=8)
     # ax.set_title('Eps vs Energy')
     fig.tight_layout()
     filename =f"{Path(list_files[0]).with_suffix('.png')}"
     fig.savefig(filename, dpi=600)
     plt.show()
+
+    
+if __name__ == '__main__':
+    dirname = Path(sys.argv[1])
+    plot_dielectric_function_vs_energy(dirname)
+    
+    

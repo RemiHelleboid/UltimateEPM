@@ -63,6 +63,7 @@ int main(int argc, char* argv[]) {
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshfile", "Name to print", true, "bz.msh", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
     TCLAP::ValueArg<std::string> arg_outfile("o", "outfile", "Name of the output file", false, "", "string");
+    TCLAP::ValueArg<std::string> arg_material_parameters("p", "parameters", "Name of the file containing the material parameters", false, "", "string");
     TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to compute", false, 12, "int");
     TCLAP::ValueArg<int>         arg_nearest_neighbors("n",
                                                "nearestNeighbors",
@@ -78,6 +79,7 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_material);
     cmd.add(arg_nb_bands);
     cmd.add(arg_outfile);
+    cmd.add(arg_material_parameters);
     cmd.add(arg_nearest_neighbors);
     cmd.add(arg_nb_threads);
     cmd.add(arg_enable_nonlocal_correction);
@@ -87,7 +89,15 @@ int main(int argc, char* argv[]) {
     cmd.parse(argc, argv);
 
     EmpiricalPseudopotential::Materials materials;
-    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-cohen.yaml";
+
+    std::string file_material_parameters = arg_material_parameters.getValue();
+    if (file_material_parameters.empty()) {
+        file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-cohen.yaml";
+        if (!arg_enable_nonlocal_correction.getValue()) {
+            file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
+        }
+    }
+
     materials.load_material_parameters(file_material_parameters);
 
     Options my_options;

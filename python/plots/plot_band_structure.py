@@ -202,7 +202,8 @@ if __name__ == "__main__":
     if args.show_plot:
         plt.show()
 
-    ax.set_ylim(-2.0, band_gap + 1.0)
+    ax.set_ylim(-4.0, band_gap + 4.0)
+    fig.tight_layout()
     fig.savefig(f"{OUT_DIR}/band_structure_{material}_zoom.png", dpi=300)
 
     # plot_band_structure(FILE_PATH, OUT_DIR, args.nb_bands)

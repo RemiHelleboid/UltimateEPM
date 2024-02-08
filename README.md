@@ -20,12 +20,12 @@ This repository was initially a fork from : [EmpiricalPseudopotential](https://g
 
 You can do three types of calculations:
 
-__Compute the electronic band structure over a path of high-symmetry points (e.g. $L \Gamma XWKULWXK \Gamma$) for a given material, and plot the results.__ 
+__Compute the electronic band structure over a path of high-symmetry points (e.g. $L \Gamma XWKULWXK \Gamma$) for a given material, and plot the results.__
 ![Band structure of Silicon](doc/band_structure_Si.png)
 
 The SOC can be included in the computation:
 
-![Band structure of Ge with SOC](doc/band_structure_Ge_soc.png)
+![Band structure of Ge with SOC](doc/GeSOC.png)
 
 ---
 
@@ -39,6 +39,10 @@ __Compute the density of states over the all Brillouin Zone.__
 ![Band structure of Silicon](doc/dos_total_silicon.png)
 
 ---
+
+__Dielectric function computation (q-dependent)__
+![Band structure of Silicon](/doc/dielectric_func_Si.png)
+![Maps of the dielectric function](/doc/dielectric_map_Si.png)
 
 ## Build and Compilation
 

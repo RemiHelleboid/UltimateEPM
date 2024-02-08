@@ -12,6 +12,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <array>
 
 #include "Material.h"
 #include "bz_mesh.hpp"
@@ -19,17 +20,21 @@
 
 namespace bz_mesh {
 
+typedef std::complex<double> complex_d;
+
 class ImpactIonization : private BZ_States {
  private:
     double m_impact_ionization_rate = 0.0;
+
  public:
-    double compute_direct_impact_ionization_matrix_element(int idx_n1,
-                                                           int idx_n1_prime,
-                                                           int idx_n2,
-                                                           int idx_n2_prime,
-                                                           int idx_k1,
-                                                           int idx_k1_prime,
-                                                           int idx_k2_prime) const;
+    std::array<complex_d, 2> compute_direct_indirect_impact_ionization_matrix_element(int idx_n1,
+                                                                                     int idx_n1_prime,
+                                                                                     int idx_n2,
+                                                                                     int idx_n2_prime,
+                                                                                     int idx_k1,
+                                                                                     int idx_k1_prime,
+                                                                                     int idx_k2,
+                                                                                     int idx_k2_prime) const;
 
     double compute_impact_ionization_rate(int idx_n1, const Vector3D<double>& k1);
 };
