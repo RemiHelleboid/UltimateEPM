@@ -18,7 +18,13 @@ This repository was initially a fork from : [EmpiricalPseudopotential](https://g
 
 ## Features
 
-You can do three types of calculations:
+You can do four types of calculations:
+-  __Band structure over a path of high-symmetry points__ in the Brillouin zone.
+-  __Band structure over all k-points__ of an input mesh of the Brillouin Zone (or a fraction of it).
+-  __Density of states__ over the all Brillouin Zone.
+-  __Dielectric function__ computation (q-dependent).
+
+---
 
 __Compute the electronic band structure over a path of high-symmetry points (e.g. $L \Gamma XWKULWXK \Gamma$) for a given material, and plot the results.__
 
