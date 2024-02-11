@@ -26,6 +26,7 @@
 #define MASTER 0
 
 #include <mpi.h>
+
 #include <tclap/CmdLine.h>
 #include <yaml-cpp/yaml.h>
 

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <tuple>
 
+
 template <typename T>
 class Vector3D {
  public:
@@ -77,6 +78,13 @@ class Vector3D {
         return (norm_product < 1.0e-13) ? 1.0 : dot_product / (V1.Length() * V2.Length());
     }
 
+    /**
+     * @brief print the vector
+     *
+     * @param os
+     * @param v
+     * @return std::ostream&
+     */
     friend std::ostream& operator<<(std::ostream& os, const Vector3D& v) {
         os << "(" << v.X << ", " << v.Y << ", " << v.Z << ")";
         return os;
@@ -102,7 +110,6 @@ template <typename T>
 bool operator==(const Vector3D<T>& f, const Vector3D<T>& t) {
     return f.X == t.X && f.Y == t.Y && f.Z == t.Z;
 }
-
 
 template <typename T>
 bool operator<(const Vector3D<T>& lhs, const Vector3D<T>& rhs) {

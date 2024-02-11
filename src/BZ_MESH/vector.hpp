@@ -18,6 +18,8 @@
 
 #include "Vector3D.h"
 
+
+
 namespace bz_mesh {
 
 enum class permutaion_type { XY, XZ, YZ, XYZ, YZX, ZXY };

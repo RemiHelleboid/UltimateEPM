@@ -21,6 +21,11 @@ target_link_libraries(fullstates.epm PUBLIC libepp lib_bzmesh)
 target_compile_features(fullstates.epm PRIVATE cxx_std_20)
 target_link_libraries(fullstates.epm PUBLIC MPI::MPI_CXX)
 
+add_executable(elph.epm elph.cpp)
+target_link_libraries(elph.epm PUBLIC libepp lib_bzmesh)
+target_compile_features(elph.epm PRIVATE cxx_std_20)
+target_link_libraries(elph.epm PUBLIC MPI::MPI_CXX)
+
 if(USE_MPI_ACCELERATION)
   add_executable(mpiBandsOnBZ mpi_BandsOnBZ.cpp)
   target_link_libraries(mpiBandsOnBZ PUBLIC libepp Eigen3::Eigen)
@@ -32,3 +37,4 @@ if(USE_MPI_ACCELERATION)
   target_link_libraries(mpiDOS_MeshBZ PUBLIC MPI::MPI_CXX)
   target_compile_features(mpiDOS_MeshBZ PRIVATE cxx_std_20)
 endif(USE_MPI_ACCELERATION)
+

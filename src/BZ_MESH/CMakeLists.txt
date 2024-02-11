@@ -5,12 +5,15 @@ set(HEADER_FILES_LIBBZMESH
   vector.hpp
   iso_triangle.hpp
   bz_states.hpp
+  electron_phonon.hpp
   )
+
 
 set(SOURCE_FILES_LIBBZMESH
   mesh_tetra.cpp
   bz_mesh.cpp
   bz_states.cpp
+  electron_phonon.cpp
 )
 
 add_library(lib_bzmesh STATIC ${SOURCE_FILES_LIBBZMESH} ${HEADER_FILES_LIBBZMESH})

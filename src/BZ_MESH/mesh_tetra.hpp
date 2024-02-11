@@ -102,6 +102,7 @@ class Tetra {
     vector3 compute_edge(std::size_t index_vtx_1, std::size_t index_vtx_2) const;
     void    compute_gradient_energy_at_bands();
 
+    vector3               compute_barycenter() const;
     bool                  is_location_inside(const vector3& location) const;
     std::array<double, 4> compute_barycentric_coordinates(const vector3& location) const;
     vector3               compute_euclidean_coordinates(const std::array<double, 4>& barycentric_coordinates) const;
@@ -113,19 +114,20 @@ class Tetra {
     double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;
     double               compute_tetra_dos_energy_band(double energy, std::size_t band_index) const;
 
+    
+
     double  interpolate_scalar_at_position(const std::array<double, 4>& barycentric_coordinates,
                                            const std::vector<double>&   scalar_field) const;
     vector3 interpolate_vector_at_position(const std::array<double, 4>& barycentric_coordinates,
                                            const std::vector<vector3>&  vector_field) const;
-template <typename T>
-      T interpolate_at_position(const std::array<double, 4>& barycentric_coordinates,
-                                 const std::vector<T>&         field) const {
-         T interpolated_value = T::Zero();
-         for (std::size_t idx_vtx = 0; idx_vtx < 4; ++idx_vtx) {
-               interpolated_value += barycentric_coordinates[idx_vtx] * field[idx_vtx];
-         }
-         return interpolated_value;
-      }
+    template <typename T>
+    T interpolate_at_position(const std::array<double, 4>& barycentric_coordinates, const std::vector<T>& field) const {
+        T interpolated_value = T::Zero();
+        for (std::size_t idx_vtx = 0; idx_vtx < 4; ++idx_vtx) {
+            interpolated_value += barycentric_coordinates[idx_vtx] * field[idx_vtx];
+        }
+        return interpolated_value;
+    }
 
     static void reset_stat_iso_computing() { ms_case_stats = std::vector<double>(5, 0.0); }
 

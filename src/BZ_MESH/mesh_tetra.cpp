@@ -40,6 +40,12 @@ Tetra::Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices)
     m_signed_volume = compute_signed_volume();
 }
 
+vector3 Tetra::compute_barycenter() const {
+    return (m_list_vertices[0]->get_position() + m_list_vertices[1]->get_position() + m_list_vertices[2]->get_position() +
+            m_list_vertices[3]->get_position()) /
+           4.0;
+}
+
 void Tetra::compute_gradient_energy_at_bands() {
     m_gradient_energy_per_band.clear();
     std::size_t m_nb_bands = m_list_vertices[0]->get_number_bands();

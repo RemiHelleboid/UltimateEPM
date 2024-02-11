@@ -43,6 +43,14 @@ class Vertex {
      */
     std::vector<double> m_band_energies;
 
+    /**
+     * @brief Electron-phonon rates for each band.
+     * The rates are stored as an array of 8 values:
+     * [ALO, ALA, ATO, ATA, ELO, ELA, ETO, ETA] (ALO: absorption longitudinal optical, ALA: absorption longitudinal acoustic, ...)
+     * 
+     */
+    std::vector<std::array<double, 8>> m_electron_phonon_rates;
+
  public:
     /**
      * @brief Default constructor of a new Vertex object.
@@ -124,6 +132,24 @@ class Vertex {
      * @return double
      */
     double get_energy_at_band(std::size_t band_index) const { return m_band_energies[band_index]; }
+
+    const std::vector<double>& get_band_energies() const { return m_band_energies; }
+
+    /**
+     * @brief Add the electron-phonon rates for a given band.
+     *
+     * @param rates
+     */
+    void add_electron_phonon_rates(const std::array<double, 8>& rates) { m_electron_phonon_rates.push_back(rates); }
+
+    /**
+     * @brief Get the electron-phonon rates for a given band.
+     *
+     * @param band_index
+     * @return const std::array<double, 8>&
+     */
+    const std::array<double, 8>& get_electron_phonon_rates(std::size_t band_index) const { return m_electron_phonon_rates[band_index]; }
+
 };
 
 }  // namespace bz_mesh

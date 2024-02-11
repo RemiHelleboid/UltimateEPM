@@ -14,7 +14,7 @@ namespace EmpiricalPseudopotential {
 class Material {
  protected:
     /**
-     * @brief Name of the material. (Actually it is the symbole, eg.g., Si)
+     * @brief Name of the material. (Actually it is the symbol, eg.g., Si)
      *
      */
     std::string m_name;

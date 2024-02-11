@@ -1,0 +1,42 @@
+# Materials parameters for the electron-phonon interaction.
+# All the parameters are from M. Michaillat PhD Manuscript.
+
+materials:
+  - name: Si
+    Radius-WS: 2.122
+    dispersion:
+      longitudinal:
+        acoustic:
+          w0: 0.0
+          vs: 9.01E3
+          c: -2.00e-7
+        optic:
+          w0: 9.88e13
+          vs: 0.0
+          c: -1.60e-7
+      transverse:
+        acoustic:
+          w0: 0.0
+          vs: 5.23e3
+          c: -2.26e-7
+        optic:
+          w0: 1.02e14
+          vs: -2.57e3
+          c: 1.11e-7
+    deformation-potential:
+      electron:
+        acoustic:
+          A: 6.0
+          B: -2.0
+        optic:
+          A: 2.5e17
+          B: -8.0e16
+        energy-threshold: 2.0
+      hole:
+        acoustic:
+          A: 8.0
+          B: -3.0
+        optic:
+          A: 2.0e17
+          B: -9.0e16
+        energy-threshold: 1.5
