@@ -16,10 +16,9 @@
 #include <fstream>
 #include <vector>
 
-#include "rapidcsv.h"
-
 #include "gmsh.h"
 #include "omp.h"
+#include "rapidcsv.h"
 
 #pragma omp declare reduction(merge : std::vector <double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
@@ -52,11 +51,11 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
     }
 
     m_list_vertices.reserve(size_nodes_tags);
-    double lattice_constant     = m_material.get_lattice_constant_meter();
+    double lattice_constant = m_material.get_lattice_constant_meter();
     std::cout << "Lattice const: " << lattice_constant << std::endl;
     std::cout << "V: " << std::pow(2.0 * M_PI, 3) / std::pow(lattice_constant, 3.0) << std::endl;
 
-    double normalization_factor =  2.0 * M_PI / lattice_constant;
+    double normalization_factor = 2.0 * M_PI / lattice_constant;
     // double normalization_factor =  1.0;
     for (std::size_t index_vertex = 0; index_vertex < size_nodes_tags; ++index_vertex) {
         m_list_vertices.push_back(Vertex(index_vertex,
@@ -99,12 +98,12 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
 /**
  * @brief Get the nearest k index object.
  * Brute force search of the nearest k-point index. :(
- * 
- * @param k 
- * @return std::size_t 
+ *
+ * @param k
+ * @return std::size_t
  */
 std::size_t MeshBZ::get_nearest_k_index(const Vector3D<double>& k) const {
-    vector3 K(k.X, k.Y, k.Z);
+    vector3     K(k.X, k.Y, k.Z);
     std::size_t index_nearest_k = 0;
     double      min_distance    = std::numeric_limits<double>::max();
     for (std::size_t index_k = 0; index_k < m_list_vertices.size(); ++index_k) {
@@ -128,8 +127,6 @@ std::size_t MeshBZ::get_nearest_k_index(const vector3& k) const {
     }
     return index_nearest_k;
 }
-
-
 
 /**
  * @brief Read the energy values for each band at every k-points (vertices) of the mesh.
@@ -206,7 +203,7 @@ double MeshBZ::compute_mesh_volume() const {
         total_volume += std::fabs(tetra.get_signed_volume());
         // std::cout << "Tetra " << tetra.get_index() << " volume: " << tetra.get_signed_volume() << std::endl;
     }
-    // total_volume *= (1.0 / pow(2.0 * M_PI, 3.0));    
+    // total_volume *= (1.0 / pow(2.0 * M_PI, 3.0));
     return total_volume;
 }
 
@@ -285,6 +282,54 @@ void MeshBZ::export_k_points_to_file(const std::string& filename) const {
         file << k_point.get_position().x() << "," << k_point.get_position().y() << "," << k_point.get_position().z() << std::endl;
     }
     file.close();
+}
+
+bool MeshBZ::is_inside_mesh_geometry(const vector3& k) const {
+    double kx     = k.x();
+    double ky     = k.y();
+    double kz     = k.z();
+    bool   cond_1 = std::abs(kx) <= 1.0 and std::abs(ky) <= 1.0 and std::abs(kz) <= 1.0;
+    bool   cond_2 = std::abs(kx) + std::abs(ky) + std::abs(kz) <= 3.0 / 2.0;
+    return cond_1 and cond_2;
+}
+
+bool MeshBZ::is_inside_mesh_geometry(const Vector3D<double>& k) const {
+    double kx     = k.X;
+    double ky     = k.Y;
+    double kz     = k.Z;
+    bool   cond_1 = std::abs(kx) <= 1.0 and std::abs(ky) <= 1.0 and std::abs(kz) <= 1.0;
+    bool   cond_2 = std::abs(kx) + std::abs(ky) + std::abs(kz) <= 3.0 / 2.0;
+    return cond_1 and cond_2;
+}
+
+vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {
+    const vector3 b1 = {-1.0, 1.0, 1.0};
+    const vector3 b2 = {1.0, -1.0, 1.0};
+    const vector3 b3 = {1.0, 1.0, -1.0};
+
+    // std::cout << "k: " << k << std::endl;
+
+    // test k + G
+    std::vector<int> list_n_k = {0, 1, -1, 2, -2, 3, -3, 4, -4};
+    // std::vector<int> list_n_k = {0, 1, -1, 2, -2};
+    for (auto&& n_k_x : list_n_k) {
+        for (auto&& n_k_y : list_n_k) {
+            for (auto&& n_k_z : list_n_k) {
+                vector3 k_plus_G = k + n_k_x * b1 + n_k_y * b2 + n_k_z * b3;
+                if (is_inside_mesh_geometry(k_plus_G)) {
+                    if (k_plus_G.norm() <= 1e-6) {
+                        // std::cout << "k: " << k << std::endl;
+                        // std::cout << " G: " << n_k_x * b1 + n_k_y * b2 + n_k_z * b3 << std::endl;
+                        // std::cout << "k + G: " << k_plus_G << std::endl;
+                    }
+                    return k_plus_G;
+                }
+            }
+        }
+    }
+    std::cout << "No k-point inside the mesh geometry found." << std::endl;
+    throw std::runtime_error("No k-point inside the mesh geometry found.");
+
 }
 
 }  // namespace bz_mesh

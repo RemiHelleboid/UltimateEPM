@@ -18,11 +18,10 @@
 #pragma once
 
 #include <Eigen/Dense>
-
 #include <array>
 #include <cmath>
-#include <map>
 #include <iostream>
+#include <map>
 #include <vector>
 
 #include "bz_states.hpp"
@@ -58,6 +57,13 @@ struct PhononDispersion {
 
     double get_phonon_dispersion(double q) const {
         double e_ph = m_omega + m_vs * q + m_c * q * q;
+        if (e_ph < 0.0) {
+            std::cout << "ERROR: negative phonon energy: " << e_ph << std::endl;
+            std::cout << "Q: " << q << std::endl;
+            std::cout << "OMEGA: " << m_omega << std::endl;
+            std::cout << "VS: " << m_vs << std::endl;
+            std::cout << "C: " << m_c << std::endl;
+        }
         return e_ph;
     }
 };
@@ -72,7 +78,7 @@ struct DeformationPotential {
     DeformationPotential(PhononMode type, double A, double B) : m_mode(type), m_A(A), m_B(B) {}
 
     double get_deformation_potential(Vector3D<double> q, double energy) const {
-        double clamp_energy = std::max(energy, m_energy_threshold);
+        double clamp_energy = std::min(energy, m_energy_threshold);
         if (m_mode == PhononMode::acoustic) {
             return std::sqrt(m_A + clamp_energy * m_B) * q.Length();
         } else {
@@ -199,12 +205,12 @@ typedef std::pair<PhononMode, PhononDirection> PhononModeDirection;
 
 class ElectronPhonon : public BZ_States {
  private:
-    double               m_temperature        = 0.0;
-    double               m_rho                = 0.0;
+    double               m_temperature        = 300.0;
+    double               m_rho                = 2.329e3;
     double               m_radii_wigner_seitz = 0.0;
     HoleOverlapIntParams m_hole_overlap_int_params;
-    DeformationPotential m_acoustic_deformation_potential;
-    DeformationPotential m_optical_deformation_potential;
+    DeformationPotential m_acoustic_deformation_potential_e;
+    DeformationPotential m_optical_deformation_potential_e;
 
     std::map<PhononModeDirection, PhononDispersion> m_phonon_dispersion;
 
@@ -212,6 +218,7 @@ class ElectronPhonon : public BZ_States {
     explicit ElectronPhonon(const EmpiricalPseudopotential::Material& material) : BZ_States(material) {}
 
     void load_phonon_parameters(const std::string& filename);
+    void plot_phonon_dispersion(const std::string& filename) const;
 
     double bose_einstein_distribution(double energy, double temperature);
     double electron_overlap_integral(const Vector3D<double>& k1, const Vector3D<double>& k2);
@@ -223,6 +230,8 @@ class ElectronPhonon : public BZ_States {
     void set_density(double rho) { m_rho = rho; }
 
     void compute_electron_phonon_rates_over_mesh();
+
+    void export_rate_values(const std::string& filename) const;
 
     void compute_plot_electron_phonon_rates_vs_energy_over_mesh(int                nb_bands,
                                                                 double             max_energy,

@@ -110,6 +110,11 @@ class Material {
         return angstrom_to_m * m_lattice_constant;
     }
 
+    double get_fourier_factor() const { 
+        constexpr double angstrom_to_m = 1.0e-10;
+        return 2.0 * M_PI / (angstrom_to_m * m_lattice_constant);
+    }
+
     /**
      * @brief Get the atomic volume of the material in angstrom^3.
      * 

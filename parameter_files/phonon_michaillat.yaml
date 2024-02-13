@@ -3,7 +3,7 @@
 
 materials:
   - name: Si
-    Radius-WS: 2.122
+    Radius-WS: 2.122e-10
     dispersion:
       longitudinal:
         acoustic:
@@ -29,8 +29,8 @@ materials:
           A: 6.0
           B: -2.0
         optic:
-          A: 2.5e17
-          B: -8.0e16
+          B: -8.0e20
+          A: 2.5e21
         energy-threshold: 2.0
       hole:
         acoustic:

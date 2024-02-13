@@ -49,7 +49,7 @@ class Vertex {
      * [ALO, ALA, ATO, ATA, ELO, ELA, ETO, ETA] (ALO: absorption longitudinal optical, ALA: absorption longitudinal acoustic, ...)
      * 
      */
-    std::vector<std::array<double, 8>> m_electron_phonon_rates;
+    std::vector<std::array<double, 8>> m_electron_phonon_rates = {};
 
  public:
     /**
@@ -149,6 +149,8 @@ class Vertex {
      * @return const std::array<double, 8>&
      */
     const std::array<double, 8>& get_electron_phonon_rates(std::size_t band_index) const { return m_electron_phonon_rates[band_index]; }
+
+    const std::vector<std::array<double, 8>>& get_electron_phonon_rates_all_bands() const { return m_electron_phonon_rates; }
 
 };
 

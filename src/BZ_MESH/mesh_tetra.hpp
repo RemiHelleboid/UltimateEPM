@@ -109,10 +109,13 @@ class Tetra {
     vector3               compute_euclidean_coordinates_with_indices(const std::array<double, 4>& barycentric_coordinates,
                                                                      const std::array<int, 4>&    indices_vertex) const;
 
+    bool is_energy_inside_band(double energy, std::size_t index_band) const;
     std::array<int, 4>   get_index_vertices_with_sorted_energy_at_band(std::size_t index_band) const;
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
     double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;
     double               compute_tetra_dos_energy_band(double energy, std::size_t band_index) const;
+    
+    std::array<double, 8> get_mean_electron_phonon_rates(int band_index) const;
 
     
 

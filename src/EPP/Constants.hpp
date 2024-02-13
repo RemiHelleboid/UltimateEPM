@@ -20,6 +20,7 @@ namespace Constants {
 constexpr double Ryd_to_eV      = 13.6;
 constexpr double h              = 6.62606957e-34;
 constexpr double h_bar          = 6.62606957e-34 / (2 * M_PI);
+constexpr double h_bar_eV       = 6.582119514e-16;
 constexpr double m0             = 9.10938356e-31;
 constexpr double q              = 1.602176634e-19;
 constexpr double eps_zero       = 8.854187e-12;

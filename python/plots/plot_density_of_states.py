@@ -13,6 +13,8 @@ from argparse import ArgumentParser
 import matplotlib.style
 import matplotlib as mpl
 
+import scienceplots
+
 plt.style.use(['science', 'muted'])
 mpl.rcParams['figure.figsize'] = [3.5, 2.8]
 mpl.rcParams['figure.dpi'] = 300

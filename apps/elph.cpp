@@ -44,6 +44,8 @@ int main(int argc, char const *argv[])
 
     cmd.parse(argc, argv);
 
+    auto start = std::chrono::high_resolution_clock::now();
+
     EmpiricalPseudopotential::Materials materials;
     const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
     materials.load_material_parameters(file_material_parameters);
@@ -65,6 +67,16 @@ int main(int argc, char const *argv[])
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
     ElectronPhonon.read_mesh_bands_from_msh_file(mesh_band_input_file);
 
-    // ElectronPhonon.compute_electron_phonon_rates_over_mesh();
+    ElectronPhonon.compute_electron_phonon_rates_over_mesh();
+
+    ElectronPhonon.export_rate_values("rates_all.csv");
+
+    ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels, 10.0, 0.01, "rates_vs_energy.csv");
+
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds" << std::endl;
+
+    return 0;
 
 }

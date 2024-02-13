@@ -59,7 +59,13 @@ void Tetra::compute_gradient_energy_at_bands() {
         const double                eps_14               = (e_0 - energies_at_vertices[indices_sort[3]]);
         const double                gradient_energy      = sqrt((eps_12 * eps_12 + eps_13 * eps_13 + eps_14 * eps_14));
         if (gradient_energy == 0) {
-            std::cout << "Warning: gradient energy is zero for tetra " << m_index << " at band " << band_index << std::endl;
+            std::cout << "Gradient energy is zero for tetra " << m_index << " at band " << band_index << std::endl;
+            std::cout << "Energies: " << energies_at_vertices[0] << " " << energies_at_vertices[1] << " " << energies_at_vertices[2] << " "
+                      << energies_at_vertices[3] << std::endl;
+            std::cout << m_list_vertices[0]->get_position() << "\n"
+                      << m_list_vertices[1]->get_position() << "\n"
+                      << m_list_vertices[2]->get_position() << "\n"
+                      << m_list_vertices[3]->get_position() << std::endl;
         }
         m_gradient_energy_per_band.push_back(gradient_energy);
     }
@@ -335,6 +341,20 @@ double Tetra::compute_tetra_dos_energy_band(double energy, std::size_t band_inde
     const double renormalization = 6.0 * fabs(this->m_signed_volume);
     return renormalization * (1.0 / m_gradient_energy_per_band[band_index]) *
            this->compute_tetra_iso_surface_energy_band(energy, band_index);
+}
+
+bool Tetra::is_energy_inside_band(double energy, std::size_t index_band) const {
+    return (energy >= m_min_energy_per_band[index_band] && energy <= m_max_energy_per_band[index_band]);
+}
+
+std::array<double, 8> Tetra::get_mean_electron_phonon_rates(int band_index) const {
+    std::array<double, 8> mean_rates;
+    std::fill(mean_rates.begin(), mean_rates.end(), 0.0);
+    for (std::size_t i = 0; i < 4; i++) {
+        const std::array<double, 8>& rates = m_list_vertices[i]->get_electron_phonon_rates(band_index);
+        std::transform(mean_rates.begin(), mean_rates.end(), rates.begin(), mean_rates.begin(), std::plus<double>());
+    }
+    return mean_rates;
 }
 
 }  // namespace bz_mesh

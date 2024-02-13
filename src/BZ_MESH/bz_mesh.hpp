@@ -83,6 +83,10 @@ class MeshBZ {
     std::size_t get_number_elements() const { return m_list_tetrahedra.size(); }
     double     get_volume() const { return m_total_volume; }
 
+    bool is_inside_mesh_geometry(const vector3& k) const;
+    bool is_inside_mesh_geometry(const Vector3D<double>& k) const;
+    vector3 retrieve_k_inside_mesh_geometry(const vector3& k) const;
+
     vector3 get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
     std::size_t get_nearest_k_index(const Vector3D<double>& k) const;
     std::size_t get_nearest_k_index(const vector3& k) const;
