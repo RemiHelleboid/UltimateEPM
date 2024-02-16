@@ -211,6 +211,8 @@ class ElectronPhonon : public BZ_States {
     HoleOverlapIntParams m_hole_overlap_int_params;
     DeformationPotential m_acoustic_deformation_potential_e;
     DeformationPotential m_optical_deformation_potential_e;
+    DeformationPotential m_acoustic_deformation_potential_h;
+    DeformationPotential m_optical_deformation_potential_h;
 
     std::map<PhononModeDirection, PhononDispersion> m_phonon_dispersion;
 
@@ -225,6 +227,7 @@ class ElectronPhonon : public BZ_States {
     double hole_overlap_integral(int n1, const Vector3D<double>& k1, int n2, const Vector3D<double>& k2);
 
     RateValues compute_electron_phonon_rate(int idx_n1, std::size_t idx_k1);
+    RateValues compute_hole_phonon_rate(int idx_n1, std::size_t idx_k1);
 
     void set_temperature(double temperature) { m_temperature = temperature; }
     void set_density(double rho) { m_rho = rho; }

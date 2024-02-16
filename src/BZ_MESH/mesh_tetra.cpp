@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "iso_triangle.hpp"
+#include "Constants.hpp"    
 
 namespace bz_mesh {
 
@@ -45,6 +46,33 @@ vector3 Tetra::compute_barycenter() const {
             m_list_vertices[3]->get_position()) /
            4.0;
 }
+
+
+std::vector<double> Tetra::compute_gradient_scalar_field(std::array<double, 4> values){
+    double v0 = values[0];
+    double v1 = values[1];
+    double v2 = values[2];
+    double v3 = values[3];
+    double x_0 = m_list_vertices[0]->get_position().x();
+    double y_0 = m_list_vertices[0]->get_position().y();
+    double z_0 = m_list_vertices[0]->get_position().z();
+    double x_1 = m_list_vertices[1]->get_position().x();
+    double y_1 = m_list_vertices[1]->get_position().y();
+    double z_1 = m_list_vertices[1]->get_position().z();
+    double x_2 = m_list_vertices[2]->get_position().x();
+    double y_2 = m_list_vertices[2]->get_position().y();
+    double z_2 = m_list_vertices[2]->get_position().z();
+    double x_3 = m_list_vertices[3]->get_position().x();
+    double y_3 = m_list_vertices[3]->get_position().y();
+    double z_3 = m_list_vertices[3]->get_position().z();
+    double det = 6.0 * m_signed_volume;
+
+    
+
+}
+
+
+
 
 void Tetra::compute_gradient_energy_at_bands() {
     m_gradient_energy_per_band.clear();
@@ -338,7 +366,7 @@ double Tetra::compute_tetra_dos_energy_band(double energy, std::size_t band_inde
     if (energy < m_min_energy_per_band[band_index] || energy > m_max_energy_per_band[band_index]) {
         return 0.0;
     }
-    const double renormalization = 6.0 * fabs(this->m_signed_volume);
+    const double renormalization = (2.0 / pow(M_2_PI, 3)) / EmpiricalPseudopotential::Constants::h_bar;
     return renormalization * (1.0 / m_gradient_energy_per_band[band_index]) *
            this->compute_tetra_iso_surface_energy_band(energy, band_index);
 }

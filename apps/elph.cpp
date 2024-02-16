@@ -67,6 +67,14 @@ int main(int argc, char const *argv[])
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
     ElectronPhonon.read_mesh_bands_from_msh_file(mesh_band_input_file);
 
+    unsigned int nb_bands = ElectronPhonon.get_number_bands();
+    std::cout << "Number of bands: " << nb_bands << std::endl;
+    if (my_options.nrLevels > nb_bands) {
+        std::cout << "Number of bands requested is greater than the number of bands in the mesh file. Resetting to " << nb_bands << std::endl;
+        my_options.nrLevels = nb_bands;
+    }
+
+
     ElectronPhonon.compute_electron_phonon_rates_over_mesh();
 
     ElectronPhonon.export_rate_values("rates_all.csv");

@@ -70,6 +70,11 @@ class Tetra {
      */
     std::vector<double> m_max_energy_per_band;
 
+    /**
+     * @brief G>radient of the energy at the vertices of the tetrahedra for each band.
+     * It is pre-computed and stored for optimization purposes.
+     *
+     */
     std::vector<double> m_gradient_energy_per_band;
 
  public:
@@ -97,10 +102,11 @@ class Tetra {
 
     std::array<double, 4> get_band_energies_at_vertices(std::size_t index_band) const;
 
-    double  compute_signed_volume() const;
-    double  get_signed_volume() const { return m_signed_volume; }
-    vector3 compute_edge(std::size_t index_vtx_1, std::size_t index_vtx_2) const;
-    void    compute_gradient_energy_at_bands();
+    double              compute_signed_volume() const;
+    double              get_signed_volume() const { return m_signed_volume; }
+    vector3             compute_edge(std::size_t index_vtx_1, std::size_t index_vtx_2) const;
+    void                compute_gradient_energy_at_bands();
+    std::vector<double> Tetra::compute_gradient_scalar_field(std::array<double, 4> values);
 
     vector3               compute_barycenter() const;
     bool                  is_location_inside(const vector3& location) const;
@@ -109,15 +115,13 @@ class Tetra {
     vector3               compute_euclidean_coordinates_with_indices(const std::array<double, 4>& barycentric_coordinates,
                                                                      const std::array<int, 4>&    indices_vertex) const;
 
-    bool is_energy_inside_band(double energy, std::size_t index_band) const;
+    bool                 is_energy_inside_band(double energy, std::size_t index_band) const;
     std::array<int, 4>   get_index_vertices_with_sorted_energy_at_band(std::size_t index_band) const;
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
     double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;
     double               compute_tetra_dos_energy_band(double energy, std::size_t band_index) const;
-    
-    std::array<double, 8> get_mean_electron_phonon_rates(int band_index) const;
 
-    
+    std::array<double, 8> get_mean_electron_phonon_rates(int band_index) const;
 
     double  interpolate_scalar_at_position(const std::array<double, 4>& barycentric_coordinates,
                                            const std::vector<double>&   scalar_field) const;

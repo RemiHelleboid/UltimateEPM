@@ -258,7 +258,7 @@ int main(int argc, char *argv[]) {
         std::cout << "Exporting DOS values to file: " << out_file_bands << std::endl;
         export_multiple_vector_to_csv(out_file_bands + ".csv", list_header, dos_at_bands);
 
-        const std::string python_plot_dos  = std::string(CMAKE_SOURCE_DIR) + "/python/plot_density_of_states.py";
+        const std::string python_plot_dos  = std::string(CMAKE_SOURCE_DIR) + "/python/plots/plot_density_of_states.py";
         bool              call_python_plot = plot_with_python.isSet();
         if (call_python_plot) {
             std::string python_call = "python3 " + python_plot_dos + " --file " + out_file_bands + ".csv";
