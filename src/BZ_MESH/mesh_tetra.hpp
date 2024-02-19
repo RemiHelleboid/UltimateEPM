@@ -102,11 +102,11 @@ class Tetra {
 
     std::array<double, 4> get_band_energies_at_vertices(std::size_t index_band) const;
 
-    double              compute_signed_volume() const;
-    double              get_signed_volume() const { return m_signed_volume; }
-    vector3             compute_edge(std::size_t index_vtx_1, std::size_t index_vtx_2) const;
-    void                compute_gradient_energy_at_bands();
-    std::vector<double> Tetra::compute_gradient_scalar_field(std::array<double, 4> values);
+    double  compute_signed_volume() const;
+    double  get_signed_volume() const { return m_signed_volume; }
+    vector3 compute_edge(std::size_t index_vtx_1, std::size_t index_vtx_2) const;
+    void    compute_gradient_energy_at_bands();
+    vector3 compute_gradient_scalar_field(std::array<double, 4> values);
 
     vector3               compute_barycenter() const;
     bool                  is_location_inside(const vector3& location) const;

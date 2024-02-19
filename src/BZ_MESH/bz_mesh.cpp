@@ -221,7 +221,6 @@ double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index)
     for (auto&& tetra : m_list_tetrahedra) {
         total_dos += tetra.compute_tetra_dos_energy_band(iso_energy, band_index);
     }
-    total_dos /= this->m_total_volume;
     return total_dos;
 }
 

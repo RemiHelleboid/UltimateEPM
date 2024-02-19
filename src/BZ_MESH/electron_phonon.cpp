@@ -23,6 +23,8 @@
 #include "Vector3D.h"
 #include "bz_states.hpp"
 
+#include "gmsh.h"
+
 #include "omp.h"
 
 namespace bz_mesh {
@@ -103,7 +105,8 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                 }
                 // std::cout << "Energy phonon: " << e_ph << std::endl;
                 for (auto sign_phonon : {-1.0, 1.0}) {
-                    double bose_part    = (bose_einstein_distribution(e_ph, m_temperature) + 0.5 + 0.5 * std::pow(-1.0, sign_phonon));
+                    double add_phonon = (sign_phonon == 1.0) ? 1.0 : 0.0;
+                    double bose_part    = (bose_einstein_distribution(e_ph, m_temperature) + add_phonon);
                     double energy_final = energy_n1_k1 + e_ph * sign_phonon;
                     // std::cout << "Energy (n1, k1): " << energy_n1_k1 << " Energy phonon: " << e_ph << " Energy final: " << energy_final
                     //           << std::endl;
@@ -125,7 +128,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                                         deformation_potential_value * overlap_integral * overlap_integral * bose_part * dos_tetra;
                     // std::cout << this->get_volume() << std::endl;
                     rate_value /= this->get_volume();
-                    rate_value *= EmpiricalPseudopotential::Constants::q;
+                    // rate_value *= EmpiricalPseudopotential::Constants::q;
 
                     if (rate_value < 0.0 || rate_value > 1e50 || std::isnan(rate_value) || std::isinf(rate_value)) {
                         std::cout << "Rate value: " << rate_value << std::endl;
@@ -140,7 +143,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                         std::cout << "Energy (n1, k1): " << energy_n1_k1 << std::endl;
                         std::cout << "--------------------------------------------------------------------------------" << std::endl;
                     }
-                    // std::cout << "Rate value: " << (deformation_potential_value) << std::endl;
+                    // std::cout << "Rate value: " << rate_value << std::endl;
                     RateValue rate(phonon_mode, phonon_direction, phonon_event, rate_value);
                     rates_k1_n1.add_rate(rate);
                 }
@@ -212,8 +215,8 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
                     }
                     // std::cout << "Volume: " << this->get_volume() << std::endl;
                     double dos_tetra = tetra.compute_tetra_dos_energy_band(energy_final, idx_n2);
-                    // std::cout << "Energy final: " << energy_final << " dos tetra: " << dos_tetra
-                    //           << std::endl;
+                    // double dos_tetra = 1.0;
+                    // std::cout << "DOS: " << dos_tetra << std::endl;
                     DeformationPotential deformation_potential       = (mode_direction.first == PhononMode::acoustic)
                                                                            ? m_acoustic_deformation_potential_h
                                                                            : m_optical_deformation_potential_h;
@@ -263,7 +266,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
     std::random_device                     rd;
     std::mt19937                           gen(rd());
     std::uniform_real_distribution<double> dis(0.0, 1.0);
-    double                                 p_compute_rate = 1.0;
+    double                                 p_compute_rate = 0.1;
 
 #pragma omp parallel for schedule(dynamic)
     for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
@@ -291,7 +294,8 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
             }
         }
         if (omp_get_thread_num() == 0){
-            std::cout << "\rComputing rates for k-point " << idx_k1 << std::flush;}
+            std::cout << "\rComputing rates for k-point " << idx_k1 << " / " << m_list_vertices.size() << std::flush;
+        }
              
     }
     std::cout << std::endl;
@@ -358,6 +362,113 @@ void ElectronPhonon::plot_phonon_dispersion(const std::string& filename) const {
         file << std::endl;
     }
 }
+
+void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initial_filename,
+                                                       const std::string& final_filename) {
+    gmsh::initialize();
+    gmsh::option::setNumber("General.Verbosity", 0);
+    gmsh::model::add("bz_mesh");
+    gmsh::open(initial_filename);
+
+    std::string model_file_name;
+    gmsh::model::getCurrent(model_file_name);
+
+
+    std::vector<std::size_t> node_tags;
+    std::vector<double> nodeCoords;
+    std::vector<double> nodeParams;
+    gmsh::model::mesh::reclassifyNodes();
+    gmsh::model::mesh::getNodes(node_tags, nodeCoords, nodeParams, -1, -1, false, false);
+
+
+    auto indices_conduction_bands = m_indices_conduction_bands;
+    auto min_idx_conduction_band  = *std::min_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
+    auto max_idx_conduction_band  = *std::max_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
+    std::cout << "Min index conduction band: " << min_idx_conduction_band << std::endl;
+    int nb_bands = m_indices_conduction_bands.size() + m_indices_valence_bands.size();
+
+    for (int idx_val_band=0; idx_val_band<max_idx_conduction_band; ++idx_val_band) {
+        std::vector<double> rates_hole_lo_em(m_list_vertices.size());
+        std::vector<double> rates_hole_lo_ab(m_list_vertices.size());
+        std::vector<double> rates_hole_tr_em(m_list_vertices.size());
+        std::vector<double> rates_hole_tr_ab(m_list_vertices.size());
+        std::vector<double> rates_elec_lo_em(m_list_vertices.size());
+        std::vector<double> rates_elec_lo_ab(m_list_vertices.size());
+        std::vector<double> rates_elec_tr_em(m_list_vertices.size());
+        std::vector<double> rates_elec_tr_ab(m_list_vertices.size());
+
+        for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
+            auto rates = m_list_vertices[idx_k1].get_electron_phonon_rates(idx_val_band);
+            rates_hole_lo_em[idx_k1] = rates[0];
+            rates_hole_lo_ab[idx_k1] = rates[1];
+            rates_hole_tr_em[idx_k1] = rates[2];
+            rates_hole_tr_ab[idx_k1] = rates[3];
+            rates_elec_lo_em[idx_k1] = rates[4];
+            rates_elec_lo_ab[idx_k1] = rates[5];
+            rates_elec_tr_em[idx_k1] = rates[6];
+            rates_elec_tr_ab[idx_k1] = rates[7];
+        }
+        std::string name_rate_hole_lo_em = "hole_lo_em_" + std::to_string(idx_val_band);
+        std::string name_rate_hole_lo_ab = "hole_lo_ab_" + std::to_string(idx_val_band);
+        std::string name_rate_hole_tr_em = "hole_tr_em_" + std::to_string(idx_val_band);
+        std::string name_rate_hole_tr_ab = "hole_tr_ab_" + std::to_string(idx_val_band);
+        std::string name_rate_elec_lo_em = "elec_lo_em_" + std::to_string(idx_val_band);
+        std::string name_rate_elec_lo_ab = "elec_lo_ab_" + std::to_string(idx_val_band);
+        std::string name_rate_elec_tr_em = "elec_tr_em_" + std::to_string(idx_val_band);
+        std::string name_rate_elec_tr_ab = "elec_tr_ab_" + std::to_string(idx_val_band);
+
+        int data_tag_hole_lo_em = gmsh::view::add(name_rate_hole_lo_em);
+        int data_tag_hole_lo_ab = gmsh::view::add(name_rate_hole_lo_ab);
+        int data_tag_hole_tr_em = gmsh::view::add(name_rate_hole_tr_em);
+        int data_tag_hole_tr_ab = gmsh::view::add(name_rate_hole_tr_ab);
+        int data_tag_elec_lo_em = gmsh::view::add(name_rate_elec_lo_em);
+        int data_tag_elec_lo_ab = gmsh::view::add(name_rate_elec_lo_ab);
+        int data_tag_elec_tr_em = gmsh::view::add(name_rate_elec_tr_em);
+        int data_tag_elec_tr_ab = gmsh::view::add(name_rate_elec_tr_ab);
+
+        gmsh::view::addHomogeneousModelData(data_tag_hole_lo_em, 0, model_file_name, "NodeData", node_tags, rates_hole_lo_em);
+        gmsh::view::addHomogeneousModelData(data_tag_hole_lo_ab, 0, model_file_name, "NodeData", node_tags, rates_hole_lo_ab);
+        gmsh::view::addHomogeneousModelData(data_tag_hole_tr_em, 0, model_file_name, "NodeData", node_tags, rates_hole_tr_em);
+        gmsh::view::addHomogeneousModelData(data_tag_hole_tr_ab, 0, model_file_name, "NodeData", node_tags, rates_hole_tr_ab);
+        gmsh::view::addHomogeneousModelData(data_tag_elec_lo_em, 0, model_file_name, "NodeData", node_tags, rates_elec_lo_em);
+        gmsh::view::addHomogeneousModelData(data_tag_elec_lo_ab, 0, model_file_name, "NodeData", node_tags, rates_elec_lo_ab);
+        gmsh::view::addHomogeneousModelData(data_tag_elec_tr_em, 0, model_file_name, "NodeData", node_tags, rates_elec_tr_em);
+        gmsh::view::addHomogeneousModelData(data_tag_elec_tr_ab, 0, model_file_name, "NodeData", node_tags, rates_elec_tr_ab);
+
+        gmsh::view::write(data_tag_hole_lo_em, final_filename, true);
+        gmsh::view::write(data_tag_hole_lo_ab, final_filename, true);
+        gmsh::view::write(data_tag_hole_tr_em, final_filename, true);
+        gmsh::view::write(data_tag_hole_tr_ab, final_filename, true);
+        gmsh::view::write(data_tag_elec_lo_em, final_filename, true);
+        gmsh::view::write(data_tag_elec_lo_ab, final_filename, true);
+        gmsh::view::write(data_tag_elec_tr_em, final_filename, true);
+        gmsh::view::write(data_tag_elec_tr_ab, final_filename, true); 
+    }
+
+
+    // for (int index_band = 0; index_band < number_bands; ++index_band) {
+    //     std::string         band_name = "band_" + std::to_string(index_band);
+    //     std::vector<double> current_band_values(m_node_tags.size());
+    //     for (std::size_t index_node = 0; index_node < m_node_tags.size(); ++index_node) {
+    //         current_band_values[index_node] = band_values[index_node * number_bands + index_band];
+    //         // std::cout << "band_values[" << index_node << "]: " << band_values[index_node * number_bands + index_band] << std::endl;
+    //     }
+    //     int data_tag = gmsh::view::add(band_name);
+    //     if (m_node_tags.size() != current_band_values.size()) {
+    //         std::cout << "number of nodes: " << m_node_tags.size() << std::endl;
+    //         std::cout << "number of values: " << current_band_values.size() << std::endl;
+    //         throw std::runtime_error("Number of nodes and number of values are not the same. Abort.");
+    //     }
+    //     gmsh::view::addHomogeneousModelData(data_tag, 0, model_file_name, "NodeData", m_node_tags, current_band_values);
+    //     const int   index_view             = gmsh::view::getIndex(data_tag);
+    //     std::string name_object_visibility = "View[" + std::to_string(index_view) + "].Visible";
+    //     gmsh::option::setNumber(name_object_visibility, 0);
+    //     gmsh::view::write(data_tag, out_filename, true);
+    // }
+
+    
+}
+
 
 void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
     YAML::Node config = YAML::LoadFile(filename);

@@ -233,6 +233,7 @@ class ElectronPhonon : public BZ_States {
     void set_density(double rho) { m_rho = rho; }
 
     void compute_electron_phonon_rates_over_mesh();
+    void add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename);
 
     void export_rate_values(const std::string& filename) const;
 

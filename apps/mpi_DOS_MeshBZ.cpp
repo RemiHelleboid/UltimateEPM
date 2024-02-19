@@ -261,7 +261,7 @@ int main(int argc, char *argv[]) {
         const std::string python_plot_dos  = std::string(CMAKE_SOURCE_DIR) + "/python/plots/plot_density_of_states.py";
         bool              call_python_plot = plot_with_python.isSet();
         if (call_python_plot) {
-            std::string python_call = "python3 " + python_plot_dos + " --file " + out_file_bands + ".csv";
+            std::string python_call = "nohup python3 " + python_plot_dos + " --file " + out_file_bands + ".csv &";
             std::cout << "Executing: " << python_call << std::endl;
             int succes_plot = system(python_call.c_str());
             if (succes_plot != 0) {
