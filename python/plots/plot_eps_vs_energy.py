@@ -31,9 +31,11 @@ def plot_dielectric_function_vs_energy(dirname):
         qx = float(filestem.split('_')[-3])
         print(qx, qy, qz)
         list_q.append(np.sqrt(qx**2 + qy**2 + qz**2))
+    print(list_q)
         
     list_files = [x for _, x in sorted(zip(list_q, list_files))]
     cmap = plt.get_cmap('jet')
+    
     norm = mpl.colors.Normalize(vmin=min(list_q), vmax=max(list_q))
     
     fig, ax = plt.subplots()
