@@ -13,6 +13,7 @@
 
 #include <Eigen/Dense>
 #include <array>
+#include <memory>
 
 #include "Material.h"
 #include "bz_mesh.hpp"
@@ -21,10 +22,20 @@
 namespace bz_mesh {
 
 typedef std::complex<double> complex_d;
+typedef std::unique_ptr<BZ_States> uptr_BZstates;
 
-class ImpactIonization : private BZ_States {
+class ImpactIonization {
  private:
-    double m_impact_ionization_rate = 0.0;
+    /**
+     * @brief List of Brillouin Zone with their precomputed electronic states.
+     * Each of them correspond to a 1BZ shifted by a vector G of the reciprocal lattice.
+     * 
+     */
+    std::vector<uptr_BZstates> m_list_BZ_states;
+
+    std::vector<double> m_impact_ionization_results;
+
+
 
  public:
     std::array<complex_d, 2> compute_direct_indirect_impact_ionization_matrix_element(int idx_n1,

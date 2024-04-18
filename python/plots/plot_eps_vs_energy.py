@@ -26,11 +26,14 @@ def plot_dielectric_function_vs_energy(dirname):
     list_q = []
     for filename in list_files:
         filestem = Path(filename).stem
-        qz = float(filestem.split('_')[-1])
-        qy = float(filestem.split('_')[-2])
-        qx = float(filestem.split('_')[-3])
-        print(qx, qy, qz)
-        list_q.append(np.sqrt(qx**2 + qy**2 + qz**2))
+        try:
+            qz = float(filestem.split('_')[-1])
+            qy = float(filestem.split('_')[-2])
+            qx = float(filestem.split('_')[-3])
+            print(qx, qy, qz)
+            list_q.append(np.sqrt(qx**2 + qy**2 + qz**2))
+        except:
+            continue
     print(list_q)
         
     list_files = [x for _, x in sorted(zip(list_q, list_files))]

@@ -115,6 +115,7 @@ std::size_t MeshBZ::get_nearest_k_index(const Vector3D<double>& k) const {
     }
     return index_nearest_k;
 }
+
 std::size_t MeshBZ::get_nearest_k_index(const vector3& k) const {
     std::size_t index_nearest_k = 0;
     double      min_distance    = std::numeric_limits<double>::max();

@@ -72,6 +72,7 @@ class MeshBZ {
 
  public:
     MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material){};
+    MeshBZ(const MeshBZ&) = default;
 
     void read_mesh_geometry_from_msh_file(const std::string& filename);
     void read_mesh_bands_from_msh_file(const std::string& filename);

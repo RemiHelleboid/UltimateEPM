@@ -22,6 +22,8 @@ class BZ_States : public MeshBZ {
  protected:
     int m_nb_bands = 0;
 
+    vector3 m_center = {0.0,0.0,0.0};
+
     std::vector<Vector3D<int>> m_basisVectors;
 
     std::vector<Eigen::VectorXd>  m_eigenvalues_k;

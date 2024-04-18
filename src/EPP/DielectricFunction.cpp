@@ -255,7 +255,7 @@ void DielectricFunction::export_dielectric_function_at_q(const std::string& file
     if (name_auto) {
         // outname = m_export_prefix + '_' + std::to_string(idx_q) + '_' + std::to_string(m_qpoints[idx_q].X) + "_" + std::to_string(m_qpoints[idx_q].Y) + "_" +
         //           std::to_string(m_qpoints[idx_q].Z) + ".csv";
-        outname = fmt::format("{}_{:05}_{:.1f}_{:.1f}_{:.1f}.csv", m_export_prefix, idx_q, m_qpoints[idx_q].X, m_qpoints[idx_q].Y, m_qpoints[idx_q].Z);
+        outname = fmt::format("{}_{:05}_{:.6f}_{:.6f}_{:.6f}.csv", m_export_prefix, idx_q, m_qpoints[idx_q].X, m_qpoints[idx_q].Y, m_qpoints[idx_q].Z);
     } else {
         outname = filename;
     }
