@@ -22,6 +22,7 @@
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
 #include "bz_states.hpp"
+#include "impact_ionization.hpp"
 
 int main(int argc, char *argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
@@ -30,6 +31,12 @@ int main(int argc, char *argv[]) {
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
     TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to consider", false, 12, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
+    TCLAP::ValueArg<double>      arg_radius_BZ("R",
+                                           "radiusBZ",
+                                           "Max norm of G vector for which the BZ center in G is taken into account",
+                                           false,
+                                           0,
+                                           "double");
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
@@ -37,6 +44,7 @@ int main(int argc, char *argv[]) {
     cmd.add(arg_nb_bands);
     cmd.add(arg_nb_energies);
     cmd.add(arg_nb_threads);
+    cmd.add(arg_radius_BZ);
 
     cmd.parse(argc, argv);
 
@@ -60,26 +68,14 @@ int main(int argc, char *argv[]) {
 
     EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
-    bz_mesh::BZ_States my_bz_mesh(current_material);
-    my_bz_mesh.set_nb_bands(nb_bands_to_use);
-    EmpiricalPseudopotential::BandStructure band_structure{};
-
-    int nb_nearest_neighbors = 10;
-    band_structure.Initialize(current_material, nb_bands_to_use, {}, nb_nearest_neighbors, nonlocal_epm, enable_soc);
-    auto basis = band_structure.get_basis_vectors();
-    my_bz_mesh.set_basis_vectors(basis);
-
-    my_bz_mesh.read_mesh_geometry_from_msh_file(arg_mesh_file.getValue());
-    std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
-
-    my_bz_mesh.compute_eigenstates(my_options.nrThreads);
-
+    bz_mesh::ImpactIonization my_impact_ionization(current_material, arg_mesh_file.getValue());
+    my_impact_ionization.set_max_radius_G0_BZ(arg_radius_BZ.getValue());
+    my_impact_ionization.compute_eigenstates();
     
     auto end = std::chrono::high_resolution_clock::now();
 
     std::chrono::duration<double> elapsed_seconds = end - start;
     std::cout << "Elapsed time: " << elapsed_seconds.count() << "s" << std::endl;
-
 
     return 0;
 }

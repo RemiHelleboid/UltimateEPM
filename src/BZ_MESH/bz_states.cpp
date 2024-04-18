@@ -45,6 +45,7 @@ void BZ_States::compute_eigenstates(int nb_threads) {
         auto nb_rows            = m_eigenvectors_k[idx_k].rows();
         m_eigenvectors_k[idx_k].conservativeResize(nb_rows, m_nb_bands);
     }
+    std::cout << std::endl;
 }
 
 void BZ_States::compute_shifted_eigenstates(const Vector3D<double>& q_shift, int nb_threads) {
@@ -73,6 +74,7 @@ void BZ_States::compute_shifted_eigenstates(const Vector3D<double>& q_shift, int
         auto nb_rows                   = m_eigenvectors_k[idx_k].rows();
         m_eigenvectors_k_plus_q[idx_k].conservativeResize(nb_rows, m_nb_bands);
     }
+    std::cout << std::endl;
 }
 
 /**

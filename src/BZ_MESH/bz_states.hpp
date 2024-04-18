@@ -22,7 +22,6 @@ class BZ_States : public MeshBZ {
  protected:
     int m_nb_bands = 0;
 
-    vector3 m_center = {0.0,0.0,0.0};
 
     std::vector<Vector3D<int>> m_basisVectors;
 
@@ -68,6 +67,7 @@ class BZ_States : public MeshBZ {
 
  public:
     BZ_States(const EmpiricalPseudopotential::Material& material) : MeshBZ(material) {}
+    BZ_States(const BZ_States& other) = default;
 
     void                              set_nb_bands(int nb_bands) { m_nb_bands = nb_bands; }
     void                              set_basis_vectors(const std::vector<Vector3D<int>>& basis_vectors) { m_basisVectors = basis_vectors; }

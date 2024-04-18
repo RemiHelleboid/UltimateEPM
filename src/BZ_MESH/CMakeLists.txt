@@ -6,6 +6,7 @@ set(HEADER_FILES_LIBBZMESH
   iso_triangle.hpp
   bz_states.hpp
   electron_phonon.hpp
+  impact_ionization.hpp
   )
 
 
@@ -14,6 +15,7 @@ set(SOURCE_FILES_LIBBZMESH
   bz_mesh.cpp
   bz_states.cpp
   electron_phonon.cpp
+  impact_ionization.cpp
 )
 
 add_library(lib_bzmesh STATIC ${SOURCE_FILES_LIBBZMESH} ${HEADER_FILES_LIBBZMESH})

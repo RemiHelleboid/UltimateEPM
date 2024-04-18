@@ -24,6 +24,14 @@
 
 namespace bz_mesh {
 
+
+void MeshBZ::shift_bz_center(const vector3& center) {
+    m_center = center;
+    for (auto&& vtx : m_list_vertices) {
+        vtx.shift_position(center);
+    }
+}
+
 /**
  * @brief Read the geometry of the mesh from the .msh file: the vertices and the elements are added to
  * the m_list_vertices and m_list_elements lists.

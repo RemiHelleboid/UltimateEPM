@@ -29,6 +29,12 @@ class MeshBZ {
     EmpiricalPseudopotential::Material m_material;
 
     /**
+     * @brief G vector on which the BZ is centered.
+     *
+     */
+    vector3 m_center = {0.0, 0.0, 0.0};
+
+    /**
      * @brief List of the vertices of the BZ mesh. Each vertices represent a vector k within the Brillouin Zone.
      *
      */
@@ -74,6 +80,9 @@ class MeshBZ {
     MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material){};
     MeshBZ(const MeshBZ&) = default;
 
+    vector3 get_center() const { return m_center; }
+    void    shift_bz_center(const vector3& shift);
+
     void read_mesh_geometry_from_msh_file(const std::string& filename);
     void read_mesh_bands_from_msh_file(const std::string& filename);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
@@ -82,17 +91,17 @@ class MeshBZ {
 
     std::size_t get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t get_number_elements() const { return m_list_tetrahedra.size(); }
-    double     get_volume() const { return m_total_volume; }
+    double      get_volume() const { return m_total_volume; }
 
-    bool is_inside_mesh_geometry(const vector3& k) const;
-    bool is_inside_mesh_geometry(const Vector3D<double>& k) const;
+    bool    is_inside_mesh_geometry(const vector3& k) const;
+    bool    is_inside_mesh_geometry(const Vector3D<double>& k) const;
     vector3 retrieve_k_inside_mesh_geometry(const vector3& k) const;
 
-    vector3 get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
+    vector3     get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
     std::size_t get_nearest_k_index(const Vector3D<double>& k) const;
     std::size_t get_nearest_k_index(const vector3& k) const;
 
-    std::size_t get_number_bands() const { return m_min_band.size(); }
+    std::size_t               get_number_bands() const { return m_min_band.size(); }
     std::pair<double, double> get_min_max_energy_at_band(const int& band_index) const {
         return std::make_pair(m_min_band[band_index], m_max_band[band_index]);
     }

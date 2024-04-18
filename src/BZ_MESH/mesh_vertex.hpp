@@ -98,6 +98,20 @@ class Vertex {
     const vector3& get_position() const { return m_position; }
 
     /**
+     * @brief Set the position of the vertex.
+     *
+     * @param position
+     */
+    void set_position(const vector3& position) { m_position = position; }
+
+    /**
+     * @brief Shift the position of the vertex by a given vector.
+     *
+     * @param shift
+     */
+    void shift_position(const vector3& shift) { m_position += shift; }
+
+    /**
      * @brief Add an energy at the end of the list of energy. (One energy per band).
      *
      * @param energy
