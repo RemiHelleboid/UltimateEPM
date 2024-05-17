@@ -25,6 +25,10 @@ DIR_OUT = "OUTDIR/"
 list_dielectric_files = glob.glob(DIR_OUT + "Si*.csv")
 print(f"list_dielectric_files = {list_dielectric_files[1]}")
 list_idx_dielectric = [int(Path(file).stem.split("_")[2]) for file in list_dielectric_files]
+print(f"list_idx_dielectric = {list_idx_dielectric}")
+arg_sorted = np.argsort(list_idx_dielectric)
+list_dielectric_files = [list_dielectric_files[i] for i in arg_sorted]
+
 
 NbFiles = len(list_dielectric_files)
 
@@ -32,6 +36,16 @@ NbFiles = len(list_dielectric_files)
 nodes = gmsh.model.mesh.getNodes()
 TagNodes = nodes[0]
 NbNodes = TagNodes.shape[0]
+Coordinates = nodes[1].reshape((NbNodes, 3))
+
+# Debug
+for k in range(10):
+    print(f"Coordinates[{k}] = {Coordinates[k]}")
+    print(f"Filename = {list_dielectric_files[k]}")
+    print(f"\n")
+    
+
+
 
 if NbFiles != NbNodes:
     raise ValueError(f"NbFiles = {NbFiles} != NbNodes = {NbNodes}")
@@ -39,8 +53,8 @@ else:
     print(f"NbFiles = {NbFiles} == NbNodes = {NbNodes}")
 
 # Open the first file to get the energy
-energy, eps_r, eps_i = extract_dielectric_file(list_dielectric_files[0])
-print(f"energy = {energy}")
+# energy, eps_r, eps_i = extract_dielectric_file(list_dielectric_files[0])
+# print(f"energy = {energy}")
 LIST_ENERGY = []
 LIST_EPS_R = []
 LIST_EPS_I = []
@@ -65,7 +79,7 @@ NbEnergies = energies.shape[0]
 
 FileName = "EightSphere_3.0_with_dielectric.msh"
 
-for ix_e in range(NbEnergies//10):
+for ix_e in range(NbEnergies):
     print(f"idx_e = {ix_e}")
     e = energies[ix_e]
     eps_r = LIST_EPS_R[:, ix_e]

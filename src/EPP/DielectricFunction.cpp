@@ -9,11 +9,11 @@
  *
  */
 
+#include "DielectricFunction.hpp"
+
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
-
-#include "DielectricFunction.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -47,7 +47,7 @@ DielectricFunction::DielectricFunction(const Material& material, const std::vect
 void DielectricFunction::generate_k_points_random(std::size_t nb_points) {
     std::random_device               rd;
     std::mt19937                     gen(rd());
-    std::uniform_real_distribution<> dis(-1 - .0, 1.0);
+    std::uniform_real_distribution<> dis(-1, 1.0);
     while (m_kpoints.size() < nb_points) {
         Vector3D<double> k(dis(gen), dis(gen), dis(gen));
         if (is_in_first_BZ(k)) {
@@ -93,6 +93,9 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing, int mp
     Hamiltonian hamiltonian_k_plus_q(m_material, m_basisVectors);
     for (std::size_t index_q = 0; index_q < m_qpoints.size(); ++index_q) {
         Vector3D<double>              q_vect = m_qpoints[index_q];
+        if (q_vect.Length() <= 1e-13) {
+            q_vect = Vector3D<double>(1e-13, 1e-13, 1e-13);
+        }
         std::vector<Vector3D<double>> k_plus_q_vects(m_kpoints.size());
         std::transform(m_kpoints.begin(), m_kpoints.end(), k_plus_q_vects.begin(), [&q_vect](const Vector3D<double>& k) {
             return k + q_vect;
@@ -146,12 +149,11 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing, int mp
         for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
             list_epsilon[index_energy] = list_total_sum[index_energy];
         }
-        auto end = std::chrono::high_resolution_clock::now();
-        auto elapsed =
-            std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0;
+        auto end     = std::chrono::high_resolution_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0;
         if (mpi_rank == 0) {
-        std::cout << "Computed dielectric function for q = " << m_qpoints[index_q] << " -> " << index_q + 1 << "/" << m_qpoints.size() << " in "
-                  << elapsed << " s" << std::endl;
+            std::cout << "Computed dielectric function for q = " << m_qpoints[index_q] << " -> " << index_q + 1 << "/" << m_qpoints.size()
+                      << " in " << elapsed << " s" << std::endl;
         }
         start = std::chrono::high_resolution_clock::now();
         m_dielectric_function_real.push_back(list_epsilon);
@@ -253,9 +255,15 @@ void DielectricFunction::apply_kramers_kronig() {
 void DielectricFunction::export_dielectric_function_at_q(const std::string& filename, std::size_t idx_q, bool name_auto) const {
     std::string outname;
     if (name_auto) {
-        // outname = m_export_prefix + '_' + std::to_string(idx_q) + '_' + std::to_string(m_qpoints[idx_q].X) + "_" + std::to_string(m_qpoints[idx_q].Y) + "_" +
+        // outname = m_export_prefix + '_' + std::to_string(idx_q) + '_' + std::to_string(m_qpoints[idx_q].X) + "_" +
+        // std::to_string(m_qpoints[idx_q].Y) + "_" +
         //           std::to_string(m_qpoints[idx_q].Z) + ".csv";
-        outname = fmt::format("{}_{:05}_{:.6f}_{:.6f}_{:.6f}.csv", m_export_prefix, idx_q, m_qpoints[idx_q].X, m_qpoints[idx_q].Y, m_qpoints[idx_q].Z);
+        outname = fmt::format("{}_{:05}_{:.6f}_{:.6f}_{:.6f}.csv",
+                              m_export_prefix,
+                              idx_q,
+                              m_qpoints[idx_q].X,
+                              m_qpoints[idx_q].Y,
+                              m_qpoints[idx_q].Z);
     } else {
         outname = filename;
     }
