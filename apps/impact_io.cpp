@@ -22,11 +22,13 @@
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
 #include "bz_states.hpp"
+#include "dielectric_mesh.hpp"
 #include "impact_ionization.hpp"
 
 int main(int argc, char *argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
+    TCLAP::ValueArg<std::string> arg_dielectric_file("y", "dielectric", "File (.msh) with the dielectric function.", true, "", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
     TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to consider", false, 12, "int");
@@ -40,6 +42,7 @@ int main(int argc, char *argv[]) {
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
+    cmd.add(arg_dielectric_file);
     cmd.add(arg_material);
     cmd.add(arg_nb_bands);
     cmd.add(arg_nb_energies);
@@ -67,6 +70,10 @@ int main(int argc, char *argv[]) {
     auto start           = std::chrono::high_resolution_clock::now();
 
     EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
+
+    bz_mesh::DielectricMesh my_dielectric_mesh(current_material);
+    my_dielectric_mesh.read_dielectric_file(arg_dielectric_file.getValue());
+
 
     bz_mesh::ImpactIonization my_impact_ionization(current_material, arg_mesh_file.getValue());
     my_impact_ionization.set_max_radius_G0_BZ(arg_radius_BZ.getValue());
