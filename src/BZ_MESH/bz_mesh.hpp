@@ -15,6 +15,8 @@
 #include "iso_triangle.hpp"
 #include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
+#include "octree_bz.hpp"
+#include "vector.hpp"
 
 namespace bz_mesh {
 
@@ -47,6 +49,12 @@ class MeshBZ {
     std::vector<Tetra> m_list_tetrahedra;
 
     /**
+     * @brief Octree used to search for the tetrahedra that are overlapping with a given point.
+     *
+     */
+    std::unique_ptr<Octree_mesh> m_search_tree;
+
+    /**
      * @brief The indexes of the valence bands within the Vertex list of energies.
      * For example, if indices_valence_bands = [0, 1, 2] it means that
      * the m_band_energies[0], m_band_energies[1], m_band_energies[2] correspond to valence bands.
@@ -77,13 +85,25 @@ class MeshBZ {
     double m_total_volume = 0.0;
 
  public:
+    MeshBZ() = default;
     MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material){};
     MeshBZ(const MeshBZ&) = default;
 
-    vector3 get_center() const { return m_center; }
-    void    shift_bz_center(const vector3& shift);
+    vector3             get_center() const { return m_center; }
+    void                shift_bz_center(const vector3& shift);
 
-    void read_mesh_geometry_from_msh_file(const std::string& filename);
+
+    bbox_mesh           compute_bounding_box() const;
+    void                build_search_tree();
+    std::vector<Tetra*> get_list_p_tetra()  {
+        std::vector<Tetra*> tetra_pointers;
+        tetra_pointers.reserve(m_list_tetrahedra.size());
+        std::transform(m_list_tetrahedra.begin(), m_list_tetrahedra.end(), std::back_inserter(tetra_pointers), [](Tetra& tetra) { return &tetra; });
+        return tetra_pointers;
+    }
+    Tetra*              find_tetra_at_location(const vector3& location) const;
+
+    void read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor=true);
     void read_mesh_bands_from_msh_file(const std::string& filename);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
     void compute_min_max_energies_at_tetras();

@@ -24,7 +24,6 @@
 
 namespace bz_mesh {
 
-
 void MeshBZ::shift_bz_center(const vector3& center) {
     m_center = center;
     for (auto&& vtx : m_list_vertices) {
@@ -40,7 +39,7 @@ void MeshBZ::shift_bz_center(const vector3& center) {
  * @param filename
  * @param lattice_constant
  */
-void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
+void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor) {
     std::cout << "Opening file " << filename << std::endl;
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 1);
@@ -62,9 +61,8 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
     double lattice_constant = m_material.get_lattice_constant_meter();
     std::cout << "Lattice const: " << lattice_constant << std::endl;
     std::cout << "V: " << std::pow(2.0 * M_PI, 3) / std::pow(lattice_constant, 3.0) << std::endl;
-
-    double normalization_factor = 2.0 * M_PI / lattice_constant;
-    // double normalization_factor =  1.0;
+    const double fourier_factor       = 2.0 * M_PI / lattice_constant;
+    double       normalization_factor = normalize_by_fourier_factor ? fourier_factor : 1.0;
     for (std::size_t index_vertex = 0; index_vertex < size_nodes_tags; ++index_vertex) {
         m_list_vertices.push_back(Vertex(index_vertex,
                                          normalization_factor * nodeCoords[3 * index_vertex],
@@ -102,6 +100,41 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename) {
     gmsh::finalize();
     m_total_volume = compute_mesh_volume();
 }
+
+bbox_mesh MeshBZ::compute_bounding_box() const {
+    double x_min = std::numeric_limits<double>::max();
+    double y_min = std::numeric_limits<double>::max();
+    double z_min = std::numeric_limits<double>::max();
+    double x_max = std::numeric_limits<double>::min();
+    double y_max = std::numeric_limits<double>::min();
+    double z_max = std::numeric_limits<double>::min();
+    for (auto&& vtx : m_list_vertices) {
+        const vector3& position = vtx.get_position();
+        x_min                   = std::min(x_min, position.x());
+        y_min                   = std::min(y_min, position.y());
+        z_min                   = std::min(z_min, position.z());
+        x_max                   = std::max(x_max, position.x());
+        y_max                   = std::max(y_max, position.y());
+        z_max                   = std::max(z_max, position.z());
+    }
+    vector3 min_corner(x_min, y_min, z_min);
+    vector3 max_corner(x_max, y_max, z_max);
+    return bbox_mesh(min_corner, max_corner);
+}
+
+void MeshBZ::build_search_tree() {
+    bbox_mesh mesh_bbox = compute_bounding_box();
+    std::cout << "Mesh bounding box: " << mesh_bbox << std::endl;
+    mesh_bbox.dilate(1.05);
+    // bbox_mesh.translate({0.0, 0.0, 0.0});
+    auto start    = std::chrono::high_resolution_clock::now();
+    m_search_tree = std::make_unique<Octree_mesh>(get_list_p_tetra(), mesh_bbox);
+    auto end      = std::chrono::high_resolution_clock::now();
+    auto total    = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    std::cout << "Octree built in " << total / 1000.0 << "s" << std::endl;
+}
+
+Tetra* MeshBZ::find_tetra_at_location(const vector3& location) const { return m_search_tree->find_tetra_at_location(location); }
 
 /**
  * @brief Get the nearest k index object.
@@ -337,7 +370,6 @@ vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {
     }
     std::cout << "No k-point inside the mesh geometry found." << std::endl;
     throw std::runtime_error("No k-point inside the mesh geometry found.");
-
 }
 
 }  // namespace bz_mesh

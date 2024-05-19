@@ -18,6 +18,7 @@
 #include "Material.h"
 #include "bz_mesh.hpp"
 #include "bz_states.hpp"
+#include "dielectric_mesh.hpp"
 
 namespace bz_mesh {
 
@@ -52,6 +53,12 @@ class ImpactIonization {
     EmpiricalPseudopotential::Material m_material;
 
     /**
+     * @brief Mesh of the dielectric function.
+     *
+     */
+    DielectricMesh m_dielectric_mesh;
+
+    /**
      * @brief List of the results of the impact ionization rate.
      *
      */
@@ -59,6 +66,7 @@ class ImpactIonization {
 
  public:
     ImpactIonization(const EmpiricalPseudopotential::Material& material, const std::string& initial_mesh_path);
+    void read_dielectric_file(const std::string& filename);
 
     double get_max_radius_G0_BZ() const { return m_max_radius_G0_BZ; }
     void   set_max_radius_G0_BZ(double max_radius_G0_BZ) { m_max_radius_G0_BZ = max_radius_G0_BZ; }

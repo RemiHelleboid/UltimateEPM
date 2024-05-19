@@ -34,11 +34,11 @@ int main(int argc, char *argv[]) {
     TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to consider", false, 12, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<double>      arg_radius_BZ("R",
-                                           "radiusBZ",
-                                           "Max norm of G vector for which the BZ center in G is taken into account",
-                                           false,
-                                           0,
-                                           "double");
+                                          "radiusBZ",
+                                          "Max norm of G vector for which the BZ center in G is taken into account",
+                                          false,
+                                          0,
+                                          "double");
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
@@ -71,14 +71,13 @@ int main(int argc, char *argv[]) {
 
     EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
-    bz_mesh::DielectricMesh my_dielectric_mesh(current_material);
-    my_dielectric_mesh.read_dielectric_file(arg_dielectric_file.getValue());
-
-
     bz_mesh::ImpactIonization my_impact_ionization(current_material, arg_mesh_file.getValue());
+    my_impact_ionization.read_dielectric_file(arg_dielectric_file.getValue()); 
+
+
     my_impact_ionization.set_max_radius_G0_BZ(arg_radius_BZ.getValue());
     my_impact_ionization.compute_eigenstates();
-    
+
     auto end = std::chrono::high_resolution_clock::now();
 
     std::chrono::duration<double> elapsed_seconds = end - start;

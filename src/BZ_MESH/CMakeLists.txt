@@ -8,6 +8,8 @@ set(HEADER_FILES_LIBBZMESH
   electron_phonon.hpp
   impact_ionization.hpp
   dielectric_mesh.hpp
+  bbox_mesh.hpp
+  octree_bz.hpp
   )
 
 
@@ -18,6 +20,7 @@ set(SOURCE_FILES_LIBBZMESH
   electron_phonon.cpp
   impact_ionization.cpp
   dielectric_mesh.cpp
+  octree_bz.cpp
 )
 
 add_library(lib_bzmesh STATIC ${SOURCE_FILES_LIBBZMESH} ${HEADER_FILES_LIBBZMESH})

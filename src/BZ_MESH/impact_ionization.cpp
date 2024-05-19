@@ -41,6 +41,13 @@ ImpactIonization::ImpactIonization(const EmpiricalPseudopotential::Material& mat
     m_initial_mesh_path = initial_mesh_path;
 }
 
+void ImpactIonization::read_dielectric_file(const std::string& filename) {
+    bool normalize_by_fourier_factor = false;
+    m_dielectric_mesh.read_mesh_geometry_from_msh_file(filename, normalize_by_fourier_factor);
+    m_dielectric_mesh.build_search_tree();
+    m_dielectric_mesh.read_dielectric_file(filename);
+}
+
 void ImpactIonization::compute_eigenstates() {
     int                nb_bands_to_use = 4;
     bz_mesh::BZ_States my_bz_mesh(m_material);
@@ -75,7 +82,10 @@ void ImpactIonization::compute_eigenstates() {
                     continue;
                 }
                 std::cout << "G_BZ: " << G_BZ << std::endl;
-                auto ptr_BZ_states = std::make_unique<BZ_States>(my_bz_mesh);
+                auto ptr_BZ_states = std::make_unique<BZ_States>(m_material);
+                ptr_BZ_states->set_nb_bands(nb_bands_to_use);
+                ptr_BZ_states->set_basis_vectors(basis);
+                ptr_BZ_states->read_mesh_geometry_from_msh_file(m_initial_mesh_path);
                 ptr_BZ_states->shift_bz_center(G_BZ);
                 ptr_BZ_states->compute_eigenstates(nb_threads);
                 m_list_BZ_states.push_back(std::move(ptr_BZ_states));

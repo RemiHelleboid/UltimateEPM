@@ -43,6 +43,7 @@ class DielectricMesh : public MeshBZ {
     std::vector<std::vector<complex_d>> m_dielectric_function;
 
  public:
+    DielectricMesh() = default;
     DielectricMesh(const EmpiricalPseudopotential::Material& material) : MeshBZ(material) {}
 
     /**
@@ -51,6 +52,27 @@ class DielectricMesh : public MeshBZ {
      * @param filename Path to the file containing the dielectric function.
      */
     void read_dielectric_file(const std::string& filename);
+
+    /**
+     * @brief Find the closest energy in the list of energies.
+     * Return the index (idx) of the stored energy directly below the given energy and the fraction (t) of the distance between the two
+     * closest energies. The dielectric function at the given energy can be interpolated as: m_dielectric_function[idx_node][idx] * (1 - t)
+     * + m_dielectric_function[idx_node][idx + 1] * t
+     *
+     *
+     * @param energy
+     * @return std::pair<std::size_t, double>
+     */
+    std::pair<std::size_t, double> find_closest_energy(double energy) const;
+
+    /**
+     * @brief Interpolate the dielectric function at a given k-point and energy.
+     *
+     * @param k
+     * @param energy
+     * @return complex_d
+     */
+    complex_d interpolate_dielectric_function(const vector3& k, double energy) const;
 };
 
 }  // namespace bz_mesh

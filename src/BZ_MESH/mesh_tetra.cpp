@@ -17,12 +17,29 @@
 #include <vector>
 
 #include "Constants.hpp"
+#include "bbox_mesh.hpp"
 #include "iso_triangle.hpp"
-
 
 namespace bz_mesh {
 
 std::vector<double> Tetra::ms_case_stats = {0, 0, 0, 0, 0};
+
+bbox_mesh Tetra::compute_bounding_box() const {
+    std::array<double, 4> coordinates_x;
+    std::array<double, 4> coordinates_y;
+    std::array<double, 4> coordinates_z;
+    for (int i = 0; i < 4; ++i) {
+        coordinates_x[i] = m_list_vertices[i]->get_position().x();
+        coordinates_y[i] = m_list_vertices[i]->get_position().y();
+        coordinates_z[i] = m_list_vertices[i]->get_position().z();
+    }
+    auto min_max_x = std::minmax_element(coordinates_x.begin(), coordinates_x.end());
+    auto min_max_y = std::minmax_element(coordinates_y.begin(), coordinates_y.end());
+    auto min_max_z = std::minmax_element(coordinates_z.begin(), coordinates_z.end());
+    return bbox_mesh(*min_max_x.first, *min_max_x.second, *min_max_y.first, *min_max_y.second, *min_max_z.first, *min_max_z.second);
+}
+
+const bbox_mesh& Tetra::get_bounding_box() const { return m_bbox; }
 
 /**
  * @brief Construct a new Tetra by passing directly the array of the four pointers to the vertices.
@@ -40,6 +57,7 @@ Tetra::Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices)
     m_list_edges[4] = compute_edge(3, 1);
     m_list_edges[5] = compute_edge(3, 2);
     m_signed_volume = compute_signed_volume();
+    m_bbox          = compute_bounding_box();
 }
 
 vector3 Tetra::compute_barycenter() const {

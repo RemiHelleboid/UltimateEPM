@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 
+#include "bbox_mesh.hpp"
 #include "mesh_vertex.hpp"
 
 namespace bz_mesh {
@@ -42,6 +43,12 @@ class Tetra {
      *
      */
     std::array<vector3, 6> m_list_edges{};
+
+    /**
+     * @brief Bounding box of the tetrahedra.
+     *
+     */
+    bbox_mesh m_bbox;
 
     /**
      * @brief Signed volume of the tetrahedra.
@@ -87,7 +94,10 @@ class Tetra {
     Tetra() = delete;
 
     Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices);
-    void compute_min_max_energies_at_bands();
+
+    const bbox_mesh& get_bounding_box() const;
+    bbox_mesh        compute_bounding_box() const;
+    void             compute_min_max_energies_at_bands();
 
     std::size_t                   get_index() const { return m_index; }
     const std::array<Vertex*, 4>& get_list_vertices() const { return m_list_vertices; }
