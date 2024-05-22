@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     TCLAP::ValueArg<std::string> arg_dielectric_file("y", "dielectric", "File (.msh) with the dielectric function.", true, "", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
-    TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to consider", false, 12, "int");
+    TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to consider", false, 16, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<double>      arg_radius_BZ("R",
                                           "radiusBZ",
@@ -67,16 +67,17 @@ int main(int argc, char *argv[]) {
     my_options.nrThreads    = arg_nb_threads.getValue();
     my_options.print_options();
     int  nb_bands_to_use = arg_nb_bands.getValue();
+    int  nb_threads      = arg_nb_threads.getValue();
     auto start           = std::chrono::high_resolution_clock::now();
 
     EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
     bz_mesh::ImpactIonization my_impact_ionization(current_material, arg_mesh_file.getValue());
-    my_impact_ionization.read_dielectric_file(arg_dielectric_file.getValue()); 
-
+    my_impact_ionization.read_dielectric_file(arg_dielectric_file.getValue());
+    my_impact_ionization.interp_test_dielectric_function("test_dielectric_function.csv");
 
     my_impact_ionization.set_max_radius_G0_BZ(arg_radius_BZ.getValue());
-    my_impact_ionization.compute_eigenstates();
+    my_impact_ionization.compute_eigenstates(nb_threads);
 
     auto end = std::chrono::high_resolution_clock::now();
 

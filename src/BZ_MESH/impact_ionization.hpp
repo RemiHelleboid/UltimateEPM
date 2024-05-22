@@ -67,10 +67,11 @@ class ImpactIonization {
  public:
     ImpactIonization(const EmpiricalPseudopotential::Material& material, const std::string& initial_mesh_path);
     void read_dielectric_file(const std::string& filename);
+    void interp_test_dielectric_function(std::string filename);
 
     double get_max_radius_G0_BZ() const { return m_max_radius_G0_BZ; }
     void   set_max_radius_G0_BZ(double max_radius_G0_BZ) { m_max_radius_G0_BZ = max_radius_G0_BZ; }
-    void   compute_eigenstates();
+    void   compute_eigenstates(int nb_threads = 1);
 
     std::array<complex_d, 2> compute_direct_indirect_impact_ionization_matrix_element(int idx_n1,
                                                                                       int idx_n1_prime,

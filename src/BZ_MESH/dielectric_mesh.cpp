@@ -82,14 +82,17 @@ void DielectricMesh::read_dielectric_file(const std::string& filename) {
     }
     gmsh::finalize();
     m_energies = energies;
-    m_dielectric_function.resize(real_dielectric.size());
-    for (std::size_t idx_node = 0; idx_node < real_dielectric.size(); ++idx_node) {
+    m_dielectric_function.resize(m_list_vertices.size());
+    for (std::size_t idx_node = 0; idx_node < m_list_vertices.size(); ++idx_node) {
         m_dielectric_function[idx_node].resize(energies.size());
         for (std::size_t idx_energy = 0; idx_energy < energies.size(); ++idx_energy) {
             m_dielectric_function[idx_node][idx_energy] =
-                std::complex<double>(real_dielectric[idx_node][idx_energy], imag_dielectric[idx_node][idx_energy]);
+                std::complex<double>(real_dielectric[idx_energy][idx_node], imag_dielectric[idx_energy][idx_node]);
         }
     }
+    std::cout << "Size of the dielectric function: " << m_dielectric_function.size() << " x " << m_dielectric_function[0].size()
+              << std::endl;
+    std::cout << "Dielectric function read." << std::endl;
 }
 
 std::pair<std::size_t, double> DielectricMesh::find_closest_energy(double energy) const {
@@ -115,21 +118,35 @@ std::pair<std::size_t, double> DielectricMesh::find_closest_energy(double energy
 }
 
 complex_d DielectricMesh::interpolate_dielectric_function(const vector3& k, double energy) const {
-    auto k_positive{vector3{std::abs(k.x()), std::abs(k.y()), std::abs(k.z())}};
+    auto   k_positive{vector3{std::abs(k.x()), std::abs(k.y()), std::abs(k.z())}};
     Tetra* p_tetra = find_tetra_at_location(k_positive);
     if (p_tetra == nullptr) {
+        std::cerr << "Tetra not found at location " << k_positive << std::endl;
         return 0.0;
     }
-    const std::array<double, 4> barycentric_coordinates = p_tetra->compute_barycentric_coordinates(k);
+    std::array<double, 4> barycentric_coordinates = p_tetra->compute_barycentric_coordinates(k_positive);
 
-    const std::size_t                    idx_node              = p_tetra->get_index();
-    const std::pair<std::size_t, double> closest_energy        = find_closest_energy(energy);
-    const std::size_t                    idx_energy            = closest_energy.first;
-    const double                         t                     = closest_energy.second;
-    const complex_d                      dielectric_function_0 = m_dielectric_function[idx_node][idx_energy];
-    const complex_d                      dielectric_function_1 = m_dielectric_function[idx_node][idx_energy + 1];
-    complex_d                            dielectric_function   = dielectric_function_0 * (1.0 - t) + dielectric_function_1 * t;
-    return dielectric_function;
+    std::array<std::size_t, 4>          list_indices_vertices = p_tetra->get_list_indices_vertices();
+    std::pair<std::size_t, double>      closest_energy        = find_closest_energy(energy);
+    std::size_t                         idx_energy            = closest_energy.first;
+    double                              t                     = closest_energy.second;
+    std::vector<std::complex<double>> dielectric_function_low(4);
+    std::vector<std::complex<double>> dielectric_function_high(4);
+    for (std::size_t idx_vertex = 0; idx_vertex < 4; ++idx_vertex) {
+        std::cout << "Vertex: " << list_indices_vertices[idx_vertex] << std::endl;
+        dielectric_function_low[idx_vertex]  = m_dielectric_function[idx_energy][list_indices_vertices[idx_vertex]];
+        dielectric_function_high[idx_vertex] = m_dielectric_function[idx_energy + 1][list_indices_vertices[idx_vertex]];
+    }
+    std::complex<double> dielectric_function_interpolated_low =
+        p_tetra->interpolate_at_position(barycentric_coordinates, dielectric_function_low);
+    std::complex<double> dielectric_function_interpolated_high =
+        p_tetra->interpolate_at_position(barycentric_coordinates, dielectric_function_high);
+
+    std::cout << "Idx energy: " << idx_energy << std::endl;
+    std::cout << "Energy: " << energy << std::endl;
+    std::cout << "Closest energy: " << m_energies[idx_energy] << std::endl;
+    std::cout << "Interpolated energy: " << (1 - t) * m_energies[idx_energy] + t * m_energies[idx_energy + 1] << std::endl;
+    return (1 - t) * dielectric_function_interpolated_low + t * dielectric_function_interpolated_high;
 }
 
 }  // namespace bz_mesh

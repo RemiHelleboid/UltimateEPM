@@ -48,12 +48,42 @@ void ImpactIonization::read_dielectric_file(const std::string& filename) {
     m_dielectric_mesh.read_dielectric_file(filename);
 }
 
-void ImpactIonization::compute_eigenstates() {
-    int                nb_bands_to_use = 4;
+void ImpactIonization::interp_test_dielectric_function(std::string filename) {
+    double eps = 1e-6;
+    double x0 = eps;
+    double y0 = eps;
+    double z0 = eps;
+    double x1 = 3.0;
+    double y1 = 3.0;
+    double z1 = 3.0;
+    int    nx = 20;
+    int    ny = 20;
+    int    nz = 20;
+    double dx = (x1 - x0) / nx;
+    double dy = (y1 - y0) / ny;
+    double dz = (z1 - z0) / nz;
+    std::ofstream file(filename);
+    for (int i = 0; i < nx; ++i) {
+        for (int j = 0; j < ny; ++j) {
+            for (int k = 0; k < nz; ++k) {
+                double x = x0 + i * dx;
+                double y = y0 + j * dy;
+                double z = z0 + k * dz;
+                vector3     position(x, y, z);
+                complex_d epsilon = m_dielectric_mesh.interpolate_dielectric_function(position, 0.0102);
+                file << x << ", " << y << ", " << z << ", " << epsilon.real() << ", " << epsilon.imag() << std::endl;
+                std::cout << "Position: " << position << " epsilon: " << epsilon << std::endl;
+            }
+        }
+    }
+    file.close();
+}
+
+void ImpactIonization::compute_eigenstates(int nb_threads) {
+    int                nb_bands_to_use = 16;
     bz_mesh::BZ_States my_bz_mesh(m_material);
     my_bz_mesh.set_nb_bands(nb_bands_to_use);
     EmpiricalPseudopotential::BandStructure band_structure{};
-    int                                     nb_threads           = 1;
     int                                     nb_nearest_neighbors = 10;
     bool                                    nonlocal_epm         = false;
     bool                                    enable_soc           = false;
@@ -68,7 +98,7 @@ void ImpactIonization::compute_eigenstates() {
     const vector3 b3 = {1.0, 1.0, -1.0};
 
     // std::cout << "k: " << k << std::endl;
-
+    double factor = 2.0 * M_PI / m_material.get_lattice_constant_meter();
     // test k + G
     std::vector<int> list_n_k = {0, 1, -1, 2, -2, 3, -3, 4, -4};
     // std::vector<int> list_n_k = {0, 1, -1, 2, -2};
@@ -81,7 +111,9 @@ void ImpactIonization::compute_eigenstates() {
                 if (G_BZ.norm() > m_max_radius_G0_BZ) {
                     continue;
                 }
-                std::cout << "G_BZ: " << G_BZ << std::endl;
+                std::cout << "G_BZ: " << G_BZ << " --> " << G_BZ.norm() << std::endl;
+                G_BZ = G_BZ * factor;
+
                 auto ptr_BZ_states = std::make_unique<BZ_States>(m_material);
                 ptr_BZ_states->set_nb_bands(nb_bands_to_use);
                 ptr_BZ_states->set_basis_vectors(basis);
@@ -96,88 +128,25 @@ void ImpactIonization::compute_eigenstates() {
 }
 
 double ImpactIonization::compute_impact_ionization_rate(int idx_n1, const Vector3D<double>& k1) {
-    double rate                = 0.0;
-    int    nb_conduction_bands = 4;
-    int    nb_valence_bands    = 4;
-    // Pseudo code
+    constexpr int nb_valence_bands = 3;
+    constexpr int nb_conduction_bands = 4;
 
-    return rate;
+    std::size_t nb_vtx = m_list_BZ_states[0]->get_list_vertices().size();
+
+    for (int n1_prime = 0; n1_prime < nb_valence_bands; ++n1_prime) {
+        for (int n2 = 0; n2 < nb_conduction_bands; ++n2) {
+            for (int n2_prime = 0; n2_prime < nb_conduction_bands; ++n2_prime) {
+                for (int k1_prime = 0; k1_prime < nb_vtx; ++k1_prime) {
+                    
+                }
+            }   
+        }
+    }
+    
+
+
+
+
 }
-
-// /**
-//  * @brief Compute the direct impact ionization matrix element (Ma) for a given set of indices.
-//  * k2 is not an input parameter, it is computed from k1, k1_prime and k2_prime, using the conservation of momentum.
-//  * k2 = k1_prime + k2_prime - k1
-//  *
-//  *
-//  * @param idx_n1
-//  * @param idx_n1_prime
-//  * @param idx_n2
-//  * @param idx_n2_prime
-//  * @param idx_k1
-//  * @param idx_k1_prime
-//  * @param idx_k2_prime
-//  * @return double
-//  */
-// std::array<complex_d, 2> ImpactIonization::compute_direct_indirect_impact_ionization_matrix_element(int idx_n1,
-//                                                                                                     int idx_n1_prime,
-//                                                                                                     int idx_n2,
-//                                                                                                     int idx_n2_prime,
-//                                                                                                     int idx_k1,
-//                                                                                                     int idx_k1_prime,
-//                                                                                                     int idx_k2,
-//                                                                                                     int idx_k2_prime) const {
-//     vector3   k1       = m_list_vertices[idx_k1].get_position();
-//     vector3   k2       = m_list_vertices[idx_k2].get_position();
-//     vector3   k1_prime = m_list_vertices[idx_k1_prime].get_position();
-//     vector3   k2_prime = m_list_vertices[idx_k2_prime].get_position();
-//     complex_d Ma       = 0.0;
-//     complex_d Mb       = 0.0;
-
-//     double e_charge       = EmpiricalPseudopotential::Constants::q;
-//     double eps_zero       = EmpiricalPseudopotential::Constants::eps_zero;
-//     double volume         = compute_mesh_volume();
-//     double fourier_factor = 2.0 * M_PI / volume;
-
-//     auto        basis_vectors      = get_basis_vectors();
-//     std::size_t size_basis_vectors = basis_vectors.size();
-//     for (std::size_t idx_g1 = 0; idx_g1 < size_basis_vectors; ++idx_g1) {
-//         for (std::size_t idx_g2 = 0; idx_g2 < size_basis_vectors; ++idx_g2) {
-//             for (std::size_t idx_g1_prime = 0; idx_g1_prime < size_basis_vectors; ++idx_g1_prime) {
-//                 for (std::size_t idx_g2_prime = 0; idx_g2_prime < size_basis_vectors; ++idx_g2_prime) {
-//                     vector3 g1             = {basis_vectors[idx_g1].X * fourier_factor,
-//                                               basis_vectors[idx_g1].Y * fourier_factor,
-//                                               basis_vectors[idx_g1].Z * fourier_factor};
-//                     vector3 g1_prime       = {basis_vectors[idx_g1_prime].X * fourier_factor,
-//                                               basis_vectors[idx_g1_prime].Y * fourier_factor,
-//                                               basis_vectors[idx_g1_prime].Z * fourier_factor};
-//                     vector3 g2_prime       = {basis_vectors[idx_g2_prime].X * fourier_factor,
-//                                               basis_vectors[idx_g2_prime].Y * fourier_factor,
-//                                               basis_vectors[idx_g2_prime].Z * fourier_factor};
-//                     vector3 q_a            = k1_prime + g1_prime - k1 - g1;
-//                     vector3 q_b            = k2_prime + g2_prime - k1 - g1;
-//                     auto    state_k1       = m_eigenvectors_k[idx_k1](idx_n1, idx_g1);
-//                     auto    state_k2       = m_eigenvectors_k[idx_k2](idx_n2, idx_g2);
-//                     auto    state_k1_prime = m_eigenvectors_k[idx_k1_prime](idx_n1_prime, idx_g1_prime);
-//                     auto    state_k2_prime = m_eigenvectors_k[idx_k2_prime](idx_n2_prime, idx_g2_prime);
-
-//                     double    omega_a           = m_eigenvalues_k[idx_k1](idx_n1) - m_eigenvalues_k[idx_k1_prime](idx_n1_prime);
-//                     double    omega_b           = m_eigenvalues_k[idx_k2_prime](idx_n2_prime) - m_eigenvalues_k[idx_k1](idx_n1);
-//                     complex_d dielectric_func_a = get_dielectric_function(q_a, omega_a);
-//                     complex_d pre_factor_a      = e_charge * e_charge / (eps_zero * dielectric_func_a * q_a.norm() * q_a.norm() *
-//                     volume); complex_d dielectric_func_b = get_dielectric_function(q_b, omega_b); complex_d core_overlap      =
-//                     std::conj(state_k1_prime) * std::conj(state_k2_prime) * state_k1 * state_k2; complex_d micro_matrix_element_a =
-//                     core_overlap * pre_factor_a; complex_d pre_factor_b = e_charge * e_charge / (eps_zero * dielectric_func_b *
-//                     q_b.norm() * q_b.norm() * volume); complex_d micro_matrix_element_b = core_overlap * pre_factor_b;
-
-//                     Ma += micro_matrix_element_a;
-//                     Mb += micro_matrix_element_b;
-//                 }
-//             }
-//         }
-//     }
-
-//     return {Ma, Mb};
-// }
 
 }  // namespace bz_mesh

@@ -11,6 +11,7 @@
 #pragma once
 
 #include <array>
+#include <complex>
 #include <functional>
 #include <iostream>
 #include <numeric>
@@ -19,6 +20,7 @@
 
 #include "bbox_mesh.hpp"
 #include "mesh_vertex.hpp"
+
 
 namespace bz_mesh {
 
@@ -133,8 +135,9 @@ class Tetra {
 
     std::array<double, 8> get_mean_electron_phonon_rates(int band_index) const;
 
-    double  interpolate_scalar_at_position(const std::array<double, 4>& barycentric_coordinates,
-                                           const std::vector<double>&   scalar_field) const;
+    double interpolate_scalar_at_position(const std::array<double, 4>& barycentric_coordinates,
+                                          const std::vector<double>&   scalar_field) const;
+
     vector3 interpolate_vector_at_position(const std::array<double, 4>& barycentric_coordinates,
                                            const std::vector<vector3>&  vector_field) const;
     template <typename T>
@@ -143,6 +146,15 @@ class Tetra {
         for (std::size_t idx_vtx = 0; idx_vtx < 4; ++idx_vtx) {
             interpolated_value += barycentric_coordinates[idx_vtx] * field[idx_vtx];
         }
+        return interpolated_value;
+    }
+    std::complex<double> interpolate_at_position(const std::array<double, 4>&             barycentric_coordinates,
+                                                 const std::vector<std::complex<double>>& field) const {
+        std::complex<double> interpolated_value = 0.0;
+        for (std::size_t idx_vtx = 0; idx_vtx < 4; ++idx_vtx) {
+            interpolated_value += barycentric_coordinates[idx_vtx] * field[idx_vtx];
+        }
+
         return interpolated_value;
     }
 
