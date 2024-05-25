@@ -239,7 +239,6 @@ int main(int argc, char *argv[]) {
         std::cout << "------------------------------------------------------------------\n";
 
         std::cout << "Exporting DOS values to file." << std::endl;
-        // dos_at_bands[band_index][energy_index] = dos_value;
         std::vector<std::vector<double>> dos_at_bands(number_bands * 2);
         for (std::size_t index_value_dos = 0; index_value_dos < total_number_dos; index_value_dos++) {
             int    band_index = list_bands[index_value_dos];

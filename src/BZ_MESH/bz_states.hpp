@@ -22,11 +22,10 @@ class BZ_States : public MeshBZ {
  protected:
     int m_nb_bands = 0;
 
-
     std::vector<Vector3D<int>> m_basisVectors;
 
-    std::vector<Eigen::VectorXd>  m_eigenvalues_k;
-    std::vector<Eigen::VectorXd>  m_eigenvalues_k_plus_q;
+    std::vector<Eigen::VectorXd> m_eigenvalues_k;
+    std::vector<Eigen::VectorXd> m_eigenvalues_k_plus_q;
 
     std::vector<Eigen::MatrixXcd> m_eigenvectors_k;
     std::vector<Eigen::MatrixXcd> m_eigenvectors_k_plus_q;
@@ -78,14 +77,16 @@ class BZ_States : public MeshBZ {
     const std::vector<double>& get_energies() const { return m_list_energies; }
     void                       set_energies(const std::vector<double>& energies) { m_list_energies = energies; }
 
+    const std::vector<Eigen::MatrixXcd>& get_eigen_states() const { return m_eigenvectors_k; }
+
     void compute_dielectric_function(const std::vector<double>& energies, double eta_smearing, int nb_threads = 1);
     void export_dielectric_function(const std::string& prefix) const;
 
     void populate_vtx_dielectric_function(const std::vector<double>& energies, double eta_smearing);
 
     std::complex<double> get_dielectric_function(const vector3& q, double energy) const {
-      // TODO: implement this function
-      return 1.0;
+        // TODO: implement this function
+        return 1.0;
     }
 
     void export_full_eigenstates() const;

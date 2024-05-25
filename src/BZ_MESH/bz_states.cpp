@@ -47,6 +47,7 @@ void BZ_States::compute_eigenstates(int nb_threads) {
         m_eigenvectors_k[idx_k] = hamiltonian_per_thread[idx_thread].get_eigenvectors();
         auto nb_rows            = m_eigenvectors_k[idx_k].rows();
         m_eigenvectors_k[idx_k].conservativeResize(nb_rows, m_nb_bands);
+        // std::cout << "\r Nb rows = " << m_eigenvectors_k[idx_k].rows() << " Nb cols = " << m_eigenvectors_k[idx_k].cols() << std::endl;
     }
     std::cout << std::endl;
 }

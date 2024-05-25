@@ -128,7 +128,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                                         deformation_potential_value * overlap_integral * overlap_integral * bose_part * dos_tetra;
                     // std::cout << this->get_volume() << std::endl;
                     rate_value /= this->get_volume();
-                    // rate_value *= EmpiricalPseudopotential::Constants::q;
+                    // rate_value *= EmpiricalPseudopotential::Constants::q_e;
 
                     if (rate_value < 0.0 || rate_value > 1e50 || std::isnan(rate_value) || std::isinf(rate_value)) {
                         std::cout << "Rate value: " << rate_value << std::endl;
@@ -228,7 +228,7 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
                                         deformation_potential_value * overlap_integral * overlap_integral * bose_part * dos_tetra;
                     // std::cout << this->get_volume() << std::endl;
                     rate_value /= this->get_volume();
-                    rate_value *= EmpiricalPseudopotential::Constants::q;
+                    rate_value *= EmpiricalPseudopotential::Constants::q_e;
 
                     if (rate_value < 0.0 || rate_value > 1e50 || std::isnan(rate_value) || std::isinf(rate_value)) {
                         std::cout << "Rate value: " << rate_value << std::endl;

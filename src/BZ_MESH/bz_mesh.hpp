@@ -89,6 +89,9 @@ class MeshBZ {
     MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material){};
     MeshBZ(const MeshBZ&) = default;
 
+
+    vector3 get_vertex_position(std::size_t idx_vtx) const { return m_list_vertices[idx_vtx].get_position(); }
+
     vector3             get_center() const { return m_center; }
     void                shift_bz_center(const vector3& shift);
 
@@ -132,7 +135,7 @@ class MeshBZ {
     double compute_mesh_volume() const;
     double compute_iso_surface(double iso_energy, int band_index) const;
     double compute_dos_at_energy_and_band(double iso_energy, int band_index) const;
-    double compute_overlap_integral_impact_ionization_electrons(double energy);
+    double compute_dos_like_integral(double iso_energy, const std::vector<double>& f_values) const;
 
     std::vector<std::vector<double>> compute_dos_band_at_band(int         band_index,
                                                               double      min_energy,

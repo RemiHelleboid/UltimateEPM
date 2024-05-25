@@ -78,6 +78,9 @@ int main(int argc, char *argv[]) {
 
     my_impact_ionization.set_max_radius_G0_BZ(arg_radius_BZ.getValue());
     my_impact_ionization.compute_eigenstates(nb_threads);
+    int idxn1 = 0;
+    int idxk1 = 0;
+    my_impact_ionization.compute_impact_ionization_rate(idxn1, idxk1);
 
     auto end = std::chrono::high_resolution_clock::now();
 

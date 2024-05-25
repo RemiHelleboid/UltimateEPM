@@ -82,7 +82,7 @@ class ImpactIonization {
                                                                                       int idx_k2,
                                                                                       int idx_k2_prime) const;
 
-    double compute_impact_ionization_rate(int idx_n1, const Vector3D<double>& k1);
+    double compute_impact_ionization_rate(int idx_n1, std::size_t idx_k1);
 };
 
 }  // namespace bz_mesh

@@ -49,27 +49,27 @@ void ImpactIonization::read_dielectric_file(const std::string& filename) {
 }
 
 void ImpactIonization::interp_test_dielectric_function(std::string filename) {
-    double eps = 1e-6;
-    double x0 = eps;
-    double y0 = eps;
-    double z0 = eps;
-    double x1 = 3.0;
-    double y1 = 3.0;
-    double z1 = 3.0;
-    int    nx = 20;
-    int    ny = 20;
-    int    nz = 20;
-    double dx = (x1 - x0) / nx;
-    double dy = (y1 - y0) / ny;
-    double dz = (z1 - z0) / nz;
+    double        eps = 1e-6;
+    double        x0  = eps;
+    double        y0  = eps;
+    double        z0  = eps;
+    double        x1  = 3.0;
+    double        y1  = 3.0;
+    double        z1  = 3.0;
+    int           nx  = 20;
+    int           ny  = 20;
+    int           nz  = 20;
+    double        dx  = (x1 - x0) / nx;
+    double        dy  = (y1 - y0) / ny;
+    double        dz  = (z1 - z0) / nz;
     std::ofstream file(filename);
     for (int i = 0; i < nx; ++i) {
         for (int j = 0; j < ny; ++j) {
             for (int k = 0; k < nz; ++k) {
-                double x = x0 + i * dx;
-                double y = y0 + j * dy;
-                double z = z0 + k * dz;
-                vector3     position(x, y, z);
+                double    x = x0 + i * dx;
+                double    y = y0 + j * dy;
+                double    z = z0 + k * dz;
+                vector3   position(x, y, z);
                 complex_d epsilon = m_dielectric_mesh.interpolate_dielectric_function(position, 0.0102);
                 file << x << ", " << y << ", " << z << ", " << epsilon.real() << ", " << epsilon.imag() << std::endl;
                 std::cout << "Position: " << position << " epsilon: " << epsilon << std::endl;
@@ -127,26 +127,111 @@ void ImpactIonization::compute_eigenstates(int nb_threads) {
     std::cout << "Number of BZ states: " << m_list_BZ_states.size() << std::endl;
 }
 
-double ImpactIonization::compute_impact_ionization_rate(int idx_n1, const Vector3D<double>& k1) {
-    constexpr int nb_valence_bands = 3;
-    constexpr int nb_conduction_bands = 4;
+double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t idx_k1) {
+    constexpr int                     nb_valence_bands    = 3;
+    constexpr int                     nb_conduction_bands = 4;
+    constexpr int                     min_conduction_band = 4;
+    const std::size_t                 nb_vtx              = m_list_BZ_states[0]->get_list_vertices().size();
+    const std::vector<Vector3D<int>>& basis_vector_G      = m_list_BZ_states[0]->get_basis_vectors();
 
-    std::size_t nb_vtx = m_list_BZ_states[0]->get_list_vertices().size();
+    std::cout << "Start computing impact ionization rate for band " << idx_n1 << " and k-point " << idx_k1 << std::endl;
+    auto start_precompute = std::chrono::high_resolution_clock::now();
+    std::cout << "Nb of Bz states: " << m_list_BZ_states.size() << std::endl;
+    std::cout << "Nb cols: " << m_list_BZ_states[0]->get_eigen_states()[0].cols() << std::endl;
 
-    for (int n1_prime = 0; n1_prime < nb_valence_bands; ++n1_prime) {
-        for (int n2 = 0; n2 < nb_conduction_bands; ++n2) {
-            for (int n2_prime = 0; n2_prime < nb_conduction_bands; ++n2_prime) {
-                for (int k1_prime = 0; k1_prime < nb_vtx; ++k1_prime) {
-                    
-                }
-            }   
+    // Sum_2_prime[idx_band][idx_node]
+    std::vector<std::vector<complex_d>> Sum_2_prime(nb_conduction_bands);
+    for (int idx_n2_prime = 0; idx_n2_prime < nb_conduction_bands; ++idx_n2_prime) {
+        int n2_prime = idx_n2_prime + min_conduction_band;
+        Sum_2_prime[idx_n2_prime].resize(nb_vtx);
+        for (std::size_t idx_node = 0; idx_node < nb_vtx; ++idx_node) {
+            const Eigen::MatrixXcd& A_2_prime   = m_list_BZ_states[0]->get_eigen_states()[idx_node];
+            Sum_2_prime[idx_n2_prime][idx_node] = A_2_prime.col(n2_prime).sum();
         }
     }
-    
+    std::cout << "Sum_2_prime done" << std::endl;
+    // Sum_2[idx_band][idx_node]
+    std::vector<std::vector<complex_d>> Sum_2(nb_valence_bands);
+    for (int idx_n2 = 0; idx_n2 < nb_valence_bands; ++idx_n2) {
+        Sum_2_prime[idx_n2].resize(nb_vtx);
+        for (std::size_t idx_node = 0; idx_node < nb_vtx; ++idx_node) {
+            const Eigen::MatrixXcd& A_2 = m_list_BZ_states[0]->get_eigen_states()[idx_node];
+            Sum_2_prime[idx_n2][idx_node] = A_2.col(idx_n2).sum();
+        }
+    }
 
+    std::cout << "Sum_2 done" << std::endl;
 
+    // Sum_2_prime[idx_band][idx_node] (n1, k1 are in an outter loop)
+    std::vector<std::vector<complex_d>> Sum_1_prime_1(nb_conduction_bands);
+    for (int idx_n1_prime = 0; idx_n1_prime < nb_conduction_bands; ++idx_n1_prime) {
+        std::size_t n1_prime = idx_n1_prime + min_conduction_band;
+        Sum_1_prime_1[idx_n1_prime].resize(nb_vtx);
+        for (std::size_t idx_k1_prime = 0; idx_k1_prime < nb_vtx; ++idx_k1_prime) {
+            const Eigen::MatrixXcd& A_1_prime = m_list_BZ_states[0]->get_eigen_states()[idx_k1_prime];
+            const Eigen::MatrixXcd& A_1       = m_list_BZ_states[0]->get_eigen_states()[idx_k1];
+            int                     nb_Gvect  = A_1_prime.rows();
+            complex_d               sum       = 0.0;
+            for (int idx_G1_prime = 0; idx_G1_prime < nb_Gvect; ++idx_G1_prime) {
+                for (int idx_G1 = 0; idx_G1 < nb_Gvect; ++idx_G1) {
+                    auto   G1_prime = basis_vector_G[idx_G1_prime];
+                    auto   G1       = basis_vector_G[idx_G1];
+                    auto   k1       = m_list_BZ_states[0]->get_vertex_position(idx_k1);
+                    auto   k1_prime = m_list_BZ_states[0]->get_vertex_position(idx_k1_prime);
+                    auto   q_a      = k1 - k1_prime + G1 - G1_prime;
+                    double energy_w = m_list_BZ_states[0]->get_energies()[idx_n1] - m_list_BZ_states[0]->get_energies()[n1_prime];
+                    // complex_d epsilon    = m_dielectric_mesh.interpolate_dielectric_function(q_a, energy_w);
+                    complex_d epsilon    = 1.0;
+                    complex_d factor_eps = EmpiricalPseudopotential::Constants::q_e * EmpiricalPseudopotential::Constants::q_e /
+                                           (EmpiricalPseudopotential::Constants::eps_zero * epsilon * q_a.norm() * q_a.norm());
+                    sum += std::conj(A_1_prime(idx_G1_prime, n1_prime)) * A_1(idx_G1, idx_n1) * factor_eps;
+                }
+            }
+            Sum_1_prime_1[idx_n1_prime][idx_k1_prime] = sum;
+        }
+    }
 
+    auto end_precompute = std::chrono::high_resolution_clock::now();
+    std::cout << "Precompute time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_precompute - start_precompute).count()
+              << " ms" << std::endl;
+    std::cout << "DONE PRECOMPUTE\n Start computing matrix element" << std::endl;
 
+    auto start_compute = std::chrono::high_resolution_clock::now();
+
+    const std::vector<Vertex>& list_vertices = m_list_BZ_states[0]->get_list_vertices();
+
+    for (int idx_n2 = 0; idx_n2 < nb_valence_bands; ++idx_n2) {
+        for (int idx_n1_prime = 0; idx_n1_prime < nb_conduction_bands; ++idx_n1_prime) {
+            std::size_t n1_prime = idx_n1_prime + min_conduction_band;
+            for (int idx_n2_prime = 0; idx_n2_prime < nb_conduction_bands; ++idx_n2_prime) {
+                std::size_t n2_prime = idx_n2_prime + min_conduction_band;
+                for (std::size_t idx_k1_prime = 0; idx_k1_prime < nb_vtx; ++idx_k1_prime) {
+                    std::cout << "idx_n1: " << idx_n1 << " idx_n1_prime: " << idx_n1_prime << " idx_n2: " << idx_n2 << " idx_n2_prime: " << idx_n2_prime
+                              << " idx_k1: " << idx_k1 << " idx_k1_prime: " << idx_k1_prime << std::endl;
+                    std::vector<double> FullMatrixElement(nb_vtx);
+                    for (std::size_t idx_k2_prime = 0; idx_k2_prime < nb_vtx; ++idx_k2_prime) {
+                        // std::cout << "\r" << idx_k1_prime << " / " << nb_vtx << " --> " << idx_k2_prime << " / " << nb_vtx << std::flush;
+                        vector3 k_2_momentum = list_vertices[idx_k1].get_position() - list_vertices[idx_k1_prime].get_position() -
+                                               list_vertices[idx_k2_prime].get_position();
+                        if (k_2_momentum.norm() > m_max_radius_G0_BZ || k_2_momentum.norm() < 1e-12) {
+                            continue;
+                        }
+                        std::size_t idx_k2 = 18;
+                        complex_d   Ma =
+                            Sum_2_prime[idx_n2_prime][idx_k2_prime] * Sum_1_prime_1[idx_n1_prime][idx_k1_prime] * Sum_2[idx_n2][idx_k2];
+                        complex_d Mb =
+                            Sum_2_prime[idx_n1_prime][idx_k1_prime] * Sum_1_prime_1[idx_n2_prime][idx_k2_prime] * Sum_2[idx_n2][idx_k2];
+                        FullMatrixElement[idx_k2_prime] =
+                            std::abs(Ma) * std::abs(Ma) + std::abs(Mb) * std::abs(Mb) + std::abs(Ma - Mb) * std::abs(Ma - Mb);
+                    }
+                }
+            }
+        }
+    }
+    std::cout << std::endl;
+    auto end_compute = std::chrono::high_resolution_clock::now();
+    std::cout << "Compute time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_compute - start_compute).count() << " ms" << std::endl;
+    return 0.0;
 }
 
 }  // namespace bz_mesh
