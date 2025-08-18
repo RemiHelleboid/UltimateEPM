@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
         out_file_bands = arg_outfile.getValue();
     }
 
-    my_mesh.add_all_bands_on_mesh(out_file_bands + "_all_bands.msh", my_bandstructure);
+    my_mesh.add_all_bands_on_mesh_separate_files(out_file_bands, my_bandstructure);
 
     return 0;
 }

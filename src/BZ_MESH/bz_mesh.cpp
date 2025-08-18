@@ -13,7 +13,7 @@
 
 #include <algorithm>
 #include <chrono>
-#include <fstream>
+#include <filesystem>
 #include <vector>
 
 #include "gmsh.h"
@@ -52,7 +52,8 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     gmsh::model::mesh::getNodes(nodeTags, nodeCoords, nodeParams, -1, -1, false, false);
     std::size_t size_nodes_tags        = nodeTags.size();
     std::size_t size_nodes_coordinates = nodeCoords.size();
-    std::cout << "Number of nodes: " << size_nodes_tags << std::endl;
+    m_node_tags = nodeTags;
+     std::cout << "Number of nodes: " << size_nodes_tags << std::endl;
 
     if (size_nodes_coordinates != 3 * size_nodes_tags) {
         throw std::runtime_error("Number of coordinates is not 3 times the number of vertices. Abort.");
@@ -219,6 +220,116 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename) {
     gmsh::finalize();
     compute_min_max_energies_at_tetras();
     compute_energy_gradient_at_tetras();
+}
+
+void MeshBZ::read_mesh_bands_from_multi_band_files(const std::string& dir_bands) {
+
+    if (m_list_vertices.empty()) throw std::runtime_error("Geometry must be loaded before bands (m_list_vertices is empty).");
+
+    if (m_node_tags.empty()) throw std::runtime_error("m_node_tags is empty. Store node tags when reading geometry to preserve mapping.");
+
+    // 1) Collect band files: band_<idx>.msh
+    std::vector<std::pair<int, std::filesystem::path>> band_files;
+    std::regex                            re(R"(band_(\d+)\.msh$)");
+    for (auto& p : std::filesystem::directory_iterator(dir_bands)) {
+        if (!p.is_regular_file()) continue;
+        const std::string name = p.path().filename().string();
+        std::smatch  m;
+        if (std::regex_search(name, m, re)) {
+            int idx = std::stoi(m[1].str());
+            band_files.emplace_back(idx, p.path());
+        }
+    }
+    if (band_files.empty()) throw std::runtime_error("No band_*.msh files found in directory: " + dir_bands);
+
+    std::sort(band_files.begin(), band_files.end(), [](auto& a, auto& b) { return a.first < b.first; });
+
+    // 2) Build tag->vertex index map once (reference from geometry session)
+    std::unordered_map<std::size_t, std::size_t> tag2idx;
+    tag2idx.reserve(m_node_tags.size());
+    for (std::size_t i = 0; i < m_node_tags.size(); ++i)
+        tag2idx[m_node_tags[i]] = i;
+
+    // 3) Clear existing band metadata (if reloading)
+    m_indices_valence_bands.clear();
+    m_indices_conduction_bands.clear();
+    m_min_band.clear();
+    m_max_band.clear();
+
+    // 4) Loop over band files and ingest view values
+    gmsh::initialize();
+    gmsh::option::setNumber("General.Verbosity", 0);
+
+    int count_band = 0;
+    for (auto& [bidx, path] : band_files) {
+        std::cout << "Opening band file: " << path << std::endl;
+
+        gmsh::clear();
+        gmsh::open(path.string());
+
+        // Expect exactly one view
+        std::vector<int> vtags;
+        gmsh::view::getTags(vtags);
+        if (vtags.empty()) throw std::runtime_error("No views found in " + path.string());
+        if (vtags.size() > 1) std::cerr << "[warn] " << path << " contains " << vtags.size() << " views; using the first one.\n";
+
+        const int vtag = vtags.front();
+
+        std::string              type;
+        std::vector<std::size_t> tags;
+        double                   time;
+        int                      numComp;
+        std::vector<double>      data_view;
+
+        gmsh::view::getHomogeneousModelData(vtag, 0, type, tags, data_view, time, numComp);
+
+        if (type != "NodeData") throw std::runtime_error("Unexpected view type in " + path.string() + ": " + type);
+        if (numComp != 1) throw std::runtime_error("Non-scalar NodeData in " + path.string());
+        if (tags.size() != data_view.size()) throw std::runtime_error("tags.size() != data_view.size() in " + path.string());
+
+        if (tags.size() != m_list_vertices.size()) {
+            std::ostringstream oss;
+            oss << "Node count mismatch in " << path << ": file has " << tags.size() << " nodes, mesh has " << m_list_vertices.size();
+            throw std::runtime_error(oss.str());
+        }
+
+        // Map values to our vertex order via node tag
+        std::vector<double> energies_in_vertex_order(m_list_vertices.size(), 0.0);
+        for (std::size_t i = 0; i < tags.size(); ++i) {
+            auto it = tag2idx.find(tags[i]);
+            if (it == tag2idx.end()) {
+                std::ostringstream oss;
+                oss << "Node tag " << tags[i] << " from " << path << " not present in reference tag map.";
+                throw std::runtime_error(oss.str());
+            }
+            energies_in_vertex_order[it->second] = data_view[i];
+        }
+
+        // Attach this band to vertices
+        add_new_band_energies_to_vertices(energies_in_vertex_order);
+
+        // Classify + min/max for this band
+        auto minmax_band = std::minmax_element(energies_in_vertex_order.begin(), energies_in_vertex_order.end());
+        m_min_band.push_back(*minmax_band.first);
+        m_max_band.push_back(*minmax_band.second);
+
+        // Adjust criterion if your energy zero differs
+        const bool is_valence = (*minmax_band.second) <= 0.0;
+        if (is_valence)
+            m_indices_valence_bands.push_back(count_band);
+        else
+            m_indices_conduction_bands.push_back(count_band);
+
+        ++count_band;
+    }
+
+    gmsh::finalize();
+
+    // 5) Recompute per-tetra helpers
+    compute_min_max_energies_at_tetras();
+    compute_energy_gradient_at_tetras();
+
+    std::cout << "Loaded " << count_band << " bands from " << band_files.size() << " files in directory: " << dir_bands << std::endl;
 }
 
 void MeshBZ::add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices) {

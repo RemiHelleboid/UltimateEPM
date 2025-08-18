@@ -11,12 +11,18 @@
 
 #pragma once
 
+#include <filesystem>
+#include <regex>
+#include <sstream>
+#include <unordered_map>
+
 #include "Material.h"
 #include "iso_triangle.hpp"
 #include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
 #include "octree_bz.hpp"
 #include "vector.hpp"
+
 
 namespace bz_mesh {
 
@@ -35,6 +41,12 @@ class MeshBZ {
      *
      */
     vector3 m_center = {0.0, 0.0, 0.0};
+
+    /**
+     * @brief The tags of the nodes in the mesh.
+     * These tags are used to identify the vertices in the GMSH files when load is done.
+     */
+    std::vector<std::size_t> m_node_tags;
 
     /**
      * @brief List of the vertices of the BZ mesh. Each vertices represent a vector k within the Brillouin Zone.
@@ -86,28 +98,29 @@ class MeshBZ {
 
  public:
     MeshBZ() = default;
-    MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material){};
+    MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material) {};
     MeshBZ(const MeshBZ&) = default;
-
 
     vector3 get_vertex_position(std::size_t idx_vtx) const { return m_list_vertices[idx_vtx].get_position(); }
 
-    vector3             get_center() const { return m_center; }
-    void                shift_bz_center(const vector3& shift);
-
+    vector3 get_center() const { return m_center; }
+    void    shift_bz_center(const vector3& shift);
 
     bbox_mesh           compute_bounding_box() const;
     void                build_search_tree();
-    std::vector<Tetra*> get_list_p_tetra()  {
+    std::vector<Tetra*> get_list_p_tetra() {
         std::vector<Tetra*> tetra_pointers;
         tetra_pointers.reserve(m_list_tetrahedra.size());
-        std::transform(m_list_tetrahedra.begin(), m_list_tetrahedra.end(), std::back_inserter(tetra_pointers), [](Tetra& tetra) { return &tetra; });
+        std::transform(m_list_tetrahedra.begin(), m_list_tetrahedra.end(), std::back_inserter(tetra_pointers), [](Tetra& tetra) {
+            return &tetra;
+        });
         return tetra_pointers;
     }
-    Tetra*              find_tetra_at_location(const vector3& location) const;
+    Tetra* find_tetra_at_location(const vector3& location) const;
 
-    void read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor=true);
+    void read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor = true);
     void read_mesh_bands_from_msh_file(const std::string& filename);
+    void read_mesh_bands_from_multi_band_files(const std::string& dir_bands);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
     void compute_min_max_energies_at_tetras();
     void compute_energy_gradient_at_tetras();
