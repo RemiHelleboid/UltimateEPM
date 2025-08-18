@@ -20,7 +20,7 @@
 #include "omp.h"
 #include "rapidcsv.h"
 
-#pragma omp declare reduction(merge : std::vector <double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
+#pragma omp declare reduction(merge : std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
 namespace bz_mesh {
 
@@ -52,6 +52,7 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     gmsh::model::mesh::getNodes(nodeTags, nodeCoords, nodeParams, -1, -1, false, false);
     std::size_t size_nodes_tags        = nodeTags.size();
     std::size_t size_nodes_coordinates = nodeCoords.size();
+    std::cout << "Number of nodes: " << size_nodes_tags << std::endl;
 
     if (size_nodes_coordinates != 3 * size_nodes_tags) {
         throw std::runtime_error("Number of coordinates is not 3 times the number of vertices. Abort.");
@@ -62,6 +63,7 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     std::cout << "Lattice const: " << lattice_constant << std::endl;
     std::cout << "V: " << std::pow(2.0 * M_PI, 3) / std::pow(lattice_constant, 3.0) << std::endl;
     const double fourier_factor       = 2.0 * M_PI / lattice_constant;
+    // const double fourier_factor       = 1;
     double       normalization_factor = normalize_by_fourier_factor ? fourier_factor : 1.0;
     for (std::size_t index_vertex = 0; index_vertex < size_nodes_tags; ++index_vertex) {
         m_list_vertices.push_back(Vertex(index_vertex,
@@ -99,6 +101,7 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
 
     gmsh::finalize();
     m_total_volume = compute_mesh_volume();
+    std::cout << "Total mesh volume: " << m_total_volume << std::endl;
 }
 
 bbox_mesh MeshBZ::compute_bounding_box() const {
@@ -280,7 +283,6 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
         double dos    = compute_dos_at_energy_and_band(energy, band_index);
-#pragma omp critical
         list_energies.push_back(energy);
         list_dos.push_back(dos);
         //         std::cout << "\rComputing density of state at energy " << index_energy << "/" << nb_points << std::flush;
@@ -326,21 +328,16 @@ void MeshBZ::export_k_points_to_file(const std::string& filename) const {
 }
 
 bool MeshBZ::is_inside_mesh_geometry(const vector3& k) const {
-    double kx     = k.x();
-    double ky     = k.y();
-    double kz     = k.z();
-    bool   cond_1 = std::abs(kx) <= 1.0 and std::abs(ky) <= 1.0 and std::abs(kz) <= 1.0;
-    bool   cond_2 = std::abs(kx) + std::abs(ky) + std::abs(kz) <= 3.0 / 2.0;
-    return cond_1 and cond_2;
+    const double ax = std::abs(k.x()), ay = std::abs(k.y()), az = std::abs(k.z());
+    const bool   cond1 = (ax <= 0.5) && (ay <= 0.5) && (az <= 0.5);
+    const bool   cond2 = (ax + ay + az) <= 0.75;
+    return cond1 && cond2;
 }
-
 bool MeshBZ::is_inside_mesh_geometry(const Vector3D<double>& k) const {
-    double kx     = k.X;
-    double ky     = k.Y;
-    double kz     = k.Z;
-    bool   cond_1 = std::abs(kx) <= 1.0 and std::abs(ky) <= 1.0 and std::abs(kz) <= 1.0;
-    bool   cond_2 = std::abs(kx) + std::abs(ky) + std::abs(kz) <= 3.0 / 2.0;
-    return cond_1 and cond_2;
+    const double ax = std::abs(k.X), ay = std::abs(k.Y), az = std::abs(k.Z);
+    const bool   cond1 = (ax <= 0.5) && (ay <= 0.5) && (az <= 0.5);
+    const bool   cond2 = (ax + ay + az) <= 0.75;
+    return cond1 && cond2;
 }
 
 vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {

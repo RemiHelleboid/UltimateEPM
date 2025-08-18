@@ -360,7 +360,7 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
         double  lB_V = (e_3 - iso_energy) / (e_3 - e_1);
         vector3 V    = compute_euclidean_coordinates_with_indices({0.0, lB_V, 0.0, 1.0 - lB_V}, indices_sort);
         double  lA_W = (e_3 - iso_energy) / (e_3 - e_0);
-        vector3 W    = compute_euclidean_coordinates_with_indices({lA_W, 0.0, 1.0 - lA_W}, indices_sort);
+        vector3 W    = compute_euclidean_coordinates_with_indices({lA_W, 0.0, 0.0, 1.0 - lA_W}, indices_sort);
         return {U, V, W};
     } else {
         throw std::runtime_error("ISO SURFACE CASE UNKNOWN IN DOS COMPUTATION... ABORT.");
@@ -401,19 +401,26 @@ double Tetra::compute_tetra_iso_surface_energy_band(double energy, std::size_t b
  * @brief Main function to compute the DOS of the energy energy of the band with index band_index within the tetrahedra.
  *
  * One could try to store the value eps_12, eps_13, eps_14 for each band at the construction step, to avoid computing them each time the
- * function is called.
+ * function is called.  Returns DOS contribution in states / (eV · m^3)
+ * Assumes: k in m^-1; A in m^-2; |∇_k E| in eV·m
  *
  * @param energy
  * @param band_index
  * @return double
  */
-double Tetra::compute_tetra_dos_energy_band(double energy, std::size_t band_index) const {
-    if (energy < m_min_energy_per_band[band_index] || energy > m_max_energy_per_band[band_index]) {
+double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_index) const {
+    if (energy_eV < m_min_energy_per_band[band_index] || energy_eV > m_max_energy_per_band[band_index]) {
         return 0.0;
     }
-    const double renormalization = 1.0;
-    return renormalization * (1.0 / m_gradient_energy_per_band[band_index]) *
-           this->compute_tetra_iso_surface_energy_band(energy, band_index);
+    const double A    = compute_tetra_iso_surface_energy_band(energy_eV, band_index);  // m^-2
+    const double grad = m_gradient_energy_per_band[band_index];                        // eV·m
+    if (A <= 0.0 || grad <= 0.0) return 0.0;
+
+    constexpr int g_s  = 2;  // spin degeneracy (adjust if needed)
+    constexpr int g_v  = 1;  // valley degeneracy if not represented as separate bands
+    const double  pref = double(g_s * g_v) / std::pow(2.0 * M_PI, 3.0);
+
+    return pref * (A / grad);
 }
 
 bool Tetra::is_energy_inside_band(double energy, std::size_t index_band) const {

@@ -12,7 +12,7 @@ try:
     plt.style.use(['science', 'high-vis'])
 except Exception:
     None
-plt.style.use(['seaborn-paper'])
+# plt.style.use(['seaborn-paper'])
 
 mpl.rcParams['figure.figsize'] = [3.5, 2.8]
 

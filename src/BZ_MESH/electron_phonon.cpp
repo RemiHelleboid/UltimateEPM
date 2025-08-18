@@ -22,29 +22,32 @@
 #include "Constants.hpp"
 #include "Vector3D.h"
 #include "bz_states.hpp"
-
 #include "gmsh.h"
-
 #include "omp.h"
 
 namespace bz_mesh {
 
+// double ElectronPhonon::bose_einstein_distribution(double energy, double temperature) {
+//     if (energy < 1e-9) {
+//         return 0.0;
+//     }
+//     double f = 1.0 / (std::expm1(energy / (EmpiricalPseudopotential::Constants::k_b_eV * temperature)));
+//     if (f < 0 || std::isnan(f) || std::isinf(f)) {
+//         std::cout << "Energy: " << energy << " Temperature: " << temperature << " f: " << f << std::endl;
+//         throw std::runtime_error("Bose-Einstein distribution is negative or NaN");
+//     }
+//     return f;
+// }
+
 double ElectronPhonon::bose_einstein_distribution(double energy, double temperature) {
-    if (energy < 1e-9) {
-        return 0.0;
-    }
-    double f = 1.0 / (std::expm1(energy / (EmpiricalPseudopotential::Constants::k_b_eV * temperature)));
-    if (f < 0 || std::isnan(f) || std::isinf(f)) {
-        std::cout << "Energy: " << energy << " Temperature: " << temperature << " f: " << f << std::endl;
-        throw std::runtime_error("Bose-Einstein distribution is negative or NaN");
-    }
-    return f;
+    double x = energy / (EmpiricalPseudopotential::Constants::k_b_eV * temperature);
+    return 1.0 / std::expm1(x);
 }
 
 double ElectronPhonon::electron_overlap_integral(const Vector3D<double>& k1, const Vector3D<double>& k2) {
-    const double R_Wigner_Seitz = 2.122e-10;
-    const double qRws           = (k1 - k2).Length() * R_Wigner_Seitz;
-    double       integral       = 3.0 * (std::sin(qRws) - qRws * std::cos(qRws)) / (qRws * qRws * qRws);
+    constexpr double R_Wigner_Seitz = 2.122e-10;
+    const double     qRws           = (k1 - k2).Length() * R_Wigner_Seitz;
+    double           integral       = 3.0 * (std::sin(qRws) - qRws * std::cos(qRws)) / (qRws * qRws * qRws);
     return integral;
 }
 
@@ -60,10 +63,10 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
     const std::vector<Tetra>& list_tetrahedra          = m_list_tetrahedra;
     auto                      indices_conduction_bands = m_indices_conduction_bands;
     double                    energy_n1_k1             = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
-
+    
+    auto             k_1 = m_list_vertices[idx_k1].get_position();
     for (auto&& idx_n2 : indices_conduction_bands) {
         for (auto&& tetra : list_tetrahedra) {
-            auto             k_1 = m_list_vertices[idx_k1].get_position();
             auto             k_2 = tetra.compute_barycenter();
             Vector3D<double> k1{k_1.x(), k_1.y(), k_1.z()};
             Vector3D<double> k2{k_2.x(), k_2.y(), k_2.z()};
@@ -105,8 +108,9 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                 }
                 // std::cout << "Energy phonon: " << e_ph << std::endl;
                 for (auto sign_phonon : {-1.0, 1.0}) {
-                    double add_phonon = (sign_phonon == 1.0) ? 1.0 : 0.0;
-                    double bose_part    = (bose_einstein_distribution(e_ph, m_temperature) + add_phonon);
+                    const double N0           = bose_einstein_distribution(e_ph, m_temperature);
+                    const double bose_part    = (sign_phonon == 1.0) ? N0           // absorption
+                                                                     : (N0 + 1.0);  // emission
                     double energy_final = energy_n1_k1 + e_ph * sign_phonon;
                     // std::cout << "Energy (n1, k1): " << energy_n1_k1 << " Energy phonon: " << e_ph << " Energy final: " << energy_final
                     //           << std::endl;
@@ -124,13 +128,18 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                     PhononMode           phonon_mode                 = mode_direction.first;
                     PhononDirection      phonon_direction            = mode_direction.second;
                     PhononEvent          phonon_event = (sign_phonon == 1.0) ? PhononEvent::absorption : PhononEvent::emission;
+
+                    double raw_rate_value = (dos_tetra / e_ph) * (bose_part) * overlap_integral * overlap_integral * deformation_potential_value *
+                                            deformation_potential_value;
+                    std::cout << "Raw rate value: " << raw_rate_value << std::endl;
                     double rate_value = (EmpiricalPseudopotential::Constants::pi / (m_rho * e_ph)) * deformation_potential_value *
                                         deformation_potential_value * overlap_integral * overlap_integral * bose_part * dos_tetra;
                     // std::cout << this->get_volume() << std::endl;
-                    rate_value /= this->get_volume();
+                    // rate_value /= this->get_volume();
                     // rate_value *= EmpiricalPseudopotential::Constants::q_e;
 
-                    if (rate_value < 0.0 || rate_value > 1e50 || std::isnan(rate_value) || std::isinf(rate_value)) {
+                    if (0 || rate_value < 0.0 || rate_value > 1e50 || std::isnan(rate_value) || std::isinf(rate_value)) {
+                        std::cout << "k1 n1: " << idx_k1 << " " << idx_n1 << std::endl;
                         std::cout << "Rate value: " << rate_value << std::endl;
                         std::cout << "Overlap integral: " << overlap_integral << std::endl;
                         std::cout << "Deformation potential: " << deformation_potential_value << std::endl;
@@ -143,16 +152,16 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                         std::cout << "Energy (n1, k1): " << energy_n1_k1 << std::endl;
                         std::cout << "--------------------------------------------------------------------------------" << std::endl;
                     }
-                    // std::cout << "Rate value: " << rate_value << std::endl;
+                    std::cout << "Rate value: " << rate_value << std::endl;
                     RateValue rate(phonon_mode, phonon_direction, phonon_event, rate_value);
                     rates_k1_n1.add_rate(rate);
                 }
             }
         }
     }
-    // rates_k1_n1.print_rates();
-    // std::cout << "*************************************************************************************************************" <<
-    // std::endl;
+    rates_k1_n1.print_rates();
+    std::cout << "*************************************************************************************************************" <<
+    std::endl;
     return rates_k1_n1;
 }
 
@@ -172,7 +181,7 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
             double           overlap_integral = hole_overlap_integral(idx_n1, k1, idx_n2, k2);
             auto             q                = k2 - k1;
             auto             initial_q        = q;
-            Vector3D<double> q_ph{q.X, q.X, q.X};
+            Vector3D<double> q_ph{q.X, q.Y, q.Z};
             bool             is_in_bz = is_inside_mesh_geometry(q_ph / m_material.get_fourier_factor());
 
             // No Umklapp process for now.
@@ -227,8 +236,8 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
                     double rate_value = (EmpiricalPseudopotential::Constants::pi / (m_rho * e_ph)) * deformation_potential_value *
                                         deformation_potential_value * overlap_integral * overlap_integral * bose_part * dos_tetra;
                     // std::cout << this->get_volume() << std::endl;
-                    rate_value /= this->get_volume();
-                    rate_value *= EmpiricalPseudopotential::Constants::q_e;
+                    // rate_value /= this->get_volume();
+                    // rate_value *= EmpiricalPseudopotential::Constants::q_e;
 
                     if (rate_value < 0.0 || rate_value > 1e50 || std::isnan(rate_value) || std::isinf(rate_value)) {
                         std::cout << "Rate value: " << rate_value << std::endl;
@@ -268,7 +277,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
     std::uniform_real_distribution<double> dis(0.0, 1.0);
     double                                 p_compute_rate = 0.1;
 
-#pragma omp parallel for schedule(dynamic)
+// #pragma omp parallel for schedule(dynamic)
     for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
         double r = dis(gen);
         for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
@@ -282,7 +291,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
             m_list_vertices[idx_k1].add_electron_phonon_rates(array);
         }
 
-        for (std::size_t idx_n1 = min_idx_conduction_band; idx_n1 < max_idx_conduction_band; ++idx_n1) {
+        for (std::size_t idx_n1 = min_idx_conduction_band; idx_n1 <= max_idx_conduction_band; ++idx_n1) {
             if (r > p_compute_rate) {
                 std::array<double, 8> array = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
                 m_list_vertices[idx_k1].add_electron_phonon_rates(array);
@@ -293,10 +302,9 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
                 m_list_vertices[idx_k1].add_electron_phonon_rates(array);
             }
         }
-        if (omp_get_thread_num() == 0){
+        if (omp_get_thread_num() == 0) {
             std::cout << "\rComputing rates for k-point " << idx_k1 << " / " << m_list_vertices.size() << std::flush;
         }
-             
     }
     std::cout << std::endl;
     file.close();
@@ -363,8 +371,7 @@ void ElectronPhonon::plot_phonon_dispersion(const std::string& filename) const {
     }
 }
 
-void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initial_filename,
-                                                       const std::string& final_filename) {
+void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename) {
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 0);
     gmsh::model::add("bz_mesh");
@@ -373,13 +380,11 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
     std::string model_file_name;
     gmsh::model::getCurrent(model_file_name);
 
-
     std::vector<std::size_t> node_tags;
-    std::vector<double> nodeCoords;
-    std::vector<double> nodeParams;
+    std::vector<double>      nodeCoords;
+    std::vector<double>      nodeParams;
     gmsh::model::mesh::reclassifyNodes();
     gmsh::model::mesh::getNodes(node_tags, nodeCoords, nodeParams, -1, -1, false, false);
-
 
     auto indices_conduction_bands = m_indices_conduction_bands;
     auto min_idx_conduction_band  = *std::min_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
@@ -387,7 +392,7 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
     std::cout << "Min index conduction band: " << min_idx_conduction_band << std::endl;
     int nb_bands = m_indices_conduction_bands.size() + m_indices_valence_bands.size();
 
-    for (int idx_val_band=0; idx_val_band<max_idx_conduction_band; ++idx_val_band) {
+    for (int idx_val_band = 0; idx_val_band < max_idx_conduction_band; ++idx_val_band) {
         std::vector<double> rates_hole_lo_em(m_list_vertices.size());
         std::vector<double> rates_hole_lo_ab(m_list_vertices.size());
         std::vector<double> rates_hole_tr_em(m_list_vertices.size());
@@ -398,7 +403,7 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
         std::vector<double> rates_elec_tr_ab(m_list_vertices.size());
 
         for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
-            auto rates = m_list_vertices[idx_k1].get_electron_phonon_rates(idx_val_band);
+            auto rates               = m_list_vertices[idx_k1].get_electron_phonon_rates(idx_val_band);
             rates_hole_lo_em[idx_k1] = rates[0];
             rates_hole_lo_ab[idx_k1] = rates[1];
             rates_hole_tr_em[idx_k1] = rates[2];
@@ -442,9 +447,8 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
         gmsh::view::write(data_tag_elec_lo_em, final_filename, true);
         gmsh::view::write(data_tag_elec_lo_ab, final_filename, true);
         gmsh::view::write(data_tag_elec_tr_em, final_filename, true);
-        gmsh::view::write(data_tag_elec_tr_ab, final_filename, true); 
+        gmsh::view::write(data_tag_elec_tr_ab, final_filename, true);
     }
-
 
     // for (int index_band = 0; index_band < number_bands; ++index_band) {
     //     std::string         band_name = "band_" + std::to_string(index_band);
@@ -465,10 +469,7 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
     //     gmsh::option::setNumber(name_object_visibility, 0);
     //     gmsh::view::write(data_tag, out_filename, true);
     // }
-
-    
 }
-
 
 void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
     YAML::Node config = YAML::LoadFile(filename);

@@ -89,6 +89,11 @@ int main(int argc, char *argv[]) {
     my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file);
 
     std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
+    double Vcell = std::pow(current_material.get_lattice_constant_meter(), 3) / 4.0;
+    std::cout << "Vcell: " << Vcell << std::endl;
+    const double VBZ_theory = std::pow(2.0 * M_PI, 3) / Vcell;  // m^-3
+    const double VBZ_mesh   = my_bz_mesh.compute_mesh_volume();            // sum |tetra.volume| in your k units
+    std::cout << "VBZ_mesh / VBZ_theory = " << (VBZ_mesh / VBZ_theory) << "\n";
 
     std::vector<std::vector<double>> list_list_dos{};
     std::vector<std::string>         list_header = {};
@@ -120,7 +125,7 @@ int main(int argc, char *argv[]) {
 
     export_multiple_vector_to_csv(out_file_bands + ".csv", list_header, list_list_dos);
 
-    const std::string python_plot_dos  = std::string(CMAKE_SOURCE_DIR) + "/python/plot_density_of_states.py";
+    const std::string python_plot_dos  = std::string(CMAKE_SOURCE_DIR) + "/python/plots/plot_density_of_states.py";
     bool              call_python_plot = plot_with_python.isSet();
     if (call_python_plot) {
         std::string python_call = "python3 " + python_plot_dos + " --file " + out_file_bands + ".csv";

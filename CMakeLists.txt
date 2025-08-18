@@ -81,6 +81,17 @@ endif()
 # FIND / GET RELEVANT LIBRARIES
 include(FetchContent)
 
+
+# Get yaml_cpp lib
+message("Fetching yaml-cpp lib ...")
+FetchContent_Declare(
+  yaml-cpp
+  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+  GIT_TAG master
+)
+FetchContent_MakeAvailable(yaml-cpp)
+
+
 # Find Eigen library Find Eigen library
 FetchContent_Declare(
   Eigen
@@ -176,15 +187,17 @@ if(NOT rapidcsv_FOUND)
 endif()
 
 # Get yaml_cpp lib
-find_package(yaml-cpp NO_MODULE)
+# find_package(yaml-cpp NO_MODULE)
+# FetchContent_MakeAvailable(yaml-cpp)
 
-if(NOT yaml-cpp_FOUND)
-  message("Fetching yaml-cpp lib ...")
-  set(YAML_CPP_BUILD_TESTS OFF)
-  set(YAML_CPP_BUILD_TOOLS OFF)
-  set(YAML_CPP_BUILD_CONTRIB OFF)
-  FetchContent_MakeAvailable(yaml-cpp)
-endif()
+
+# if(NOT yaml-cpp_FOUND)
+#   message("Fetching yaml-cpp lib ...")
+#   set(YAML_CPP_BUILD_TESTS OFF)
+#   set(YAML_CPP_BUILD_TOOLS OFF)
+#   set(YAML_CPP_BUILD_CONTRIB OFF)
+#   FetchContent_MakeAvailable(yaml-cpp)
+# endif()
 
 # check if Doxygen is installed
 find_package(Doxygen)
@@ -213,13 +226,7 @@ else(DOXYGEN_FOUND)
   message("Doxygen need to be installed to generate the doxygen documentation")
 endif()
 
-# Get yaml_cpp lib
-find_package(yaml-cpp NO_MODULE)
 
-if(NOT yaml-cpp_FOUND)
-  message("Fetching yaml-cpp lib ...")
-  FetchContent_MakeAvailable(yaml-cpp)
-endif()
 
 FetchContent_Declare(
   fmt

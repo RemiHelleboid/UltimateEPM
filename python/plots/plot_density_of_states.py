@@ -1,121 +1,178 @@
+#!/usr/bin/env python3
 import numpy as np
-import scipy.stats as st
-import pandas as pd
-from pathlib import Path
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import cm, title
-import scipy.stats as st
-from scipy.stats import skewnorm
-import glob
-import os
+from pathlib import Path
 from argparse import ArgumentParser
 
-import matplotlib.style
-import matplotlib as mpl
+# ---- optional styles (won't crash if missing) ----
+try:
+    import matplotlib as mpl
+    import scienceplots  # noqa: F401
+    plt.style.use(['science', 'muted'])
+    mpl.rcParams['figure.figsize'] = [3.5, 2.8]
+    mpl.rcParams['figure.dpi'] = 300
+except Exception:
+    pass
 
-import scienceplots
+# ---- Silicon defaults ----
+# Lattice constant (m)
+A_SI = 5.431e-10
+# Primitive cell volume for diamond/fcc
+VCELL_SI = (A_SI**3) / 4.0
+# Spin degeneracy
+GS_SI = 2
 
-plt.style.use(['science', 'muted'])
-mpl.rcParams['figure.figsize'] = [3.5, 2.8]
-mpl.rcParams['figure.dpi'] = 300
 
-def plot_dos_per_band(filename, ax_plot=None, band_type="all"):
-    if ax_plot is not None:
-        axs = ax_plot
-    else:
-        fig, axs = plt.subplots()
-    BANDS = np.loadtxt(filename, delimiter=',', skiprows=1)
-    print(f"Shape bands data: {BANDS.shape}")
-    number_bands = int((BANDS.shape[1] - 1) / 2)
-    BANDS = BANDS.T
-    band_counter = 0
-    for band_index in range(0, number_bands):
-        energies, dos = zip(*sorted(zip(BANDS[2*band_index], BANDS[2*band_index + 1])))
-        if np.mean(energies) <= 0.0 and (band_type != "valence" and band_type != "all"):
-            continue
-        if np.mean(energies) >= 0.5 and (band_type!="conduction" and band_type!="all"):
-            continue
-        band_counter += 1
-        axs.plot(energies, dos, lw=0.9 , label=f"{band_counter}")
-    axs.legend(fontsize='x-small', title_fontsize='x-small', title="Band index", fancybox=True, ncol=2)
-    axs.set_xlabel("Energy (eV)")
-    axs.set_ylabel("Density of states (a.u.)")
-    axs.set_ylim(0.00, )
+def load_bands_csv(filename: str):
+    arr = np.loadtxt(filename, delimiter=',', skiprows=1)
+    if arr.ndim == 1:
+        raise ValueError("File has one row only; need at least 2 rows.")
+    nb_cols = arr.shape[1]
+    if nb_cols % 2 != 0:
+        nb_cols -= 1
+        arr = arr[:, :nb_cols]
+
+    nbands = nb_cols // 2
+    energies, doss = [], []
+
+    for b in range(nbands):
+        E = arr[:, 2 * b]
+        G = arr[:, 2 * b + 1]
+        order = np.argsort(E)
+        energies.append(E[order])
+        doss.append(G[order])
+    return energies, doss
+
+
+def band_filter_mask(E: np.ndarray, band_type: str) -> bool:
+    mu = float(np.nanmean(E))
     if band_type == "conduction":
-        axs.set_xlim(-1, )
-    # axs.set_yticklabels([])
-    # axs.set_title("Silicon Bands Density of States")
+        return mu >= 0.0
+    if band_type == "valence":
+        return mu <= 0.0
+    return True
 
 
-def plot_dos_sum_bands(filename, ax_plot=None, band_type="all"):
-    if ax_plot is not None:
-        axs = ax_plot
-    else:
-        fig, axs = plt.subplots()
-    BANDS = np.loadtxt(filename, delimiter=',', skiprows=1)
-    print(f"Shape bands data: {BANDS.shape}")
-    number_bands = int((BANDS.shape[1] - 1) / 2)
-    BANDS = BANDS.T
-    
-    nb_points = 2000
-    min_linspace = 0 if band_type in [ "conduction"] else -10.0
-    max_linspace = 0 if band_type in ["valence"] else 10.0
-    energies_plot = np.linspace(min_linspace, max_linspace, nb_points)
-    dos_total = np.zeros_like(energies_plot)
-
-    count_band = 0
-    for band_index in range(0, number_bands):
-        energies, dos = zip(*sorted(zip(BANDS[2*band_index], BANDS[2*band_index + 1])))
-        if np.mean(energies) <= 0.0 and (band_type != "valence" and band_type != "all"):
+def plot_dos_per_band(filename: str, ax=None, band_type: str = "all"):
+    if ax is None:
+        _, ax = plt.subplots()
+    energies, doss = load_bands_csv(filename)
+    kept = 0
+    for idx, (E, G) in enumerate(zip(energies, doss), 1):
+        if not band_filter_mask(E, band_type):
             continue
-        if np.mean(energies) >= 0.5 and (band_type!="conduction" and band_type!="all"):
-            continue
-        dos_interp = np.interp(energies_plot, energies, dos)
-        dos_total += dos_interp
-        count_band += 1
-    axs.plot(energies_plot, dos_total, c="darkblue")
-    # axs.legend(fontsize='x-small', title_fontsize='x-small', title="Number\n of bands", fancybox=True)
-    axs.set_xlabel("Energy (eV)")
-    axs.set_ylabel("Density of states (a.u.)")
-    # axs.set_xlim(-6, 5)
-    axs.set_ylim(0.00, )
-    axs.set_xlim(min_linspace, max_linspace)
-    # axs.set_yticklabels([])
-    # axs.set_title("Silicon Total Density of States")
+        kept += 1
+        ax.plot(E, G, lw=0.9, label=f"{kept}")
+    if kept == 0:
+        ax.text(0.5, 0.5, "No bands selected",
+                ha="center", va="center", transform=ax.transAxes)
 
+    ax.legend(fontsize='x-small', title_fontsize='x-small',
+              title="Band index", fancybox=True, ncol=2)
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Density of states (a.u.)")
+    ax.set_ylim(bottom=0.0)
+
+    if band_type == "conduction":
+        ax.set_xlim(left=-1.0)
+    elif band_type == "valence":
+        ax.set_xlim(right=1.0)
+    return ax
+
+
+def plot_dos_sum_bands(filename: str, ax=None, band_type: str = "all",
+                       emin: float | None = None, emax: float | None = None,
+                       npts: int = 2000):
+    if ax is None:
+        _, ax = plt.subplots()
+    energies, doss = load_bands_csv(filename)
+
+    allE = np.concatenate([E for E in energies if band_filter_mask(E, band_type)]
+                          ) if energies else np.array([0.0])
+    if emin is None:
+        emin = (0.0 if band_type == "conduction"
+                else float(np.nanmin(allE)) if allE.size else -10.0)
+    if emax is None:
+        emax = (0.0 if band_type == "valence"
+                else float(np.nanmax(allE)) if allE.size else 10.0)
+
+    eplot = np.linspace(emin, emax, npts)
+    gtot = np.zeros_like(eplot)
+
+    count = 0
+    for E, G in zip(energies, doss):
+        if not band_filter_mask(E, band_type):
+            continue
+        gtot += np.interp(eplot, E, G, left=0.0, right=0.0)
+        count += 1
+
+    ax.plot(eplot, gtot, c="darkblue", label=f"Sum of {count} bands")
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Density of states (a.u.)")
+    ax.set_ylim(bottom=0.0)
+    ax.set_xlim(emin, emax)
+    ax.legend(frameon=False, fontsize='x-small')
+    return ax, eplot, gtot
+
+
+def quick_sum_rule_check(e_eV: np.ndarray, g_eV_m3: np.ndarray,
+                         Vcell_m3: float, g_s: int = 2) -> float:
+    integral = np.trapz(g_eV_m3, e_eV)                 # states/m^3
+    target = g_s / Vcell_m3                            # states/m^3
+    return integral / target if target != 0 else np.nan
+
+
+def main():
+    p = ArgumentParser()
+    p.add_argument("-f", "--file", required=True, help="CSV file to parse.")
+    p.add_argument("-o", "--outputdir", default="./", help="Directory to save figures.")
+    p.add_argument("-t", "--type", dest="band_type", default="all",
+                   choices=["all", "conduction", "valence"],
+                   help="Which bands to include.")
+    p.add_argument("--emin", type=float, default=None,
+                   help="Min energy for total DOS plot (eV).")
+    p.add_argument("--emax", type=float, default=None,
+                   help="Max energy for total DOS plot (eV).")
+    p.add_argument("--dpi", type=int, default=600, help="Figure DPI.")
+    p.add_argument("--gs", type=int, default=None,
+                   help="Spin degeneracy for sum-rule check (default: 2 for Si).")
+    p.add_argument("--vcell", type=float, default=None,
+                   help="Primitive cell volume (m^3). Default = Si diamond value.")
+    args = p.parse_args()
+
+    gs = args.gs if args.gs is not None else GS_SI
+    vcell = args.vcell if args.vcell is not None else VCELL_SI
+
+    in_path = Path(args.file)
+    out_dir = Path(args.outputdir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = in_path.stem
+
+    print(f"PLOTTING DOS FOR FILE {in_path}")
+    print(f"[Defaults] Using g_s={gs}, Vcell={vcell:.3e} m^3 (Silicon)")
+
+    # Number of bands
+    energies, doss = load_bands_csv(str(in_path))
+    nbands = len(energies)
+
+    fig1, ax1 = plt.subplots()
+    plot_dos_per_band(str(in_path), ax1, args.band_type)
+    fig1.tight_layout()
+    fig1.savefig(out_dir / f"DOS_PER_BAND_{stem}.pdf", dpi=args.dpi)
+    fig1.savefig(out_dir / f"DOS_PER_BAND_{stem}.png", dpi=args.dpi)
+
+    fig2, ax2 = plt.subplots()
+    ax2, eplot, gtot = plot_dos_sum_bands(str(in_path), ax2, args.band_type,
+                                          emin=args.emin, emax=args.emax)
+    fig2.tight_layout()
+    fig2.savefig(out_dir / f"DOS_TOTAL_{stem}.pdf", dpi=args.dpi)
+    fig2.savefig(out_dir / f"DOS_TOTAL_{stem}.png", dpi=args.dpi)
+
+    ratio = quick_sum_rule_check(eplot, gtot, vcell, g_s=gs) / nbands
+    print(f"[Sum-rule check] ∫g(E)dE = {ratio:.3f} × (nbands *g_s/Vcell)")
+
+    plt.show()
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("-f", "--file", dest="path_file",
-                        help="The file to parse.", required=True)
-    parser.add_argument("-b", "--nbbands", dest="nb_bands", type=int,
-                        help="The nb of bands to plot.", required=False)
-    parser.add_argument("-o", "--outputdir", dest="output_path_dir",
-                        help="The directory to save the results.", default="./")
-    parser.add_argument("-t", "--type", dest="band_type",
-                        help="The type of band to plot (conduction, valence or all).", default="all")
-    args = parser.parse_args()
-    FILE_PATH = args.path_file
-    OUT_DIR = args.output_path_dir
-
-    print(f"PLOTTING DOS FOR FILE {FILE_PATH}")
-    
-    band_type = args.band_type
-
-    path_input = Path(FILE_PATH)
-    path_out = Path(path_input.stem).with_suffix("")
-
-    fig, axs = plt.subplots()
-    plot_dos_per_band(FILE_PATH, axs, band_type)
-    fig.tight_layout()
-    fig.savefig(f"DOS_PER_BAND_{path_out}.pdf", dpi=600)
-    fig.savefig(f"DOS_PER_BAND_{path_out}.png", dpi=600)
-    # plt.show()
-    
-    fig, axs = plt.subplots()
-    plot_dos_sum_bands(FILE_PATH, axs, band_type)
-    fig.tight_layout()
-    fig.savefig(f"DOS_TOTAL_{path_out}.pdf", dpi=600)
-    fig.savefig(f"DOS_TOTAL_{path_out}.png", dpi=600)
-    plt.show()
+    main()
