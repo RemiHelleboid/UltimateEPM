@@ -38,7 +38,7 @@ def plot_rates(filename):
     energy = data[:,0]
     # energy -= np.min(energy)
     # Smallest strictly positive energy : 
-    min_energy = np.min(energy[energy > 0])
+    min_energy = np.min(energy[dos > 0])
     energy -= min_energy
     dos = data[:,1]
     nb_modes = data.shape[1] - 2
