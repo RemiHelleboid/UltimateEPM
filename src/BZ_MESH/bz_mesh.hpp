@@ -125,6 +125,7 @@ class MeshBZ {
     void compute_min_max_energies_at_tetras();
     void compute_energy_gradient_at_tetras();
 
+    
     std::size_t get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t get_number_elements() const { return m_list_tetrahedra.size(); }
     double      get_volume() const { return m_total_volume; }

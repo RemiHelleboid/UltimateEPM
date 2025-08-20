@@ -192,6 +192,7 @@ def main():
     # Number of bands
     energies, doss = load_bands_csv(str(in_path))
     nbands = len(energies)
+    print(f"Number of bands: {nbands}")
 
     fig1, ax1 = plt.subplots()
     plot_dos_per_band(str(in_path), ax1, args.band_type)

@@ -303,7 +303,14 @@ void MeshBZ::read_mesh_bands_from_multi_band_files(const std::string& dir_bands)
                 throw std::runtime_error(oss.str());
             }
             energies_in_vertex_order[it->second] = data_view[i];
+            // HARD CODED SHIFT FOR CONDUCTION BANDS - DEBUG
+            double band_gap_si = 1.05;
+            if (energies_in_vertex_order[it->second] > 0.5) {
+                energies_in_vertex_order[it->second] -= band_gap_si;
+            }
         }
+
+        
 
         // Attach this band to vertices
         add_new_band_energies_to_vertices(energies_in_vertex_order);
