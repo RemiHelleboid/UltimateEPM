@@ -20,10 +20,10 @@ plt.style.use(['science', 'muted', 'scatter', 'grid'])
 
 
 def scatter_plot_rates(filename):
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(8, 6))
     data = np.loadtxt(filename)
     energy = data[:,0]
-    energy -= np.min(energy)
+    # energy -= np.min(energy)
     for i in range(2, data.shape[1]):
         ax.scatter(energy, data[:,i], label=f"Mode {i}", s=1)   
     ax.set_xlabel("Energy (eV)")
@@ -71,6 +71,6 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--filename", type=str, required=True, help="Filename to plot")
     args = parser.parse_args()
     scatter_plot_rates(args.filename)
-    plot_rates(args.filename)
-    plo_dos(args.filename)
+    # plo_dos(args.filename)
+    # plot_rates(args.filename)
     plt.show()

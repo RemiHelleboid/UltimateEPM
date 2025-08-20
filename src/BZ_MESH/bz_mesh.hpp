@@ -149,6 +149,8 @@ class MeshBZ {
     double compute_iso_surface(double iso_energy, int band_index) const;
     double compute_dos_at_energy_and_band(double iso_energy, int band_index) const;
     double compute_dos_like_integral(double iso_energy, const std::vector<double>& f_values) const;
+    inline double si_to_reduced_scale() const;
+
 
     std::vector<std::vector<double>> compute_dos_band_at_band(int         band_index,
                                                               double      min_energy,

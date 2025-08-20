@@ -417,7 +417,6 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int band_
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
         double dos    = compute_dos_at_energy_and_band(energy, band_index);
-#pragma omp critical
         list_energies.push_back(energy);
         list_dos.push_back(dos);
     }
@@ -438,45 +437,67 @@ void MeshBZ::export_k_points_to_file(const std::string& filename) const {
     file.close();
 }
 
+inline double MeshBZ::si_to_reduced_scale() const {
+    // reduced k = (a / (2π)) * k_SI
+    return m_material.get_lattice_constant_meter() / (2.0 * M_PI);
+}
+
+// helper: half-width of your cube in *reduced* coords.
+// If your mesh spans [-1,1], half-width = 1.0 (not 0.5).
+static inline double bz_halfwidth_reduced() { return 1.0; }  // <- your case
+
 bool MeshBZ::is_inside_mesh_geometry(const vector3& k) const {
-    const double ax = std::abs(k.x()), ay = std::abs(k.y()), az = std::abs(k.z());
-    const bool   cond1 = (ax <= 0.5) && (ay <= 0.5) && (az <= 0.5);
-    const bool   cond2 = (ax + ay + az) <= 0.75;
+    const double s  = si_to_reduced_scale();   // converts SI (1/m) -> reduced (unitless)
+    const double hw = bz_halfwidth_reduced();  // 1.0 for [-1,1], 0.5 for [-0.5,0.5]
+
+    const double kx = k.x() * s, ky = k.y() * s, kz = k.z() * s;  // reduced coords
+    const double ax = std::abs(kx), ay = std::abs(ky), az = std::abs(kz);
+
+    // cube bound
+    const bool cond1 = (ax <= hw) && (ay <= hw) && (az <= hw);
+
+    // truncation planes (fcc BZ): |kx|+|ky|+|kz| <= (3/2)*hw
+    const bool cond2 = (ax + ay + az) <= (1.5 * hw);
+
     return cond1 && cond2;
 }
+
 bool MeshBZ::is_inside_mesh_geometry(const Vector3D<double>& k) const {
-    const double ax = std::abs(k.X), ay = std::abs(k.Y), az = std::abs(k.Z);
-    const bool   cond1 = (ax <= 0.5) && (ay <= 0.5) && (az <= 0.5);
-    const bool   cond2 = (ax + ay + az) <= 0.75;
+    const double s  = si_to_reduced_scale();
+    const double hw = bz_halfwidth_reduced();
+
+    const double kx = k.X * s, ky = k.Y * s, kz = k.Z * s;
+    const double ax = std::abs(kx), ay = std::abs(ky), az = std::abs(kz);
+
+    const bool cond1 = (ax <= hw) && (ay <= hw) && (az <= hw);
+    const bool cond2 = (ax + ay + az) <= (1.5 * hw);
+
     return cond1 && cond2;
 }
 
 vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {
-    const vector3 b1 = {-1.0, 1.0, 1.0};
-    const vector3 b2 = {1.0, -1.0, 1.0};
-    const vector3 b3 = {1.0, 1.0, -1.0};
+    vector3 b1 = {-1.0, 1.0, 1.0};
+    vector3 b2 = {1.0, -1.0, 1.0};
+    vector3 b3 = {1.0, 1.0, -1.0};
+    b1 /= si_to_reduced_scale();
+    b2 /= si_to_reduced_scale();
+    b3 /= si_to_reduced_scale();
 
-    // std::cout << "k: " << k << std::endl;
-
-    // test k + G
-    std::vector<int> list_n_k = {0, 1, -1, 2, -2, 3, -3, 4, -4};
-    // std::vector<int> list_n_k = {0, 1, -1, 2, -2};
+    std::vector<int> list_n_k = {0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5};
     for (auto&& n_k_x : list_n_k) {
         for (auto&& n_k_y : list_n_k) {
             for (auto&& n_k_z : list_n_k) {
                 vector3 k_plus_G = k + n_k_x * b1 + n_k_y * b2 + n_k_z * b3;
                 if (is_inside_mesh_geometry(k_plus_G)) {
-                    if (k_plus_G.norm() <= 1e-6) {
-                        // std::cout << "k: " << k << std::endl;
-                        // std::cout << " G: " << n_k_x * b1 + n_k_y * b2 + n_k_z * b3 << std::endl;
-                        // std::cout << "k + G: " << k_plus_G << std::endl;
-                    }
+                    // std::cout << "k: " << k << std::endl;
+                    // std::cout << " G: " << n_k_x * b1 + n_k_y * b2 + n_k_z * b3 << std::endl;
+                    // std::cout << "k + G: " << k_plus_G * si_to_reduced_scale() << std::endl;
                     return k_plus_G;
                 }
             }
         }
     }
-    std::cout << "No k-point inside the mesh geometry found." << std::endl;
+    std::cout << "No k-point inside the mesh geometry found for k: " << k  << std::endl;
     throw std::runtime_error("No k-point inside the mesh geometry found.");
 }
 

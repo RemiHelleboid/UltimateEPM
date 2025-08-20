@@ -63,6 +63,9 @@ struct PhononDispersion {
             std::cout << "OMEGA: " << m_omega << std::endl;
             std::cout << "VS: " << m_vs << std::endl;
             std::cout << "C: " << m_c << std::endl;
+            std::cout << "vs*q: " << m_vs * q << std::endl;
+            std::cout << "c*q^2: " << m_c * q * q << std::endl;
+            throw std::runtime_error("Negative phonon energy");
         }
         return e_ph;
     }
