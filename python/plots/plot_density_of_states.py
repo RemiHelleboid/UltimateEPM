@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 try:
     import matplotlib as mpl
     import scienceplots  # noqa: F401
-    plt.style.use(['science', 'muted'])
+    plt.style.use(['science', 'muted', 'no-latex'])
     mpl.rcParams['figure.figsize'] = [3.5, 2.8]
     mpl.rcParams['figure.dpi'] = 300
 except Exception:
