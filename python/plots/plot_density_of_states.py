@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from argparse import ArgumentParser
 
+import matplotlib.pyplot as plt
+
+
 # ---- optional styles (won't crash if missing) ----
 try:
     import matplotlib as mpl
@@ -79,41 +82,75 @@ def plot_dos_per_band(filename: str, ax=None, band_type: str = "all"):
         ax.set_xlim(right=1.0)
     return ax
 
+def plot_dos_sum_bands(
+    filename: str,
+    ax: Optional[plt.Axes] = None,
+    band_type: str = "all",
+    emin: Optional[float] = None,
+    emax: Optional[float] = None,
+    npts: int = 2000
+) -> Tuple[plt.Axes, np.ndarray, np.ndarray]:
+    """
+    Plot the summed DOS across bands matching `band_type`.
 
-def plot_dos_sum_bands(filename: str, ax=None, band_type: str = "all",
-                       emin: float | None = None, emax: float | None = None,
-                       npts: int = 2000):
+    Returns (ax, eplot, gtot).
+    """
     if ax is None:
         _, ax = plt.subplots()
-    energies, doss = load_bands_csv(filename)
 
-    allE = np.concatenate([E for E in energies if band_filter_mask(E, band_type)]
-                          ) if energies else np.array([0.0])
+    energies, doss = load_bands_csv(filename)  # expects: list/iter of np.ndarray pairs
+
+    # Collect energies from bands that pass the filter (handle empty gracefully)
+    filt_energies = [E for E in energies if band_filter_mask(E, band_type)]
+    if filt_energies:
+        # nan-safe global mins/maxes
+        try:
+            allE = np.concatenate(filt_energies)
+        except ValueError:
+            allE = np.array([], dtype=float)
+    else:
+        allE = np.array([], dtype=float)
+
     if emin is None:
-        emin = (0.0 if band_type == "conduction"
-                else float(np.nanmin(allE)) if allE.size else -10.0)
+        if band_type == "conduction":
+            emin = 0.0
+        else:
+            emin = float(np.nanmin(allE)) if allE.size else -10.0
     if emax is None:
-        emax = (0.0 if band_type == "valence"
-                else float(np.nanmax(allE)) if allE.size else 10.0)
+        if band_type == "valence":
+            emax = 0.0
+        else:
+            emax = float(np.nanmax(allE)) if allE.size else 10.0
 
-    eplot = np.linspace(emin, emax, npts)
+    # Ensure finite bounds in case allE was NaN-only
+    if not np.isfinite(emin):
+        emin = -10.0
+    if not np.isfinite(emax):
+        emax = 10.0
+    if emax <= emin:
+        # widen degenerate/invalid range a bit
+        emax = emin + 1e-6
+
+    eplot = np.linspace(emin, emax, int(npts))
     gtot = np.zeros_like(eplot)
 
     count = 0
     for E, G in zip(energies, doss):
         if not band_filter_mask(E, band_type):
             continue
-        gtot += np.interp(eplot, E, G, left=0.0, right=0.0)
+        # Sort by energy for safe interpolation if inputs aren’t strictly increasing
+        order = np.argsort(E)
+        Es, Gs = np.asarray(E)[order], np.asarray(G)[order]
+        gtot += np.interp(eplot, Es, Gs, left=0.0, right=0.0)
         count += 1
 
-    ax.plot(eplot, gtot, c="darkblue", label=f"Sum of {count} bands")
+    ax.plot(eplot, gtot, c="darkblue", label="Sum of {} band{}".format(count, "" if count == 1 else "s"))
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Density of states (a.u.)")
     ax.set_ylim(bottom=0.0)
     ax.set_xlim(emin, emax)
-    ax.legend(frameon=False, fontsize='x-small')
+    ax.legend(frameon=False, fontsize="x-small")
     return ax, eplot, gtot
-
 
 def quick_sum_rule_check(e_eV: np.ndarray, g_eV_m3: np.ndarray,
                          Vcell_m3: float, g_s: int = 2) -> float:
