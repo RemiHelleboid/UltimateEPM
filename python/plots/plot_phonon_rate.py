@@ -36,7 +36,7 @@ def scatter_plot_rates(filename):
 def plot_rates(filename):
     data = np.loadtxt(filename)
     energy = data[:,0]
-    energy -= np.min(energy)
+    # energy -= np.min(energy)
     dos = data[:,1]
     nb_modes = data.shape[1] - 2
     fig, ax = plt.subplots(nb_modes, figsize=(6, 4*nb_modes))
@@ -45,6 +45,13 @@ def plot_rates(filename):
         ax[i-2].set_xlabel("Energy (eV)")
         ax[i-2].set_ylabel("Rate (s$^-1$)")
         ax[i-2].set_title(f"Mode {i}")
+
+    # Sum of rates
+    fig2, ax2 = plt.subplots(figsize=(6, 4))
+    ax2.plot(energy, np.sum(data[:,2:], axis=1), label="Total Rate", color="black")
+    ax2.set_xlabel("Energy (eV)")
+    ax2.set_ylabel("Rate (s$^-1$)")
+    ax2.set_title("Total Electron-Phonon Rate")
 
     # max_rate = np.max(data[:,2:])
     # dos /= np.max(dos)
