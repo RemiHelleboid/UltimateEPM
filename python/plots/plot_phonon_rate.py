@@ -16,7 +16,7 @@ import matplotlib as mpl
 
 import scienceplots
 
-plt.style.use(['science', 'muted', 'scatter', 'grid'])
+plt.style.use(['science', 'muted', 'scatter', 'grid', 'no-latex'])
 
 
 def scatter_plot_rates(filename):
