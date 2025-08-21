@@ -189,6 +189,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
     const double           energy_n1_k1 = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
     const auto             k1_v3        = m_list_vertices[idx_k1].get_position();
     const Vector3D<double> k1{k1_v3.x(), k1_v3.y(), k1_v3.z()};
+    std::fstream file_error_k_points("error_k_points.txt", std::ios::out | std::ios::app);
 
     for (int idx_n2 : indices_conduction_bands) {
         for (const auto& tetra : list_tetrahedra) {
@@ -211,6 +212,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                     q_ph                = Vector3D<double>(q_folded.x(), q_folded.y(), q_folded.z());
                 } catch (const std::runtime_error& e) {
                     std::cerr << "Error folding q: " << e.what() << "\n";
+                    file_error_k_points << q_ph.X << " " << q_ph.Y << " " << q_ph.Z << "\n";
                     continue;  // Skip this tetrahedron if folding fails
                 }
             }
