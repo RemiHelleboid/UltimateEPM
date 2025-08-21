@@ -26,11 +26,11 @@ materials:
     deformation-potential:
       electron:
         acoustic:
-          A: 6.0
-          B: -2.0
+          A: 0.17
+          B: 1.5
         optic:
-          B: -8.0e20
-          A: 2.5e21
+          A: 1.1e20
+          B: 1.0e21
         energy-threshold: 2.0
       hole:
         acoustic:

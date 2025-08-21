@@ -62,7 +62,8 @@ int main(int argc, char const *argv[])
 
     const std::string mesh_band_input_file = arg_mesh_file.getValue();
     bz_mesh::ElectronPhonon   ElectronPhonon{current_material};
-    const std::string phonon_file = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/phonon_michaillat.yaml";
+    // const std::string phonon_file = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/phonon_michaillat.yaml";
+    const std::string phonon_file = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/phonon_kamakura.yaml";
     ElectronPhonon.load_phonon_parameters(phonon_file);
 
 
