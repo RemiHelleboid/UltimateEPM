@@ -192,7 +192,7 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_b
 
     for (auto&& tag : viewTags) {
         if (nb_bands_to_load != -1 && count_band >= nb_bands_to_load) break;
-        
+
         const int   index_view  = gmsh::view::getIndex(tag);
         std::string name_object = "View[" + std::to_string(index_view) + "].Name";
         std::string name_view;
@@ -456,8 +456,7 @@ inline double MeshBZ::si_to_reduced_scale() const {
     return m_material.get_lattice_constant_meter() / (2.0 * M_PI);
 }
 
-// helper: half-width of your cube in *reduced* coords.
-// If your mesh spans [-1,1], half-width = 1.0 (not 0.5).
+// helper: half-width in reduced units.
 static inline double bz_halfwidth_reduced() { return 1.0; }  // <- your case
 
 bool MeshBZ::is_inside_mesh_geometry(const vector3& k) const {
@@ -477,14 +476,20 @@ bool MeshBZ::is_inside_mesh_geometry(const vector3& k) const {
 }
 
 bool MeshBZ::is_inside_mesh_geometry(const Vector3D<double>& k) const {
-    const double s  = si_to_reduced_scale();
-    const double hw = bz_halfwidth_reduced();
+    const double     s   = si_to_reduced_scale();   // SI → reduced
+    const double     hw  = bz_halfwidth_reduced();  // half width in reduced units
+    constexpr double eps = 1e-12;
 
-    const double kx = k.X * s, ky = k.Y * s, kz = k.Z * s;
-    const double ax = std::abs(kx), ay = std::abs(ky), az = std::abs(kz);
+    const double kx = k.X * s;
+    const double ky = k.Y * s;
+    const double kz = k.Z * s;
 
-    const bool cond1 = (ax <= hw) && (ay <= hw) && (az <= hw);
-    const bool cond2 = (ax + ay + az) <= (1.5 * hw);
+    const double ax = std::abs(kx);
+    const double ay = std::abs(ky);
+    const double az = std::abs(kz);
+
+    const bool cond1 = (ax <= hw + eps) && (ay <= hw + eps) && (az <= hw + eps);
+    const bool cond2 = (ax + ay + az) <= (1.5 * hw + eps);
 
     return cond1 && cond2;
 }
