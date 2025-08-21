@@ -33,7 +33,7 @@ def scatter_plot_rates(filename):
     
     ax.legend()
     
-def plot_rates(filename, comparison_csv=None)
+def plot_rates(filename, comparison_csv=None):
     data = np.loadtxt(filename)
     energy = data[:,0]
     # energy -= np.min(energy)
