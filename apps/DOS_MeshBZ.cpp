@@ -54,7 +54,6 @@ inline void export_multiple_vector_to_csv(const std::string                     
 int main(int argc, char *argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
-    TCLAP::ValueArg<std::string> arg_band_dir("d", "banddir", "Directory with BZ band files.", true, "bands/", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
     TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to consider", false, 12, "int");
@@ -62,7 +61,6 @@ int main(int argc, char *argv[]) {
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
-    cmd.add(arg_band_dir);
     cmd.add(arg_material);
     cmd.add(arg_nb_bands);
     cmd.add(arg_nb_energies);
@@ -88,12 +86,7 @@ int main(int argc, char *argv[]) {
 
     bz_mesh::MeshBZ my_bz_mesh{current_material};
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file);
-    std::string bands_dir = arg_band_dir.getValue();
-    if (!std::filesystem::exists(bands_dir)) {
-        std::cout << "Directory with bands files does not exist: " << bands_dir << std::endl;
-        return 1;
-    }
-    my_bz_mesh.read_mesh_bands_from_multi_band_files(bands_dir);
+    my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file, nb_bands_to_use);
 
     std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
     double Vcell = std::pow(current_material.get_lattice_constant_meter(), 3) / 4.0;

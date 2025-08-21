@@ -120,6 +120,7 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, cons
         const int   index_view             = gmsh::view::getIndex(data_tag);
         std::string name_object_visibility = "View[" + std::to_string(index_view) + "].Visible";
         gmsh::option::setNumber(name_object_visibility, 0);
+        gmsh::option::setNumber("PostProcessing.SaveMesh", (index_band == 0) ? 1 : 0);  // Save mesh only once
         gmsh::view::write(data_tag, out_filename, true);
     }
     gmsh::finalize();

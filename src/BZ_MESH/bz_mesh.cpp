@@ -179,7 +179,7 @@ std::size_t MeshBZ::get_nearest_k_index(const vector3& k) const {
  *
  * @param filename
  */
-void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename) {
+void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_bands_to_load) {
     std::cout << "Opening file " << filename << std::endl;
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 0);
@@ -189,7 +189,10 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename) {
     gmsh::view::getTags(viewTags);
     // std::cout << "Number of view (bands) found: " << viewTags.size() << std::endl;
     int count_band = 0;
+
     for (auto&& tag : viewTags) {
+        if (nb_bands_to_load != -1 && count_band >= nb_bands_to_load) break;
+        
         const int   index_view  = gmsh::view::getIndex(tag);
         std::string name_object = "View[" + std::to_string(index_view) + "].Name";
         std::string name_view;
