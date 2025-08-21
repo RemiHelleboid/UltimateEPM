@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
     cmd.parse(argc, argv);
 
     EmpiricalPseudopotential::Materials materials;
-    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
+    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
     materials.load_material_parameters(file_material_parameters);
 
     Options my_options;

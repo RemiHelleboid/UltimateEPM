@@ -33,7 +33,7 @@ def scatter_plot_rates(filename):
     
     ax.legend()
     
-def plot_rates(filename):
+def plot_rates(filename, comparison_csv=None)
     data = np.loadtxt(filename)
     energy = data[:,0]
     # energy -= np.min(energy)
@@ -55,6 +55,12 @@ def plot_rates(filename):
     ax2.set_xlabel("Energy (eV)")
     ax2.set_ylabel("Rate (s$^-1$)")
     ax2.set_title("Total Electron-Phonon Rate")
+
+    if comparison_csv is not None:
+        # Load comparison data
+        energy, rates = np.loadtxt(comparison_csv, delimiter=",", unpack=True)
+        ax2.plot(energy, rates, label="Comparison", color="red")
+    ax2.legend()
 
     # max_rate = np.max(data[:,2:])
     # dos /= np.max(dos)
@@ -80,7 +86,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-f", "--filename", type=str, required=True, help="Filename to plot")
     args = parser.parse_args()
-    scatter_plot_rates("rates_all.csv")
+    scatter_plot_rates("rates_all.csv", "../examples/RatesSiKunikiyo1994.csv")
     # plo_dos()
     plot_rates("rates_vs_energy.csv")
     plt.show()
