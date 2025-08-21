@@ -52,8 +52,8 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     gmsh::model::mesh::getNodes(nodeTags, nodeCoords, nodeParams, -1, -1, false, false);
     std::size_t size_nodes_tags        = nodeTags.size();
     std::size_t size_nodes_coordinates = nodeCoords.size();
-    m_node_tags = nodeTags;
-     std::cout << "Number of nodes: " << size_nodes_tags << std::endl;
+    m_node_tags                        = nodeTags;
+    std::cout << "Number of nodes: " << size_nodes_tags << std::endl;
 
     if (size_nodes_coordinates != 3 * size_nodes_tags) {
         throw std::runtime_error("Number of coordinates is not 3 times the number of vertices. Abort.");
@@ -63,9 +63,9 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     double lattice_constant = m_material.get_lattice_constant_meter();
     std::cout << "Lattice const: " << lattice_constant << std::endl;
     std::cout << "V: " << std::pow(2.0 * M_PI, 3) / std::pow(lattice_constant, 3.0) << std::endl;
-    const double fourier_factor       = 2.0 * M_PI / lattice_constant;
+    const double fourier_factor = 2.0 * M_PI / lattice_constant;
     // const double fourier_factor       = 1;
-    double       normalization_factor = normalize_by_fourier_factor ? fourier_factor : 1.0;
+    double normalization_factor = normalize_by_fourier_factor ? fourier_factor : 1.0;
     for (std::size_t index_vertex = 0; index_vertex < size_nodes_tags; ++index_vertex) {
         m_list_vertices.push_back(Vertex(index_vertex,
                                          normalization_factor * nodeCoords[3 * index_vertex],
@@ -103,6 +103,8 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     gmsh::finalize();
     m_total_volume = compute_mesh_volume();
     std::cout << "Total mesh volume: " << m_total_volume << std::endl;
+
+    precompute_G_shifts();
 }
 
 bbox_mesh MeshBZ::compute_bounding_box() const {
@@ -225,19 +227,18 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_b
     compute_energy_gradient_at_tetras();
 }
 
-void MeshBZ::read_mesh_bands_from_multi_band_files(const std::string& dir_bands, int nb_bands_to_load){
-
+void MeshBZ::read_mesh_bands_from_multi_band_files(const std::string& dir_bands, int nb_bands_to_load) {
     if (m_list_vertices.empty()) throw std::runtime_error("Geometry must be loaded before bands (m_list_vertices is empty).");
 
     if (m_node_tags.empty()) throw std::runtime_error("m_node_tags is empty. Store node tags when reading geometry to preserve mapping.");
 
     // 1) Collect band files: band_<idx>.msh
     std::vector<std::pair<int, std::filesystem::path>> band_files;
-    std::regex                            re(R"(band_(\d+)\.msh$)");
+    std::regex                                         re(R"(band_(\d+)\.msh$)");
     for (auto& p : std::filesystem::directory_iterator(dir_bands)) {
         if (!p.is_regular_file()) continue;
         const std::string name = p.path().filename().string();
-        std::smatch  m;
+        std::smatch       m;
         if (std::regex_search(name, m, re)) {
             int idx = std::stoi(m[1].str());
             band_files.emplace_back(idx, p.path());
@@ -316,8 +317,6 @@ void MeshBZ::read_mesh_bands_from_multi_band_files(const std::string& dir_bands,
                 energies_in_vertex_order[it->second] -= band_gap_si;
             }
         }
-
-        
 
         // Attach this band to vertices
         add_new_band_energies_to_vertices(energies_in_vertex_order);
@@ -494,30 +493,45 @@ bool MeshBZ::is_inside_mesh_geometry(const Vector3D<double>& k) const {
     return cond1 && cond2;
 }
 
-vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {
-    vector3 b1 = {-1.0, 1.0, 1.0};
-    vector3 b2 = {1.0, -1.0, 1.0};
-    vector3 b3 = {1.0, 1.0, -1.0};
-    b1 /= si_to_reduced_scale();
-    b2 /= si_to_reduced_scale();
-    b3 /= si_to_reduced_scale();
+void MeshBZ::precompute_G_shifts() {
+    vector3      b1 = {-1.0, 1.0, 1.0};
+    vector3      b2 = {1.0, -1.0, 1.0};
+    vector3      b3 = {1.0, 1.0, -1.0};
+    const double s  = si_to_reduced_scale();
+    b1 /= s;
+    b2 /= s;
+    b3 /= s;
 
-    std::vector<int> list_n_k = {0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5};
-    for (auto&& n_k_x : list_n_k) {
-        for (auto&& n_k_y : list_n_k) {
-            for (auto&& n_k_z : list_n_k) {
-                vector3 k_plus_G = k + n_k_x * b1 + n_k_y * b2 + n_k_z * b3;
-                if (is_inside_mesh_geometry(k_plus_G)) {
-                    // std::cout << "k: " << k << std::endl;
-                    // std::cout << " G: " << n_k_x * b1 + n_k_y * b2 + n_k_z * b3 << std::endl;
-                    // std::cout << "k + G: " << k_plus_G * si_to_reduced_scale() << std::endl;
-                    return k_plus_G;
+    const int maxShell = 5;  // adjust as needed
+
+    // shell 0
+    m_Gshifts.push_back({0, 0, 0});
+
+    // by increasing |n1|+|n2|+|n3|
+    for (int L1 = 1; L1 <= maxShell; ++L1) {
+        for (int n1 = -L1; n1 <= L1; ++n1) {
+            for (int n2 = -L1; n2 <= L1; ++n2) {
+                for (int n3 = -L1; n3 <= L1; ++n3) {
+                    if (n1 == 0 && n2 == 0 && n3 == 0) continue;
+                    if (std::abs(n1) + std::abs(n2) + std::abs(n3) == L1) {
+                        m_Gshifts.push_back(n1 * b1 + n2 * b2 + n3 * b3);
+                    }
                 }
             }
         }
     }
-    std::cout << "No k-point inside the mesh geometry found for k: " << k  << std::endl;
+}
+
+vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {
+    for (const auto& G : m_Gshifts) {
+        vector3 kG = k + G;
+        if (is_inside_mesh_geometry(kG)) {
+            return kG;
+        }
+    }
+    std::cout << "No k-point inside the mesh geometry found for k: " << k << std::endl;
     throw std::runtime_error("No k-point inside the mesh geometry found.");
 }
+
 
 }  // namespace bz_mesh

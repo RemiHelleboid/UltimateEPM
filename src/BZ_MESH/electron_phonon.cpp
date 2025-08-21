@@ -212,12 +212,14 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                     q_ph                = Vector3D<double>(q_folded.x(), q_folded.y(), q_folded.z());
                 } catch (const std::runtime_error& e) {
                     std::cerr << "Error folding q: " << e.what() << "\n";
-                    file_error_k_points << q_ph.X << " " << q_ph.Y << " " << q_ph.Z << "\n";
+                    file_error_k_points << q_ph.X / m_material.get_fourier_factor() << " "
+                                        << q_ph.Y / m_material.get_fourier_factor() << " "
+                                        << q_ph.Z / m_material.get_fourier_factor() << "\n";
+                    file_error_k_points.flush();
                     continue;  // Skip this tetrahedron if folding fails
                 }
             }
             if (!is_inside_mesh_geometry(q_ph)) throw std::runtime_error("Q is not inside the BZ");
-
             // Loop phonon branches
             for (const auto& kv : m_phonon_dispersion) {
                 const PhononModeDirection mode_direction = kv.first;

@@ -23,7 +23,6 @@
 #include "octree_bz.hpp"
 #include "vector.hpp"
 
-
 namespace bz_mesh {
 
 enum class BandType { valence, conduction };
@@ -96,6 +95,12 @@ class MeshBZ {
 
     double m_total_volume = 0.0;
 
+    /**
+     * @brief Possible G vectors to fold back k vectors within the first BZ.
+     * 
+     */
+    std::vector<vector3> m_Gshifts;
+
  public:
     MeshBZ() = default;
     MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material) {};
@@ -120,16 +125,17 @@ class MeshBZ {
 
     void read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor = true);
     void read_mesh_bands_from_msh_file(const std::string& filename, int nb_bands_to_load = -1);
-    void read_mesh_bands_from_multi_band_files(const std::string& dir_bands, int nb_bands_to_load=100);
+    void read_mesh_bands_from_multi_band_files(const std::string& dir_bands, int nb_bands_to_load = 100);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
     void compute_min_max_energies_at_tetras();
     void compute_energy_gradient_at_tetras();
 
-    
     std::size_t get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t get_number_elements() const { return m_list_tetrahedra.size(); }
     double      get_volume() const { return m_total_volume; }
 
+
+    void    precompute_G_shifts();
     bool    is_inside_mesh_geometry(const vector3& k) const;
     bool    is_inside_mesh_geometry(const Vector3D<double>& k) const;
     vector3 retrieve_k_inside_mesh_geometry(const vector3& k) const;
@@ -146,12 +152,11 @@ class MeshBZ {
     const std::vector<Vertex>& get_list_vertices() const { return m_list_vertices; }
     const std::vector<Tetra>&  get_list_elements() const { return m_list_tetrahedra; }
 
-    double compute_mesh_volume() const;
-    double compute_iso_surface(double iso_energy, int band_index) const;
-    double compute_dos_at_energy_and_band(double iso_energy, int band_index) const;
-    double compute_dos_like_integral(double iso_energy, const std::vector<double>& f_values) const;
+    double        compute_mesh_volume() const;
+    double        compute_iso_surface(double iso_energy, int band_index) const;
+    double        compute_dos_at_energy_and_band(double iso_energy, int band_index) const;
+    double        compute_dos_like_integral(double iso_energy, const std::vector<double>& f_values) const;
     inline double si_to_reduced_scale() const;
-
 
     std::vector<std::vector<double>> compute_dos_band_at_band(int         band_index,
                                                               double      min_energy,
