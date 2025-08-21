@@ -73,7 +73,7 @@ int main(int argc, char const *argv[])
         std::cout << "Directory with bands files does not exist: " << bands_dir << std::endl;
         return 1;
     }
-    ElectronPhonon.read_mesh_bands_from_multi_band_files(bands_dir);
+    ElectronPhonon.read_mesh_bands_from_multi_band_files(bands_dir, my_options.nrLevels);
 
     unsigned int nb_bands = ElectronPhonon.get_number_bands();
     std::cout << "Number of bands: " << nb_bands << std::endl;

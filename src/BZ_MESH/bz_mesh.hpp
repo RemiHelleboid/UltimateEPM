@@ -120,7 +120,7 @@ class MeshBZ {
 
     void read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor = true);
     void read_mesh_bands_from_msh_file(const std::string& filename);
-    void read_mesh_bands_from_multi_band_files(const std::string& dir_bands);
+    void read_mesh_bands_from_multi_band_files(const std::string& dir_bands, int nb_bands_to_load=100);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
     void compute_min_max_energies_at_tetras();
     void compute_energy_gradient_at_tetras();

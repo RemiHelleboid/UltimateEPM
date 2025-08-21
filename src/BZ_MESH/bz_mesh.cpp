@@ -222,7 +222,7 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename) {
     compute_energy_gradient_at_tetras();
 }
 
-void MeshBZ::read_mesh_bands_from_multi_band_files(const std::string& dir_bands) {
+void MeshBZ::read_mesh_bands_from_multi_band_files(const std::string& dir_bands, int nb_bands_to_load){
 
     if (m_list_vertices.empty()) throw std::runtime_error("Geometry must be loaded before bands (m_list_vertices is empty).");
 
@@ -262,6 +262,10 @@ void MeshBZ::read_mesh_bands_from_multi_band_files(const std::string& dir_bands)
 
     int count_band = 0;
     for (auto& [bidx, path] : band_files) {
+        if (nb_bands_to_load > 0 && count_band >= nb_bands_to_load) {
+            std::cout << "Loaded " << count_band << " bands, stopping as requested." << std::endl;
+            break;
+        }
         std::cout << "Opening band file: " << path << std::endl;
 
         gmsh::clear();
