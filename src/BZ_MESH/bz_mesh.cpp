@@ -42,7 +42,7 @@ void MeshBZ::shift_bz_center(const vector3& center) {
 void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor) {
     std::cout << "Opening file " << filename << std::endl;
     gmsh::initialize();
-    gmsh::option::setNumber("General.Verbosity", 1);
+    gmsh::option::setNumber("General.Verbosity", 1000);
     gmsh::open(filename);
     std::vector<std::size_t> nodeTags;
     std::vector<double>      nodeCoords;
@@ -390,6 +390,7 @@ double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index)
     for (auto&& tetra : m_list_tetrahedra) {
         total_dos += tetra.compute_tetra_dos_energy_band(iso_energy, band_index);
     }
+    total_dos *= get_reduce_bz_factor();
     return total_dos;
 }
 

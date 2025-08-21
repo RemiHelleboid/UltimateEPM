@@ -59,6 +59,14 @@ class MeshBZ {
      */
     std::vector<Tetra> m_list_tetrahedra;
 
+
+    /**
+     * @brief Factor applied to each tetra/vertex when we use only a part of the 1st BZ.
+     * For example m_reduced_facotr = 48 when we use the irreducible wedge.
+     * 
+     */
+    double m_reduce_bz_factor = 1.0;
+
     /**
      * @brief Octree used to search for the tetrahedra that are overlapping with a given point.
      *
@@ -110,6 +118,9 @@ class MeshBZ {
 
     vector3 get_center() const { return m_center; }
     void    shift_bz_center(const vector3& shift);
+
+    double get_reduce_bz_factor() const { return m_reduce_bz_factor; }
+    void   set_reduce_bz_factor(double factor) { m_reduce_bz_factor = factor; }
 
     bbox_mesh           compute_bounding_box() const;
     void                build_search_tree();

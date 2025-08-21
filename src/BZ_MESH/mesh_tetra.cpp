@@ -363,6 +363,7 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
         vector3 W    = compute_euclidean_coordinates_with_indices({lA_W, 0.0, 0.0, 1.0 - lA_W}, indices_sort);
         return {U, V, W};
     } else {
+        std::cout << "DATA OUT : " << iso_energy << " " << e_0 << " " << e_1 << " " << e_2 << " " << e_3 << std::endl;
         throw std::runtime_error("ISO SURFACE CASE UNKNOWN IN DOS COMPUTATION... ABORT.");
     }
     return {};

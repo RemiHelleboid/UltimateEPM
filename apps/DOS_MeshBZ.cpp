@@ -94,6 +94,7 @@ int main(int argc, char *argv[]) {
     const double VBZ_theory = std::pow(2.0 * M_PI, 3) / Vcell;   // m^-3
     const double VBZ_mesh   = my_bz_mesh.compute_mesh_volume();  // sum |tetra.volume| in your k units
     std::cout << "VBZ_mesh / VBZ_theory = " << (VBZ_mesh / VBZ_theory) << "\n";
+    my_bz_mesh.set_reduce_bz_factor(VBZ_theory/VBZ_mesh);
 
     std::vector<std::vector<double>> list_list_dos{};
     std::vector<std::string>         list_header = {};
