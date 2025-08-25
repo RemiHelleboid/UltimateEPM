@@ -80,10 +80,10 @@ struct DeformationPotential {
     DeformationPotential() = default;
     DeformationPotential(PhononMode type, double A, double B) : m_mode(type), m_A(A), m_B(B) {}
 
-    double get_deformation_potential(Vector3D<double> q, double energy) const {
+    double get_deformation_potential(const vector3& q, double energy) const {
         double clamp_energy = std::min(energy, m_energy_threshold);
         if (m_mode == PhononMode::acoustic) {
-            return std::sqrt(m_A + clamp_energy * m_B) * q.Length();
+            return std::sqrt(m_A + clamp_energy * m_B) * q.norm();
         } else {
             return std::sqrt(m_A + clamp_energy * m_B);
         }
@@ -225,8 +225,8 @@ class ElectronPhonon : public BZ_States {
     void load_phonon_parameters(const std::string& filename);
     void plot_phonon_dispersion(const std::string& filename) const;
 
-    double bose_einstein_distribution(double energy, double temperature);
-    double electron_overlap_integral(const Vector3D<double>& k1, const Vector3D<double>& k2);
+    inline double bose_einstein_distribution(double energy, double temperature);
+    double electron_overlap_integral(const vector3& k1, const vector3& k2);
     double hole_overlap_integral(int n1, const Vector3D<double>& k1, int n2, const Vector3D<double>& k2);
 
     RateValues compute_electron_phonon_rate(int idx_n1, std::size_t idx_k1);
