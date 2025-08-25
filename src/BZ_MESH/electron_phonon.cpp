@@ -83,6 +83,9 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
             const double q_ph_norm = q_ph.norm();
             // if (!is_inside_mesh_geometry(q_ph)) throw std::runtime_error("Q is not inside the BZ");
             assert(is_inside_mesh_geometry(q_ph) && "Q is not inside the BZ");
+            
+            // DBG
+            continue;
             // Loop phonon branches
             for (const auto& ph_mode : m_phonon_dispersion) {
                 const PhononModeDirection mode_direction = ph_mode.first;
@@ -257,8 +260,11 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
 
     // std::size_t nb_debug_compute_k = 100;
 
+    // DEBUG
+    // compute_electron_phonon_rate(4, 135);
+    // exit(0);
 #pragma omp parallel for schedule(dynamic)
-    for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
+        for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
     // for (std::size_t idx_k1 = 0; idx_k1 < nb_debug_compute_k; ++idx_k1) {
         double r = dis(gen);
         // for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
