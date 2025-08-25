@@ -105,6 +105,15 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     std::cout << "Total mesh volume: " << m_total_volume << std::endl;
 
     precompute_G_shifts();
+    // vector3 b1 = {-1.0, 1.0, 1.0};
+    // vector3 b2 = {1.0, -1.0, 1.0};
+    // vector3 b3 = {1.0, 1.0, -1.0};
+    Eigen::Vector3d b1_SI = {-1.0, 1.0, 1.0};
+    Eigen::Vector3d b2_SI = {1.0, -1.0, 1.0};
+    Eigen::Vector3d b3_SI = {1.0, 1.0, -1.0};
+    constexpr double halfwidth_reduced = 1.0;
+    const double ssi_to_reduced_scale = si_to_reduced_scale();
+    init_reciprocal_basis(b1_SI, b2_SI, b3_SI, halfwidth_reduced, ssi_to_reduced_scale);
 }
 
 bbox_mesh MeshBZ::compute_bounding_box() const {
@@ -462,37 +471,24 @@ static inline double bz_halfwidth_reduced() { return 1.0; }  // <- your case
 bool MeshBZ::is_inside_mesh_geometry(const vector3& k) const {
     const double s  = si_to_reduced_scale();   // converts SI (1/m) -> reduced (unitless)
     const double hw = bz_halfwidth_reduced();  // 1.0 for [-1,1], 0.5 for [-0.5,0.5]
-
-    const double kx = k.x() * s, ky = k.y() * s, kz = k.z() * s;  // reduced coords
-    const double ax = std::abs(kx), ay = std::abs(ky), az = std::abs(kz);
-
-    // cube bound
-    const bool cond1 = (ax <= hw) && (ay <= hw) && (az <= hw);
-
-    // truncation planes (fcc BZ): |kx|+|ky|+|kz| <= (3/2)*hw
-    const bool cond2 = (ax + ay + az) <= (1.5 * hw);
-
-    return cond1 && cond2;
-}
-
-bool MeshBZ::is_inside_mesh_geometry(const Vector3D<double>& k) const {
-    const double     s   = si_to_reduced_scale();   // SI → reduced
-    const double     hw  = bz_halfwidth_reduced();  // half width in reduced units
     constexpr double eps = 1e-12;
 
-    const double kx = k.X * s;
-    const double ky = k.Y * s;
-    const double kz = k.Z * s;
+    const double kx = k.x() * s;
+    const double ky = k.y() * s;
+    const double kz = k.z() * s;
 
-    const double ax = std::abs(kx);
-    const double ay = std::abs(ky);
-    const double az = std::abs(kz);
+    const double ax = std::fabs(kx);
+    const double ay = std::fabs(ky);
+    const double az = std::fabs(kz);
 
     const bool cond1 = (ax <= hw + eps) && (ay <= hw + eps) && (az <= hw + eps);
     const bool cond2 = (ax + ay + az) <= (1.5 * hw + eps);
 
     return cond1 && cond2;
 }
+
+
+
 
 void MeshBZ::precompute_G_shifts() {
     vector3      b1 = {-1.0, 1.0, 1.0};
@@ -525,7 +521,7 @@ void MeshBZ::precompute_G_shifts() {
 
 vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {
     for (const auto& G : m_Gshifts) {
-        vector3 kG = k + G;
+        const vector3 kG = k + G;
         if (is_inside_mesh_geometry(kG)) {
             return kG;
         }
@@ -534,5 +530,91 @@ vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {
     throw std::runtime_error("No k-point inside the mesh geometry found.");
 }
 
+// ---------------------------------------------------------
+// O(1) WS-BZ folding: init (call once after you know the lattice)
+// ---------------------------------------------------------
+void MeshBZ::init_reciprocal_basis(const Eigen::Vector3d& b1_SI,
+                                   const Eigen::Vector3d& b2_SI,
+                                   const Eigen::Vector3d& b3_SI,
+                                   double                 halfwidth_reduced,
+                                   double                 si_to_reduced) {
+    m_recip_B.col(0) = b1_SI;
+    m_recip_B.col(1) = b2_SI;
+    m_recip_B.col(2) = b3_SI;
+    m_recip_Bi       = m_recip_B.inverse();
+
+    m_bz_halfwidth = halfwidth_reduced;  // e.g. 0.5 for [-0.5,0.5]
+    m_si2red       = si_to_reduced;      // must match your is_inside_mesh_geometry() scale
+}
+
+// ---------------------------------------------------------
+// O(1) WS-BZ folding: pure function
+// ---------------------------------------------------------
+vector3 MeshBZ::fold_ws_bcc(const vector3& k_SI) const noexcept {
+    // Convert to Eigen for the tiny linear algebra steps
+    Eigen::Vector3d ke(k_SI.x(), k_SI.y(), k_SI.z());
+
+    // A) Nearest-lattice wrap (Babai rounding) into the primitive parallelepiped
+    Eigen::Vector3d r  = m_recip_Bi * ke;    // reduced coords in basis of reciprocal vectors
+    Eigen::Array3d  n  = r.array().round();  // nearest reciprocal-lattice node
+    Eigen::Vector3d k0 = ke - m_recip_B * n.matrix();
+
+    // B) Apply WS (truncated-octahedron) plane tests in your reduced frame
+    Eigen::Vector3d kr = m_si2red * k0;
+
+    const double hw      = m_bz_halfwidth;
+    const double sum_lim = 1.5 * hw;
+    const double eps     = 1e-12 * std::max(1.0, hw);
+
+    // A few corrections always suffice after Babai; 3 passes is plenty.
+    for (int it = 0; it < 3; ++it) {
+        const double ax = std::abs(kr.x()), ay = std::abs(kr.y()), az = std::abs(kr.z());
+        bool         moved = false;
+
+        // 6 square faces: |x|,|y|,|z| ≤ hw
+        if (ax > hw + eps) {
+            kr.x() -= (kr.x() > 0 ? 1.0 : -1.0) * 2.0 * hw;
+            moved = true;
+        }
+        if (ay > hw + eps) {
+            kr.y() -= (kr.y() > 0 ? 1.0 : -1.0) * 2.0 * hw;
+            moved = true;
+        }
+        if (az > hw + eps) {
+            kr.z() -= (kr.z() > 0 ? 1.0 : -1.0) * 2.0 * hw;
+            moved = true;
+        }
+
+        // 8 hex faces: |x| + |y| + |z| ≤ 1.5*hw
+        if ((ax + ay + az) > (sum_lim + eps)) {
+            const int    idx    = (ax >= ay && ax >= az) ? 0 : (ay >= az ? 1 : 2);
+            const double excess = (ax + ay + az) - sum_lim;
+            if (idx == 0)
+                kr.x() -= (kr.x() > 0 ? 1.0 : -1.0) * excess;
+            else if (idx == 1)
+                kr.y() -= (kr.y() > 0 ? 1.0 : -1.0) * excess;
+            else
+                kr.z() -= (kr.z() > 0 ? 1.0 : -1.0) * excess;
+            moved = true;
+        }
+
+        if (!moved) break;  // inside WS
+    }
+
+    // Back to SI and convert to your vector3
+    Eigen::Vector3d kf = kr / m_si2red;
+    return vector3{kf.x(), kf.y(), kf.z()};
+}
+
+// ---------------------------------------------------------
+// Predicate (branch-lean), consistent with your existing checker
+// ---------------------------------------------------------
+bool MeshBZ::inside_ws_bcc(const vector3& k_SI) const noexcept {
+    Eigen::Vector3d kr = m_si2red * Eigen::Vector3d(k_SI.x(), k_SI.y(), k_SI.z());
+    const double    hw = m_bz_halfwidth, eps = 1e-12 * std::max(1.0, hw);
+    const double    ax = std::abs(kr.x()), ay = std::abs(kr.y()), az = std::abs(kr.z());
+    // use bitwise & so all comparisons are evaluated (branchless)
+    return (ax <= hw + eps) & (ay <= hw + eps) & (az <= hw + eps) & ((ax + ay + az) <= (1.5 * hw + eps));
+}
 
 }  // namespace bz_mesh

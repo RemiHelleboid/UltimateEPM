@@ -52,29 +52,29 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
     const auto&               indices_conduction_bands = m_indices_conduction_bands;
 
     // Initial state energy (eV) and k (in SI units 1/m)
-    const double           energy_n1_k1 = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
-    const auto             k1        = m_list_vertices[idx_k1].get_position();
+    const double energy_n1_k1 = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
+    const auto   k1           = m_list_vertices[idx_k1].get_position();
     // const Vector3D<double> k1{k1.x(), k1.y(), k1.z()};
-    std::fstream           file_error_k_points("error_k_points.txt", std::ios::out | std::ios::app);
+    std::fstream file_error_k_points("error_k_points.txt", std::ios::out | std::ios::app);
 
     for (int idx_n2 : indices_conduction_bands) {
         for (const auto& tetra : list_tetrahedra) {
             // Final k chosen as tetra barycenter (SI)
-            const auto             k2 = tetra.compute_barycenter();
-            // const Vector3D<double> k2{k2.x(), k2.y(), k2.z()};
+            const vector3 k2 = tetra.compute_barycenter();
 
             // Overlap (dimensionless)
-            const double overlap2 = std::pow(electron_overlap_integral(k1, k2), 2);
+            // const double overlap2 = std::pow(electron_overlap_integral(k1, k2), 2);
+            const double overlap  = electron_overlap_integral(k1, k2);
+            const double overlap2 = overlap * overlap;
 
             // Phonon wavevector q = k2 - k1 (SI)
             vector3 q_ph = k2 - k1;
-            
 
             // Fold q back to first BZ if needed (no Umklapp yet)
             if (!is_inside_mesh_geometry(q_ph)) {
                 try {
                     // Fold q to the first BZ
-                    q_ph     = retrieve_k_inside_mesh_geometry(q_ph);
+                    q_ph = fold_ws_bcc(q_ph);
                 } catch (const std::runtime_error& e) {
                     std::cerr << "Error folding q: for index " << idx_k1 << "\n";
                     continue;  // Skip this tetrahedron if folding fails
@@ -83,9 +83,9 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
             const double q_ph_norm = q_ph.norm();
             // if (!is_inside_mesh_geometry(q_ph)) throw std::runtime_error("Q is not inside the BZ");
             assert(is_inside_mesh_geometry(q_ph) && "Q is not inside the BZ");
-            
+
             // DBG
-            continue;
+            // continue;
             // Loop phonon branches
             for (const auto& ph_mode : m_phonon_dispersion) {
                 const PhononModeDirection mode_direction = ph_mode.first;
@@ -156,12 +156,12 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
             Vector3D<double> k1{k_1.x(), k_1.y(), k_1.z()};
             Vector3D<double> k2{k_2.x(), k_2.y(), k_2.z()};
 
-            double           overlap_integral = hole_overlap_integral(idx_n1, k1, idx_n2, k2);
-            auto             q                = k2 - k1;
-            auto             initial_q        = q;
+            double overlap_integral = hole_overlap_integral(idx_n1, k1, idx_n2, k2);
+            auto   q                = k2 - k1;
+            auto   initial_q        = q;
             // Vector3D<double> q_ph{q.X, q.Y, q.Z};
-            vector3         q_ph{q.X, q.Y, q.Z};
-            bool             is_in_bz = is_inside_mesh_geometry(q_ph / m_material.get_fourier_factor());
+            vector3 q_ph{q.X, q.Y, q.Z};
+            bool    is_in_bz = is_inside_mesh_geometry(q_ph / m_material.get_fourier_factor());
 
             // No Umklapp process for now.
             if (!is_in_bz) {
@@ -258,15 +258,15 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
 
     std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() * p_compute_rate << " k-points." << std::endl;
 
-    // std::size_t nb_debug_compute_k = 100;
+    // std::size_t nb_debug_compute_k = 1;
 
-    // DEBUG
-    // compute_electron_phonon_rate(4, 135);
-    // exit(0);
 #pragma omp parallel for schedule(dynamic)
-        for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
-    // for (std::size_t idx_k1 = 0; idx_k1 < nb_debug_compute_k; ++idx_k1) {
+    for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
+        // for (std::size_t idx_k1 = 0; idx_k1 < nb_debug_compute_k; ++idx_k1) {
         double r = dis(gen);
+        if (omp_get_thread_num() == 0) {
+            std::cout << "\rComputing rates for k-point " << idx_k1 << " / " << m_list_vertices.size() << std::flush;
+        }
         // for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
         //     // DEBUG PROVISOIRE
         //     if (r > p_compute_rate) {
@@ -288,9 +288,6 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
                 auto array = rate.to_array();
                 m_list_vertices[idx_k1].add_electron_phonon_rates(array);
             }
-        }
-        if (omp_get_thread_num() == 0) {
-            std::cout << "\rComputing rates for k-point " << idx_k1 << " / " << m_list_vertices.size() << std::flush;
         }
     }
     std::cout << std::endl;

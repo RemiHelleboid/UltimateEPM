@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <Eigen/Dense>
 #include <filesystem>
 #include <regex>
 #include <sstream>
@@ -29,6 +30,7 @@ enum class BandType { valence, conduction };
 
 class MeshBZ {
  protected:
+ 
     /**
      * @brief The material of the Brillouin zone.
      *
@@ -109,6 +111,24 @@ class MeshBZ {
      */
     std::vector<vector3> m_Gshifts;
 
+    // --- O(1) WS-BZ folding (internal state) ---
+    /**
+     * @brief Reciprocal primitive basis (columns) in SI [1/m] and its inverse.
+     */
+    Eigen::Matrix3d m_recip_B  = Eigen::Matrix3d::Identity();
+    Eigen::Matrix3d m_recip_Bi = Eigen::Matrix3d::Identity();
+
+    /**
+     * @brief Scale from SI k (1/m) to the reduced frame used by plane tests.
+     * Keep this consistent with is_inside_mesh_geometry().
+     */
+    double m_si2red = 1.0;
+
+    /**
+     * @brief Half-width in the reduced frame (e.g. 0.5 for [-0.5,0.5]).
+     */
+    double m_bz_halfwidth = 0.5;
+
  public:
     MeshBZ() = default;
     MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material) {};
@@ -148,8 +168,36 @@ class MeshBZ {
 
     void    precompute_G_shifts();
     bool    is_inside_mesh_geometry(const vector3& k) const;
-    bool    is_inside_mesh_geometry(const Vector3D<double>& k) const;
     vector3 retrieve_k_inside_mesh_geometry(const vector3& k) const;
+
+    // --- O(1) WS-BZ folding (public API) ---
+    /**
+     * @brief Initialize the reciprocal basis and reduced-frame parameters for O(1) folding.
+     * @param b1_SI First reciprocal primitive vector (SI, 1/m)
+     * @param b2_SI Second reciprocal primitive vector (SI, 1/m)
+     * @param b3_SI Third reciprocal primitive vector (SI, 1/m)
+     * @param halfwidth_reduced Half-width in reduced coords (0.5 for [-0.5,0.5])
+     * @param si_to_reduced Scale factor from SI (1/m) to reduced coords used by plane tests
+     */
+    void init_reciprocal_basis(const Eigen::Vector3d& b1_SI,
+                               const Eigen::Vector3d& b2_SI,
+                               const Eigen::Vector3d& b3_SI,
+                               double                 halfwidth_reduced,
+                               double                 si_to_reduced);
+
+    /**
+     * @brief Fold k into the Wigner–Seitz BZ (truncated octahedron of bcc). Pure, no side effects.
+     * @param k_SI Input wavevector (SI, 1/m)
+     * @return Folded wavevector inside the first BZ (SI, 1/m)
+     */
+    vector3 fold_ws_bcc(const vector3& k_SI) const noexcept;
+
+    /**
+     * @brief Check if k is inside the WS BZ using the same plane tests as is_inside_mesh_geometry().
+     * @param k_SI Input wavevector (SI, 1/m)
+     * @return true if inside, false otherwise
+     */
+    bool inside_ws_bcc(const vector3& k_SI) const noexcept;
 
     vector3     get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
     std::size_t get_nearest_k_index(const Vector3D<double>& k) const;
