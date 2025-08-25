@@ -287,7 +287,7 @@ def main(argv=None):
     ap.add_argument("--outfile", type=str, default="")
     ap.add_argument("--nopopup", action="store_true")
     ap.add_argument("--union", action="store_true", help="Boolean-union wedges into ONE volume.")
-    ap.add_argument("--octant-filter", action="store_true",
+    ap.add_argument("--octant-filter", action="store_true", default=True,
                     help="(octant) build 48 then keep only +octant via bbox.")
     ap.add_argument("--bbox-tol", type=float, default=1e-12)
     args = ap.parse_args(argv)

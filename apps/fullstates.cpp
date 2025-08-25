@@ -26,7 +26,6 @@
 int main(int argc, char *argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
-    TCLAP::ValueArg<std::string> arg_band_dir("d", "banddir", "Directory with BZ band files.", true, "bands/", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
     TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to consider", false, 12, "int");
@@ -34,7 +33,6 @@ int main(int argc, char *argv[]) {
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
-    cmd.add(arg_band_dir);
     cmd.add(arg_material);
     cmd.add(arg_nb_bands);
     cmd.add(arg_nb_energies);
@@ -76,10 +74,10 @@ int main(int argc, char *argv[]) {
 
     my_bz_mesh.compute_eigenstates(my_options.nrThreads);
 
-    Vector3D<double> q_shift = Vector3D<double>{1e-14, 0.0, 0.0};
+    Vector3D<double> q_shift = Vector3D<double>{3e-14, 0.0, 0.0};
     my_bz_mesh.compute_shifted_eigenstates(q_shift, my_options.nrThreads);
     std::cout << "\n\n" << std::endl;
-    my_bz_mesh.export_full_eigenstates();
+    // my_bz_mesh.export_full_eigenstates();
 
     auto end = std::chrono::high_resolution_clock::now();
 
@@ -93,7 +91,7 @@ int main(int argc, char *argv[]) {
     for (double energy = min_energy; energy <= max_energy + energy_step; energy += energy_step) {
         list_energy.push_back(energy);
     }
-    double eta_smearing = 0.01;
+    double eta_smearing = 0.05;
     std::cout << "Number of energies to compute: " << list_energy.size() << std::endl;
     auto start2 = std::chrono::high_resolution_clock::now();
     my_bz_mesh.compute_dielectric_function(list_energy, eta_smearing, my_options.nrThreads);
@@ -102,5 +100,21 @@ int main(int argc, char *argv[]) {
     std::chrono::duration<double> elapsed_seconds2 = end2 - start2;
     std::cout << "Time Dielectric Function : " << elapsed_seconds2.count() << "s" << std::endl;
 
+    std::string python_script =
+        "import matplotlib.pyplot as plt\n"
+        "import numpy as np\n"
+        "energy, eps = np.loadtxt('./TEST_DIELECTRIC_FUNCTION__dielectric_function.csv', delimiter=',', unpack=True, skiprows=1)\n"
+        "fig, ax = plt.subplots(figsize=(8, 6))\n"
+        "ax.plot(energy, eps, label='Dielectric Function')\n"
+        "ax.set_xlabel('Energy (eV)')\n"
+        "ax.set_ylabel('Dielectric Function (ε)')\n"
+        "ax.set_title('Dielectric Function vs Energy')\n"
+        "ax.legend()\n"
+        "ax.grid()\n"
+        "plt.savefig('dielectric_function.png')\n"
+        "plt.show()\n";
+    std::cout << "Run python script to plot dielectric function." << std::endl;
+    std::string command = "python -c \"" + python_script + "\"";
+    system(command.c_str());
     return 0;
 }
