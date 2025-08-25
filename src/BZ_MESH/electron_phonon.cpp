@@ -76,7 +76,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                     // Fold q to the first BZ
                     q_ph     = retrieve_k_inside_mesh_geometry(q_ph);
                 } catch (const std::runtime_error& e) {
-                    // std::cerr << "Error folding q: " << e.what() << "\n";
+                    std::cerr << "Error folding q: for index " << idx_k1 << "\n";
                     continue;  // Skip this tetrahedron if folding fails
                 }
             }
