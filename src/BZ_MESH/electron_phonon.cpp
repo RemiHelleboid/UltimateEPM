@@ -247,11 +247,11 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
     std::random_device                     rd;
     std::mt19937                           gen(rd());
     std::uniform_real_distribution<double> dis(0.0, 1.0);
-    double                                 p_compute_rate = 1.0e-4;
+    double                                 p_compute_rate = 1.0;
 
     std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() * p_compute_rate << " k-points." << std::endl;
 
-    // #pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for schedule(dynamic)
     for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
         double r = dis(gen);
         // for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
@@ -265,7 +265,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
         //     auto array     = hole_rate.to_array();
         //     m_list_vertices[idx_k1].add_electron_phonon_rates(array);
         // }
-
+#pragma omp parallel for schedule(dynamic)
         for (std::size_t idx_n1 = min_idx_conduction_band; idx_n1 <= max_idx_conduction_band; ++idx_n1) {
             if (r > p_compute_rate) {
                 std::array<double, 8> array = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
