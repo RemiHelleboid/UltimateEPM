@@ -67,21 +67,22 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
             const double overlap2 = std::pow(electron_overlap_integral(k1, k2), 2);
 
             // Phonon wavevector q = k2 - k1 (SI)
-            const vector3 q = k2 - k1;
-            vector3       q_ph{q.x(), q.y(), q.z()};
+            vector3 q_ph = k2 - k1;
+            
 
             // Fold q back to first BZ if needed (no Umklapp yet)
             if (!is_inside_mesh_geometry(q_ph)) {
                 try {
                     // Fold q to the first BZ
-                    const auto q_folded = retrieve_k_inside_mesh_geometry(q_ph);
-                    q_ph                = Vector3D<double>(q_folded.x(), q_folded.y(), q_folded.z());
+                    q_ph     = retrieve_k_inside_mesh_geometry(q_ph);
                 } catch (const std::runtime_error& e) {
                     // std::cerr << "Error folding q: " << e.what() << "\n";
                     continue;  // Skip this tetrahedron if folding fails
                 }
             }
-            if (!is_inside_mesh_geometry(q_ph)) throw std::runtime_error("Q is not inside the BZ");
+            const double q_ph_norm = q_ph.norm();
+            // if (!is_inside_mesh_geometry(q_ph)) throw std::runtime_error("Q is not inside the BZ");
+            assert(is_inside_mesh_geometry(q_ph) && "Q is not inside the BZ");
             // Loop phonon branches
             for (const auto& ph_mode : m_phonon_dispersion) {
                 const PhononModeDirection mode_direction = ph_mode.first;
@@ -89,15 +90,17 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
 
                 // ---- Phonon quantities
                 // omega [1/s] from dispersion(|q|)
-                const double omega = disp.get_phonon_dispersion(q_ph.norm());
-                if (omega <= 0.0) continue;  // skip unphysical/zero frequency points
+                const double omega = disp.get_phonon_dispersion(q_ph_norm);
+                // if (omega <= 0.0) continue;  // skip unphysical/zero frequency points
+                assert(omega >= 0.0 && "Phonon frequency is negative");
 
                 // E_ph in eV for Bose factor
                 const double Eph_eV = EmpiricalPseudopotential::Constants::h_bar_eV * omega;
 
                 // Basic sanity
-                if (Eph_eV > 0.1)  // 100 meV cap as you had
-                    throw std::runtime_error("Energy phonon too high");
+                // if (Eph_eV > 0.1)  // 100 meV cap as you had
+                //     throw std::runtime_error("Energy phonon too high");
+                assert(Eph_eV < 0.1 && "Phonon energy is too high");
 
                 // ---- Loop emission/absorption
                 for (double sign_phonon : {-1.0, 1.0}) {
@@ -153,7 +156,8 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
             double           overlap_integral = hole_overlap_integral(idx_n1, k1, idx_n2, k2);
             auto             q                = k2 - k1;
             auto             initial_q        = q;
-            Vector3D<double> q_ph{q.X, q.Y, q.Z};
+            // Vector3D<double> q_ph{q.X, q.Y, q.Z};
+            vector3         q_ph{q.X, q.Y, q.Z};
             bool             is_in_bz = is_inside_mesh_geometry(q_ph / m_material.get_fourier_factor());
 
             // No Umklapp process for now.
@@ -170,7 +174,7 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
 
             for (auto&& mode_phonon : m_phonon_dispersion) {
                 PhononModeDirection mode_direction = mode_phonon.first;
-                double e_ph = mode_phonon.second.get_phonon_dispersion(q_ph.Length()) * EmpiricalPseudopotential::Constants::h_bar_eV;
+                double e_ph = mode_phonon.second.get_phonon_dispersion(q_ph.norm()) * EmpiricalPseudopotential::Constants::h_bar_eV;
                 if (e_ph > 100e-3) {
                     std::cout << "Energy phonon: " << e_ph << std::endl << std::endl;
                     throw std::runtime_error("Energy phonon too high");
@@ -251,8 +255,11 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
 
     std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() * p_compute_rate << " k-points." << std::endl;
 
+    std::size_t nb_debug_compute_k = 100;
+
 #pragma omp parallel for schedule(dynamic)
-    for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
+    // for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
+    for (std::size_t idx_k1 = 0; idx_k1 < nb_debug_compute_k; ++idx_k1) {
         double r = dis(gen);
         // for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
         //     // DEBUG PROVISOIRE
@@ -265,7 +272,6 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
         //     auto array     = hole_rate.to_array();
         //     m_list_vertices[idx_k1].add_electron_phonon_rates(array);
         // }
-#pragma omp parallel for schedule(dynamic)
         for (std::size_t idx_n1 = min_idx_conduction_band; idx_n1 <= max_idx_conduction_band; ++idx_n1) {
             if (r > p_compute_rate) {
                 std::array<double, 8> array = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
