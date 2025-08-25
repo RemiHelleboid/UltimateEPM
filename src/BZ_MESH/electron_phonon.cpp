@@ -255,11 +255,11 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
 
     std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() * p_compute_rate << " k-points." << std::endl;
 
-    std::size_t nb_debug_compute_k = 100;
+    // std::size_t nb_debug_compute_k = 100;
 
 #pragma omp parallel for schedule(dynamic)
-    // for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
-    for (std::size_t idx_k1 = 0; idx_k1 < nb_debug_compute_k; ++idx_k1) {
+    for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
+    // for (std::size_t idx_k1 = 0; idx_k1 < nb_debug_compute_k; ++idx_k1) {
         double r = dis(gen);
         // for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
         //     // DEBUG PROVISOIRE
