@@ -78,11 +78,11 @@ int main(int argc, char const *argv[])
 
     ElectronPhonon.compute_electron_phonon_rates_over_mesh();
 
-    // ElectronPhonon.export_rate_values("rates_all.csv");
+    ElectronPhonon.export_rate_values("rates_all.csv");
 
-    // ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels, 10.0, 0.01, "rates_vs_energy.csv");
+    ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels, 10.0, 0.01, "rates_vs_energy.csv");
 
-    // ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
+    ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
 
 
     auto stop = std::chrono::high_resolution_clock::now();
