@@ -392,7 +392,7 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
     // Choose band range: here I use the actual conduction band indices.
     // If you want valence, swap to m_indices_valence_bands.
     if (m_indices_conduction_bands.empty()) throw std::runtime_error("No conduction bands indexed.");
-    const int band_min = *std::min_element(m_indices_conduction_bands.begin(), m_indices_conduction_bands.end());
+    const int band_min = 0;
     const int band_max = *std::max_element(m_indices_conduction_bands.begin(), m_indices_conduction_bands.end());
     // Optionally clamp to nb_bands if caller insists:
     const int last_band = std::min(band_max, nb_bands - 1);

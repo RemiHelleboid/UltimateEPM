@@ -39,8 +39,8 @@ def plot_rates(filename, comparison_csv=None):
     # energy -= np.min(energy)
     # Smallest strictly positive energy : 
     dos = data[:,1]
-    min_energy = np.min(energy[dos > 0])
-    energy -= min_energy
+    # min_energy = np.min(energy[dos > 0])
+    # energy -= min_energy
     nb_modes = data.shape[1] - 2
     fig, ax = plt.subplots(nb_modes, figsize=(6, 4*nb_modes))
     for i in range(1, data.shape[1]-3):
