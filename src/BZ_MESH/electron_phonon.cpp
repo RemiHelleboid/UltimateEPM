@@ -109,7 +109,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                 for (double sign_phonon : {-1.0, 1.0}) {
                     // Bose factor in eV units
                     const double N0        = bose_einstein_distribution(Eph_eV, m_temperature);  // dimensionless
-                    const double bose_part = (sign_phonon > 0.0) ? (N0 + 1.0) : N0;              // +1: emission, plain N0: absorption
+                    const double bose_part = (sign_phonon < 0.0) ? (N0 + 1.0) : N0;              // +1: emission, plain N0: absorption
 
                     // Final electronic energy (eV)
                     const double E_final_eV = energy_n1_k1 + sign_phonon * Eph_eV;
@@ -133,7 +133,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                     // rates_k1_n1.add_rate(RateValue(phonon_mode, phonon_direction, phonon_event, rate_value));
                     rates_k1_n1.add_rate(RateValue(mode_direction.first,
                                                    mode_direction.second,
-                                                   (sign_phonon > 0.0) ? PhononEvent::emission : PhononEvent::absorption,
+                                                   (sign_phonon < 0.0) ? PhononEvent::emission : PhononEvent::absorption,
                                                    rate_value));
                 }
             }
