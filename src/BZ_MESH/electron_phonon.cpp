@@ -267,17 +267,18 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
         if (omp_get_thread_num() == 0) {
             std::cout << "\rComputing rates for k-point " << idx_k1 << " / " << m_list_vertices.size() << std::flush;
         }
-        // for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
-        //     // DEBUG PROVISOIRE
-        //     if (r > p_compute_rate) {
-        //         std::array<double, 8> array = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-        //         m_list_vertices[idx_k1].add_electron_phonon_rates(array);
-        //         continue;
-        //     }
-        //     auto hole_rate = compute_hole_phonon_rate(idx_n1, idx_k1);
-        //     auto array     = hole_rate.to_array();
-        //     m_list_vertices[idx_k1].add_electron_phonon_rates(array);
-        // }
+        for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
+            // DEBUG PROVISOIRE
+            if (r > p_compute_rate) {
+                std::array<double, 8> array = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+                m_list_vertices[idx_k1].add_electron_phonon_rates(array);
+                continue;
+            }
+            // auto hole_rate = compute_hole_phonon_rate(idx_n1, idx_k1);
+            // auto array     = hole_rate.to_array();
+            std::array<double, 8> array_h = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+            m_list_vertices[idx_k1].add_electron_phonon_rates(array_h);
+        }
         for (std::size_t idx_n1 = min_idx_conduction_band; idx_n1 <= max_idx_conduction_band; ++idx_n1) {
             if (r > p_compute_rate) {
                 std::array<double, 8> array = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
