@@ -402,7 +402,7 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
          << " hole_LO_em  hole_LO_ab  hole_TR_em  hole_TR_ab"
          << " elec_LO_em  elec_LO_ab  elec_TR_em  elec_TR_ab\n";
 
-    for (double E = 0.0; E < max_energy; E += energy_step) {
+    for (double E = -5.0; E < max_energy; E += energy_step) {
         std::cout << "\rEnergy: " << E << " / " << max_energy << std::flush;
 
         double                dos_E = 0.0;
