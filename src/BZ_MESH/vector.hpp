@@ -134,6 +134,12 @@ class vector3 {
         return vector_1.dot(cross_product(vector_2, vector_3));
     }
 
+    friend inline double compte_cos_angle(const vector3 &V1, const vector3 &V2) {
+        double dot_product  = V1.dot(V2);
+        double norm_product = V1.norm() * V2.norm();
+        return (norm_product < 1.0e-13) ? 1.0 : dot_product / norm_product;
+    }
+
     /**
      * @brief Check if a point is on the segment [A, B]
      *

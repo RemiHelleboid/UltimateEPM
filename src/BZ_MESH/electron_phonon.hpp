@@ -227,7 +227,7 @@ class ElectronPhonon : public BZ_States {
 
     inline double bose_einstein_distribution(double energy, double temperature);
     double electron_overlap_integral(const vector3& k1, const vector3& k2);
-    double hole_overlap_integral(int n1, const Vector3D<double>& k1, int n2, const Vector3D<double>& k2);
+    double hole_overlap_integral(int n1, const vector3& k1, int n2, const vector3& k2);
 
     RateValues compute_electron_phonon_rate(int idx_n1, std::size_t idx_k1);
     RateValues compute_hole_phonon_rate(int idx_n1, std::size_t idx_k1);
