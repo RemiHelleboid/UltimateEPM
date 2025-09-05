@@ -130,6 +130,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                     // P = (pi / (rho * omega)) * Delta^2 * |I|^2 * (bose) * DOS(E)
                     const double rate_value = (EmpiricalPseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
                                               bose_part * dos_per_J;
+                    rate_value /= m_reduce_bz_factor;  // Correct for BZ volume if mesh does not match theoretical BZ volume
 
                     // rates_k1_n1.add_rate(RateValue(phonon_mode, phonon_direction, phonon_event, rate_value));
                     rates_k1_n1.add_rate(RateValue(mode_direction.first,
