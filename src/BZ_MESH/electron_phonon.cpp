@@ -317,8 +317,9 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
                     const double Delta_J = defpot.get_deformation_potential(q_ph, E_final_eV) * EmpiricalPseudopotential::Constants::q_e;
 
                     // Prefactor preserved to match electron routine (π / (ρ ω)) × Δ² × overlap² × bose × DOS(J⁻¹)
-                    const double rate_value = (EmpiricalPseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
-                                              bose_part * dos_per_J;
+                    double rate_value = (EmpiricalPseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
+                                        bose_part * dos_per_J;
+                    rate_value /= m_reduce_bz_factor;  // Correct for BZ volume if mesh does not match theoretical BZ volume
 
                     const PhononEvent event = (sign_phonon < 0.0) ? PhononEvent::emission : PhononEvent::absorption;
 

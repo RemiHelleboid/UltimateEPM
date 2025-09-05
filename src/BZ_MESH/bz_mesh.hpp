@@ -103,6 +103,10 @@ class MeshBZ {
      */
     std::vector<double> m_max_band{};
 
+    /**
+     * @brief Total volume of the BZ mesh in m^3.
+     *
+     */
     double m_total_volume = 0.0;
 
     /**

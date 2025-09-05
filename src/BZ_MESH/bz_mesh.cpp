@@ -103,7 +103,14 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     gmsh::finalize();
     m_total_volume = compute_mesh_volume();
     std::cout << "Total mesh volume: " << m_total_volume << std::endl;
+    // Compute the reduced BZ volume
+    double Vcell = std::pow(m_material.get_lattice_constant_meter(), 3) / 4.0;
+    const double VBZ_theory = std::pow(2.0 * M_PI, 3) / Vcell;  // m^-3
 
+    m_reduce_bz_factor = m_total_volume / VBZ_theory;
+    std::cout << "Reduce BZ factor: " << m_reduce_bz_factor << std::endl;
+
+    
     precompute_G_shifts();
     // vector3 b1 = {-1.0, 1.0, 1.0};
     // vector3 b2 = {1.0, -1.0, 1.0};
