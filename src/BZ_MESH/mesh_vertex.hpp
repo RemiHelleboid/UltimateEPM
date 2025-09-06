@@ -118,6 +118,15 @@ class Vertex {
      */
     void add_band_energy_value(double energy) { m_band_energies.push_back(energy); }
 
+
+    void remove_band_energy_value(std::size_t band_index) {
+        if (band_index >= m_band_energies.size()) {
+            throw std::invalid_argument("The energy of band " + std::to_string(band_index) +
+                                        " cannot be removed because it does not exists.");
+        }
+        m_band_energies.erase(m_band_energies.begin() + band_index);
+    }
+
     /**
      * @brief Set the band energy at a given band index.
      *

@@ -32,13 +32,15 @@ int main(int argc, char const *argv[])
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
-    TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to consider", false, -1, "int");
+    TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "ncbands", "Number of conduction bands to consider", false, -1, "int");
+    TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
-    cmd.add(arg_nb_bands);
+    cmd.add(arg_nb_conduction_bands);
+    cmd.add(arg_nb_valence_bands);
     cmd.add(arg_nb_energies);
     cmd.add(arg_nb_threads);
 
@@ -52,7 +54,7 @@ int main(int argc, char const *argv[])
 
     Options my_options;
     my_options.materialName = arg_material.getValue();
-    my_options.nrLevels     = arg_nb_bands.getValue();
+    my_options.nrLevels     = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
     my_options.nrThreads    = arg_nb_threads.getValue();
     int number_energies     = arg_nb_energies.getValue();
 
@@ -87,6 +89,12 @@ int main(int argc, char const *argv[])
 
     auto stop = std::chrono::high_resolution_clock::now();
     std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds" << std::endl;
+
+    if (plot_with_python.getValue()) {
+        std::string command = "python3 " + std::string(CMAKE_SOURCE_DIR) + "/python/plots/plot_phonon_rate.py -f rates_vs_energy.csv";
+        std::cout << "Running command: " << command << std::endl;
+        std::system(command.c_str());
+    }
 
     return 0;
 

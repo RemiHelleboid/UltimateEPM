@@ -30,7 +30,6 @@ enum class BandType { valence, conduction };
 
 class MeshBZ {
  protected:
- 
     /**
      * @brief The material of the Brillouin zone.
      *
@@ -61,11 +60,10 @@ class MeshBZ {
      */
     std::vector<Tetra> m_list_tetrahedra;
 
-
     /**
      * @brief Factor applied to each tetra/vertex when we use only a part of the 1st BZ.
      * For example m_reduced_facotr = 48 when we use the irreducible wedge.
-     * 
+     *
      */
     double m_reduce_bz_factor = 1.0;
 
@@ -110,8 +108,14 @@ class MeshBZ {
     double m_total_volume = 0.0;
 
     /**
+     * @brief Spin degeneracy factor (2 when spin-orbit coupling is not considered).
+     *
+     */
+    double m_spin_degeneracy = 2.0;
+
+    /**
      * @brief Possible G vectors to fold back k vectors within the first BZ.
-     * 
+     *
      */
     std::vector<vector3> m_Gshifts;
 
@@ -162,13 +166,17 @@ class MeshBZ {
     void read_mesh_bands_from_msh_file(const std::string& filename, int nb_bands_to_load = -1);
     void read_mesh_bands_from_multi_band_files(const std::string& dir_bands, int nb_bands_to_load = 100);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
+    void keep_only_bands(const int nb_valence_bands, const int nb_conduction_bands);
     void compute_min_max_energies_at_tetras();
     void compute_energy_gradient_at_tetras();
+    void auto_shift_conduction_band_energies();
+    void auto_set_positive_valence_band_energies();
 
-    std::size_t get_number_vertices() const { return m_list_vertices.size(); }
-    std::size_t get_number_elements() const { return m_list_tetrahedra.size(); }
-    double      get_volume() const { return m_total_volume; }
-
+    std::size_t      get_number_vertices() const { return m_list_vertices.size(); }
+    std::size_t      get_number_elements() const { return m_list_tetrahedra.size(); }
+    double           get_volume() const { return m_total_volume; }
+    std::vector<int> get_indices_valence_bands() const { return m_indices_valence_bands; }
+    std::vector<int> get_indices_conduction_bands() const { return m_indices_conduction_bands; }
 
     void    precompute_G_shifts();
     bool    is_inside_mesh_geometry(const vector3& k) const;

@@ -16,7 +16,7 @@ import matplotlib as mpl
 
 import scienceplots
 
-plt.style.use(['science', 'muted', 'scatter', 'grid', 'no-latex'])
+plt.style.use(['science', 'muted', 'grid', 'no-latex'])
 
 
 def scatter_plot_rates(filename):
@@ -36,18 +36,6 @@ def scatter_plot_rates(filename):
 def plot_rates(filename, comparison_csv=None):
     data = np.loadtxt(filename)
     energy = data[:,0]
-    # energy -= np.min(energy)
-    # Smallest strictly positive energy : 
-    dos = data[:,1]
-    # min_energy = np.min(energy[dos > 0])
-    # energy -= min_energy
-    nb_modes = data.shape[1] - 2
-    fig, ax = plt.subplots(nb_modes, figsize=(6, 4*nb_modes))
-    for i in range(1, data.shape[1]-3):
-        ax[i-2].plot(energy, data[:,i], label=f"Mode {i}", color="black")
-        ax[i-2].set_xlabel("Energy (eV)")
-        ax[i-2].set_ylabel("Rate (s$^-1$)")
-        ax[i-2].set_title(f"Mode {i}")
 
     # Sum of rates
     fig2, ax2 = plt.subplots(figsize=(6, 4))
@@ -62,12 +50,8 @@ def plot_rates(filename, comparison_csv=None):
         ax2.plot(energy, rates, label="Comparison", color="red")
     ax2.legend()
 
-    # max_rate = np.max(data[:,2:])
-    # dos /= np.max(dos)
-    # ax.plot(energy, dos, label="DOS", color="black", linestyle="--")
-    
-    # ax.legend()
-    fig.tight_layout()    
+
+    fig2.tight_layout()    
     
     
 def plo_dos(filename):
@@ -86,7 +70,9 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-f", "--filename", type=str, required=True, help="Filename to plot")
     args = parser.parse_args()
-    scatter_plot_rates("rates_all.csv")
-    # plo_dos()
-    plot_rates("rates_vs_energy.csv", "../examples/RatesSiKunikiyo1994.csv")
+    # scatter_plot_rates("rates_all.csv")
+
+    plot_rates("rates_vs_energy_h.csv", "../examples/JallepalliHRates97.csv")
+    plt.show()
+    plot_rates("rates_vs_energy_e.csv", "../examples/RatesSiKunikiyo1994.csv")
     plt.show()

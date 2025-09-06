@@ -129,7 +129,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
 
                     // P = (pi / (rho * omega)) * Delta^2 * |I|^2 * (bose) * DOS(E)
                     double rate_value = (EmpiricalPseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
-                                              bose_part * dos_per_J;
+                                        bose_part * dos_per_J;
                     rate_value /= m_reduce_bz_factor;  // Correct for BZ volume if mesh does not match theoretical BZ volume
 
                     // rates_k1_n1.add_rate(RateValue(phonon_mode, phonon_direction, phonon_event, rate_value));
@@ -340,114 +340,142 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
     std::cout << "Min index conduction band: " << min_idx_conduction_band << std::endl;
     std::ofstream file("rates.txt");
 
-    std::random_device                     rd;
-    std::mt19937                           gen(rd());
-    std::uniform_real_distribution<double> dis(0.0, 1.0);
-    double                                 p_compute_rate = 1.0;
-
-    std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() * p_compute_rate << " k-points." << std::endl;
-
-    // std::size_t nb_debug_compute_k = 1;
+    std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() << " k-points." << std::endl;
 
 #pragma omp parallel for schedule(dynamic)
     for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
-        // for (std::size_t idx_k1 = 0; idx_k1 < nb_debug_compute_k; ++idx_k1) {
-        double r = dis(gen);
         if (omp_get_thread_num() == 0) {
             std::cout << "\rComputing rates for k-point " << idx_k1 << " / " << m_list_vertices.size() << std::flush;
         }
         for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
-            // DEBUG PROVISOIRE
-            if (r > p_compute_rate) {
-                std::array<double, 8> array = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-                m_list_vertices[idx_k1].add_electron_phonon_rates(array);
-                continue;
-            }
             auto hole_rate = compute_hole_phonon_rate(idx_n1, idx_k1);
             auto array_h   = hole_rate.to_array();
             m_list_vertices[idx_k1].add_electron_phonon_rates(array_h);
         }
         for (std::size_t idx_n1 = min_idx_conduction_band; idx_n1 <= max_idx_conduction_band; ++idx_n1) {
-            if (r > p_compute_rate) {
-                std::array<double, 8> array = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-                m_list_vertices[idx_k1].add_electron_phonon_rates(array);
-                continue;
-            } else {
-                auto rate  = compute_electron_phonon_rate(idx_n1, idx_k1);
-                auto array = rate.to_array();
-                m_list_vertices[idx_k1].add_electron_phonon_rates(array);
-            }
+            auto rate  = compute_electron_phonon_rate(idx_n1, idx_k1);
+            auto array = rate.to_array();
+            m_list_vertices[idx_k1].add_electron_phonon_rates(array);
         }
     }
     std::cout << std::endl;
     file.close();
-    // Add rate to the mesh
 }
-
 void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int                nb_bands,
                                                                             double             max_energy,
                                                                             double             energy_step,
                                                                             const std::string& filename) {
-    std::ofstream file(filename);
-    if (!file) throw std::runtime_error("Cannot open " + filename);
-
-    // Choose band range: here I use the actual conduction band indices.
-    // If you want valence, swap to m_indices_valence_bands.
+    if (m_indices_valence_bands.empty()) throw std::runtime_error("No valence bands indexed.");
     if (m_indices_conduction_bands.empty()) throw std::runtime_error("No conduction bands indexed.");
-    const int band_min = 0;
-    const int band_max = *std::max_element(m_indices_conduction_bands.begin(), m_indices_conduction_bands.end());
-    // Optionally clamp to nb_bands if caller insists:
-    const int last_band = std::min(band_max, nb_bands - 1);
 
-    // Optional: CSV-like header
-    file << "# E[eV]  DOS(E) "
-         << " hole_LO_em  hole_LO_ab  hole_TR_em  hole_TR_ab"
-         << " elec_LO_em  elec_LO_ab  elec_TR_em  elec_TR_ab\n";
+    // util: ajoute suffixe avant l'extension
+    auto suffixed = [](std::string base, const char* suffix) {
+        const auto pos = base.find_last_of('.');
+        if (pos == std::string::npos) return base + suffix;      // pas d'extension
+        return base.substr(0, pos) + suffix + base.substr(pos);  // insère avant l'extension
+    };
+
+    const std::string file_h = suffixed(filename, "_h");
+    const std::string file_e = suffixed(filename, "_e");
+
+    std::ofstream out_h(file_h), out_e(file_e);
+    if (!out_h) throw std::runtime_error("Cannot open " + file_h);
+    if (!out_e) throw std::runtime_error("Cannot open " + file_e);
+
+    // headers
+    out_h << "# E[eV]  DOS(E) hole_LO_em hole_LO_ab hole_TR_em hole_TR_ab\n";
+    out_e << "# E[eV]  DOS(E) elec_LO_em elec_LO_ab elec_TR_em elec_TR_ab\n";
+
+    // borne max de bande pour chaque set (on tronque à nb_bands si demandé)
+    const int last_val_band =
+        (nb_bands > 0) ? std::min(nb_bands - 1, *std::max_element(m_indices_valence_bands.begin(), m_indices_valence_bands.end()))
+                       : *std::max_element(m_indices_valence_bands.begin(), m_indices_valence_bands.end());
+
+    const int last_con_band =
+        (nb_bands > 0) ? std::min(nb_bands - 1, *std::max_element(m_indices_conduction_bands.begin(), m_indices_conduction_bands.end()))
+                       : *std::max_element(m_indices_conduction_bands.begin(), m_indices_conduction_bands.end());
 
     for (double E = -5.0; E < max_energy; E += energy_step) {
         std::cout << "\rEnergy: " << E << " / " << max_energy << std::flush;
 
-        double                dos_E = 0.0;
-        std::array<double, 8> num_accum{};  // numerator accumulators
-        num_accum.fill(0.0);
+        // accum trous
+        double                dos_h = 0.0;
+        std::array<double, 4> num_h{};
+        num_h.fill(0.0);
 
-        // Sum over tetrahedra and bands
+        // accum électrons
+        double                dos_e = 0.0;
+        std::array<double, 4> num_e{};
+        num_e.fill(0.0);
+
         for (const auto& tetra : m_list_tetrahedra) {
-            for (int b = band_min; b <= last_band; ++b) {
-                const double dos_tetra = tetra.compute_tetra_dos_energy_band(E, b);
-                if (!std::isfinite(dos_tetra)) {
+            // --- valence (holes)
+            for (int b : m_indices_valence_bands) {
+                if (b > last_val_band) continue;
+                const double dos_t = tetra.compute_tetra_dos_energy_band(E, b);
+                if (!std::isfinite(dos_t)) {
                     std::ostringstream oss;
                     oss << "DOS tetra is NaN/Inf at E=" << E << " band=" << b;
                     throw std::runtime_error(oss.str());
                 }
-                if (dos_tetra <= 0.0) continue;
+                if (dos_t <= 0.0) continue;
 
-                dos_E += dos_tetra;
-
+                dos_h += dos_t;
                 const std::array<double, 8> r = tetra.get_mean_electron_phonon_rates(b);
-                for (std::size_t i = 0; i < r.size(); ++i)
-                    num_accum[i] += r[i] * dos_tetra;  // DOS-weighted sum
+                // indices 0..3 = holes
+                num_h[0] += r[0] * dos_t;  // hole_LO_em
+                num_h[1] += r[1] * dos_t;  // hole_LO_ab
+                num_h[2] += r[2] * dos_t;  // hole_TR_em
+                num_h[3] += r[3] * dos_t;  // hole_TR_ab
+            }
+
+            // --- conduction (electrons)
+            for (int b : m_indices_conduction_bands) {
+                if (b > last_con_band) continue;
+                const double dos_t = tetra.compute_tetra_dos_energy_band(E, b);
+                if (!std::isfinite(dos_t)) {
+                    std::ostringstream oss;
+                    oss << "DOS tetra is NaN/Inf at E=" << E << " band=" << b;
+                    throw std::runtime_error(oss.str());
+                }
+                if (dos_t <= 0.0) continue;
+
+                dos_e += dos_t;
+                const std::array<double, 8> r = tetra.get_mean_electron_phonon_rates(b);
+                // indices 4..7 = electrons
+                num_e[0] += r[4] * dos_t;  // elec_LO_em
+                num_e[1] += r[5] * dos_t;  // elec_LO_ab
+                num_e[2] += r[6] * dos_t;  // elec_TR_em
+                num_e[3] += r[7] * dos_t;  // elec_TR_ab
             }
         }
 
-        // Per-energy normalization (NOT by total across energies)
-        std::array<double, 8> mean_rates{};
-        if (dos_E > 0.0) {
-            for (std::size_t i = 0; i < mean_rates.size(); ++i)
-                mean_rates[i] = num_accum[i] / dos_E;
-        } else {
-            mean_rates.fill(0.0);  // or continue; to skip the line
-        }
+        // moyennes pondérées par la DOS (indépendantes pour h et e)
+        std::array<double, 4> mean_h{}, mean_e{};
+        if (dos_h > 0.0)
+            for (int i = 0; i < 4; ++i){
+                mean_h[i] = num_h[i] / dos_h;
+                mean_h[i] *= m_spin_degeneracy;}
+        else
+            mean_h.fill(0.0);
+        if (dos_e > 0.0)
+            for (int i = 0; i < 4; ++i){
+                mean_e[i] = num_e[i] / dos_e;
+                mean_e[i] *= m_spin_degeneracy;}
+        else
+            mean_e.fill(0.0);
 
-        // write line
-        file << std::setprecision(10) << E << " " << dos_E << " ";
-        for (double v : mean_rates)
-            file << v << " ";
-        file << "\n";
+        // écrire les deux lignes
+        out_h << std::setprecision(10) << E << " " << dos_h << " " << mean_h[0] << " " << mean_h[1] << " " << mean_h[2] << " " << mean_h[3]
+              << "\n";
+
+        out_e << std::setprecision(10) << E << " " << dos_e << " " << mean_e[0] << " " << mean_e[1] << " " << mean_e[2] << " " << mean_e[3]
+              << "\n";
     }
 
     std::cout << std::endl;
-    file.close();
+    out_h.close();
+    out_e.close();
 }
 
 void ElectronPhonon::plot_phonon_dispersion(const std::string& filename) const {
