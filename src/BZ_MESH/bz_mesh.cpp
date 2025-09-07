@@ -619,6 +619,11 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
 }
 
 std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int band_index, std::size_t nb_points, int num_threads) const {
+
+    if (band_index < 0 || band_index >= static_cast<int>(m_min_band.size())) {
+        throw std::out_of_range("Band index out of range in compute_dos_band_at_band_auto.");
+    }
+
     const double margin_energy = 0.1;
     double       min_energy    = m_min_band[band_index] - margin_energy;
     double       max_energy    = m_max_band[band_index] + margin_energy;
