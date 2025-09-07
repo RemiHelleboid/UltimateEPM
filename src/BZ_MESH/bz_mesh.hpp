@@ -179,6 +179,7 @@ class MeshBZ {
     double           get_volume() const { return m_total_volume; }
     std::vector<int> get_indices_valence_bands() const { return m_indices_valence_bands; }
     std::vector<int> get_indices_conduction_bands() const { return m_indices_conduction_bands; }
+    int              get_nb_bands() const { return m_indices_valence_bands.size() + m_indices_conduction_bands.size(); }
 
     void    precompute_G_shifts();
     bool    is_inside_mesh_geometry(const vector3& k) const;

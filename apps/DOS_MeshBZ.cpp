@@ -87,6 +87,11 @@ int main(int argc, char *argv[]) {
     bz_mesh::MeshBZ my_bz_mesh{current_material};
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file);
     my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file, nb_bands_to_use);
+    int nb_bands = my_bz_mesh.get_nb_bands();
+    if (nb_bands < nb_bands_to_use) {
+        std::cout << "Warning: you asked for " << nb_bands_to_use << " bands but the mesh file contains only " << nb_bands << " bands.\n";
+        nb_bands_to_use = nb_bands;
+    }
 
     std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
     double Vcell = std::pow(current_material.get_lattice_constant_meter(), 3) / 4.0;

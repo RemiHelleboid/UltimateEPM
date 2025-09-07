@@ -255,8 +255,6 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_b
     compute_min_max_energies_at_tetras();
     compute_energy_gradient_at_tetras();
 
-
-
     // Print band info
     std::cout << "Number of bands loaded: " << m_min_band.size() << std::endl;
     std::cout << "Number of valence bands: " << m_indices_valence_bands.size() << std::endl;
