@@ -171,6 +171,8 @@ class MeshBZ {
     void compute_energy_gradient_at_tetras();
     void auto_shift_conduction_band_energies();
     void auto_set_positive_valence_band_energies();
+    void set_bands_in_right_order();
+    void recompute_min_max_energies();
 
     std::size_t      get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t      get_number_elements() const { return m_list_tetrahedra.size(); }

@@ -76,34 +76,34 @@ def _get_all_vols():
 
 # --------------------------- EXACT IBZ geometry (matches your .geo) ---------------------------
 
-def build_ibz_wedge(h=0.01):
+def build_ibz_wedge(h=0.01, gamma_mesh=1.0):
     # Points
-    p1 = gmsh.model.occ.addPoint(0.0, 0.0, 0.0, h)     # Γ
-    p2 = gmsh.model.occ.addPoint(0.5, 0.5, 0.5, h)     # L
-    p3 = gmsh.model.occ.addPoint(1.0, 0.0, 0.0, h)     # X
-    p4 = gmsh.model.occ.addPoint(0.75, 0.75, 0.0, h)   # K
-    p5 = gmsh.model.occ.addPoint(1.0, 0.5, 0.0, h)     # W
-    p6 = gmsh.model.occ.addPoint(1.0, 0.25, 0.25, h)   # U
+    Gamma = gmsh.model.occ.addPoint(0.0, 0.0, 0.0, h * gamma_mesh) # Γ
+    L = gmsh.model.occ.addPoint(0.5, 0.5, 0.5, h)     # L
+    X = gmsh.model.occ.addPoint(1.0, 0.0, 0.0, h)     # X
+    K = gmsh.model.occ.addPoint(0.75, 0.75, 0.0, h)   # K
+    W = gmsh.model.occ.addPoint(1.0, 0.5, 0.0, h)     # W
+    U = gmsh.model.occ.addPoint(1.0, 0.25, 0.25, h)   # U
 
     # KLUW (quad)
-    l1 = gmsh.model.occ.addLine(p4, p2)
-    l2 = gmsh.model.occ.addLine(p2, p6)
-    l3 = gmsh.model.occ.addLine(p6, p5)
-    l4 = gmsh.model.occ.addLine(p5, p4)
+    l1 = gmsh.model.occ.addLine(K, L)
+    l2 = gmsh.model.occ.addLine(L, U)
+    l3 = gmsh.model.occ.addLine(U, W)
+    l4 = gmsh.model.occ.addLine(W, K)
     s10 = gmsh.model.occ.addPlaneSurface([gmsh.model.occ.addCurveLoop([l1, l2, l3, l4])])
 
     # UWX (tri)
-    l6 = gmsh.model.occ.addLine(p5, p3)
-    l7 = gmsh.model.occ.addLine(p3, p6)
+    l6 = gmsh.model.occ.addLine(W, X)
+    l7 = gmsh.model.occ.addLine(X, U)
     s11 = gmsh.model.occ.addPlaneSurface([gmsh.model.occ.addCurveLoop([l3, l6, l7])])
 
     # ΓLK (tri)
-    l8  = gmsh.model.occ.addLine(p1, p2)
-    l10 = gmsh.model.occ.addLine(p4, p1)
+    l8  = gmsh.model.occ.addLine(Gamma, L)
+    l10 = gmsh.model.occ.addLine(K, Gamma)
     s12 = gmsh.model.occ.addPlaneSurface([gmsh.model.occ.addCurveLoop([l8, -l1, l10])])
 
     # ΓLUX (quad)
-    l12 = gmsh.model.occ.addLine(p3, p1)
+    l12 = gmsh.model.occ.addLine(X, Gamma)
     s13 = gmsh.model.occ.addPlaneSurface([gmsh.model.occ.addCurveLoop([l8, l2, -l7, l12])])
 
     # ΓKWX (quad)
@@ -188,8 +188,8 @@ def strict_union_all_volumes(batch=8, max_passes=6):
 
 # --------------------------- build modes ---------------------------
 
-def build_mode_iw(h, outfile, nopopup, do_union):
-    v21, faces = build_ibz_wedge(h)
+def build_mode_iw(h, outfile, nopopup, do_union, gamma_mesh=1.0):
+    v21, faces = build_ibz_wedge(h, gamma_mesh=gamma_mesh)
     gmsh.model.occ.synchronize()
 
     if do_union:
@@ -290,16 +290,21 @@ def main(argv=None):
     ap.add_argument("--octant-filter", action="store_true", default=True,
                     help="(octant) build 48 then keep only +octant via bbox.")
     ap.add_argument("--bbox-tol", type=float, default=1e-12)
+    ap.add_argument("--mesh-gamma", type=float, default=1.0,
+                    help="refinement factor at Γ point (default 1.0 = uniform).")
     args = ap.parse_args(argv)
 
     gmsh.initialize()
     gmsh.model.add("BZ_from_IBZ")
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.mesh)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", args.mesh)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.mesh)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", args.mesh)
+
+    # 3D mesh algorithm (1: Delaunay, 3: Initial mesh only, 4: Frontal, 7: MMG3D, 9: R-tree, 10: HXT)
+    gmsh.option.setNumber("Mesh.Algorithm3D", 7)
 
     try:
         if args.mode == "iw":
-            build_mode_iw(args.mesh, args.outfile, args.nopopup, args.union)
+            build_mode_iw(args.mesh, args.outfile, args.nopopup, args.union, args.mesh_gamma)
         elif args.mode == "octant":
             build_mode_octant(args.mesh, args.outfile, args.nopopup, args.union,
                               octant_filter=args.octant_filter, bbox_tol=args.bbox_tol)
@@ -307,6 +312,8 @@ def main(argv=None):
             build_mode_full(args.mesh, args.outfile, args.nopopup, args.union)
     finally:
         gmsh.finalize()
+    return 0
 
 if __name__ == "__main__":
     main()
+

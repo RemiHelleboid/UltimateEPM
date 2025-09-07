@@ -55,8 +55,6 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
     // Initial state energy (eV) and k (in SI units 1/m)
     const double energy_n1_k1 = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
     const auto   k1           = m_list_vertices[idx_k1].get_position();
-    // const Vector3D<double> k1{k1.x(), k1.y(), k1.z()};
-    std::fstream file_error_k_points("error_k_points.txt", std::ios::out | std::ios::app);
 
     for (int idx_n2 : indices_conduction_bands) {
         for (const auto& tetra : list_tetrahedra) {
@@ -131,6 +129,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                     double rate_value = (EmpiricalPseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
                                         bose_part * dos_per_J;
                     rate_value /= m_reduce_bz_factor;  // Correct for BZ volume if mesh does not match theoretical BZ volume
+                    rate_value *= m_spin_degeneracy;   // Account for spin degeneracy of conduction bands
 
                     // rates_k1_n1.add_rate(RateValue(phonon_mode, phonon_direction, phonon_event, rate_value));
                     rates_k1_n1.add_rate(RateValue(mode_direction.first,
@@ -321,6 +320,7 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
                     double rate_value = (EmpiricalPseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
                                         bose_part * dos_per_J;
                     rate_value /= m_reduce_bz_factor;  // Correct for BZ volume if mesh does not match theoretical BZ volume
+                    rate_value *= m_spin_degeneracy; // Account for spin degeneracy of valence bands
 
                     const PhononEvent event = (sign_phonon < 0.0) ? PhononEvent::emission : PhononEvent::absorption;
 
@@ -365,8 +365,8 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
                                                                             double             max_energy,
                                                                             double             energy_step,
                                                                             const std::string& filename) {
-    if (m_indices_valence_bands.empty()) throw std::runtime_error("No valence bands indexed.");
-    if (m_indices_conduction_bands.empty()) throw std::runtime_error("No conduction bands indexed.");
+    // if (m_indices_valence_bands.empty()) throw std::runtime_error("No valence bands indexed.");
+    // if (m_indices_conduction_bands.empty()) throw std::runtime_error("No conduction bands indexed.");
 
     // util: ajoute suffixe avant l'extension
     auto suffixed = [](std::string base, const char* suffix) {
@@ -386,16 +386,22 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
     out_h << "# E[eV]  DOS(E) hole_LO_em hole_LO_ab hole_TR_em hole_TR_ab\n";
     out_e << "# E[eV]  DOS(E) elec_LO_em elec_LO_ab elec_TR_em elec_TR_ab\n";
 
-    // borne max de bande pour chaque set (on tronque à nb_bands si demandé)
-    const int last_val_band =
-        (nb_bands > 0) ? std::min(nb_bands - 1, *std::max_element(m_indices_valence_bands.begin(), m_indices_valence_bands.end()))
-                       : *std::max_element(m_indices_valence_bands.begin(), m_indices_valence_bands.end());
+    int last_val_band = 0;
+    int last_cond_band = 0;
 
-    const int last_con_band =
-        (nb_bands > 0) ? std::min(nb_bands - 1, *std::max_element(m_indices_conduction_bands.begin(), m_indices_conduction_bands.end()))
-                       : *std::max_element(m_indices_conduction_bands.begin(), m_indices_conduction_bands.end());
+    if (m_indices_valence_bands.empty()) {
+        last_val_band = -1;
+    } else {
+        last_val_band = *std::max_element(m_indices_valence_bands.begin(), m_indices_valence_bands.end());
+    }
 
-    for (double E = -5.0; E < max_energy; E += energy_step) {
+    if (m_indices_conduction_bands.empty()) {
+        last_cond_band = -1;
+    } else {
+        last_cond_band = *std::max_element(m_indices_conduction_bands.begin(), m_indices_conduction_bands.end());
+    }
+
+    for (double E = 0.0; E < max_energy; E += energy_step) {
         std::cout << "\rEnergy: " << E << " / " << max_energy << std::flush;
 
         // accum trous
@@ -431,7 +437,7 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
 
             // --- conduction (electrons)
             for (int b : m_indices_conduction_bands) {
-                if (b > last_con_band) continue;
+                if (b > last_cond_band) continue;
                 const double dos_t = tetra.compute_tetra_dos_energy_band(E, b);
                 if (!std::isfinite(dos_t)) {
                     std::ostringstream oss;
@@ -450,18 +456,19 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
             }
         }
 
-        // moyennes pondérées par la DOS (indépendantes pour h et e)
         std::array<double, 4> mean_h{}, mean_e{};
         if (dos_h > 0.0)
-            for (int i = 0; i < 4; ++i){
+            for (int i = 0; i < 4; ++i) {
                 mean_h[i] = num_h[i] / dos_h;
-                mean_h[i] *= m_spin_degeneracy;}
+                // mean_h[i] *= m_spin_degeneracy;
+            }
         else
             mean_h.fill(0.0);
         if (dos_e > 0.0)
-            for (int i = 0; i < 4; ++i){
+            for (int i = 0; i < 4; ++i) {
                 mean_e[i] = num_e[i] / dos_e;
-                mean_e[i] *= m_spin_degeneracy;}
+                // mean_e[i] *= m_spin_degeneracy;
+            }
         else
             mean_e.fill(0.0);
 
@@ -515,62 +522,66 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
     int nb_bands = m_indices_conduction_bands.size() + m_indices_valence_bands.size();
 
     for (int idx_val_band = 0; idx_val_band < max_idx_conduction_band; ++idx_val_band) {
-        std::vector<double> rates_hole_lo_em(m_list_vertices.size());
-        std::vector<double> rates_hole_lo_ab(m_list_vertices.size());
-        std::vector<double> rates_hole_tr_em(m_list_vertices.size());
-        std::vector<double> rates_hole_tr_ab(m_list_vertices.size());
-        std::vector<double> rates_elec_lo_em(m_list_vertices.size());
-        std::vector<double> rates_elec_lo_ab(m_list_vertices.size());
-        std::vector<double> rates_elec_tr_em(m_list_vertices.size());
-        std::vector<double> rates_elec_tr_ab(m_list_vertices.size());
+        std::vector<double> rates_ac_lo_em(m_list_vertices.size());
+        std::vector<double> rates_ac_lo_ab(m_list_vertices.size());
+        std::vector<double> rates_ac_tr_em(m_list_vertices.size());
+        std::vector<double> rates_ac_tr_ab(m_list_vertices.size());
+        std::vector<double> rates_opt_lo_em(m_list_vertices.size());
+        std::vector<double> rates_opt_lo_ab(m_list_vertices.size());
+        std::vector<double> rates_opt_tr_em(m_list_vertices.size());
+        std::vector<double> rates_opt_tr_ab(m_list_vertices.size());
 
         for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
             auto rates               = m_list_vertices[idx_k1].get_electron_phonon_rates(idx_val_band);
-            rates_hole_lo_em[idx_k1] = rates[0];
-            rates_hole_lo_ab[idx_k1] = rates[1];
-            rates_hole_tr_em[idx_k1] = rates[2];
-            rates_hole_tr_ab[idx_k1] = rates[3];
-            rates_elec_lo_em[idx_k1] = rates[4];
-            rates_elec_lo_ab[idx_k1] = rates[5];
-            rates_elec_tr_em[idx_k1] = rates[6];
-            rates_elec_tr_ab[idx_k1] = rates[7];
+            rates_ac_lo_em[idx_k1] = rates[0];
+            rates_ac_lo_ab[idx_k1] = rates[1];
+            rates_ac_tr_em[idx_k1] = rates[2];
+            rates_ac_tr_ab[idx_k1] = rates[3];
+            rates_opt_lo_em[idx_k1] = rates[4];
+            rates_opt_lo_ab[idx_k1] = rates[5];
+            rates_opt_tr_em[idx_k1] = rates[6];
+            rates_opt_tr_ab[idx_k1] = rates[7];
         }
-        std::string name_rate_hole_lo_em = "hole_lo_em_" + std::to_string(idx_val_band);
-        std::string name_rate_hole_lo_ab = "hole_lo_ab_" + std::to_string(idx_val_band);
-        std::string name_rate_hole_tr_em = "hole_tr_em_" + std::to_string(idx_val_band);
-        std::string name_rate_hole_tr_ab = "hole_tr_ab_" + std::to_string(idx_val_band);
-        std::string name_rate_elec_lo_em = "elec_lo_em_" + std::to_string(idx_val_band);
-        std::string name_rate_elec_lo_ab = "elec_lo_ab_" + std::to_string(idx_val_band);
-        std::string name_rate_elec_tr_em = "elec_tr_em_" + std::to_string(idx_val_band);
-        std::string name_rate_elec_tr_ab = "elec_tr_ab_" + std::to_string(idx_val_band);
+        std::string name_rate_ac_lo_em = "ac_lo_em_" + std::to_string(idx_val_band);
+        std::string name_rate_ac_lo_ab = "ac_lo_ab_" + std::to_string(idx_val_band);
+        std::string name_rate_ac_tr_em = "ac_tr_em_" + std::to_string(idx_val_band);
+        std::string name_rate_ac_tr_ab = "ac_tr_ab_" + std::to_string(idx_val_band);
+        std::string name_rate_opt_lo_em = "opt_lo_em_" + std::to_string(idx_val_band);
+        std::string name_rate_opt_lo_ab = "opt_lo_ab_" + std::to_string(idx_val_band);
+        std::string name_rate_opt_tr_em = "opt_tr_em_" + std::to_string(idx_val_band);
+        std::string name_rate_opt_tr_ab = "opt_tr_ab_" + std::to_string(idx_val_band);
 
-        int data_tag_hole_lo_em = gmsh::view::add(name_rate_hole_lo_em);
-        int data_tag_hole_lo_ab = gmsh::view::add(name_rate_hole_lo_ab);
-        int data_tag_hole_tr_em = gmsh::view::add(name_rate_hole_tr_em);
-        int data_tag_hole_tr_ab = gmsh::view::add(name_rate_hole_tr_ab);
-        int data_tag_elec_lo_em = gmsh::view::add(name_rate_elec_lo_em);
-        int data_tag_elec_lo_ab = gmsh::view::add(name_rate_elec_lo_ab);
-        int data_tag_elec_tr_em = gmsh::view::add(name_rate_elec_tr_em);
-        int data_tag_elec_tr_ab = gmsh::view::add(name_rate_elec_tr_ab);
+        int data_tag_ac_lo_em = gmsh::view::add(name_rate_ac_lo_em);
+        int data_tag_ac_lo_ab = gmsh::view::add(name_rate_ac_lo_ab);
+        int data_tag_ac_tr_em = gmsh::view::add(name_rate_ac_tr_em);
+        int data_tag_ac_tr_ab = gmsh::view::add(name_rate_ac_tr_ab);
+        int data_tag_opt_lo_em = gmsh::view::add(name_rate_opt_lo_em);
+        int data_tag_opt_lo_ab = gmsh::view::add(name_rate_opt_lo_ab);
+        int data_tag_opt_tr_em = gmsh::view::add(name_rate_opt_tr_em);
+        int data_tag_opt_tr_ab = gmsh::view::add(name_rate_opt_tr_ab);
 
-        gmsh::view::addHomogeneousModelData(data_tag_hole_lo_em, 0, model_file_name, "NodeData", node_tags, rates_hole_lo_em);
-        gmsh::view::addHomogeneousModelData(data_tag_hole_lo_ab, 0, model_file_name, "NodeData", node_tags, rates_hole_lo_ab);
-        gmsh::view::addHomogeneousModelData(data_tag_hole_tr_em, 0, model_file_name, "NodeData", node_tags, rates_hole_tr_em);
-        gmsh::view::addHomogeneousModelData(data_tag_hole_tr_ab, 0, model_file_name, "NodeData", node_tags, rates_hole_tr_ab);
-        gmsh::view::addHomogeneousModelData(data_tag_elec_lo_em, 0, model_file_name, "NodeData", node_tags, rates_elec_lo_em);
-        gmsh::view::addHomogeneousModelData(data_tag_elec_lo_ab, 0, model_file_name, "NodeData", node_tags, rates_elec_lo_ab);
-        gmsh::view::addHomogeneousModelData(data_tag_elec_tr_em, 0, model_file_name, "NodeData", node_tags, rates_elec_tr_em);
-        gmsh::view::addHomogeneousModelData(data_tag_elec_tr_ab, 0, model_file_name, "NodeData", node_tags, rates_elec_tr_ab);
+        gmsh::view::addHomogeneousModelData(data_tag_ac_lo_em, 0, model_file_name, "NodeData", node_tags, rates_ac_lo_em);
+        gmsh::view::addHomogeneousModelData(data_tag_ac_lo_ab, 0, model_file_name, "NodeData", node_tags, rates_ac_lo_ab);
+        gmsh::view::addHomogeneousModelData(data_tag_ac_tr_em, 0, model_file_name, "NodeData", node_tags, rates_ac_tr_em);
+        gmsh::view::addHomogeneousModelData(data_tag_ac_tr_ab, 0, model_file_name, "NodeData", node_tags, rates_ac_tr_ab);
+        gmsh::view::addHomogeneousModelData(data_tag_opt_lo_em, 0, model_file_name, "NodeData", node_tags, rates_opt_lo_em);
+        gmsh::view::addHomogeneousModelData(data_tag_opt_lo_ab, 0, model_file_name, "NodeData", node_tags, rates_opt_lo_ab);
+        gmsh::view::addHomogeneousModelData(data_tag_opt_tr_em, 0, model_file_name, "NodeData", node_tags, rates_opt_tr_em);
+        gmsh::view::addHomogeneousModelData(data_tag_opt_tr_ab, 0, model_file_name, "NodeData", node_tags, rates_opt_tr_ab);
 
-        gmsh::view::write(data_tag_hole_lo_em, final_filename, true);
-        gmsh::view::write(data_tag_hole_lo_ab, final_filename, true);
-        gmsh::view::write(data_tag_hole_tr_em, final_filename, true);
-        gmsh::view::write(data_tag_hole_tr_ab, final_filename, true);
-        gmsh::view::write(data_tag_elec_lo_em, final_filename, true);
-        gmsh::view::write(data_tag_elec_lo_ab, final_filename, true);
-        gmsh::view::write(data_tag_elec_tr_em, final_filename, true);
-        gmsh::view::write(data_tag_elec_tr_ab, final_filename, true);
+        gmsh::option::setNumber("PostProcessing.SaveMesh", 1);  // Save mesh only once
+        gmsh::view::write(data_tag_ac_lo_em, final_filename, true);
+        gmsh::option::setNumber("PostProcessing.SaveMesh", 0);
+        gmsh::view::write(data_tag_ac_lo_ab, final_filename, true);
+        gmsh::view::write(data_tag_ac_tr_em, final_filename, true);
+        gmsh::view::write(data_tag_ac_tr_ab, final_filename, true);
+        gmsh::view::write(data_tag_opt_lo_em, final_filename, true);
+        gmsh::view::write(data_tag_opt_lo_ab, final_filename, true);
+        gmsh::view::write(data_tag_opt_tr_em, final_filename, true);
+        gmsh::view::write(data_tag_opt_tr_ab, final_filename, true);
     }
+    gmsh::finalize();
+    
 
     // for (int index_band = 0; index_band < number_bands; ++index_band) {
     //     std::string         band_name = "band_" + std::to_string(index_band);

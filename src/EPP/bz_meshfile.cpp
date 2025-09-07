@@ -11,16 +11,15 @@
 
 #include "bz_meshfile.hpp"
 
+#include <filesystem>
+
 #include "BandStructure.h"
 #include "gmsh.h"
 #include "rapidcsv.h"
-#include <filesystem>
 
 void bz_mesh_points::add_k_point(Vector3D<double> kpoint) { m_kpoints.push_back(kpoint); }
 
-void bz_mesh_points::add_k_point(double k_x, double k_y, double k_z) {
-    m_kpoints.push_back(Vector3D<double>(k_x, k_y, k_z));
-}
+void bz_mesh_points::add_k_point(double k_x, double k_y, double k_z) { m_kpoints.push_back(Vector3D<double>(k_x, k_y, k_z)); }
 
 void bz_mesh_points::read_mesh_from_csv() {
     m_node_tags.clear();
@@ -98,7 +97,10 @@ void bz_mesh_points::add_band_on_mesh(const std::string& band_name, const std::v
     gmsh::finalize();
 }
 
-void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, const EmpiricalPseudopotential::BandStructure& my_band) {
+void bz_mesh_points::add_all_bands_on_mesh(const std::string&                             out_filename,
+                                           const EmpiricalPseudopotential::BandStructure& my_band,
+                                           int                                            nb_valence_bands_to_export,
+                                           int                                            nb_conduction_bands_to_export) {
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 0);
     gmsh::model::add("bz_mesh");
@@ -106,28 +108,69 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, cons
 
     std::string model_file_name;
     gmsh::model::getCurrent(model_file_name);
+    bool first_view = true;
 
-    for (unsigned int index_band = 0; index_band < my_band.get_number_of_bands(); ++index_band) {
-        std::string         band_name   = "band_" + std::to_string(index_band);
-        std::vector<double> band_values = my_band.get_band(index_band);
-        int                 data_tag    = gmsh::view::add(band_name);
-        if (m_node_tags.size() != band_values.size()) {
-            std::cout << "number of nodes: " << m_node_tags.size() << std::endl;
-            std::cout << "number of values: " << band_values.size() << std::endl;
-            throw std::runtime_error("Number of nodes and number of values are not the same. Abort.");
+    // We want to inverse the order of the valence bands so that the highest valence band is band 0
+    int nb_valence_bands = my_band.is_soc_enabled() ? 8 : 4;
+    int nb_bands         = my_band.get_number_of_bands();
+
+    // Sanity checks
+    if (nb_valence_bands_to_export < 0 || nb_valence_bands_to_export > nb_valence_bands) {
+        nb_valence_bands_to_export = nb_valence_bands;
+        std::cout << "Warning: nb_valence_bands_to_export is not valid. Setting it to " << nb_valence_bands << std::endl;
+    }
+    if (nb_conduction_bands_to_export < 0 || nb_conduction_bands_to_export > (nb_bands - nb_valence_bands)) {
+        nb_conduction_bands_to_export = nb_bands - nb_valence_bands;
+        std::cout << "Warning: nb_conduction_bands_to_export is not valid. Setting it to " << (nb_bands - nb_valence_bands) << std::endl;
+    }
+
+    int count = 0;
+    if (nb_valence_bands_to_export != 0) {
+        for (int index_band = nb_valence_bands - 1; index_band >= nb_valence_bands - nb_valence_bands_to_export; --index_band) {
+            std::string         band_name   = "band_" + std::to_string(count);
+            count++;
+            std::vector<double> band_values = my_band.get_band(index_band);
+            int                 data_tag    = gmsh::view::add(band_name);
+            if (m_node_tags.size() != band_values.size()) {
+                std::cout << "number of nodes: " << m_node_tags.size() << std::endl;
+                std::cout << "number of values: " << band_values.size() << std::endl;
+                throw std::runtime_error("Number of nodes and number of values are not the same. Abort.");
+            }
+            gmsh::view::addHomogeneousModelData(data_tag, 0, model_file_name, "NodeData", m_node_tags, band_values);
+            const int   index_view             = gmsh::view::getIndex(data_tag);
+            std::string name_object_visibility = "View[" + std::to_string(index_view) + "].Visible";
+            gmsh::option::setNumber(name_object_visibility, 0);
+            gmsh::option::setNumber("PostProcessing.SaveMesh", (first_view) ? 1 : 0);  // Save mesh only once
+            gmsh::view::write(data_tag, out_filename, true);
+            first_view = false;
         }
-        gmsh::view::addHomogeneousModelData(data_tag, 0, model_file_name, "NodeData", m_node_tags, band_values);
-        const int   index_view             = gmsh::view::getIndex(data_tag);
-        std::string name_object_visibility = "View[" + std::to_string(index_view) + "].Visible";
-        gmsh::option::setNumber(name_object_visibility, 0);
-        gmsh::option::setNumber("PostProcessing.SaveMesh", (index_band == 0) ? 1 : 0);  // Save mesh only once
-        gmsh::view::write(data_tag, out_filename, true);
+    }
+
+    if (nb_conduction_bands_to_export != 0) {
+        for (int index_band = nb_valence_bands; index_band < nb_valence_bands + nb_conduction_bands_to_export; ++index_band) {
+            std::string         band_name   = "band_" + std::to_string(count);
+            count++;
+            std::vector<double> band_values = my_band.get_band(index_band);
+            int                 data_tag    = gmsh::view::add(band_name);
+            if (m_node_tags.size() != band_values.size()) {
+                std::cout << "number of nodes: " << m_node_tags.size() << std::endl;
+                std::cout << "number of values: " << band_values.size() << std::endl;
+                throw std::runtime_error("Number of nodes and number of values are not the same. Abort.");
+            }
+            gmsh::view::addHomogeneousModelData(data_tag, 0, model_file_name, "NodeData", m_node_tags, band_values);
+            const int   index_view             = gmsh::view::getIndex(data_tag);
+            std::string name_object_visibility = "View[" + std::to_string(index_view) + "].Visible";
+            gmsh::option::setNumber(name_object_visibility, 0);
+            gmsh::option::setNumber("PostProcessing.SaveMesh", (first_view) ? 1 : 0);  // Save mesh only once
+            gmsh::view::write(data_tag, out_filename, true);
+            first_view = false;
+        }
     }
     gmsh::finalize();
 }
 
 void bz_mesh_points::add_all_bands_on_mesh_separate_files(const std::string&                             out_dir,
-                                                        const EmpiricalPseudopotential::BandStructure& my_band) {
+                                                          const EmpiricalPseudopotential::BandStructure& my_band) {
     gmsh::initialize();
     try {
         gmsh::option::setNumber("General.Verbosity", 0);
@@ -264,16 +307,11 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, cons
     std::string model_file_name;
     gmsh::model::getCurrent(model_file_name);
 
-    // for (std::size_t index_value = 0; index_value < band_values.size(); ++index_value) {
-    //     std::cout << "index_value: " << index_value << "  --->  " << band_values[index_value] << std::endl;
-    // }
-
     for (int index_band = 0; index_band < number_bands; ++index_band) {
         std::string         band_name = "band_" + std::to_string(index_band);
         std::vector<double> current_band_values(m_node_tags.size());
         for (std::size_t index_node = 0; index_node < m_node_tags.size(); ++index_node) {
             current_band_values[index_node] = band_values[index_node * number_bands + index_band];
-            // std::cout << "band_values[" << index_node << "]: " << band_values[index_node * number_bands + index_band] << std::endl;
         }
         int data_tag = gmsh::view::add(band_name);
         if (m_node_tags.size() != current_band_values.size()) {

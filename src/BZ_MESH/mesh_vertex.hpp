@@ -119,7 +119,7 @@ class Vertex {
     void add_band_energy_value(double energy) { m_band_energies.push_back(energy); }
 
 
-    void remove_band_energy_value(std::size_t band_index) {
+    void remove_band_energy(std::size_t band_index) {
         if (band_index >= m_band_energies.size()) {
             throw std::invalid_argument("The energy of band " + std::to_string(band_index) +
                                         " cannot be removed because it does not exists.");
@@ -139,6 +139,21 @@ class Vertex {
                                         " cannot be modify because it does not exists.");
         }
         m_band_energies[index_band] = new_energy;
+    }
+
+    /**
+     * @brief Swap the energy of two bands.
+     *
+     * @param old_index
+     * @param new_index
+     */
+    void swap_bands(std::size_t old_index, std::size_t new_index) {
+        if (old_index >= m_band_energies.size() || new_index >= m_band_energies.size()) {
+            throw std::invalid_argument("The energy of band " + std::to_string(old_index) +
+                                        " or " + std::to_string(new_index) +
+                                        " cannot be swapped because it does not exists.");
+        }
+        std::swap(m_band_energies[old_index], m_band_energies[new_index]);
     }
 
     /**

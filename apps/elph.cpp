@@ -54,7 +54,7 @@ int main(int argc, char const *argv[])
 
     Options my_options;
     my_options.materialName = arg_material.getValue();
-    my_options.nrLevels     = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
+    my_options.nrLevels     = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue() + 4;
     my_options.nrThreads    = arg_nb_threads.getValue();
     int number_energies     = arg_nb_energies.getValue();
 
@@ -70,7 +70,7 @@ int main(int argc, char const *argv[])
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
     ElectronPhonon.read_mesh_bands_from_msh_file(mesh_band_input_file, my_options.nrLevels);
 
-    unsigned int nb_bands = ElectronPhonon.get_number_bands();
+        unsigned int nb_bands = ElectronPhonon.get_number_bands();
     std::cout << "Number of bands: " << nb_bands << std::endl;
     if (my_options.nrLevels > nb_bands) {
         std::cout << "Number of bands requested is greater than the number of bands in the mesh file. Resetting to " << nb_bands << std::endl;
@@ -82,7 +82,9 @@ int main(int argc, char const *argv[])
 
     ElectronPhonon.export_rate_values("rates_all.csv");
 
-    ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels, 10.0, 0.01, "rates_vs_energy.csv");
+    const double energy_step = 0.001; // eV
+    const double max_energy  = 10.0;  // eV
+    ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels, max_energy, energy_step, "rates_vs_energy.csv");
 
     ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
 

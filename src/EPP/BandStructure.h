@@ -73,6 +73,7 @@ class BandStructure {
     std::vector<std::vector<double>> get_band_energies() const { return m_results; }
 
     double get_computation_time_s() const { return m_computation_time_s; }
+    bool  is_soc_enabled() const { return m_enable_spin_orbit_coupling; }
 
  private:
     Materials materials;

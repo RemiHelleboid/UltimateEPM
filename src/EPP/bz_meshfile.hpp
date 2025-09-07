@@ -24,7 +24,7 @@ class bz_mesh_points {
     std::vector<Vector3D<double>> m_kpoints;
 
  public:
-    explicit bz_mesh_points(const std::string& filename) : m_filename(filename), m_nb_points(0){};
+    explicit bz_mesh_points(const std::string& filename) : m_filename(filename), m_nb_points(0) {};
     ~bz_mesh_points() = default;
 
     void add_k_point(Vector3D<double> kpoint);
@@ -35,8 +35,11 @@ class bz_mesh_points {
     std::vector<Vector3D<double>>& get_kpoints() { return m_kpoints; };
 
     void add_band_on_mesh(const std::string& band_name, const std::vector<double>& band_values);
-    void add_all_bands_on_mesh(const std::string& out_filename, const EmpiricalPseudopotential::BandStructure& my_band);
     void add_all_bands_on_mesh_separate_files(const std::string& out_dir, const EmpiricalPseudopotential::BandStructure& my_band);
+    void add_all_bands_on_mesh(const std::string&                             out_filename,
+                               const EmpiricalPseudopotential::BandStructure& my_band,
+                               int                                            nb_valence_bands_to_export,
+                               int                                            nb_conduction_bands_to_export);
     void add_all_bands_on_mesh(const std::string& out_filename, const std::vector<double>& band_values, int number_bands);
     void export_bands_as_csv(const std::vector<double>& band_values, int number_bands);
 };

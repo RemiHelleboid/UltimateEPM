@@ -25,7 +25,8 @@ int main(int argc, char* argv[]) {
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshfile", "Name to print", true, "bz.msh", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
     TCLAP::ValueArg<std::string> arg_outfile("o", "outfile", "Name of the output file", false, "", "string");
-    TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to compute", false, 12, "int");
+    TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "nvbands", "Number of valence bands to export", false, 4, "int");
+    TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "ncbands", "Number of conduction bands to export", false, 12, "int");
     TCLAP::ValueArg<int>         arg_nearest_neighbors("n",
                                                "nearestNeighbors",
                                                "number of nearest neiborgs to consider for the EPP calculation.",
@@ -38,7 +39,8 @@ int main(int argc, char* argv[]) {
     TCLAP::ValueArg<int> arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
-    cmd.add(arg_nb_bands);
+    cmd.add(arg_nb_valence_bands);
+    cmd.add(arg_nb_conduction_bands);
     cmd.add(arg_outfile);
     cmd.add(arg_nearest_neighbors);
     cmd.add(arg_nb_threads);
@@ -56,7 +58,7 @@ int main(int argc, char* argv[]) {
 
     Options my_options;
     my_options.materialName     = arg_material.getValue();
-    my_options.nrLevels         = arg_nb_bands.getValue();
+    my_options.nrLevels         = arg_nb_valence_bands.getValue() + arg_nb_conduction_bands.getValue() + 10;  // add some extra bands
     my_options.nearestNeighbors = arg_nearest_neighbors.getValue();
     my_options.nrThreads        = arg_nb_threads.getValue();
     my_options.print_options();
@@ -98,7 +100,7 @@ int main(int argc, char* argv[]) {
         out_file_bands = arg_outfile.getValue();
     }
 
-    my_mesh.add_all_bands_on_mesh(out_file_bands, my_bandstructure);
+    my_mesh.add_all_bands_on_mesh(out_file_bands, my_bandstructure, arg_nb_valence_bands.getValue(), arg_nb_conduction_bands.getValue());
 
     return 0;
 }
