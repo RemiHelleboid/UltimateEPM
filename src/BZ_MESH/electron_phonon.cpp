@@ -501,6 +501,11 @@ void ElectronPhonon::plot_phonon_dispersion(const std::string& filename) const {
 }
 
 void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename) {
+    // If the file exists, remove it to avoid appending to an old file
+    if (std::ifstream(final_filename)) {
+        std::remove(final_filename.c_str());
+    }
+
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 0);
     gmsh::model::add("bz_mesh");
