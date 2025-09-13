@@ -691,9 +691,10 @@ void ElectronPhonon::export_rate_values(const std::string& filename) const {
         for (std::size_t idx_band = 0; idx_band < all_rates.size(); ++idx_band) {
             double energy = vertex.get_energy_at_band(idx_band);
             std::cout << "Energy at band " << idx_band << ": " << energy << std::endl;
-            file << energy << " ";
-            for (auto&& rate : all_rates[idx_band]) {
-                file << rate << " ";
+            file << idx_band << "," << energy << ",";
+            for (std::size_t idx_rate = 0; idx_rate < all_rates[idx_band].size(); ++idx_rate) {
+                double rate = all_rates[idx_band][idx_rate];
+                file << rate << ((idx_rate < all_rates[idx_band].size() - 1) ? "," : "");
             }
             file << std::endl;
         }

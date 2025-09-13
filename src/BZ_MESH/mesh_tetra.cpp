@@ -67,10 +67,10 @@ vector3 Tetra::compute_barycenter() const {
 }
 
 vector3 Tetra::compute_gradient_scalar_field(std::array<double, 4> values) {
-    double           value_0  = values[0];
-    double           value_1  = values[1];
-    double           value_2  = values[2];
-    double           value_3  = values[3];
+    double&           value_1  = values[1];
+    double&           value_0  = values[0];
+    double&           value_2  = values[2];
+    double&           value_3  = values[3];
     double           x_0      = m_list_vertices[0]->get_position().x();
     double           y_0      = m_list_vertices[0]->get_position().y();
     double           z_0      = m_list_vertices[0]->get_position().z();
@@ -85,11 +85,12 @@ vector3 Tetra::compute_gradient_scalar_field(std::array<double, 4> values) {
     double           z_3      = m_list_vertices[3]->get_position().z();
     constexpr double one_half = 0.5;
 
-    const double volABC =
-        one_half * (x_0 * y_1 * z_2 - x_0 * y_1 * z_3 - x_0 * y_2 * z_1 + x_0 * y_2 * z_3 + x_0 * y_3 * z_1 - x_0 * y_3 * z_2 -
+    const double volABC = (6.0 * m_signed_volume);
+    const double volume2 = (x_0 * y_1 * z_2 - x_0 * y_1 * z_3 - x_0 * y_2 * z_1 + x_0 * y_2 * z_3 + x_0 * y_3 * z_1 - x_0 * y_3 * z_2 -
                     x_1 * y_0 * z_2 + x_1 * y_0 * z_3 + x_1 * y_2 * z_0 - x_1 * y_2 * z_3 - x_1 * y_3 * z_0 + x_1 * y_3 * z_2 +
                     x_2 * y_0 * z_1 - x_2 * y_0 * z_3 - x_2 * y_1 * z_0 + x_2 * y_1 * z_3 + x_2 * y_3 * z_0 - x_2 * y_3 * z_1 -
                     x_3 * y_0 * z_1 + x_3 * y_0 * z_2 + x_3 * y_1 * z_0 - x_3 * y_1 * z_2 - x_3 * y_2 * z_0 + x_3 * y_2 * z_1);
+    std::cout << "Volume check: " << volume2 << " " << volABC << " " << volABC / volume2 << std::endl;
     const double grad_x = -one_half *
                           (value_0 * y_1 * z_2 - value_0 * y_1 * z_3 - value_0 * y_2 * z_1 + value_0 * y_2 * z_3 + value_0 * y_3 * z_1 -
                            value_0 * y_3 * z_2 - value_1 * y_0 * z_2 + value_1 * y_0 * z_3 + value_1 * y_2 * z_0 - value_1 * y_2 * z_3 -

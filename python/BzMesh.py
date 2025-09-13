@@ -278,6 +278,7 @@ def build_mode_full(h, outfile, nopopup, do_union):
         gmsh.fltk.run()
 
 
+
 # --------------------------- main ---------------------------
 
 def main(argv=None):
@@ -300,7 +301,7 @@ def main(argv=None):
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", args.mesh)
 
     # 3D mesh algorithm (1: Delaunay, 3: Initial mesh only, 4: Frontal, 7: MMG3D, 9: R-tree, 10: HXT)
-    gmsh.option.setNumber("Mesh.Algorithm3D", 7)
+    gmsh.option.setNumber("Mesh.Algorithm3D", 1)
 
     try:
         if args.mode == "iw":

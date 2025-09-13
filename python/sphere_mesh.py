@@ -52,3 +52,12 @@ if '-nopopup' not in sys.argv:
     gmsh.fltk.run()
 
 gmsh.finalize()
+
+
+    dict_alg = {"1": "Delaunay", 
+                "3": "Initial mesh only",
+                "4": "Frontal",
+                "7": "MMG3D",
+                "9": "R-tree",
+                "10": "HXT"}
+    # 1 ok; 3 bad; 4 weird; 7 bad; 9 okish; 10 ok.
