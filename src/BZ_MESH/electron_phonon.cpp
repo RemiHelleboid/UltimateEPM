@@ -237,11 +237,18 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
     auto max_idx_conduction_band  = *std::max_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
     std::cout << "Min index conduction band: " << min_idx_conduction_band << std::endl;
     std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() << " k-points." << std::endl;
+    
+    
+    // Counter for progress display
+    std::cout << "Progress: 0%";
+    std::atomic<std::size_t> counter{0};
 
 #pragma omp parallel for schedule(static)
     for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
-        if (omp_get_thread_num() == 0) {
-            std::cout << "\rComputing rates for k-point " << idx_k1 << " / " << m_list_vertices.size() << std::flush;
+        auto done = ++counter;
+        if ((done % 10) == 0 && omp_get_thread_num() == 0) {
+            std::cout << "\rDone " << done << "/" << m_list_vertices.size() << " (" << std::fixed << std::setprecision(1)
+                      << (100.0 * done / m_list_vertices.size()) << "%)" << std::flush;
         }
         for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
             auto hole_rate = compute_hole_phonon_rate(idx_n1, idx_k1);
