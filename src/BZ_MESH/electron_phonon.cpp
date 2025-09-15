@@ -281,16 +281,9 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
 
     // Build output path with suffix `_8ch` before extension
     namespace fs = std::filesystem;
-    fs::path out_path(filename);
-    fs::path out_file = [&] {
-        auto stem = out_path.stem().string();
-        auto ext  = out_path.extension();
-        return (out_path.has_parent_path() ? out_path.parent_path() / (stem + "_8ch" + ext.string())
-                                           : fs::path{stem + "_8ch" + ext.string()});
-    }();
 
-    std::ofstream out(out_file);
-    if (!out) throw std::runtime_error("Cannot open " + out_file.string());
+    std::ofstream out(filename);
+    if (!out) throw std::runtime_error("Cannot open " + filename + " for writing.");
 
     // Column labels (match your IDX_* / to_array() order exactly)
     static constexpr std::array<const char*, 8>

@@ -72,7 +72,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     # scatter_plot_rates("rates_all.csv")
 
-    plot_rates("rates_vs_energy_h.csv", "../examples/JallepalliHRates97.csv")
+    plot_rates("rates_vs_energy.csv", "../examples/JallepalliHRates97.csv")
     plt.show()
-    plot_rates("rates_vs_energy_e.csv", "../examples/RatesSiKunikiyo1994.csv")
+    plot_rates("rates_vs_energy.csv", "../examples/RatesSiKunikiyo1994.csv")
     plt.show()
