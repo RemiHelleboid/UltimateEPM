@@ -33,6 +33,26 @@ enum class PhononMode { acoustic, optical, none };
 enum class PhononDirection { longitudinal, transverse, none };
 enum class PhononEvent { absorption, emission, none };
 
+// Order: ac/opt × L/T × ab/em  → indices 0..7
+constexpr int rate_index(PhononMode m, PhononDirection d, PhononEvent e) {
+    int M = (m == PhononMode::acoustic ? 0 : m == PhononMode::optical ? 1 : -1);
+    int D = (d == PhononDirection::longitudinal ? 0 : d == PhononDirection::transverse ? 1 : -1);
+    int E = (e == PhononEvent::absorption ? 0 : e == PhononEvent::emission ? 1 : -1);
+    return (M < 0 || D < 0 || E < 0) ? -1 : ((M * 2 + D) * 2 + E);
+}
+
+// Named indices (handy for headers/export)
+constexpr int IDX_AC_L_AB = rate_index(PhononMode::acoustic, PhononDirection::longitudinal, PhononEvent::absorption);  // 0
+constexpr int IDX_AC_T_AB = rate_index(PhononMode::acoustic, PhononDirection::transverse, PhononEvent::absorption);    // 1
+constexpr int IDX_OP_L_AB = rate_index(PhononMode::optical, PhononDirection::longitudinal, PhononEvent::absorption);   // 2
+constexpr int IDX_OP_T_AB = rate_index(PhononMode::optical, PhononDirection::transverse, PhononEvent::absorption);     // 3
+constexpr int IDX_AC_L_EM = rate_index(PhononMode::acoustic, PhononDirection::longitudinal, PhononEvent::emission);    // 4
+constexpr int IDX_AC_T_EM = rate_index(PhononMode::acoustic, PhononDirection::transverse, PhononEvent::emission);      // 5
+constexpr int IDX_OP_L_EM = rate_index(PhononMode::optical, PhononDirection::longitudinal, PhononEvent::emission);     // 6
+constexpr int IDX_OP_T_EM = rate_index(PhononMode::optical, PhononDirection::transverse, PhononEvent::emission);       // 7
+
+static_assert(IDX_AC_L_AB == 0 && IDX_OP_T_EM == 7, "Rate index mapping changed; update I/O accordingly.");
+
 struct PhononDispersion {
     PhononMode      m_mode      = PhononMode::none;
     PhononDirection m_direction = PhononDirection::none;
@@ -75,10 +95,10 @@ struct DeformationPotential {
     PhononMode m_mode             = PhononMode::none;
     double     m_A                = 0.0;
     double     m_B                = 0.0;
-    double     m_energy_threshold = 0.0;
+    double     m_energy_threshold = 1e6;  // eV, default no threshold
 
     DeformationPotential() = default;
-    DeformationPotential(PhononMode type, double A, double B) : m_mode(type), m_A(A), m_B(B) {}
+    DeformationPotential(PhononMode type, double A, double B) : m_mode(type), m_A(A), m_B(B), m_energy_threshold(1e6) {}
 
     double get_deformation_potential(const vector3& q, double energy) const {
         double clamp_energy = std::min(energy, m_energy_threshold);
@@ -135,72 +155,32 @@ struct RateValue {
 };
 
 struct RateValues {
-    RateValue m_ac_long_absorption   = RateValue(PhononMode::acoustic, PhononDirection::longitudinal, PhononEvent::absorption, 0.0);
-    RateValue m_ac_trans_absorption  = RateValue(PhononMode::acoustic, PhononDirection::transverse, PhononEvent::absorption, 0.0);
-    RateValue m_opt_long_absorption  = RateValue(PhononMode::optical, PhononDirection::longitudinal, PhononEvent::absorption, 0.0);
-    RateValue m_opt_trans_absorption = RateValue(PhononMode::optical, PhononDirection::transverse, PhononEvent::absorption, 0.0);
+    std::array<double, 8> values{};  // zero-initialized
 
-    RateValue m_ac_long_emission   = RateValue(PhononMode::acoustic, PhononDirection::longitudinal, PhononEvent::emission, 0.0);
-    RateValue m_ac_trans_emission  = RateValue(PhononMode::acoustic, PhononDirection::transverse, PhononEvent::emission, 0.0);
-    RateValue m_opt_long_emission  = RateValue(PhononMode::optical, PhononDirection::longitudinal, PhononEvent::emission, 0.0);
-    RateValue m_opt_trans_emission = RateValue(PhononMode::optical, PhononDirection::transverse, PhononEvent::emission, 0.0);
-
-    /**
-     * @brief Print the rates to the standard output.
-     *
-     */
     void print_rates() const {
-        std::cout << "Acoustic longitudinal absorption: " << m_ac_long_absorption.m_value << std::endl;
-        std::cout << "Acoustic transverse absorption: " << m_ac_trans_absorption.m_value << std::endl;
-        std::cout << "Optical longitudinal absorption: " << m_opt_long_absorption.m_value << std::endl;
-        std::cout << "Optical transverse absorption: " << m_opt_trans_absorption.m_value << std::endl;
-        std::cout << "Acoustic longitudinal emission: " << m_ac_long_emission.m_value << std::endl;
-        std::cout << "Acoustic transverse emission: " << m_ac_trans_emission.m_value << std::endl;
-        std::cout << "optical longitudinal emission: " << m_opt_long_emission.m_value << std::endl;
-        std::cout << "Optical transverse emission: " << m_opt_trans_emission.m_value << std::endl;
+        std::cout << "Acoustic longitudinal absorption : " << values[IDX_AC_L_AB] << "\n"
+                  << "Acoustic transverse absorption   : " << values[IDX_AC_T_AB] << "\n"
+                  << "Optical longitudinal absorption  : " << values[IDX_OP_L_AB] << "\n"
+                  << "Optical transverse absorption    : " << values[IDX_OP_T_AB] << "\n"
+                  << "Acoustic longitudinal emission   : " << values[IDX_AC_L_EM] << "\n"
+                  << "Acoustic transverse emission     : " << values[IDX_AC_T_EM] << "\n"
+                  << "Optical longitudinal emission    : " << values[IDX_OP_L_EM] << "\n"
+                  << "Optical transverse emission      : " << values[IDX_OP_T_EM] << std::endl;
     }
 
-    std::array<double, 8> to_array() const {
-        return {m_ac_long_absorption.m_value,
-                m_ac_trans_absorption.m_value,
-                m_opt_long_absorption.m_value,
-                m_opt_trans_absorption.m_value,
-                m_ac_long_emission.m_value,
-                m_ac_trans_emission.m_value,
-                m_opt_long_emission.m_value,
-                m_opt_trans_emission.m_value};
+    [[nodiscard]] std::array<double, 8> to_array() const { return values; }
+
+    void add_rate(const RateValue& rate) {
+        if (int idx = rate_index(rate.m_mode, rate.m_direction, rate.m_type); idx >= 0) values[idx] += rate.m_value;
     }
 
-    void add_rate(RateValue rate) {
-        if (rate.m_mode == PhononMode::acoustic) {
-            if (rate.m_direction == PhononDirection::longitudinal) {
-                if (rate.m_type == PhononEvent::absorption) {
-                    m_ac_long_absorption.m_value += rate.m_value;
-                } else {
-                    m_ac_long_emission.m_value += rate.m_value;
-                }
-            } else {
-                if (rate.m_type == PhononEvent::absorption) {
-                    m_ac_trans_absorption.m_value += rate.m_value;
-                } else {
-                    m_ac_trans_emission.m_value += rate.m_value;
-                }
-            }
-        } else {
-            if (rate.m_direction == PhononDirection::longitudinal) {
-                if (rate.m_type == PhononEvent::absorption) {
-                    m_opt_long_absorption.m_value += rate.m_value;
-                } else {
-                    m_opt_long_emission.m_value += rate.m_value;
-                }
-            } else {
-                if (rate.m_type == PhononEvent::absorption) {
-                    m_opt_trans_absorption.m_value += rate.m_value;
-                } else {
-                    m_opt_trans_emission.m_value += rate.m_value;
-                }
-            }
-        }
+    // Optional: direct accessors if you like named use sites
+    double&       at(PhononMode m, PhononDirection d, PhononEvent e) { return values[rate_index(m, d, e)]; }
+    const double& at(PhononMode m, PhononDirection d, PhononEvent e) const { return values[rate_index(m, d, e)]; }
+
+    inline static const char* rate_label(int i) {
+        static const char* L[8] = {"ac_L_ab", "ac_T_ab", "op_L_ab", "op_T_ab", "ac_L_em", "ac_T_em", "op_L_em", "op_T_em"};
+        return (i >= 0 && i < 8) ? L[i] : "invalid";
     }
 };
 
@@ -226,8 +206,8 @@ class ElectronPhonon : public BZ_States {
     void plot_phonon_dispersion(const std::string& filename) const;
 
     inline double bose_einstein_distribution(double energy, double temperature);
-    double electron_overlap_integral(const vector3& k1, const vector3& k2);
-    double hole_overlap_integral(int n1, const vector3& k1, int n2, const vector3& k2);
+    double        electron_overlap_integral(const vector3& k1, const vector3& k2);
+    double        hole_overlap_integral(int n1, const vector3& k1, int n2, const vector3& k2);
 
     RateValues compute_electron_phonon_rate(int idx_n1, std::size_t idx_k1);
     RateValues compute_hole_phonon_rate(int idx_n1, std::size_t idx_k1);
