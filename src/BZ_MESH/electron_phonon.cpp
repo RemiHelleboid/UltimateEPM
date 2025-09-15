@@ -93,7 +93,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
 
                 // ---- Phonon quantities
                 // omega [1/s] from dispersion(|q|)
-                const double omega = disp.get_phonon_dispersion(q_ph_norm);
+                const double omega = disp.get_phonon_dispersion_from_lookup(q_ph_norm);
                 // if (omega <= 0.0) continue;  // skip unphysical/zero frequency points
                 assert(omega >= 0.0 && "Phonon frequency is negative");
 
@@ -493,7 +493,11 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
             PhononDirection  direction = (type == "longitudinal") ? PhononDirection::longitudinal : PhononDirection::transverse;
             PhononMode       mode      = (wave == "acoustic") ? PhononMode::acoustic : PhononMode::optical;
             PhononDispersion phononDispersion(mode, direction, w0, vs, c);
-            m_phonon_dispersion[std::make_pair(mode, direction)] = phononDispersion;
+            double q_max_norm = 1.5 / m_si2red;
+            double n_points    = 200;
+            std::cout << "Max q norm in reduced units: " << q_max_norm << std::endl;
+            phononDispersion.fill_lookup_table(q_max_norm, n_points);
+             m_phonon_dispersion[std::make_pair(mode, direction)] = phononDispersion;
         }
     }
 
@@ -507,7 +511,14 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
             double B        = waveType["B"].as<double>();
             std::cout << "A: " << A << " B: " << B << std::endl;
 
-            PhononMode           mode = (wave == "acoustic") ? PhononMode::acoustic : PhononMode::optical;
+            PhononMode           mode;
+            if (wave == "acoustic") {
+                mode = PhononMode::acoustic;
+            } else if (wave == "optic") {
+                mode = PhononMode::optical;
+            } else {
+                throw std::runtime_error("Unknown wave type.");
+            }
             DeformationPotential deformationPotential(mode, A, B);
             if (carrierType == "electron") {
                 if (mode == PhononMode::acoustic) {

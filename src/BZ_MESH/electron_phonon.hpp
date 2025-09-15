@@ -20,8 +20,10 @@
 #include <Eigen/Dense>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <iostream>
 #include <map>
+#include <stdexcept>
 #include <vector>
 
 #include "bz_states.hpp"
@@ -56,9 +58,16 @@ static_assert(IDX_AC_L_AB == 0 && IDX_OP_T_EM == 7, "Rate index mapping changed;
 struct PhononDispersion {
     PhononMode      m_mode      = PhononMode::none;
     PhononDirection m_direction = PhononDirection::none;
-    double          m_omega     = 0.0;
-    double          m_vs        = 0.0;
-    double          m_c         = 0.0;
+
+    // Analytic model: ω(q) = m_omega + m_vs * q + m_c * q^2
+    // q in 1/m, ω(q) in rad/s (keep exactly as used elsewhere in your code)
+    double m_omega = 0.0;
+    double m_vs    = 0.0;
+    double m_c     = 0.0;
+
+    // Lookup tables (uniform grid on q); names kept as-is
+    std::vector<double> m_q_values;  // in 1/m
+    std::vector<double> m_e_values;  // stores ω(q) samples (rad/s)
 
     PhononDispersion() = default;
 
@@ -68,6 +77,7 @@ struct PhononDispersion {
           m_omega(omega),
           m_vs(vs),
           m_c(c) {}
+
     PhononDispersion(PhononMode mode, PhononDirection direction)
         : m_mode(mode),
           m_direction(direction),
@@ -75,19 +85,77 @@ struct PhononDispersion {
           m_vs(0.0),
           m_c(0.0) {}
 
+    // Analytic dispersion: ω(q) in rad/s
     double get_phonon_dispersion(double q) const {
-        double e_ph = m_omega + m_vs * q + m_c * q * q;
-        if (e_ph < 0.0) {
-            std::cout << "ERROR: negative phonon energy: " << e_ph << std::endl;
-            std::cout << "Q: " << q << std::endl;
-            std::cout << "OMEGA: " << m_omega << std::endl;
-            std::cout << "VS: " << m_vs << std::endl;
-            std::cout << "C: " << m_c << std::endl;
-            std::cout << "vs*q: " << m_vs * q << std::endl;
-            std::cout << "c*q^2: " << m_c * q * q << std::endl;
-            throw std::runtime_error("Negative phonon energy");
+        const double q_squared   = q * q;
+        const double linear_part = std::fma(m_vs, q, m_omega);             // m_omega + m_vs*q
+        const double omega_q     = std::fma(m_c, q_squared, linear_part);  // + m_c*q^2
+
+        // if (omega_q < 0.0) {
+        //     std::cout << "ERROR: negative phonon energy: " << omega_q << std::endl;
+        //     std::cout << "Q: " << q << std::endl;
+        //     std::cout << "OMEGA: " << m_omega << std::endl;
+        //     std::cout << "VS: " << m_vs << std::endl;
+        //     std::cout << "C: " << m_c << std::endl;
+        //     std::cout << "vs*q: " << m_vs * q << std::endl;
+        //     std::cout << "c*q^2: " << m_c * q_squared << std::endl;
+        //     throw std::runtime_error("Negative phonon energy");
+        // }
+        return omega_q;
+    }
+
+    // Build uniform lookup on [0, q_max]; stores ω(q) in m_e_values
+    void fill_lookup_table(double q_max, std::size_t n_points) {
+        if (q_max <= 0.0) {
+            throw std::invalid_argument("q_max must be > 0");
         }
-        return e_ph;
+        if (n_points < 2) {
+            throw std::invalid_argument("n_points must be >= 2");
+        }
+
+        m_q_values.resize(n_points);
+        m_e_values.resize(n_points);
+
+        const std::size_t grid_point_count = n_points;
+        const double      grid_spacing     = q_max / static_cast<double>(grid_point_count - 1);
+
+        for (std::size_t sample_index = 0; sample_index < grid_point_count; ++sample_index) {
+            const double q_value     = static_cast<double>(sample_index) * grid_spacing;
+            m_q_values[sample_index] = q_value;
+            m_e_values[sample_index] = get_phonon_dispersion(q_value);  // ω(q) in rad/s
+        }
+    }
+
+    // Fast O(1) lookup with linear interpolation; returns ω(q) in rad/s
+    double get_phonon_dispersion_from_lookup(double q) const {
+        if (m_q_values.empty() || m_e_values.empty()) {
+            throw std::runtime_error("Lookup table is empty");
+        }
+
+        const std::size_t grid_point_count = m_q_values.size();
+        const double      q_minimum        = m_q_values.front();
+        const double      q_maximum        = m_q_values.back();
+
+        if (q < q_minimum || q > q_maximum) {
+            std::cerr << "Q value: " << q << " out of bounds [" << q_minimum << ", " << q_maximum << "]" << std::endl;
+            throw std::runtime_error("Q value out of bounds of lookup table");
+        }
+
+        // Uniform grid → compute bin directly (no search)
+        const double grid_spacing      = (q_maximum - q_minimum) / static_cast<double>(grid_point_count - 1);
+        const double inverse_spacing   = 1.0 / grid_spacing;
+        const double position_in_grid  = (q - q_minimum) * inverse_spacing;  // in “grid steps”
+        std::size_t  left_sample_index = static_cast<std::size_t>(position_in_grid);
+        if (left_sample_index >= grid_point_count - 1) {
+            left_sample_index = grid_point_count - 2;  // guard top edge
+        }
+
+        const double fraction_right = position_in_grid - static_cast<double>(left_sample_index);
+        const double left_value     = m_e_values[left_sample_index];
+        const double right_value    = m_e_values[left_sample_index + 1];
+
+        // Linear interpolation with FMA: left + t * (right - left)
+        return std::fma(fraction_right, (right_value - left_value), left_value);
     }
 };
 
@@ -107,6 +175,16 @@ struct DeformationPotential {
         } else {
             return std::sqrt(m_A + clamp_energy * m_B);
         }
+    }
+
+    void set_energy_threshold(double energy) { m_energy_threshold = energy; }
+
+    void print() const {
+        std::cout << "Deformation potential for mode "
+                  << (m_mode == PhononMode::acoustic  ? "acoustic"
+                      : m_mode == PhononMode::optical ? "optical"
+                                                      : "none")
+                  << ": A = " << m_A << ", B = " << m_B << ", energy threshold = " << m_energy_threshold << " eV" << std::endl;
     }
 };
 

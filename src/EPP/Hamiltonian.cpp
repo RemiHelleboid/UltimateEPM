@@ -101,6 +101,11 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
 }
 
 void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
+    // Check matrix is Hermitian
+    if (!matrix.isApprox(matrix.adjoint())) {
+        std::cout << "Matrix is not Hermitian!" << std::endl;
+        throw std::runtime_error("Matrix is not Hermitian");
+    }
     solver.compute(matrix, keep_eigenvectors ? Eigen::ComputeEigenvectors : Eigen::EigenvaluesOnly);
     if (solver.info() != Eigen::Success) {
         std::cout << matrix << std::endl;

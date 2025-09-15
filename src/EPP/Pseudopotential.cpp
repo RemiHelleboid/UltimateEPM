@@ -1,7 +1,10 @@
 #include "Pseudopotential.h"
 
 #define _USE_MATH_DEFINES 1
+#include <array>
 #include <cmath>
+#include <complex>
+#include <numbers>
 
 #include "Constants.hpp"
 
@@ -17,29 +20,46 @@ Pseudopotential::Pseudopotential(double V3S, double V4S, double V8S, double V11S
       m_V8A(V8A),
       m_V11A(V11A) {}
 
+#include <array>
+#include <cmath>
+#include <complex>
+#include <numbers>
+
 std::complex<double> Pseudopotential::GetValue(const Vector3D<int>& G, const Vector3D<double>& tau, double lattice_constant) const {
-    constexpr double const_two = 2.0;
-    const int        G2        = G * G;
-    const double     Gtau      = (const_two * M_PI / lattice_constant) * tau * G;
+    // Optional: enforce fcc selection rule (all-even or all-odd Miller indices)
+    const bool same_parity = ((G.X & 1) == (G.Y & 1)) && ((G.Y & 1) == (G.Z & 1));
+    if (!same_parity) return {0.0, 0.0};
 
-    double VS = 0;
-    double VA = 0;
+    const int    G2   = G * G;  // integer dot product h^2 + k^2 + l^2
+    const double kfac = 2.0 * std::numbers::pi_v<double> / lattice_constant;
+    const double Gtau = kfac * (tau * G);  // dimensionless phase
 
-    if (G2 == 3) {
-        VS = m_V3S;
-        VA = m_V3A;
-    } else if (G2 == 4) {
-        VS = m_V4S;
-        VA = m_V4A;
-    } else if (G2 == 8) {
-        VS = m_V8S;
-        VA = m_V8A;
-    } else if (G2 == 11) {
-        VS = m_V11S;
-        VA = m_V11A;
+    double VS = 0.0, VA = 0.0;
+    switch (G2) {
+        case 3:
+            VS = m_V3S;
+            VA = m_V3A;
+            break;
+        case 4:
+            VS = m_V4S;
+            VA = m_V4A;
+            break;
+        case 8:
+            VS = m_V8S;
+            VA = m_V8A;
+            break;
+        case 11:
+            VS = m_V11S;
+            VA = m_V11A;
+            break;
+        default: 
+            break;
     }
 
-    return std::complex<double>(cos(Gtau) * VS, sin(Gtau) * VA);
+    // V(G) = VS cos(G·τ) + i VA sin(G·τ)
+    const double c = std::cos(Gtau);
+    const double s = std::sin(Gtau);
+    return {VS * c, VA * s};
 }
 
 void Pseudopotential::print_parameters() const {

@@ -90,7 +90,7 @@ vector3 Tetra::compute_gradient_scalar_field(std::array<double, 4> values) {
                     x_1 * y_0 * z_2 + x_1 * y_0 * z_3 + x_1 * y_2 * z_0 - x_1 * y_2 * z_3 - x_1 * y_3 * z_0 + x_1 * y_3 * z_2 +
                     x_2 * y_0 * z_1 - x_2 * y_0 * z_3 - x_2 * y_1 * z_0 + x_2 * y_1 * z_3 + x_2 * y_3 * z_0 - x_2 * y_3 * z_1 -
                     x_3 * y_0 * z_1 + x_3 * y_0 * z_2 + x_3 * y_1 * z_0 - x_3 * y_1 * z_2 - x_3 * y_2 * z_0 + x_3 * y_2 * z_1);
-    std::cout << "Volume check: " << volume2 << " " << volABC << " " << volABC / volume2 << std::endl;
+    // std::cout << "Volume check: " << volume2 << " " << volABC << " " << volABC / volume2 << std::endl;
     const double grad_x = -one_half *
                           (value_0 * y_1 * z_2 - value_0 * y_1 * z_3 - value_0 * y_2 * z_1 + value_0 * y_2 * z_3 + value_0 * y_3 * z_1 -
                            value_0 * y_3 * z_2 - value_1 * y_0 * z_2 + value_1 * y_0 * z_3 + value_1 * y_2 * z_0 - value_1 * y_2 * z_3 -
