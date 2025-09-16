@@ -21,7 +21,7 @@ plt.style.use(['science', 'muted', 'grid', 'no-latex'])
 
 def scatter_plot_rates(filename):
     fig, ax = plt.subplots(figsize=(8, 6))
-    data = np.loadtxt(filename)
+    data = np.loadtxt(filename, delimiter=",")
     energy = data[:,0]
     # energy -= np.min(energy)
     for i in range(2, data.shape[1]):
@@ -34,7 +34,7 @@ def scatter_plot_rates(filename):
     ax.legend()
     
 def plot_rates(filename, comparison_csv=None):
-    data = np.loadtxt(filename)
+    data = np.loadtxt(filename, delimiter=",", skiprows=1)
     energy = data[:,0]
 
     # Sum of rates

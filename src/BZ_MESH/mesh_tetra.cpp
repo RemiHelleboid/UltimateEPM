@@ -22,8 +22,6 @@
 
 namespace bz_mesh {
 
-std::vector<double> Tetra::ms_case_stats = {0, 0, 0, 0, 0};
-
 bbox_mesh Tetra::compute_bounding_box() const {
     std::array<double, 4> coordinates_x;
     std::array<double, 4> coordinates_y;
@@ -66,54 +64,36 @@ vector3 Tetra::compute_barycenter() const {
            4.0;
 }
 
-vector3 Tetra::compute_gradient_scalar_field(std::array<double, 4> values) {
-    double&           value_1  = values[1];
-    double&           value_0  = values[0];
-    double&           value_2  = values[2];
-    double&           value_3  = values[3];
-    double           x_0      = m_list_vertices[0]->get_position().x();
-    double           y_0      = m_list_vertices[0]->get_position().y();
-    double           z_0      = m_list_vertices[0]->get_position().z();
-    double           x_1      = m_list_vertices[1]->get_position().x();
-    double           y_1      = m_list_vertices[1]->get_position().y();
-    double           z_1      = m_list_vertices[1]->get_position().z();
-    double           x_2      = m_list_vertices[2]->get_position().x();
-    double           y_2      = m_list_vertices[2]->get_position().y();
-    double           z_2      = m_list_vertices[2]->get_position().z();
-    double           x_3      = m_list_vertices[3]->get_position().x();
-    double           y_3      = m_list_vertices[3]->get_position().y();
-    double           z_3      = m_list_vertices[3]->get_position().z();
-    constexpr double one_half = 0.5;
+/**
+ * @brief Compute the gradient of the energy within the tetrahedron.
+ *
+ * @param values_at_vertices
+ * @return vector3d
+ */
+vector3 Tetra::compute_gradient_at_tetra(const array4d& values_at_vertices) const {
+    // Edges from vertex 0 to the others: a = v1 - v0, b = v2 - v0, c = v3 - v0
+    const vector3 a = m_list_edges[0];  // V0V1
+    const vector3 b = m_list_edges[1];  // V0V2
+    const vector3 c = m_list_edges[2];  // V0V3
 
-    const double volABC = (6.0 * m_signed_volume);
-    const double volume2 = (x_0 * y_1 * z_2 - x_0 * y_1 * z_3 - x_0 * y_2 * z_1 + x_0 * y_2 * z_3 + x_0 * y_3 * z_1 - x_0 * y_3 * z_2 -
-                    x_1 * y_0 * z_2 + x_1 * y_0 * z_3 + x_1 * y_2 * z_0 - x_1 * y_2 * z_3 - x_1 * y_3 * z_0 + x_1 * y_3 * z_2 +
-                    x_2 * y_0 * z_1 - x_2 * y_0 * z_3 - x_2 * y_1 * z_0 + x_2 * y_1 * z_3 + x_2 * y_3 * z_0 - x_2 * y_3 * z_1 -
-                    x_3 * y_0 * z_1 + x_3 * y_0 * z_2 + x_3 * y_1 * z_0 - x_3 * y_1 * z_2 - x_3 * y_2 * z_0 + x_3 * y_2 * z_1);
-    // std::cout << "Volume check: " << volume2 << " " << volABC << " " << volABC / volume2 << std::endl;
-    const double grad_x = -one_half *
-                          (value_0 * y_1 * z_2 - value_0 * y_1 * z_3 - value_0 * y_2 * z_1 + value_0 * y_2 * z_3 + value_0 * y_3 * z_1 -
-                           value_0 * y_3 * z_2 - value_1 * y_0 * z_2 + value_1 * y_0 * z_3 + value_1 * y_2 * z_0 - value_1 * y_2 * z_3 -
-                           value_1 * y_3 * z_0 + value_1 * y_3 * z_2 + value_2 * y_0 * z_1 - value_2 * y_0 * z_3 - value_2 * y_1 * z_0 +
-                           value_2 * y_1 * z_3 + value_2 * y_3 * z_0 - value_2 * y_3 * z_1 - value_3 * y_0 * z_1 + value_3 * y_0 * z_2 +
-                           value_3 * y_1 * z_0 - value_3 * y_1 * z_2 - value_3 * y_2 * z_0 + value_3 * y_2 * z_1) /
-                          volABC;
-    const double grad_y = -one_half *
-                          (-value_0 * x_1 * z_2 + value_0 * x_1 * z_3 + value_0 * x_2 * z_1 - value_0 * x_2 * z_3 - value_0 * x_3 * z_1 +
-                           value_0 * x_3 * z_2 + value_1 * x_0 * z_2 - value_1 * x_0 * z_3 - value_1 * x_2 * z_0 + value_1 * x_2 * z_3 +
-                           value_1 * x_3 * z_0 - value_1 * x_3 * z_2 - value_2 * x_0 * z_1 + value_2 * x_0 * z_3 + value_2 * x_1 * z_0 -
-                           value_2 * x_1 * z_3 - value_2 * x_3 * z_0 + value_2 * x_3 * z_1 + value_3 * x_0 * z_1 - value_3 * x_0 * z_2 -
-                           value_3 * x_1 * z_0 + value_3 * x_1 * z_2 + value_3 * x_2 * z_0 - value_3 * x_2 * z_1) /
-                          volABC;
-    const double grad_z = -one_half *
-                          (value_0 * x_1 * y_2 - value_0 * x_1 * y_3 - value_0 * x_2 * y_1 + value_0 * x_2 * y_3 + value_0 * x_3 * y_1 -
-                           value_0 * x_3 * y_2 - value_1 * x_0 * y_2 + value_1 * x_0 * y_3 + value_1 * x_2 * y_0 - value_1 * x_2 * y_3 -
-                           value_1 * x_3 * y_0 + value_1 * x_3 * y_2 + value_2 * x_0 * y_1 - value_2 * x_0 * y_3 - value_2 * x_1 * y_0 +
-                           value_2 * x_1 * y_3 + value_2 * x_3 * y_0 - value_2 * x_3 * y_1 - value_3 * x_0 * y_1 + value_3 * x_0 * y_2 +
-                           value_3 * x_1 * y_0 - value_3 * x_1 * y_2 - value_3 * x_2 * y_0 + value_3 * x_2 * y_1) /
-                          volABC;
+    // Value differences relative to vertex 0
+    const double du1 = values_at_vertices[1] - values_at_vertices[0];
+    const double du2 = values_at_vertices[2] - values_at_vertices[0];
+    const double du3 = values_at_vertices[3] - values_at_vertices[0];
 
-    return {grad_x, grad_y, grad_z};
+    // det(R) = a · (b × c)  (note: det = 6 * signed_volume)
+    const double     det = dot(a, cross_product(b, c));
+    constexpr double eps = 1e-14;
+    if (std::abs(det) < eps) {
+        // Degenerate tetrahedron — return zero gradient (or handle as you prefer)
+        return vector3{0.0, 0.0, 0.0};
+    }
+
+    // R^{-T} = (1/det) * [ b×c, c×a, a×b ]  (columns)
+    // ∇u = R^{-T} * Δu
+    const vector3 grad = (cross_product(b, c) * du1 + cross_product(c, a) * du2 + cross_product(a, b) * du3) / det;
+
+    return grad;
 }
 
 void Tetra::compute_gradient_energy_at_bands() {
@@ -128,10 +108,8 @@ void Tetra::compute_gradient_energy_at_bands() {
         const double                eps_13               = (e_0 - energies_at_vertices[indices_sort[2]]);
         const double                eps_14               = (e_0 - energies_at_vertices[indices_sort[3]]);
         // const double                gradient_energy      = sqrt((eps_12 * eps_12 + eps_13 * eps_13 + eps_14 * eps_14));
-        const vector3 gradient_energy  = compute_gradient_scalar_field(energies_at_vertices);
+        const vector3 gradient_energy  = compute_gradient_at_tetra(energies_at_vertices);
         double        norm_grad_energy = gradient_energy.norm();
-        // std::cout << "norm_grad_energy:        " << norm_grad_energy << std::endl;
-        // std::cout << "norm_grad_energy quick:  " << gradient_energy * (6 * m_signed_volume) << std::endl;
         if (norm_grad_energy == 0) {
             std::cout << "Gradient energy is zero for tetra " << m_index << " at band " << band_index << std::endl;
             std::cout << "Energies: " << energies_at_vertices[0] << " " << energies_at_vertices[1] << " " << energies_at_vertices[2] << " "
@@ -141,7 +119,7 @@ void Tetra::compute_gradient_energy_at_bands() {
                       << m_list_vertices[2]->get_position() << "\n"
                       << m_list_vertices[3]->get_position() << std::endl;
         }
-        m_gradient_energy_per_band.push_back(norm_grad_energy);
+        m_gradient_energy_per_band.push_back(gradient_energy.norm());
     }
 }
 
@@ -333,7 +311,6 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
     }
 
     if (iso_energy < e_1 && iso_energy >= e_0) {
-        ms_case_stats[2]++;
         double  lA_U = (iso_energy - e_0) / (e_1 - e_0);
         vector3 U    = compute_euclidean_coordinates_with_indices({1.0 - lA_U, lA_U, 0.0, 0.0}, indices_sort);
         double  lA_V = (iso_energy - e_0) / (e_2 - e_0);
@@ -343,7 +320,6 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
         return {U, V, W};
     }
     if (iso_energy < e_2 && iso_energy >= e_1) {
-        ms_case_stats[3]++;
         double  lA_U = (iso_energy - e_0) / (e_2 - e_0);
         vector3 U    = compute_euclidean_coordinates_with_indices({1.0 - lA_U, 0.0, lA_U, 0.0}, indices_sort);
         double  lA_V = (iso_energy - e_0) / (e_3 - e_0);
@@ -355,7 +331,6 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
         return {U, V, W, X};
     }
     if (iso_energy >= e_2) {
-        ms_case_stats[4]++;
         double  lC_U = (e_3 - iso_energy) / (e_3 - e_2);
         vector3 U    = compute_euclidean_coordinates_with_indices({0.0, 0.0, lC_U, 1.0 - lC_U}, indices_sort);
         double  lB_V = (e_3 - iso_energy) / (e_3 - e_1);
@@ -420,7 +395,8 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
 
     constexpr int g_s  = 2;  // spin degeneracy (adjust if needed)
     constexpr int g_v  = 1;  // valley degeneracy if not represented as separate bands
-    const double  pref = double(g_s * g_v) / std::pow(2.0 * M_PI, 3.0);
+    // constexpr double  pref = (g_s * g_v) / std::pow(2.0 * M_PI, 3.0);
+    constexpr double pref = (g_s * g_v) / (8.0 * M_PI * M_PI * M_PI);  // 1/(2π)^3 = 1/(8π^3)
 
     return pref * (A / grad);
 }
@@ -429,13 +405,18 @@ bool Tetra::is_energy_inside_band(double energy, std::size_t index_band) const {
     return (energy >= m_min_energy_per_band[index_band] && energy <= m_max_energy_per_band[index_band]);
 }
 
-std::array<double, 8> Tetra::get_mean_electron_phonon_rates(int band_index) const {
+bool Tetra::does_intersect_band_energy_range(double e_min, double e_max, std::size_t index_band) const {
+    return !(e_max < m_min_energy_per_band[index_band] || e_min > m_max_energy_per_band[index_band]);
+}
+
+std::array<double, 8> Tetra::get_tetra_electron_phonon_rates(int band_index) const {
     std::array<double, 8> mean_rates;
     std::fill(mean_rates.begin(), mean_rates.end(), 0.0);
     for (std::size_t i = 0; i < 4; i++) {
         const std::array<double, 8>& rates = m_list_vertices[i]->get_electron_phonon_rates(band_index);
         std::transform(mean_rates.begin(), mean_rates.end(), rates.begin(), mean_rates.begin(), std::plus<double>());
     }
+    std::transform(mean_rates.begin(), mean_rates.end(), mean_rates.begin(), [](double val) { return val / 4.0; });
     return mean_rates;
 }
 

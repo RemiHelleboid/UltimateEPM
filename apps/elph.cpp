@@ -78,11 +78,11 @@ int main(int argc, char const *argv[])
     
     
     ElectronPhonon.load_phonon_parameters(phonon_file);
-    
+
     ElectronPhonon.compute_electron_phonon_rates_over_mesh();
     ElectronPhonon.export_rate_values("rates_all.csv");
 
-    const double energy_step = 0.001; // eV
+    const double energy_step = 0.01; // eV
     const double max_energy  = 10.0;  // eV
     ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels, max_energy, energy_step, "rates_vs_energy.csv");
 

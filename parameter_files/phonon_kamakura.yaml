@@ -31,7 +31,8 @@ materials:
         optic:
           A: 1.1e20
           B: 1.1e21
-        energy-threshold: 5.0
+        energy-threshold: 0.5
+        # energy-threshold: 2.0
       hole:
         acoustic:
           A: 4.0
@@ -39,4 +40,5 @@ materials:
         optic:
           A: 1.0e21
           B: 5.0e19
-        energy-threshold: 3.5
+        # energy-threshold: 1.5
+        energy-threshold: 0.0

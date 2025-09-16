@@ -157,6 +157,13 @@ struct PhononDispersion {
         // Linear interpolation with FMA: left + t * (right - left)
         return std::fma(fraction_right, (right_value - left_value), left_value);
     }
+
+    double get_max_energy_exchange() const {
+        if (m_e_values.empty()) {
+            throw std::runtime_error("Lookup table is empty");
+        }
+        return *std::max_element(m_e_values.begin(), m_e_values.end());
+    }
 };
 
 struct DeformationPotential {
@@ -166,7 +173,11 @@ struct DeformationPotential {
     double     m_energy_threshold = 1e6;  // eV, default no threshold
 
     DeformationPotential() = default;
-    DeformationPotential(PhononMode type, double A, double B) : m_mode(type), m_A(A), m_B(B), m_energy_threshold(1e6) {}
+    DeformationPotential(PhononMode type, double A, double B, double energy_threshold)
+        : m_mode(type),
+          m_A(A),
+          m_B(B),
+          m_energy_threshold(energy_threshold) {}
 
     double get_deformation_potential(const vector3& q, double energy) const {
         double clamp_energy = std::min(energy, m_energy_threshold);
@@ -174,6 +185,23 @@ struct DeformationPotential {
             return std::sqrt(m_A + clamp_energy * m_B) * q.norm();
         } else {
             return std::sqrt(m_A + clamp_energy * m_B);
+        }
+    }
+
+    double get_fischetti_deformation_potential(const vector3& q, int idx_band) const {
+        constexpr double cm_to_m = 1e2;
+        if (m_mode == PhononMode::acoustic) {
+            if (idx_band == 0) {
+                return 1.2 * q.norm();  // in eV/m
+            } else {
+                return 1.7 * q.norm();  // in eV/m
+            }
+        } else {
+            if (idx_band == 0) {
+                return 1.75e8 * cm_to_m;  // in eV/m
+            } else {
+                return 2.25e8 * cm_to_m;  // in eV/m
+            }
         }
     }
 
@@ -280,8 +308,9 @@ class ElectronPhonon : public BZ_States {
  public:
     explicit ElectronPhonon(const EmpiricalPseudopotential::Material& material) : BZ_States(material) {}
 
-    void load_phonon_parameters(const std::string& filename);
-    void plot_phonon_dispersion(const std::string& filename) const;
+    void   load_phonon_parameters(const std::string& filename);
+    void   plot_phonon_dispersion(const std::string& filename) const;
+    double get_max_phonon_energy() const;
 
     inline double bose_einstein_distribution(double energy, double temperature);
     double        electron_overlap_integral(const vector3& k1, const vector3& k2);

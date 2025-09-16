@@ -109,6 +109,10 @@ class vector3 {
 
     double dot(const vector3 &vector_rhs) const { return (m_x * vector_rhs.m_x + m_y * vector_rhs.m_y + m_z * vector_rhs.m_z); }
 
+    friend double dot(const vector3 &vector_lhs, const vector3 &vector_rhs) {
+        return (vector_lhs.m_x * vector_rhs.m_x + vector_lhs.m_y * vector_rhs.m_y + vector_lhs.m_z * vector_rhs.m_z);
+    }
+
     friend vector3 middle(const vector3 &vector_lhs, const vector3 &vector_rhs) {
         constexpr double one_half = 1.0 / 2.0;
         return vector3{one_half * (vector_rhs.m_x + vector_lhs.m_x),
