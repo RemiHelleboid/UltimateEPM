@@ -102,7 +102,7 @@ void Tetra::compute_gradient_energy_at_bands() {
     m_gradient_energy_per_band.reserve(m_nb_bands);
     for (std::size_t band_index = 0; band_index < m_nb_bands; band_index++) {
         const std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
-        const std::array<int, 4>    indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
+        const std::array<int, 4>&   indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
         const double                e_0                  = energies_at_vertices[indices_sort[0]];
         const double                eps_12               = (e_0 - energies_at_vertices[indices_sort[1]]);
         const double                eps_13               = (e_0 - energies_at_vertices[indices_sort[2]]);
@@ -244,7 +244,7 @@ vector3 Tetra::compute_euclidean_coordinates_with_indices(const std::array<doubl
 }
 
 /**
- * @brief Return a list of indices a, b, c, d such as, for the conduction band with index index_band,
+ * @brief Precompute a list of indices a, b, c, d such as, for the conduction band with index index_band,
  * we have Vtx_a <= Vtx_b <= Vtx_c <= Vtx_d in term of energy.
  *
  * This function is written explicitely instead of using std::sort functions, because the sorting is done
@@ -253,30 +253,34 @@ vector3 Tetra::compute_euclidean_coordinates_with_indices(const std::array<doubl
  * @param index_band
  * @return std::array<int, 4>
  */
-std::array<int, 4> Tetra::get_index_vertices_with_sorted_energy_at_band(std::size_t index_band) const {
-    std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(index_band);
-    std::array<int, 4>    sorted_index         = {0, 1, 2, 3};
-    if (energies_at_vertices[0] > energies_at_vertices[1]) {
-        std::swap(energies_at_vertices[0], energies_at_vertices[1]);
-        std::swap(sorted_index[0], sorted_index[1]);
+void Tetra::pre_compute_sorted_slots_per_band() {
+    m_sorted_slots_per_band.clear();
+    m_sorted_slots_per_band.reserve(m_nb_bands);
+    for (std::size_t band_index = 0; band_index < m_nb_bands; band_index++) {
+        std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
+        std::array<int, 4>    sorted_index         = {0, 1, 2, 3};
+        if (energies_at_vertices[0] > energies_at_vertices[1]) {
+            std::swap(energies_at_vertices[0], energies_at_vertices[1]);
+            std::swap(sorted_index[0], sorted_index[1]);
+        }
+        if (energies_at_vertices[2] > energies_at_vertices[3]) {
+            std::swap(energies_at_vertices[2], energies_at_vertices[3]);
+            std::swap(sorted_index[2], sorted_index[3]);
+        }
+        if (energies_at_vertices[0] > energies_at_vertices[2]) {
+            std::swap(energies_at_vertices[0], energies_at_vertices[2]);
+            std::swap(sorted_index[0], sorted_index[2]);
+        }
+        if (energies_at_vertices[1] > energies_at_vertices[3]) {
+            std::swap(energies_at_vertices[1], energies_at_vertices[3]);
+            std::swap(sorted_index[1], sorted_index[3]);
+        }
+        if (energies_at_vertices[1] > energies_at_vertices[2]) {
+            std::swap(energies_at_vertices[1], energies_at_vertices[2]);
+            std::swap(sorted_index[1], sorted_index[2]);
+        }
+        m_sorted_slots_per_band.push_back(sorted_index);
     }
-    if (energies_at_vertices[2] > energies_at_vertices[3]) {
-        std::swap(energies_at_vertices[2], energies_at_vertices[3]);
-        std::swap(sorted_index[2], sorted_index[3]);
-    }
-    if (energies_at_vertices[0] > energies_at_vertices[2]) {
-        std::swap(energies_at_vertices[0], energies_at_vertices[2]);
-        std::swap(sorted_index[0], sorted_index[2]);
-    }
-    if (energies_at_vertices[1] > energies_at_vertices[3]) {
-        std::swap(energies_at_vertices[1], energies_at_vertices[3]);
-        std::swap(sorted_index[1], sorted_index[3]);
-    }
-    if (energies_at_vertices[1] > energies_at_vertices[2]) {
-        std::swap(energies_at_vertices[1], energies_at_vertices[2]);
-        std::swap(sorted_index[1], sorted_index[2]);
-    }
-    return sorted_index;
 }
 
 /**
@@ -297,12 +301,12 @@ std::array<int, 4> Tetra::get_index_vertices_with_sorted_energy_at_band(std::siz
  * @return std::vector<vector3>
  */
 std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const {
-    std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
-    std::array<int, 4>    indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
-    double                e_0                  = energies_at_vertices[indices_sort[0]];
-    double                e_1                  = energies_at_vertices[indices_sort[1]];
-    double                e_2                  = energies_at_vertices[indices_sort[2]];
-    double                e_3                  = energies_at_vertices[indices_sort[3]];
+    std::array<double, 4>     energies_at_vertices = get_band_energies_at_vertices(band_index);
+    const std::array<int, 4>& indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
+    double                    e_0                  = energies_at_vertices[indices_sort[0]];
+    double                    e_1                  = energies_at_vertices[indices_sort[1]];
+    double                    e_2                  = energies_at_vertices[indices_sort[2]];
+    double                    e_3                  = energies_at_vertices[indices_sort[3]];
 
     bool check_order = (e_0 <= e_1 && e_1 <= e_2 && e_2 <= e_3);
     if (!check_order) {
@@ -393,8 +397,8 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
     const double grad = m_gradient_energy_per_band[band_index];                        // eV·m
     if (A <= 0.0 || grad <= 0.0) return 0.0;
 
-    constexpr int g_s  = 2;  // spin degeneracy (adjust if needed)
-    constexpr int g_v  = 1;  // valley degeneracy if not represented as separate bands
+    constexpr int g_s = 2;  // spin degeneracy (adjust if needed)
+    constexpr int g_v = 1;  // valley degeneracy if not represented as separate bands
     // constexpr double  pref = (g_s * g_v) / std::pow(2.0 * M_PI, 3.0);
     constexpr double pref = (g_s * g_v) / (8.0 * M_PI * M_PI * M_PI);  // 1/(2π)^3 = 1/(8π^3)
 

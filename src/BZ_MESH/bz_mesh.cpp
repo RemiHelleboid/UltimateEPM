@@ -254,6 +254,9 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_b
     auto_set_positive_valence_band_energies();
     compute_min_max_energies_at_tetras();
     compute_energy_gradient_at_tetras();
+    for (auto&& tetra : m_list_tetrahedra) {
+        tetra.pre_compute_sorted_slots_per_band();
+    }
 
     // Print band info
     std::cout << "Number of bands loaded: " << m_min_band.size() << std::endl;

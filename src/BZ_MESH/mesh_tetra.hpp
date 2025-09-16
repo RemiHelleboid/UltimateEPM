@@ -87,6 +87,14 @@ class Tetra {
      */
     std::vector<double> m_gradient_energy_per_band;
 
+    /**
+     * @brief For each band, store the indices of the vertices sorted by increasing energy.
+     * For example, if for band k, vertex 2 has the lowest energy, then vertex 0, then vertex 3, then vertex 1,
+     * then m_sorted_slots_per_band[k] = {2, 0, 3, 1}.
+     *
+     */
+    std::vector<std::array<int, 4>> m_sorted_slots_per_band;
+
  public:
     /**
      * @brief There is not default constructor for Tetra class.
@@ -126,9 +134,12 @@ class Tetra {
     vector3               compute_euclidean_coordinates_with_indices(const std::array<double, 4>& barycentric_coordinates,
                                                                      const std::array<int, 4>&    indices_vertex) const;
 
+    void pre_compute_sorted_slots_per_band();
+    const std::array<int, 4>& get_index_vertices_with_sorted_energy_at_band(std::size_t index_band) const {
+        return m_sorted_slots_per_band[index_band];
+    }
     bool                 is_energy_inside_band(double energy, std::size_t index_band) const;
     bool                 does_intersect_band_energy_range(double e_min, double e_max, std::size_t index_band) const;
-    std::array<int, 4>   get_index_vertices_with_sorted_energy_at_band(std::size_t index_band) const;
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
     double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;
     double               compute_tetra_dos_energy_band(double energy, std::size_t band_index) const;
