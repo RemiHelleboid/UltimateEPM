@@ -274,7 +274,7 @@ struct RateValues {
                   << "Optical transverse emission      : " << values[IDX_OP_T_EM] << std::endl;
     }
 
-    [[nodiscard]] std::array<double, 8> to_array() const { return values; }
+    const std::array<double, 8>& to_array() const { return values; }
 
     void add_rate(const RateValue& rate) {
         if (int idx = rate_index(rate.m_mode, rate.m_direction, rate.m_type); idx >= 0) values[idx] += rate.m_value;

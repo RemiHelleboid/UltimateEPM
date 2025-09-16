@@ -349,6 +349,13 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
     return {};
 }
 
+// Area of triangle (A,B,C) in 3D: 0.5 * || (B-A) × (C-A) ||
+[[nodiscard]] inline double triangle_area(const vector3& A, const vector3& B, const vector3& C) noexcept {
+    const vector3 AB = B - A;
+    const vector3 AC = C - A;
+    return 0.5 * cross_product(AB, AC).norm();
+}
+
 /**
  * @brief Compute the surface of the tetrahedra for a given energy of a given band.
  * The iso-surface is computed by the function compute_band_iso_energy_surface, and then
@@ -365,16 +372,14 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
  * @return double
  */
 double Tetra::compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const {
-    std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy, band_index);
-    if (vertices_iso_surface.empty()) {
-        return 0.0;
-    } else if (vertices_iso_surface.size() == 3) {
-        IsoTriangle triangle(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], energy);
-        return fabs(triangle.get_signed_surface());
+    const std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy, band_index);
+    if (vertices_iso_surface.size() == 3) {
+        return triangle_area(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2]);
+    } else if (vertices_iso_surface.size() == 4) {
+        return triangle_area(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2]) +
+               triangle_area(vertices_iso_surface[0], vertices_iso_surface[2], vertices_iso_surface[3]);
     } else {
-        IsoTriangle triangle1(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[3], energy);
-        IsoTriangle triangle2(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], energy);
-        return fabs(triangle1.get_signed_surface()) + fabs(triangle2.get_signed_surface());
+        return 0.0;
     }
 }
 
