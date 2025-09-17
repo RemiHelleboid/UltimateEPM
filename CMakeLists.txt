@@ -267,4 +267,6 @@ include_directories(${PROJECT_SOURCE_DIR}/external/tclap-1.4.0/include)
 # The compiled library code is here
 add_subdirectory(src/EPP)
 add_subdirectory(src/BZ_MESH)
+add_subdirectory(src/FBMC)
+# The applications are here
 add_subdirectory(apps/)
