@@ -26,6 +26,11 @@ target_link_libraries(elph.epm PUBLIC libepp lib_bzmesh)
 target_compile_features(elph.epm PRIVATE cxx_std_20)
 target_link_libraries(elph.epm PUBLIC MPI::MPI_CXX)
 
+add_executable(fbmc.epm elph.cpp)
+target_link_libraries(fbmc.epm PUBLIC libepp lib_bzmesh lib_fbmc)
+target_compile_features(fbmc.epm PRIVATE cxx_std_20)
+target_link_libraries(fbmc.epm PUBLIC MPI::MPI_CXX)
+
 add_executable(impact_io.epm impact_io.cpp)
 target_link_libraries(impact_io.epm PUBLIC libepp lib_bzmesh)
 target_compile_features(impact_io.epm PRIVATE cxx_std_20)

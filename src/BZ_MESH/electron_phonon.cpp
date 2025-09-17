@@ -254,7 +254,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
 #pragma omp parallel for schedule(static, chunk_size)
     for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
         auto done = ++counter;
-        if ((done % 100) == 0 && omp_get_thread_num() == 0) {
+        if ((done % 100) == 0 || done == m_list_vertices.size()) {
             std::cout << "\rDone " << done << "/" << m_list_vertices.size() << " (" << std::fixed << std::setprecision(1)
                       << (100.0 * done / m_list_vertices.size()) << "%)" << std::flush;
         }
