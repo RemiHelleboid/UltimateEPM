@@ -436,10 +436,10 @@ inline std::vector<vector3> order_cyclic(const std::vector<vector3>& pts) {
  */
 double Tetra::compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const {
     std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy, band_index);
-    vertices_iso_surface                      = order_cyclic(vertices_iso_surface);
     if (vertices_iso_surface.size() == 3) {
         return triangle_area(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2]);
     } else if (vertices_iso_surface.size() == 4) {
+        vertices_iso_surface = order_cyclic(vertices_iso_surface);
         return triangle_area(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[3]) +
                triangle_area(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2]);
     } else {
@@ -449,19 +449,17 @@ double Tetra::compute_tetra_iso_surface_energy_band(double energy, std::size_t b
 
 double Tetra::compute_tetra_iso_surface_energy_band2(double energy, std::size_t band_index) const {
     std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy, band_index);
-    vertices_iso_surface                      = order_cyclic(vertices_iso_surface);
     if (vertices_iso_surface.empty()) {
         return 0.0;
     } else if (vertices_iso_surface.size() == 3) {
         IsoTriangle triangle(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], energy);
         return fabs(triangle.get_signed_surface());
     } else {
+        vertices_iso_surface = order_cyclic(vertices_iso_surface);
         IsoTriangle triangle1(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[3], energy);
         IsoTriangle triangle2(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], energy);
         return fabs(triangle1.get_signed_surface()) + fabs(triangle2.get_signed_surface());
     }
-
-
 }
 
 inline double polygon_area(const std::vector<vector3>& pts) {
