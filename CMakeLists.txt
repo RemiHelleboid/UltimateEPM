@@ -48,9 +48,16 @@ if(ENABLE_CLANG_TIDY)
   set(CMAKE_CXX_CLANG_TIDY clang-tidy -checks=-*,readability-*)
 endif()
 
-if (ENABLE_MARCH_NATIVE)
+if (ENABLE_MARCH_NATIVE AND CMAKE_BUILD_TYPE STREQUAL "Release")
   message("Optimization for the local machine is enabled")
   add_compile_options(-march=native)
+  add_compile_options(-O3)
+  add_compile_options(-ffast-math -fno-trapping-math -fno-math-errno)
+  add_compile_options(-funroll-loops)
+  add_compile_options(-fomit-frame-pointer)
+  add_compile_options(-fstrict-aliasing)
+  add_compile_options(-fopenmp-simd)
+  add_compile_options(-ftree-vectorize)
 endif()
 
 
