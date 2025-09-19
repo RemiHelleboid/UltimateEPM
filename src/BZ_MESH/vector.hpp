@@ -24,7 +24,7 @@ namespace bz_mesh {
 
 enum class permutaion_type { XY, XZ, YZ, XYZ, YZX, ZXY };
 
-class vector3 {
+class alignas(32) vector3 {
  private:
     double m_x;
     double m_y;
@@ -34,9 +34,12 @@ class vector3 {
     vector3() : m_x(0u), m_y(0u), m_z(0u) {}
     vector3(double x, double y) : m_x(x), m_y(y), m_z(0u) {}
     vector3(double x, double y, double z) : m_x(x), m_y(y), m_z(z) {}
-    vector3(const vector3 &vector) : m_x(vector.m_x), m_y(vector.m_y), m_z(vector.m_z) {}
-    vector3(const Vector3D<double> &vector) : m_x(vector.X), m_y(vector.Y), m_z(vector.Z) {}
-    vector3(const Vector3D<int> &vector) : m_x(vector.X), m_y(vector.Y), m_z(vector.Z) {}
+    vector3(const vector3&)            = default;
+    vector3& operator=(const vector3&) = default;
+    vector3(vector3&&)                 = default;
+    vector3& operator=(vector3&&)      = default;
+    ~vector3()                         = default;
+    // vector3(const Vector3D<double>& v) : m_x(v.X), m_y(v.Y), m_z(v.Z) {}
 
     double x() const { return m_x; }
     double y() const { return m_y; }
@@ -268,5 +271,8 @@ class vector3 {
         return os;
     }
 };
+
+static_assert(std::is_trivially_copyable_v<vector3>, "vector3 must be trivially copyable");
+static_assert(std::is_standard_layout_v<vector3>, "vector3 must be standard-layout");
 
 }  // namespace bz_mesh
