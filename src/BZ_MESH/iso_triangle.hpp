@@ -10,6 +10,8 @@
  */
 
 #include <array>
+#include <random>
+#include <vector>
 
 #include "vector.hpp"
 
@@ -78,6 +80,24 @@ class IsoTriangle {
      * @return double
      */
     double get_signed_surface() const { return m_surface; }
+
+    /**
+     * @brief Draw a random point in the triangle. Uniform distribution.
+     * See https://math.stackexchange.com/questions/538458/how-to-sample-points-on-a-triangle-surface-in-3d
+     *
+     * @param gen
+     * @return vector3
+     */
+    vector3 draw_random_uniform_point_in_triangle(std::mt19937& gen) const {
+        std::uniform_real_distribution<> dis_double(0.0, 1.0);
+        double                           random_a = dis_double(gen);
+        double                           random_b = dis_double(gen);
+        double                           lambda_1 = (1.0 - sqrt(random_a));
+        double                           lambda_2 = sqrt(random_a) * (1.0 - random_b);
+        double                           lambda_3 = sqrt(random_a) * random_b;
+        //   return get_center();
+        return m_list_vertices[0] * lambda_1 + m_list_vertices[1] * lambda_2 + m_list_vertices[2] * lambda_3;
+    }
 };
 
 }  // namespace bz_mesh

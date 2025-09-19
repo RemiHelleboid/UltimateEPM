@@ -68,7 +68,7 @@ vector3 Tetra::compute_barycenter() const {
  * @brief Compute the gradient of the energy within the tetrahedron.
  *
  * @param values_at_vertices
- * @return vector3d
+ * @return vector3
  */
 vector3 Tetra::compute_gradient_at_tetra(const array4d& values_at_vertices) const {
     // Edges from vertex 0 to the others: a = v1 - v0, b = v2 - v0, c = v3 - v0
@@ -195,6 +195,20 @@ std::array<double, 4> Tetra::compute_barycentric_coordinates(const vector3& loca
     const double  lambda_4          = scalar_triple_product(v_loc1, m_list_edges[0], m_list_edges[1]) / tetra_determinant;
     const double  lambda_1          = 1.0 - lambda_2 - lambda_3 - lambda_4;
     return {lambda_1, lambda_2, lambda_3, lambda_4};
+}
+
+/**
+ * @brief Compute the linear interpolation of the energy of the band band_index at the point location.
+ *
+ * @param location
+ * @param band_index
+ * @return double
+ */
+double Tetra::interpolate_energy_at_band(const vector3& location, std::size_t band_index) const {
+    const auto                  barycentric_coord    = compute_barycentric_coordinates(location);
+    const std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
+    return energies_at_vertices[0] * barycentric_coord[0] + energies_at_vertices[1] * barycentric_coord[1] +
+           energies_at_vertices[2] * barycentric_coord[2] + energies_at_vertices[3] * barycentric_coord[3];
 }
 
 /**
@@ -356,6 +370,55 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
     return 0.5 * cross_product(AB, AC).norm();
 }
 
+// Returns vertices ordered cyclically in the plane they lie on
+inline std::vector<vector3> order_cyclic(const std::vector<vector3>& pts) {
+    if (pts.size() < 3) return pts;
+
+    // Compute centroid
+    vector3 centroid = std::accumulate(pts.begin(), pts.end(), vector3{0, 0, 0});
+    centroid /= static_cast<double>(pts.size());
+
+    // Compute polygon normal from first 3 distinct points
+    vector3 n   = cross_product(pts[1] - pts[0], pts[2] - pts[0]);
+    double  len = n.norm();
+    if (len > 0.0) n /= len;  // normalize
+
+    // Choose an in-plane axis u
+    vector3 u    = pts[0] - centroid;
+    double  ulen = u.norm();
+    if (ulen > 0.0)
+        u /= ulen;
+    else
+        u = vector3{1, 0, 0};  // fallback
+
+    // v = n × u (second in-plane axis)
+    vector3 v = cross_product(n, u);
+
+    struct VertexAngle {
+        vector3 p;
+        double  angle;
+    };
+    std::vector<VertexAngle> with_angles;
+    with_angles.reserve(pts.size());
+
+    for (auto& p : pts) {
+        vector3 d     = p - centroid;
+        double  x     = dot(d, u);
+        double  y     = dot(d, v);
+        double  angle = std::atan2(y, x);  // -pi .. pi
+        with_angles.push_back({p, angle});
+    }
+
+    std::sort(with_angles.begin(), with_angles.end(), [](auto& a, auto& b) { return a.angle < b.angle; });
+
+    std::vector<vector3> ordered;
+    ordered.reserve(pts.size());
+    for (auto& wa : with_angles)
+        ordered.push_back(wa.p);
+
+    return ordered;
+}
+
 /**
  * @brief Compute the surface of the tetrahedra for a given energy of a given band.
  * The iso-surface is computed by the function compute_band_iso_energy_surface, and then
@@ -372,15 +435,46 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
  * @return double
  */
 double Tetra::compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const {
-    const std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy, band_index);
+    std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy, band_index);
+    vertices_iso_surface                      = order_cyclic(vertices_iso_surface);
     if (vertices_iso_surface.size() == 3) {
         return triangle_area(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2]);
     } else if (vertices_iso_surface.size() == 4) {
-        return triangle_area(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2]) +
-               triangle_area(vertices_iso_surface[0], vertices_iso_surface[2], vertices_iso_surface[3]);
+        return triangle_area(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[3]) +
+               triangle_area(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2]);
     } else {
         return 0.0;
     }
+}
+
+double Tetra::compute_tetra_iso_surface_energy_band2(double energy, std::size_t band_index) const {
+    std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy, band_index);
+    vertices_iso_surface                      = order_cyclic(vertices_iso_surface);
+    if (vertices_iso_surface.empty()) {
+        return 0.0;
+    } else if (vertices_iso_surface.size() == 3) {
+        IsoTriangle triangle(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], energy);
+        return fabs(triangle.get_signed_surface());
+    } else {
+        IsoTriangle triangle1(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[3], energy);
+        IsoTriangle triangle2(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], energy);
+        return fabs(triangle1.get_signed_surface()) + fabs(triangle2.get_signed_surface());
+    }
+
+
+}
+
+inline double polygon_area(const std::vector<vector3>& pts) {
+    auto pts_ordered = order_cyclic(pts);
+    if (pts_ordered.size() < 3) return 0.0;
+
+    vector3 sum{0, 0, 0};
+    for (size_t i = 0; i < pts_ordered.size(); ++i) {
+        const vector3& p0 = pts_ordered[i];
+        const vector3& p1 = pts_ordered[(i + 1) % pts_ordered.size()];
+        sum += cross_product(p0, p1);
+    }
+    return 0.5 * sum.norm();
 }
 
 /**
@@ -398,8 +492,33 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
     if (energy_eV < m_min_energy_per_band[band_index] || energy_eV > m_max_energy_per_band[band_index]) {
         return 0.0;
     }
-    const double A    = compute_tetra_iso_surface_energy_band(energy_eV, band_index);  // m^-2
-    const double grad = m_gradient_energy_per_band[band_index];                        // eV·m
+    // const double A      = compute_tetra_iso_surface_energy_band(energy_eV, band_index);   // m^-2
+    // const double Aprime = compute_tetra_iso_surface_energy_band2(energy_eV, band_index);  // m^-2
+    // const double A_poly = polygon_area(compute_band_iso_energy_surface(energy_eV, band_index));
+    const double A = polygon_area(compute_band_iso_energy_surface(energy_eV, band_index));  // m^-2
+
+    // std::cout << "DEBUG DOS TETRA: A = " << A << " m^-2, A' = " << Aprime << " m^-2, A_poly = " << A_poly << " m^-2" << std::endl;
+
+    // // DEBUG
+    // double ratio = Aprime / A;
+    // if (ratio < 0.9 || ratio > 1.1) {
+    //     std::cout << "DEBUG DOS TETRA: A = " << A << " m^-2, A' = " << Aprime << " m^-2 : ratio A'/A = " << Aprime / A << std::endl;
+    //     // Additional debugging information can be added here
+    //     std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy_eV, band_index);
+    //     std::cout << "Iso-surface vertices (" << vertices_iso_surface.size() << "):" << std::endl;
+    //     for (const auto& v : vertices_iso_surface) {
+    //         std::cout << v<< std::endl;
+    //     }
+    //     std::cout << std::endl;
+    //     std::cout << "Afteer cyclic ordering:" << std::endl;
+    //     vertices_iso_surface = order_cyclic(vertices_iso_surface);
+    //     for (const auto& v : vertices_iso_surface) {
+    //         std::cout << v << std::endl;
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+    const double grad = m_gradient_energy_per_band[band_index];  // eV·m
     if (A <= 0.0 || grad <= 0.0) return 0.0;
 
     constexpr int g_s = 2;  // spin degeneracy (adjust if needed)
@@ -408,6 +527,42 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
     constexpr double pref = (g_s * g_v) / (8.0 * M_PI * M_PI * M_PI);  // 1/(2π)^3 = 1/(8π^3)
 
     return pref * (A / grad);
+}
+
+/**
+ * @brief Draw a random point on the iso-energy surface within the tetrahedra.
+ *
+ * @param iso_energy
+ * @param band_index
+ * @param rng
+ * @return vector3
+ */
+vector3 Tetra::draw_random_uniform_point_at_energy(double iso_energy, std::size_t band_index, std::mt19937& rng) const {
+    if (iso_energy < m_min_energy_per_band[band_index] || iso_energy > m_max_energy_per_band[band_index]) {
+        std::cout << "Band index: " << band_index << std::endl;
+        std::cout << "Energie bound: " << m_min_energy_per_band[band_index] << " " << m_max_energy_per_band[band_index] << std::endl;
+        std::cout << "iso_energy: " << iso_energy << std::endl;
+        throw std::invalid_argument("Energy is not in the band for this tetrahedron. Cannot draw a random point at this energy.");
+    }
+    const std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(iso_energy, band_index);
+    if (vertices_iso_surface.empty()) {
+        throw std::invalid_argument("Energy is not in the band for this tetrahedron. Cannot draw a random point at this energy.");
+    } else if (vertices_iso_surface.size() == 3) {
+        IsoTriangle triangle(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], iso_energy);
+        auto        point = triangle.draw_random_uniform_point_in_triangle(rng);
+        return point;
+    } else {
+        // If the iso-energy shape is a quadrilateral, the point is drawn uniformly in the quadrilateral.
+        // To do so, we randomly select on of the triangle, with a probability following the area of the triangle.
+        // Then we draw a point in the selected triangle, and return the point.
+        IsoTriangle  triangle1(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[3], iso_energy);
+        IsoTriangle  triangle2(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], iso_energy);
+        const double surface_triangle1 = triangle1.get_signed_surface();
+        const double surface_triangle2 = triangle2.get_signed_surface();
+        std::uniform_real_distribution<double> dist(0.0, surface_triangle1 + surface_triangle2);
+        return dist(rng) < surface_triangle1 ? triangle1.draw_random_uniform_point_in_triangle(rng)
+                                             : triangle2.draw_random_uniform_point_in_triangle(rng);
+    }
 }
 
 bool Tetra::is_energy_inside_band(double energy, std::size_t index_band) const {

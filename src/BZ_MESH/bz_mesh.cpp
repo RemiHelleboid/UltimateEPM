@@ -31,6 +31,11 @@ void MeshBZ::shift_bz_center(const vector3& center) {
     }
 }
 
+inline double MeshBZ::si_to_reduced_scale() const {
+    // reduced k = (a / (2π)) * k_SI
+    return m_material.get_lattice_constant_meter() / (2.0 * M_PI);
+}
+
 /**
  * @brief Read the geometry of the mesh from the .msh file: the vertices and the elements are added to
  * the m_list_vertices and m_list_elements lists.
@@ -236,7 +241,6 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_b
         m_min_band.push_back(*(minmax_band.first));
         m_max_band.push_back(*(minmax_band.second));
         add_new_band_energies_to_vertices(data_view);
-
     }
     gmsh::finalize();
     // PRINT INDICES
@@ -306,7 +310,7 @@ void MeshBZ::recompute_min_max_energies() {
  * @param nb_conduction_bands Number of conduction bands to keep
  */
 void MeshBZ::keep_only_bands(const int nb_valence_bands, const int nb_conduction_bands) {
-    int nb_valence_to_remove   = static_cast<int>(m_indices_valence_bands.size()) - nb_valence_bands;
+    int nb_valence_to_remove    = static_cast<int>(m_indices_valence_bands.size()) - nb_valence_bands;
     int nb_conduction_to_remove = static_cast<int>(m_indices_conduction_bands.size()) - nb_conduction_bands;
     if (nb_valence_to_remove < 0 || nb_conduction_to_remove < 0) {
         throw std::runtime_error("Cannot keep more bands than available.");
@@ -334,129 +338,7 @@ void MeshBZ::keep_only_bands(const int nb_valence_bands, const int nb_conduction
     std::cout << "After removing bands:" << std::endl;
     std::cout << "Number of valence bands: " << m_indices_valence_bands.size() << std::endl;
     std::cout << "Number of conduction bands: " << m_indices_conduction_bands.size() << std::endl;
-
 }
-
-// void MeshBZ::read_mesh_bands_from_multi_band_files(const std::string& dir_bands, int nb_bands_to_load) {
-//     if (m_list_vertices.empty()) throw std::runtime_error("Geometry must be loaded before bands (m_list_vertices is empty).");
-
-//     if (m_node_tags.empty()) throw std::runtime_error("m_node_tags is empty. Store node tags when reading geometry to preserve
-//     mapping.");
-
-//     // 1) Collect band files: band_<idx>.msh
-//     std::vector<std::pair<int, std::filesystem::path>> band_files;
-//     std::regex                                         re(R"(band_(\d+)\.msh$)");
-//     for (auto& p : std::filesystem::directory_iterator(dir_bands)) {
-//         if (!p.is_regular_file()) continue;
-//         const std::string name = p.path().filename().string();
-//         std::smatch       m;
-//         if (std::regex_search(name, m, re)) {
-//             int idx = std::stoi(m[1].str());
-//             band_files.emplace_back(idx, p.path());
-//         }
-//     }
-//     if (band_files.empty()) throw std::runtime_error("No band_*.msh files found in directory: " + dir_bands);
-
-//     std::sort(band_files.begin(), band_files.end(), [](auto& a, auto& b) { return a.first < b.first; });
-
-//     // 2) Build tag->vertex index map once (reference from geometry session)
-//     std::unordered_map<std::size_t, std::size_t> tag2idx;
-//     tag2idx.reserve(m_node_tags.size());
-//     for (std::size_t i = 0; i < m_node_tags.size(); ++i)
-//         tag2idx[m_node_tags[i]] = i;
-
-//     // 3) Clear existing band metadata (if reloading)
-//     m_indices_valence_bands.clear();
-//     m_indices_conduction_bands.clear();
-//     m_min_band.clear();
-//     m_max_band.clear();
-
-//     // 4) Loop over band files and ingest view values
-//     gmsh::initialize();
-//     gmsh::option::setNumber("General.Verbosity", 0);
-
-//     int count_band = 0;
-//     for (auto& [bidx, path] : band_files) {
-//         if (nb_bands_to_load > 0 && count_band >= nb_bands_to_load) {
-//             std::cout << "Loaded " << count_band << " bands, stopping as requested." << std::endl;
-//             break;
-//         }
-//         std::cout << "Opening band file: " << path << std::endl;
-
-//         gmsh::clear();
-//         gmsh::open(path.string());
-
-//         // Expect exactly one view
-//         std::vector<int> vtags;
-//         gmsh::view::getTags(vtags);
-//         if (vtags.empty()) throw std::runtime_error("No views found in " + path.string());
-//         if (vtags.size() > 1) std::cerr << "[warn] " << path << " contains " << vtags.size() << " views; using the first one.\n";
-
-//         const int vtag = vtags.front();
-
-//         std::string              type;
-//         std::vector<std::size_t> tags;
-//         double                   time;
-//         int                      numComp;
-//         std::vector<double>      data_view;
-
-//         gmsh::view::getHomogeneousModelData(vtag, 0, type, tags, data_view, time, numComp);
-
-//         if (type != "NodeData") throw std::runtime_error("Unexpected view type in " + path.string() + ": " + type);
-//         if (numComp != 1) throw std::runtime_error("Non-scalar NodeData in " + path.string());
-//         if (tags.size() != data_view.size()) throw std::runtime_error("tags.size() != data_view.size() in " + path.string());
-
-//         if (tags.size() != m_list_vertices.size()) {
-//             std::ostringstream oss;
-//             oss << "Node count mismatch in " << path << ": file has " << tags.size() << " nodes, mesh has " << m_list_vertices.size();
-//             throw std::runtime_error(oss.str());
-//         }
-
-//         // Map values to our vertex order via node tag
-//         std::vector<double> energies_in_vertex_order(m_list_vertices.size(), 0.0);
-//         for (std::size_t i = 0; i < tags.size(); ++i) {
-//             auto it = tag2idx.find(tags[i]);
-//             if (it == tag2idx.end()) {
-//                 std::ostringstream oss;
-//                 oss << "Node tag " << tags[i] << " from " << path << " not present in reference tag map.";
-//                 throw std::runtime_error(oss.str());
-//             }
-//             energies_in_vertex_order[it->second] = data_view[i];
-//             // HARD CODED SHIFT FOR CONDUCTION BANDS - DEBUG
-//             double band_gap_si = 1.05;
-//             if (energies_in_vertex_order[it->second] > 0.5) {
-//                 energies_in_vertex_order[it->second] -= band_gap_si;
-//                 std::cout << "Shifted conduction band energy from " << data_view[i] << " to " << energies_in_vertex_order[it->second] <<
-//                 " eV\n";
-//             }
-//         }
-
-//         // Attach this band to vertices
-//         add_new_band_energies_to_vertices(energies_in_vertex_order);
-
-//         // Classify + min/max for this band
-//         auto minmax_band = std::minmax_element(energies_in_vertex_order.begin(), energies_in_vertex_order.end());
-//         m_min_band.push_back(*minmax_band.first);
-//         m_max_band.push_back(*minmax_band.second);
-
-//         // Adjust criterion if your energy zero differs
-//         const bool is_valence = (*minmax_band.second) <= 0.0;
-//         if (is_valence)
-//             m_indices_valence_bands.push_back(count_band);
-//         else
-//             m_indices_conduction_bands.push_back(count_band);
-
-//         ++count_band;
-//     }
-
-//     gmsh::finalize();
-
-//     // 5) Recompute per-tetra helpers
-//     compute_min_max_energies_at_tetras();
-//     compute_energy_gradient_at_tetras();
-
-//     std::cout << "Loaded " << count_band << " bands from " << band_files.size() << " files in directory: " << dir_bands << std::endl;
-// }
 
 void MeshBZ::add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices) {
     if (energies_at_vertices.size() != m_list_vertices.size()) {
@@ -622,7 +504,6 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
 }
 
 std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int band_index, std::size_t nb_points, int num_threads) const {
-
     if (band_index < 0 || band_index >= static_cast<int>(m_min_band.size())) {
         throw std::out_of_range("Band index out of range in compute_dos_band_at_band_auto.");
     }
@@ -648,6 +529,44 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int band_
     return {list_energies, list_dos};
 }
 
+/**
+ * @brief Draw a random tetrahedron index in the mesh, on a iso-energy surface.
+ *
+ * @param energy
+ * @param idx_band
+ * @param random_generator
+ * @return std::size_t
+ */
+std::size_t MeshBZ::draw_random_tetrahedron_index_with_dos_probability(double        energy,
+                                                                       std::size_t   idx_band,
+                                                                       std::mt19937& random_generator) const {
+    std::vector<double> list_dos;
+    list_dos.reserve(m_list_tetrahedra.size());
+    for (auto&& tetra : m_list_tetrahedra) {
+        double dos = tetra.compute_tetra_dos_energy_band(energy, idx_band);
+        list_dos.push_back(dos);
+    }
+    std::discrete_distribution<std::size_t> distribution(list_dos.begin(), list_dos.end());
+    return distribution(random_generator);
+}
+
+/**
+ * @brief Draw a random k-vector in the mesh, on a iso-energy surface.
+ * The k-vector is drawn with a probability locally proportional to the DOS.
+ *
+ * @param energy
+ * @param idx_band
+ * @param random_generator
+ * @return vector3
+ */
+vector3 MeshBZ::draw_random_k_point_at_energy(double energy, std::size_t idx_band, std::mt19937& random_generator) const {
+    if (energy < m_min_band[idx_band] || energy > m_max_band[idx_band]) {
+        throw std::runtime_error("Energy is out of range");
+    }
+    const std::size_t index_tetra = draw_random_tetrahedron_index_with_dos_probability(energy, idx_band, random_generator);
+    return m_list_tetrahedra[index_tetra].draw_random_uniform_point_at_energy(energy, idx_band, random_generator);
+}
+
 void MeshBZ::export_k_points_to_file(const std::string& filename) const {
     std::ofstream file(filename);
     if (!file.is_open()) {
@@ -659,10 +578,6 @@ void MeshBZ::export_k_points_to_file(const std::string& filename) const {
     file.close();
 }
 
-inline double MeshBZ::si_to_reduced_scale() const {
-    // reduced k = (a / (2π)) * k_SI
-    return m_material.get_lattice_constant_meter() / (2.0 * M_PI);
-}
 
 // helper: half-width in reduced units.
 static inline double bz_halfwidth_reduced() { return 1.0; }  // <- your case
@@ -811,6 +726,122 @@ bool MeshBZ::inside_ws_bcc(const vector3& k_SI) const noexcept {
     const double    ax = std::abs(kr.x()), ay = std::abs(kr.y()), az = std::abs(kr.z());
     // use bitwise & so all comparisons are evaluated (branchless)
     return (ax <= hw + eps) & (ay <= hw + eps) & (az <= hw + eps) & ((ax + ay + az) <= (1.5 * hw + eps));
+}
+
+/**
+ * @brief Read phonon scattering rates from a file.
+ *
+ * @param path
+ */
+void MeshBZ::read_phonon_scattering_rates_from_file(const std::filesystem::path& path) {
+    std::cout << "Reading phonon scattering rates (CSV) from file " << path.string() << " ..." << std::endl;
+
+    std::ifstream in(path);
+    if (!in.is_open()) {
+        throw std::runtime_error("Could not open file " + path.string());
+    }
+
+    m_list_phonon_scattering_rates.clear();
+    m_list_phonon_scattering_rates.resize(m_list_vertices.size());
+
+    std::string line;
+    std::size_t line_no = 0;
+
+    for (std::size_t idx_vtx = 0; idx_vtx < m_list_vertices.size(); ++idx_vtx) {
+        const auto&       vertex   = m_list_vertices[idx_vtx];
+        const std::size_t nbands   = vertex.get_number_bands();
+        auto&             per_band = m_list_phonon_scattering_rates[idx_vtx];
+        per_band.resize(nbands);
+
+        for (std::size_t idx_band = 0; idx_band < nbands; ++idx_band) {
+            do {
+                if (!std::getline(in, line)) {
+                    std::cout << "Line no: " << line_no << " " << line << std::endl;
+                    throw std::runtime_error("Unexpected EOF at vertex " + std::to_string(idx_vtx) + ", band " + std::to_string(idx_band));
+                }
+                ++line_no;
+            } while (line.empty() || line[0] == '#' || line[0] == ';');
+
+            for (char& c : line)
+                if (c == ',') c = ' ';
+            std::istringstream iss(line);
+
+            std::size_t band_idx_file{};
+            double      energy_file{};
+            Rate8       rates{};
+
+            if (!(iss >> band_idx_file >> energy_file >> rates[static_cast<std::size_t>(PhMode::ALO)] >>
+                  rates[static_cast<std::size_t>(PhMode::ALA)] >> rates[static_cast<std::size_t>(PhMode::ATO)] >>
+                  rates[static_cast<std::size_t>(PhMode::ATA)] >> rates[static_cast<std::size_t>(PhMode::ELO)] >>
+                  rates[static_cast<std::size_t>(PhMode::ELA)] >> rates[static_cast<std::size_t>(PhMode::ETO)] >>
+                  rates[static_cast<std::size_t>(PhMode::ETA)])) {
+                throw std::runtime_error("Malformed CSV line " + std::to_string(line_no));
+            }
+            if (band_idx_file == nbands) {
+                // More bands in the file than in the mesh: ignore extra bands
+                break;
+            }
+
+            per_band[idx_band] = rates;
+        }
+    }
+    in.close();
+
+    std::cout << "Finished reading phonon scattering rates for " << m_list_vertices.size() << " vertices." << std::endl;
+}
+
+/**
+ * @brief Interpolate the phonon scattering rate at a given location for a given band.
+ *
+ * @param location
+ * @param idx_band
+ * @return Rate8
+ */
+Rate8 MeshBZ::interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const {
+    // Find the tetrahedron containing the location
+    const Tetra* tetra = find_tetra_at_location(location);
+    if (!tetra) {
+        throw std::runtime_error("Location is not inside any tetrahedron");
+    }
+
+    // Get the vertex indices of the tetrahedron
+    const auto& vertex_indices = tetra->get_index_vertices_with_sorted_energy_at_band(idx_band);
+
+    // Interpolate the scattering rates at the vertices
+    Rate8 rates;
+    for (std::size_t i = 0; i < vertex_indices.size(); ++i) {
+        const auto& vertex = m_list_vertices[vertex_indices[i]];
+        for (std::size_t idx_mode = 0; idx_mode < rates.size(); ++idx_mode) {
+            rates[idx_mode] += m_list_phonon_scattering_rates[vertex.get_index()][idx_band][idx_mode];
+        }
+    }
+
+    // Average the rates
+    for (auto& rate : rates) {
+        rate /= static_cast<double>(vertex_indices.size());
+    }
+    return rates;
+}
+
+// Helper: sum 8 phonon-mode rates (ALO, ALA, ATO, ATA, ELO, ELA, ETO, ETA)
+inline double MeshBZ::sum_modes(const Rate8& r) const noexcept {
+    double s = 0.0;
+    for (std::size_t m = 0; m < kModeCount; ++m)
+        s += r[m];
+    return s;
+}
+
+double MeshBZ::compute_P_Gamma() const {
+    double pgamma_max = 0.0;
+    for (const auto& perVertex : m_list_phonon_scattering_rates) {
+        for (const auto& rate8 : perVertex) {
+            const double tot = sum_modes(rate8);
+            if (tot > pgamma_max) {
+                pgamma_max = tot;
+            }
+        }
+    }
+    return pgamma_max;
 }
 
 }  // namespace bz_mesh

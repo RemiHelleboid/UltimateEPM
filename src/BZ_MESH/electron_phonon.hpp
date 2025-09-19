@@ -35,6 +35,8 @@ enum class PhononMode { acoustic, optical, none };
 enum class PhononDirection { longitudinal, transverse, none };
 enum class PhononEvent { absorption, emission, none };
 
+
+
 // Order: ac/opt × L/T × ab/em  → indices 0..7
 constexpr int rate_index(PhononMode m, PhononDirection d, PhononEvent e) {
     int M = (m == PhononMode::acoustic ? 0 : m == PhononMode::optical ? 1 : -1);

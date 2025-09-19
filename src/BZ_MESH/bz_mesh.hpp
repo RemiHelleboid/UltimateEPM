@@ -26,6 +26,13 @@
 
 namespace bz_mesh {
 
+enum class PhMode : std::uint8_t { ALO, ALA, ATO, ATA, ELO, ELA, ETO, ETA, COUNT };
+constexpr std::size_t kModeCount = static_cast<std::size_t>(PhMode::COUNT);
+
+using Rate8           = std::array<double, kModeCount>;
+using BandRates       = std::vector<Rate8>;      // per band
+using VertexBandRates = std::vector<BandRates>;  // per vertex
+
 enum class BandType { valence, conduction };
 
 class MeshBZ {
@@ -137,18 +144,29 @@ class MeshBZ {
      */
     double m_bz_halfwidth = 0.5;
 
+    /**
+     * @brief Precomputed electron-phonon scattering rates at each vertex of the mesh, for each band, for each phonon mode.
+     * m_list_phonon_scattering_rates[idx_vertex][idx_band][idx_mode] is the scattering rate at the idx_vertex-th vertex, for the
+     * idx_band-th band, for the idx_mode-th phonon mode. Each entry is an array of 8 doubles, containing the scattering rates for
+     * absorption and emission of acoustic and optical phonons.
+     */
+    std::vector<std::vector<Rate8>> m_list_phonon_scattering_rates;
+
  public:
     MeshBZ() = default;
     MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material) {};
     MeshBZ(const MeshBZ&) = default;
+
+    void export_k_points_to_file(const std::string& filename) const;
 
     vector3 get_vertex_position(std::size_t idx_vtx) const { return m_list_vertices[idx_vtx].get_position(); }
 
     vector3 get_center() const { return m_center; }
     void    shift_bz_center(const vector3& shift);
 
-    double get_reduce_bz_factor() const { return m_reduce_bz_factor; }
-    void   set_reduce_bz_factor(double factor) { m_reduce_bz_factor = factor; }
+    double        get_reduce_bz_factor() const { return m_reduce_bz_factor; }
+    void          set_reduce_bz_factor(double factor) { m_reduce_bz_factor = factor; }
+    inline double si_to_reduced_scale() const;
 
     bbox_mesh           compute_bounding_box() const;
     void                build_search_tree();
@@ -213,7 +231,7 @@ class MeshBZ {
      * @return true if inside, false otherwise
      */
     bool inside_ws_bcc(const vector3& k_SI) const noexcept;
-
+    
     vector3     get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
     std::size_t get_nearest_k_index(const Vector3D<double>& k) const;
     std::size_t get_nearest_k_index(const vector3& k) const;
@@ -226,11 +244,14 @@ class MeshBZ {
     const std::vector<Vertex>& get_list_vertices() const { return m_list_vertices; }
     const std::vector<Tetra>&  get_list_elements() const { return m_list_tetrahedra; }
 
-    double        compute_mesh_volume() const;
-    double        compute_iso_surface(double iso_energy, int band_index) const;
-    double        compute_dos_at_energy_and_band(double iso_energy, int band_index) const;
-    double        compute_dos_like_integral(double iso_energy, const std::vector<double>& f_values) const;
-    inline double si_to_reduced_scale() const;
+    double      compute_mesh_volume() const;
+    double      compute_iso_surface(double iso_energy, int band_index) const;
+    double      compute_dos_at_energy_and_band(double iso_energy, int band_index) const;
+    std::size_t draw_random_tetrahedron_index_with_dos_probability(double        energy,
+                                                                   std::size_t   idx_band,
+                                                                   std::mt19937& random_generator) const;
+
+    vector3 draw_random_k_point_at_energy(double energy, std::size_t idx_band, std::mt19937& random_generator) const;
 
     std::vector<std::vector<double>> compute_dos_band_at_band(int         band_index,
                                                               double      min_energy,
@@ -239,7 +260,10 @@ class MeshBZ {
                                                               std::size_t nb_points) const;
     std::vector<std::vector<double>> compute_dos_band_at_band_auto(int band_index, std::size_t nb_points, int num_threads) const;
 
-    void export_k_points_to_file(const std::string& filename) const;
+    void  read_phonon_scattering_rates_from_file(const std::filesystem::path& path);
+    Rate8 interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const;
+    inline double sum_modes(const Rate8& r) const noexcept;
+    double               compute_P_Gamma() const;
 };
 
 }  // namespace bz_mesh

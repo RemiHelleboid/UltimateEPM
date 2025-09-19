@@ -1,10 +1,10 @@
-set(HEADER_FILES_LIBFBMC single_part_fbmc.hpp
+set(HEADER_FILES_LIBFBMC single_part_fbmc.hpp particle.hpp
 
   )
 
 
 set(SOURCE_FILES_LIBFBMC
-  single_part_fbmc.cpp
+  single_part_fbmc.cpp particle.cpp
 )
 
 add_library(lib_fbmc STATIC ${SOURCE_FILES_LIBFBMC} ${HEADER_FILES_LIBFBMC})
