@@ -93,16 +93,6 @@ struct PhononDispersion {
         const double linear_part = std::fma(m_vs, q, m_omega);             // m_omega + m_vs*q
         const double omega_q     = std::fma(m_c, q_squared, linear_part);  // + m_c*q^2
 
-        // if (omega_q < 0.0) {
-        //     std::cout << "ERROR: negative phonon energy: " << omega_q << std::endl;
-        //     std::cout << "Q: " << q << std::endl;
-        //     std::cout << "OMEGA: " << m_omega << std::endl;
-        //     std::cout << "VS: " << m_vs << std::endl;
-        //     std::cout << "C: " << m_c << std::endl;
-        //     std::cout << "vs*q: " << m_vs * q << std::endl;
-        //     std::cout << "c*q^2: " << m_c * q_squared << std::endl;
-        //     throw std::runtime_error("Negative phonon energy");
-        // }
         return omega_q;
     }
 
@@ -324,7 +314,7 @@ class ElectronPhonon : public BZ_States {
     void set_temperature(double temperature) { m_temperature = temperature; }
     void set_density(double rho) { m_rho = rho; }
 
-    void compute_electron_phonon_rates_over_mesh();
+    void compute_electron_phonon_rates_over_mesh(bool irreducible_wedge_only = false);
     void add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename);
 
     void export_rate_values(const std::string& filename) const;
@@ -332,7 +322,8 @@ class ElectronPhonon : public BZ_States {
     void compute_plot_electron_phonon_rates_vs_energy_over_mesh(int                nb_bands,
                                                                 double             max_energy,
                                                                 double             energy_step,
-                                                                const std::string& filename);
+                                                                const std::string& filename,
+                                                                bool               irreducible_wedge_only = false);
 };
 
 }  // namespace bz_mesh

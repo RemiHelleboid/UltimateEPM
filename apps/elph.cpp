@@ -36,6 +36,7 @@ int main(int argc, char const *argv[])
     TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
+    TCLAP::SwitchArg plot_with_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -43,6 +44,7 @@ int main(int argc, char const *argv[])
     cmd.add(arg_nb_valence_bands);
     cmd.add(arg_nb_energies);
     cmd.add(arg_nb_threads);
+    cmd.add(plot_with_wedge);
 
     cmd.parse(argc, argv);
 
@@ -78,13 +80,13 @@ int main(int argc, char const *argv[])
     
     
     ElectronPhonon.load_phonon_parameters(phonon_file);
-
-    ElectronPhonon.compute_electron_phonon_rates_over_mesh();
+    bool irreducible_wedge_only = plot_with_wedge.getValue();
+    ElectronPhonon.compute_electron_phonon_rates_over_mesh(irreducible_wedge_only);
     ElectronPhonon.export_rate_values("rates_all.csv");
 
     const double energy_step = 0.01; // eV
     const double max_energy  = 10.0;  // eV
-    ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels, max_energy, energy_step, "rates_vs_energy.csv");
+    ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels, max_energy, energy_step, "rates_vs_energy.csv", irreducible_wedge_only);
 
     ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
 

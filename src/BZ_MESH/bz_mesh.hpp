@@ -231,7 +231,9 @@ class MeshBZ {
      * @return true if inside, false otherwise
      */
     bool inside_ws_bcc(const vector3& k_SI) const noexcept;
-    
+
+    bool is_irreducible_wedge(const vector3& k_SI) const noexcept;
+
     vector3     get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
     std::size_t get_nearest_k_index(const Vector3D<double>& k) const;
     std::size_t get_nearest_k_index(const vector3& k) const;
@@ -260,10 +262,10 @@ class MeshBZ {
                                                               std::size_t nb_points) const;
     std::vector<std::vector<double>> compute_dos_band_at_band_auto(int band_index, std::size_t nb_points, int num_threads) const;
 
-    void  read_phonon_scattering_rates_from_file(const std::filesystem::path& path);
-    Rate8 interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const;
+    void          read_phonon_scattering_rates_from_file(const std::filesystem::path& path);
+    Rate8         interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const;
     inline double sum_modes(const Rate8& r) const noexcept;
-    double               compute_P_Gamma() const;
+    double        compute_P_Gamma() const;
 };
 
 }  // namespace bz_mesh

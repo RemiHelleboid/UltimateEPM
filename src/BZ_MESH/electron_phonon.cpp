@@ -239,7 +239,13 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
     return rates_k1_n1;
 }
 
-void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
+/**
+ * @brief Compute electron-phonon rates over the mesh.
+ *
+ * @param irreducible_wedge_only If true, only compute rates for the irreducible wedge.
+ * Warning: one still have to loop over k2 in the full BZ for each k1 in the irreducible wedge.
+ */
+void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_wedge_only) {
     auto indices_conduction_bands = m_indices_conduction_bands;
     auto min_idx_conduction_band  = *std::min_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
     auto max_idx_conduction_band  = *std::max_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
@@ -251,30 +257,42 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh() {
     std::atomic<std::size_t> counter{0};
 
     constexpr int chunk_size = 32;
-#pragma omp parallel for schedule(static, chunk_size)
+#pragma omp parallel for schedule(dynamic)
     for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
+        bool to_compute = is_irreducible_wedge(m_list_vertices[idx_k1].get_position()) && irreducible_wedge_only;
+
         auto done = ++counter;
         if ((done % 100) == 0 || done == m_list_vertices.size()) {
             std::cout << "\rDone " << done << "/" << m_list_vertices.size() << " (" << std::fixed << std::setprecision(1)
                       << (100.0 * done / m_list_vertices.size()) << "%)" << std::flush;
         }
         for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
+            if (!to_compute) {
+                m_list_vertices[idx_k1].add_electron_phonon_rates(std::array<double, 8>{});
+                continue;
+            }
             auto hole_rate = compute_hole_phonon_rate(idx_n1, idx_k1);
             auto array_h   = hole_rate.to_array();
             m_list_vertices[idx_k1].add_electron_phonon_rates(array_h);
         }
         for (std::size_t idx_n1 = min_idx_conduction_band; idx_n1 <= max_idx_conduction_band; ++idx_n1) {
+            if (!to_compute) {
+                m_list_vertices[idx_k1].add_electron_phonon_rates(std::array<double, 8>{});
+                continue;
+            }
             auto rate  = compute_electron_phonon_rate(idx_n1, idx_k1);
             m_list_vertices[idx_k1].add_electron_phonon_rates(rate.to_array());
         }
     }
+    std::cout << "\rComputed " << counter << " k-points out of " << m_list_vertices.size() << " (100%)";
     std::cout << std::endl;
 }
 
 void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int                nb_bands,
                                                                             double             max_energy,
                                                                             double             energy_step,
-                                                                            const std::string& filename) {
+                                                                            const std::string& filename,
+                                                                            bool               irreducible_wedge_only) {
     if (energy_step <= 0.0) throw std::invalid_argument("energy_step must be > 0");
     if (max_energy < 0.0) throw std::invalid_argument("max_energy must be >= 0");
 
@@ -299,6 +317,9 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
         out << ',' << s;
     out << '\n';
 
+
+    double irreducible_wedge_factor = (irreducible_wedge_only) ? 48.0 : 1.0;
+
     // Integer-stepped energy sweep to avoid FP drift
     const std::size_t n_steps = static_cast<std::size_t>(std::floor(max_energy / energy_step)) + 1;
 
@@ -311,6 +332,10 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
         num.fill(0.0);
 
         for (const auto& tetra : m_list_tetrahedra) {
+            vector3 k_bary = tetra.compute_barycenter();
+            if (irreducible_wedge_only && !is_irreducible_wedge(k_bary)) {
+                continue;
+            }
             for (int b = 0; b < nb_bands; ++b) {
                 const double dos_t = tetra.compute_tetra_dos_energy_band(E, b);
                 if (!std::isfinite(dos_t))

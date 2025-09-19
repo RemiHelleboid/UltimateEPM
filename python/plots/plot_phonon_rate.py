@@ -74,5 +74,5 @@ if __name__ == "__main__":
 
     plot_rates("rates_vs_energy.csv", "../examples/JallepalliHRates97.csv")
     plt.show()
-    plot_rates("rates_vs_energy.csv", "../examples/RatesSiKunikiyo1994.csv")
+    plot_rates("rates_vs_energy.csv", "../examples/RatesSiFischetti1988.csv")
     plt.show()

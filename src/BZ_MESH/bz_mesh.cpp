@@ -728,6 +728,27 @@ bool MeshBZ::inside_ws_bcc(const vector3& k_SI) const noexcept {
     return (ax <= hw + eps) & (ay <= hw + eps) & (az <= hw + eps) & ((ax + ay + az) <= (1.5 * hw + eps));
 }
 
+// bool is_in_first_BZ(const Vector3D<double>& k, bool one_eighth = false) {
+//     bool cond_1      = fabs(k.X) <= 1.0 && fabs(k.Y) <= 1.0 && fabs(k.Z) <= 1.0;
+//     bool cond_2      = fabs(k.X) + fabs(k.Y) + fabs(k.Z) <= 3.0 / 2.0;
+//     bool cond_eighth = (k.X >= 0.0 && k.Y >= 0.0 && k.Z >= 0.0);
+//     return cond_1 && cond_2 && (one_eighth ? cond_eighth : true);
+// }
+
+// def IsInIrreducibleWedge(k):
+//     return (k[2] >= 0.0 and k[2] <= k[1] and k[1] <= k[0] and k[0] <= 1.0) and \
+//         (np.sum(k) <= 3.0/2.0)
+
+
+bool MeshBZ::is_irreducible_wedge(const vector3& k_SI) const noexcept {
+    const double x = k_SI.x() * si_to_reduced_scale();
+    const double y = k_SI.y() * si_to_reduced_scale();
+    const double z = k_SI.z() * si_to_reduced_scale();
+    // std::cout << "Checking irreducible wedge for k = (" << x << ", " << y << ", " << z << ")" << std::endl;
+    constexpr double eps = 1e-12;
+    return (x >= -eps) && (y >= -eps) && (z >= -eps) && (x <= y + eps) && (y <= z + eps) && (z <= 1.0 + eps) && ((x + y + z) <= 1.5 + eps);
+}
+
 /**
  * @brief Read phonon scattering rates from a file.
  *
