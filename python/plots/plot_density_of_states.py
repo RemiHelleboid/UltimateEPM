@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 try:
     import matplotlib as mpl
     import scienceplots  # noqa: F401
-    plt.style.use(['science', 'muted', 'no-latex'])
+    plt.style.use(['science', 'muted', 'no-latex', 'grid'])
     mpl.rcParams['figure.figsize'] = [3.5, 2.8]
     mpl.rcParams['figure.dpi'] = 300
 except Exception:
@@ -74,7 +74,7 @@ def plot_dos_per_band(filename: str, ax=None, band_type: str = "all"):
     ax.legend(fontsize='x-small', title_fontsize='x-small',
               title="Band index", fancybox=True, ncol=2)
     ax.set_xlabel("Energy (eV)")
-    ax.set_ylabel("Density of states (a.u.)")
+    ax.set_ylabel("Density of states ($m^{-3} eV^{-1}$)")
     ax.set_ylim(bottom=0.0)
 
     if band_type == "conduction":
@@ -147,7 +147,7 @@ def plot_dos_sum_bands(
 
     ax.plot(eplot, gtot, c="darkblue", label="Sum of {} band{}".format(count, "" if count == 1 else "s"))
     ax.set_xlabel("Energy (eV)")
-    ax.set_ylabel("Density of states (a.u.)")
+    ax.set_ylabel("Density of states ($m^{-3} eV^{-1}$)")
     ax.set_ylim(bottom=0.0)
     ax.set_xlim(emin, emax)
     ax.legend(frameon=False, fontsize="x-small")

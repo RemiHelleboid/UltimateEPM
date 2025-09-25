@@ -184,15 +184,15 @@ struct DeformationPotential {
         constexpr double cm_to_m = 1e2;
         if (m_mode == PhononMode::acoustic) {
             if (idx_band == 0) {
-                return 1.2 * q.norm();  // in eV/m
+                return 2.2 * q.norm();  // in eV/m
             } else {
-                return 1.7 * q.norm();  // in eV/m
+                return 3.0 * q.norm();  // in eV/m
             }
         } else {
             if (idx_band == 0) {
                 return 1.75e8 * cm_to_m;  // in eV/m
             } else {
-                return 2.25e8 * cm_to_m;  // in eV/m
+                return 2.10e8 * cm_to_m;  // in eV/m
             }
         }
     }
@@ -286,7 +286,7 @@ typedef std::pair<PhononMode, PhononDirection> PhononModeDirection;
 
 class ElectronPhonon : public BZ_States {
  private:
-    double               m_temperature        = 300.0;
+    double               m_temperature        = 500.0;
     double               m_rho                = 2.329e3;
     double               m_radii_wigner_seitz = 0.0;
     HoleOverlapIntParams m_hole_overlap_int_params;

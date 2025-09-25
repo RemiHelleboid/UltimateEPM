@@ -88,43 +88,43 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
             const double overlap  = electron_overlap_integral(k1, k2);
             const double overlap2 = overlap * overlap;
 
-            // Phonon wavevector q = k2 - k1 (SI)
-            vector3 q_ph = k2 - k1;
-
-            // Fold q back to first BZ if needed (no Umklapp yet)
-            if (!is_inside_mesh_geometry(q_ph)) {
-                q_ph = fold_ws_bcc(q_ph);
-            }
-            // if (!is_inside_mesh_geometry(q_ph)) throw std::runtime_error("Q is not inside the BZ");
-            assert(is_inside_mesh_geometry(q_ph) && "Q is not inside the BZ");
-
-            const double q_ph_norm = q_ph.norm();
-
-            // if (omega <= 0.0) continue;  // skip unphysical/zero frequency points
-            assert(omega >= 0.0 && "Phonon frequency is negative");
-
             // Loop phonon branches
             for (const auto& ph_mode : m_phonon_dispersion) {
                 const PhononModeDirection& mode_direction = ph_mode.first;
                 const auto&                disp           = ph_mode.second;
 
-                // ---- Phonon quantities
-                // omega [1/s] from dispersion(|q|)
-                const double omega = disp.get_phonon_dispersion_from_lookup(q_ph_norm);
-                // E_ph in eV
-                const double Eph_eV = EmpiricalPseudopotential::Constants::h_bar_eV * omega;
-                
-                // Deformation potential in SI Joules
-                const DeformationPotential defpot =
-                (mode_direction.first == PhononMode::acoustic) ? m_acoustic_deformation_potential_e : m_optical_deformation_potential_e;
-                const double Delta_J =
-                    defpot.get_fischetti_deformation_potential(q_ph, idx_n1) * EmpiricalPseudopotential::Constants::q_e;  // eV -> J
-
                 // ---- Loop emission/absorption
                 for (double sign_phonon : {-1.0, 1.0}) {
+                    // Phonon wavevector q = k2 - k1 (SI)
+                    // vector3 q_ph = k2 - k1;
+                    // q =
+                    vector3 q_ph = k1 + sign_phonon * k2;
+
+                    // Fold q back to first BZ if needed (no Umklapp yet)
+                    if (!is_inside_mesh_geometry(q_ph)) {
+                        q_ph = retrieve_k_inside_mesh_geometry(q_ph);
+                        // std::cout << "Old Q : " << (k2 - k1).norm() << " 1/m, folded Q: " << q_ph.norm() << " 1/m" << std::endl;
+                    }
+                    if (!is_inside_mesh_geometry(q_ph)) throw std::runtime_error("Q is not inside the BZ");
+                    const double q_ph_norm = q_ph.norm();
+
+                    // ---- Phonon quantities
+                    // omega [1/s] from dispersion(|q|)
+                    const double omega = disp.get_phonon_dispersion(q_ph_norm);
+                    // E_ph in eV
+                    const double Eph_eV = EmpiricalPseudopotential::Constants::h_bar_eV * omega;
+                    // std::cout << "ħω = " << Eph_eV << " eV for |q| = " << q_ph_norm << " 1/m" << std::endl;
+
+                    // Deformation potential in SI Joules
+                    const DeformationPotential defpot = (mode_direction.first == PhononMode::acoustic) ? m_acoustic_deformation_potential_e
+                                                                                                       : m_optical_deformation_potential_e;
+                    const double               Delta_J =
+                        defpot.get_fischetti_deformation_potential(q_ph, idx_n1) * EmpiricalPseudopotential::Constants::q_e;  // eV -> J
+
                     // Bose factor in eV units
                     const double N0        = bose_einstein_distribution(Eph_eV, m_temperature);  // dimensionless
                     const double bose_part = (sign_phonon < 0.0) ? (N0 + 1.0) : N0;              // +1: emission, plain N0: absorption
+                    // std::cout << "N0 = " << N0 << ", bose_part = " << bose_part << std::endl;
 
                     // Final electronic energy (eV)
                     const double E_final_eV = energy_n1_k1 + sign_phonon * Eph_eV;
@@ -139,6 +139,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                     double rate_value = (EmpiricalPseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
                                         bose_part * dos_per_J;
                     rate_value /= m_reduce_bz_factor;  // Correct for BZ volume if mesh does not match theoretical BZ volume
+                    rate_value *= m_spin_degeneracy;    // Spin degeneracy factor
 
                     // rates_k1_n1.add_rate(RateValue(phonon_mode, phonon_direction, phonon_event, rate_value));
                     rates_k1_n1.add_rate(RateValue(mode_direction.first,
@@ -262,7 +263,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
         bool to_compute = is_irreducible_wedge(m_list_vertices[idx_k1].get_position()) && irreducible_wedge_only;
 
         auto done = ++counter;
-        if ((done % 100) == 0 || done == m_list_vertices.size()) {
+        if ((done % 100) == 0 || done == m_list_vertices.size() && omp_get_thread_num() == 0) {
             std::cout << "\rDone " << done << "/" << m_list_vertices.size() << " (" << std::fixed << std::setprecision(1)
                       << (100.0 * done / m_list_vertices.size()) << "%)" << std::flush;
         }

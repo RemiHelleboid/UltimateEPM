@@ -490,39 +490,13 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
     if (energy_eV < m_min_energy_per_band[band_index] || energy_eV > m_max_energy_per_band[band_index]) {
         return 0.0;
     }
-    // const double A      = compute_tetra_iso_surface_energy_band(energy_eV, band_index);   // m^-2
-    // const double Aprime = compute_tetra_iso_surface_energy_band2(energy_eV, band_index);  // m^-2
-    // const double A_poly = polygon_area(compute_band_iso_energy_surface(energy_eV, band_index));
+    
     const double A = polygon_area(compute_band_iso_energy_surface(energy_eV, band_index));  // m^-2
-
-    // std::cout << "DEBUG DOS TETRA: A = " << A << " m^-2, A' = " << Aprime << " m^-2, A_poly = " << A_poly << " m^-2" << std::endl;
-
-    // // DEBUG
-    // double ratio = Aprime / A;
-    // if (ratio < 0.9 || ratio > 1.1) {
-    //     std::cout << "DEBUG DOS TETRA: A = " << A << " m^-2, A' = " << Aprime << " m^-2 : ratio A'/A = " << Aprime / A << std::endl;
-    //     // Additional debugging information can be added here
-    //     std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy_eV, band_index);
-    //     std::cout << "Iso-surface vertices (" << vertices_iso_surface.size() << "):" << std::endl;
-    //     for (const auto& v : vertices_iso_surface) {
-    //         std::cout << v<< std::endl;
-    //     }
-    //     std::cout << std::endl;
-    //     std::cout << "Afteer cyclic ordering:" << std::endl;
-    //     vertices_iso_surface = order_cyclic(vertices_iso_surface);
-    //     for (const auto& v : vertices_iso_surface) {
-    //         std::cout << v << std::endl;
-    //     }
-    //     std::cout << std::endl;
-    // }
 
     const double grad = m_gradient_energy_per_band[band_index];  // eV·m
     if (A <= 0.0 || grad <= 0.0) return 0.0;
 
-    constexpr int g_s = 2;  // spin degeneracy (adjust if needed)
-    constexpr int g_v = 1;  // valley degeneracy if not represented as separate bands
-    // constexpr double  pref = (g_s * g_v) / std::pow(2.0 * M_PI, 3.0);
-    constexpr double pref = (g_s * g_v) / (8.0 * M_PI * M_PI * M_PI);  // 1/(2π)^3 = 1/(8π^3)
+    constexpr double pref = 1.0 / (8.0 * M_PI * M_PI * M_PI);  // 1/(2π)^3 = 1/(8π^3)
 
     return pref * (A / grad);
 }

@@ -476,6 +476,7 @@ double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index)
         total_dos += tetra.compute_tetra_dos_energy_band(iso_energy, band_index);
     }
     total_dos *= get_reduce_bz_factor();
+    total_dos *= m_spin_degeneracy;
     return total_dos;
 }
 
@@ -629,6 +630,15 @@ void MeshBZ::precompute_G_shifts() {
         }
     }
 }
+
+// vector3 MeshBZ::fold_ws_bcc_brut(const vector3d& k_SI) const noexcept {
+//     if (inside_ws_bcc(k_SI)) return k_SI;
+//     for (const auto& G : m_Gshifts) {
+//         const vector3d k_try = k_SI - G;
+//         if (inside_ws_bcc(k_try)) return k_try;
+//     }
+//     throw std::runtime_error("Could not fold k into WS-BZ");
+// }
 
 vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {
     for (const auto& G : m_Gshifts) {

@@ -43,6 +43,7 @@ def plot_rates(filename, comparison_csv=None):
     ax2.set_xlabel("Energy (eV)")
     ax2.set_ylabel("Rate (s$^-1$)")
     ax2.set_title("Total Electron-Phonon Rate")
+    # ax2.plot(energy, data[:,1]/np.max(data[:,2:]), label="Wavefunction Overlap", color="blue", linestyle="--")
 
     if comparison_csv is not None:
         # Load comparison data
@@ -72,7 +73,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     # scatter_plot_rates("rates_all.csv")
 
-    plot_rates("rates_vs_energy.csv", "../examples/JallepalliHRates97.csv")
-    plt.show()
+    # plot_rates("rates_vs_energy.csv", "../examples/JallepalliHRates97.csv")
+    # plt.show()
     plot_rates("rates_vs_energy.csv", "../examples/RatesSiFischetti1988.csv")
+    plot_rates("rates_vs_energy.csv", "../examples/RatesSiKunikiyo1994.csv")
     plt.show()
