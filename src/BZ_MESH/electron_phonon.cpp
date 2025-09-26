@@ -132,7 +132,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                         continue;
                     }
 
-                    const double dos_eV    = tetra.compute_tetra_dos_energy_band(E_final_eV, idx_n2);
+                    const double dos_eV    = tetra.interpolate_dos_at_energy_per_band(E_final_eV, idx_n2);
                     const double dos_per_J = dos_eV / EmpiricalPseudopotential::Constants::q_e;
 
                     // P = (pi / (rho * omega)) * Delta^2 * |I|^2 * (bose) * DOS(E)

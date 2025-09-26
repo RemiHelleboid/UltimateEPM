@@ -59,12 +59,14 @@ int main(int argc, char *argv[]) {
     TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
+    TCLAP::SwitchArg arg_test_interp("t", "test-interp", "Test the interpolation DOS.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
     cmd.add(arg_nb_bands);
     cmd.add(arg_nb_energies);
     cmd.add(arg_nb_threads);
+    cmd.add(arg_test_interp);
 
     cmd.parse(argc, argv);
 
@@ -78,6 +80,7 @@ int main(int argc, char *argv[]) {
     my_options.nrThreads    = arg_nb_threads.getValue();
     my_options.print_options();
     int  nb_bands_to_use = arg_nb_bands.getValue();
+    bool use_interp      = arg_test_interp.getValue();
     auto start           = std::chrono::high_resolution_clock::now();
 
     EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
@@ -92,6 +95,8 @@ int main(int argc, char *argv[]) {
         std::cout << "Warning: you asked for " << nb_bands_to_use << " bands but the mesh file contains only " << nb_bands << " bands.\n";
         nb_bands_to_use = nb_bands;
     }
+    constexpr double energy_step_dos = 0.005;  // eV
+    my_bz_mesh.precompute_dos_tetra(energy_step_dos);
 
     std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
     double Vcell = std::pow(current_material.get_lattice_constant_meter(), 3) / 4.0;
@@ -99,7 +104,7 @@ int main(int argc, char *argv[]) {
     const double VBZ_theory = std::pow(2.0 * M_PI, 3) / Vcell;   // m^-3
     const double VBZ_mesh   = my_bz_mesh.compute_mesh_volume();  // sum |tetra.volume| in your k units
     std::cout << "VBZ_mesh / VBZ_theory = " << (VBZ_mesh / VBZ_theory) << "\n";
-    my_bz_mesh.set_reduce_bz_factor(VBZ_theory/VBZ_mesh);
+    my_bz_mesh.set_reduce_bz_factor(VBZ_theory / VBZ_mesh);
 
     std::vector<std::vector<double>> list_list_dos{};
     std::vector<std::string>         list_header = {};
@@ -108,7 +113,7 @@ int main(int argc, char *argv[]) {
 
     for (int band_index = 0; band_index < nb_bands_to_use; ++band_index) {
         std::vector<std::vector<double>> lists_energies_dos =
-            my_bz_mesh.compute_dos_band_at_band_auto(band_index, arg_nb_energies.getValue(), my_options.nrThreads);
+            my_bz_mesh.compute_dos_band_at_band_auto(band_index, arg_nb_energies.getValue(), my_options.nrThreads, use_interp);
         list_list_dos.push_back(lists_energies_dos[0]);
         list_list_dos.push_back(lists_energies_dos[1]);
         list_header.push_back("energy_band_" + std::to_string(band_index));
@@ -117,10 +122,6 @@ int main(int argc, char *argv[]) {
 
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-    std::ofstream f_time("OpenMP_DOS_times.csv", std::ios::app);
-    f_time << my_options.nrThreads << "," << total_time_count / double(1000) << std::endl;
-    f_time.close();
 
     std::cout << "Total computation time: " << total_time_count / double(1000) << std::endl;
 

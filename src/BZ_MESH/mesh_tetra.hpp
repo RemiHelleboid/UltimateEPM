@@ -95,6 +95,18 @@ class Tetra {
      */
     std::vector<std::array<int, 4>> m_sorted_slots_per_band;
 
+    /**
+     * @brief Energy grid for each band on which the DOS has been precomputed.
+     *
+     */
+    std::vector<std::vector<double>> m_energy_grid_per_band;
+
+    /**
+     * @brief Precomputed DOS at the energies of m_energy_grid_per_band.
+     *
+     */
+    std::vector<std::vector<double>> m_precomputed_dos_at_energies_per_band;
+
  public:
     /**
      * @brief There is not default constructor for Tetra class.
@@ -138,6 +150,10 @@ class Tetra {
     const std::array<int, 4>& get_index_vertices_with_sorted_energy_at_band(std::size_t index_band) const {
         return m_sorted_slots_per_band[index_band];
     }
+
+    void   precompute_dos_on_energy_grid_per_band(double energy_step);
+    double interpolate_dos_at_energy_per_band(double energy, std::size_t band_index) const;
+
     bool                 is_energy_inside_band(double energy, std::size_t index_band) const;
     bool                 does_intersect_band_energy_range(double e_min, double e_max, std::size_t index_band) const;
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
@@ -148,9 +164,9 @@ class Tetra {
 
     std::array<double, 8> get_tetra_electron_phonon_rates(int band_index) const;
 
-    double  interpolate_scalar_at_position(const std::array<double, 4>& barycentric_coordinates,
-                                           const std::vector<double>&   scalar_field) const;
-    double  interpolate_energy_at_band(const vector3& location, std::size_t band_index) const;
+    double interpolate_scalar_at_position(const std::array<double, 4>& barycentric_coordinates,
+                                          const std::vector<double>&   scalar_field) const;
+    double interpolate_energy_at_band(const vector3& location, std::size_t band_index) const;
 
     vector3 interpolate_vector_at_position(const std::array<double, 4>& barycentric_coordinates,
                                            const std::vector<vector3>&  vector_field) const;

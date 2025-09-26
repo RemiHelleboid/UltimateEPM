@@ -191,6 +191,7 @@ class MeshBZ {
     void auto_set_positive_valence_band_energies();
     void set_bands_in_right_order();
     void recompute_min_max_energies();
+    void precompute_dos_tetra(double energy_step = 0.01);
 
     std::size_t      get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t      get_number_elements() const { return m_list_tetrahedra.size(); }
@@ -248,7 +249,7 @@ class MeshBZ {
 
     double      compute_mesh_volume() const;
     double      compute_iso_surface(double iso_energy, int band_index) const;
-    double      compute_dos_at_energy_and_band(double iso_energy, int band_index) const;
+    double      compute_dos_at_energy_and_band(double iso_energy, int band_index, bool use_interp = false) const;
     std::size_t draw_random_tetrahedron_index_with_dos_probability(double        energy,
                                                                    std::size_t   idx_band,
                                                                    std::mt19937& random_generator) const;
@@ -259,8 +260,13 @@ class MeshBZ {
                                                               double      min_energy,
                                                               double      max_energy,
                                                               int         num_threads,
-                                                              std::size_t nb_points) const;
-    std::vector<std::vector<double>> compute_dos_band_at_band_auto(int band_index, std::size_t nb_points, int num_threads) const;
+                                                              std::size_t nb_points,
+                                                              bool        use_interp = false) const;
+
+    std::vector<std::vector<double>> compute_dos_band_at_band_auto(int         band_index,
+                                                                   std::size_t nb_points,
+                                                                   int         num_threads,
+                                                                   bool        use_interp = false) const;
 
     void          read_phonon_scattering_rates_from_file(const std::filesystem::path& path);
     Rate8         interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const;

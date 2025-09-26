@@ -70,7 +70,9 @@ int main(int argc, char const *argv[])
     
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
     ElectronPhonon.read_mesh_bands_from_msh_file(mesh_band_input_file, my_options.nrLevels);
-    
+    constexpr double energy_step_dos = 0.005; // eV
+    ElectronPhonon.precompute_dos_tetra(energy_step_dos);
+
     unsigned int nb_bands = ElectronPhonon.get_number_bands();
     std::cout << "Number of bands: " << nb_bands << std::endl;
     if (my_options.nrLevels > nb_bands) {
