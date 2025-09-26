@@ -261,7 +261,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
     constexpr int chunk_size = 32;
 #pragma omp parallel for schedule(dynamic)
     for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
-        bool to_compute = is_irreducible_wedge(m_list_vertices[idx_k1].get_position()) && irreducible_wedge_only;
+        bool to_compute = (!irreducible_wedge_only) || (irreducible_wedge_only && is_irreducible_wedge(m_list_vertices[idx_k1].get_position()));
 
         auto done = ++counter;
         if ((done % 100) == 0 || done == m_list_vertices.size() && omp_get_thread_num() == 0) {
