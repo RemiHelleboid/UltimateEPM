@@ -57,7 +57,7 @@ double ElectronPhonon::get_max_phonon_energy() const {
     return max_energy * EmpiricalPseudopotential::Constants::h_bar_eV;  // in eV
 }
 
-RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t idx_k1) {
+RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t idx_k1, bool populate_nk_npkp) {
     RateValues                rates_k1_n1;
     const std::vector<Tetra>& list_tetrahedra          = m_list_tetrahedra;
     const auto&               indices_conduction_bands = m_indices_conduction_bands;
@@ -139,7 +139,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                     double rate_value = (EmpiricalPseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
                                         bose_part * dos_per_J;
                     rate_value /= m_reduce_bz_factor;  // Correct for BZ volume if mesh does not match theoretical BZ volume
-                    rate_value *= m_spin_degeneracy;    // Spin degeneracy factor
+                    rate_value *= m_spin_degeneracy;   // Spin degeneracy factor
 
                     // rates_k1_n1.add_rate(RateValue(phonon_mode, phonon_direction, phonon_event, rate_value));
                     rates_k1_n1.add_rate(RateValue(mode_direction.first,
@@ -281,12 +281,44 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
                 m_list_vertices[idx_k1].add_electron_phonon_rates(std::array<double, 8>{});
                 continue;
             }
-            auto rate  = compute_electron_phonon_rate(idx_n1, idx_k1);
+            auto rate = compute_electron_phonon_rate(idx_n1, idx_k1);
             m_list_vertices[idx_k1].add_electron_phonon_rates(rate.to_array());
         }
     }
     std::cout << "\rComputed " << counter << " k-points out of " << m_list_vertices.size() << " (100%)";
     std::cout << std::endl;
+}
+
+void ElectronPhonon::compute_electron_phonon_rates_over_mesh_nk_npkp(bool irreducible_wedge_only) {
+    auto indices_conduction_bands = m_indices_conduction_bands;
+    auto min_idx_conduction_band  = *std::min_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
+    auto max_idx_conduction_band  = *std::max_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
+    std::cout << "Min index conduction band: " << min_idx_conduction_band << std::endl;
+    std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() << " k-points." << std::endl;
+
+    const std::size_t total_states = m_list_vertices.size() * (max_idx_conduction_band + 1);
+    // m_phonon_nk_npkp               = Eigen::MatrixXd::Zero(total_states, total_states);
+
+    // Counter for progress display
+    std::cout << "Progress: 0%";
+    std::atomic<std::size_t> counter{0};
+
+    constexpr int chunk_size = 32;
+#pragma omp parallel for schedule(dynamic)
+    for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
+        bool to_compute = is_irreducible_wedge(m_list_vertices[idx_k1].get_position()) && irreducible_wedge_only;
+        auto done       = ++counter;
+        if ((done % 100) == 0 || done == m_list_vertices.size() && omp_get_thread_num() == 0) {
+            std::cout << "\rDone " << done << "/" << m_list_vertices.size() << " (" << std::fixed << std::setprecision(1)
+                      << (100.0 * done / m_list_vertices.size()) << "%)" << std::flush;
+        }
+        for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
+            if (!to_compute) {
+                continue;
+            }
+            auto electron_rate = compute_hole_phonon_rate(idx_n1, idx_k1);
+        }
+    }
 }
 
 void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int                nb_bands,
@@ -317,7 +349,6 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
     for (auto* s : kLabels)
         out << ',' << s;
     out << '\n';
-
 
     double irreducible_wedge_factor = (irreducible_wedge_only) ? 48.0 : 1.0;
 

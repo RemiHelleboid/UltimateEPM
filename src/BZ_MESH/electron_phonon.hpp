@@ -18,6 +18,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+// #include <Eigen/Sparse>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -29,7 +30,10 @@
 #include "bz_states.hpp"
 #include "yaml-cpp/yaml.h"
 
-namespace bz_mesh {
+// Eigen space
+
+namespace bz_mesh { 
+
 
 enum class PhononMode { acoustic, optical, none };
 enum class PhononDirection { longitudinal, transverse, none };
@@ -297,6 +301,29 @@ class ElectronPhonon : public BZ_States {
 
     std::map<PhononModeDirection, PhononDispersion> m_phonon_dispersion;
 
+    /**
+     * @brief Count the number of tetrahedra connected to each vertex in the el-ph computation.
+     * m_count_weight_tetra_per_vertex_per_band[band][vertex].
+     */
+    std::vector<std::vector<double>> m_count_weight_tetra_per_vertex_per_band;
+
+    /**
+     * @brief Phonon rates.
+     * m_phonon_rates[mode][direction] gives the phonon dispersion for the given mode and direction.
+     * Each matrix stores all the ((n,k) → (n',k')) rates for electron-phonon scattering.
+     * It is a sparse matrix, as most transitions are not allowed (energy/momentum conservation
+     * rules).
+     * M_i,j is the rate from state i to state j.
+     * States are indexed as n * N_k + k, where n is the band index and k the k-point index.
+     * 
+     * 
+     */
+    // Eigen::MatrixXd m_phonon_nk_npkp;
+    std::vector<Eigen::MatrixXd> m_phonon_nk_npkp_modes; 
+
+
+    
+
  public:
     explicit ElectronPhonon(const EmpiricalPseudopotential::Material& material) : BZ_States(material) {}
 
@@ -308,7 +335,7 @@ class ElectronPhonon : public BZ_States {
     double        electron_overlap_integral(const vector3& k1, const vector3& k2);
     double        hole_overlap_integral(int n1, const vector3& k1, int n2, const vector3& k2);
 
-    RateValues compute_electron_phonon_rate(int idx_n1, std::size_t idx_k1);
+    RateValues compute_electron_phonon_rate(int idx_n1, std::size_t idx_k1, bool populate_nk_npkp = false);
     RateValues compute_hole_phonon_rate(int idx_n1, std::size_t idx_k1);
 
     void set_temperature(double temperature) { m_temperature = temperature; }
@@ -316,6 +343,7 @@ class ElectronPhonon : public BZ_States {
 
     void compute_electron_phonon_rates_over_mesh(bool irreducible_wedge_only = false);
     void add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename);
+    void compute_electron_phonon_rates_over_mesh_nk_npkp(bool irreducible_wedge_only = false);
 
     void export_rate_values(const std::string& filename) const;
 
