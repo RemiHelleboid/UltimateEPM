@@ -1,0 +1,9 @@
+Plugin(AnalyseMeshQuality).JacobianDeterminant=0;
+Plugin(AnalyseMeshQuality).IGEMeasure=0;
+Plugin(AnalyseMeshQuality).ICNMeasure=0;
+Plugin(AnalyseMeshQuality).HidingThreshold=99;
+Plugin(AnalyseMeshQuality).ThresholdGreater=1;
+Plugin(AnalyseMeshQuality).CreateView=0;
+Plugin(AnalyseMeshQuality).Recompute=0;
+Plugin(AnalyseMeshQuality).DimensionOfElements=-1;
+Plugin(AnalyseMeshQuality).Run;
