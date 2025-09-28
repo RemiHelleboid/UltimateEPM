@@ -87,7 +87,7 @@ int main(int argc, char const *argv[])
     ElectronPhonon.export_rate_values("rates_all.csv");
 
     const double energy_step = 0.01; // eV
-    const double max_energy  = 10.0;  // eV
+    const double max_energy  = 6.0;  // eV
     ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels, max_energy, energy_step, "rates_vs_energy.csv", irreducible_wedge_only);
 
     ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");

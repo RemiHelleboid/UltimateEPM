@@ -632,6 +632,9 @@ std::array<double, 8> Tetra::get_tetra_electron_phonon_rates(int band_index) con
     std::array<double, 8> mean_rates;
     std::fill(mean_rates.begin(), mean_rates.end(), 0.0);
     for (std::size_t i = 0; i < 4; i++) {
+        if (band_index >= static_cast<int>(m_list_vertices[i]->get_number_bands())) {
+            throw std::invalid_argument("In Tetra::get_tetra_electron_phonon_rates, the band index is out of range.");
+        }
         const std::array<double, 8>& rates = m_list_vertices[i]->get_electron_phonon_rates(band_index);
         std::transform(mean_rates.begin(), mean_rates.end(), rates.begin(), mean_rates.begin(), std::plus<double>());
     }

@@ -368,9 +368,6 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
         out << ',' << s;
     out << '\n';
 
-    double irreducible_wedge_factor = (irreducible_wedge_only) ? 48.0 : 1.0;
-    std::cout << "\nUsing irreducible wedge factor: " << irreducible_wedge_factor << std::endl;
-
     // Integer-stepped energy sweep to avoid FP drift
     const std::size_t n_steps = static_cast<std::size_t>(std::floor(max_energy / energy_step)) + 1;
 
@@ -384,9 +381,6 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
 
         for (const auto& tetra : m_list_tetrahedra) {
             vector3 k_bary = tetra.compute_barycenter();
-            // if (irreducible_wedge_only && !is_irreducible_wedge(k_bary)) {
-            //     continue;
-            // }
             for (int b = 0; b < nb_bands; ++b) {
                 const double dos_t = tetra.compute_tetra_dos_energy_band(E, b);
                 if (!std::isfinite(dos_t))
