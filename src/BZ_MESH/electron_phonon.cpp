@@ -380,7 +380,7 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
 
                 const std::array<double, 8> rates = tetra.get_tetra_electron_phonon_rates(b);
                 for (int i = 0; i < 8; ++i)
-                    num[i] += rates[i] * dos_t * irreducible_wedge_factor;
+                    num[i] += rates[i] * dos_t;
             }
         }
 
