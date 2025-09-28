@@ -290,11 +290,16 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
     std::cout << std::endl;
     if (irreducible_wedge_only) {
         std::cout << "Set electron-phonon rates for all mesh vertices." << std::endl;
+#pragma omp parallel for schedule(dynamic)
         for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
-            for (std::size_t idx_n1 = 0; idx_n1 < max_idx_conduction_band; ++idx_n1) {
-                if (!is_irreducible_wedge(m_list_vertices[idx_k1].get_position())) {
-                    std::size_t idx_k1_symm = get_index_irreducible_wedge(m_list_vertices[idx_k1].get_position());
-                    auto        rates_symm  = m_list_vertices[idx_k1_symm].get_electron_phonon_rates(idx_n1);
+            if ((idx_k1 % 1000) == 0) {
+                std::cout << "\rSetting rates for all k-points: " << idx_k1 << "/" << m_list_vertices.size() << " ("
+                          << std::fixed << std::setprecision(1) << (100.0 * idx_k1 / m_list_vertices.size()) << "%)" << std::flush;
+            }
+            if (!is_irreducible_wedge(m_list_vertices[idx_k1].get_position())) {
+                std::size_t idx_k1_symm = get_index_irreducible_wedge(m_list_vertices[idx_k1].get_position());
+                for (std::size_t idx_n1 = 0; idx_n1 < max_idx_conduction_band; ++idx_n1) {
+                    auto rates_symm = m_list_vertices[idx_k1_symm].get_electron_phonon_rates(idx_n1);
                     m_list_vertices[idx_k1].add_electron_phonon_rates(rates_symm);
                 }
             }
