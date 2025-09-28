@@ -187,7 +187,8 @@ struct DeformationPotential {
     double get_fischetti_deformation_potential(const vector3& q, int idx_band) const {
         constexpr double cm_to_m = 1e2;
 
-        double boost_factor = 2.0;
+        double boost_factor = 1.5; // empirical boost to match bulk mobility
+        
         if (m_mode == PhononMode::acoustic) {
             if (idx_band == 0) {
                 return boost_factor * 1.2 * q.norm();  // in eV/m
