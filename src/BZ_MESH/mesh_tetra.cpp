@@ -102,24 +102,11 @@ void Tetra::compute_gradient_energy_at_bands() {
     m_gradient_energy_per_band.reserve(m_nb_bands);
     for (std::size_t band_index = 0; band_index < m_nb_bands; band_index++) {
         const std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
-        const std::array<int, 4>&   indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
-        const double                e_0                  = energies_at_vertices[indices_sort[0]];
-        const double                eps_12               = (e_0 - energies_at_vertices[indices_sort[1]]);
-        const double                eps_13               = (e_0 - energies_at_vertices[indices_sort[2]]);
-        const double                eps_14               = (e_0 - energies_at_vertices[indices_sort[3]]);
-        // const double                gradient_energy      = sqrt((eps_12 * eps_12 + eps_13 * eps_13 + eps_14 * eps_14));
-        const vector3 gradient_energy  = compute_gradient_at_tetra(energies_at_vertices);
-        double        norm_grad_energy = gradient_energy.norm();
-        if (norm_grad_energy == 0) {
-            std::cout << "Gradient energy is zero for tetra " << m_index << " at band " << band_index << std::endl;
-            std::cout << "Energies: " << energies_at_vertices[0] << " " << energies_at_vertices[1] << " " << energies_at_vertices[2] << " "
-                      << energies_at_vertices[3] << std::endl;
-            std::cout << m_list_vertices[0]->get_position() << "\n"
-                      << m_list_vertices[1]->get_position() << "\n"
-                      << m_list_vertices[2]->get_position() << "\n"
-                      << m_list_vertices[3]->get_position() << std::endl;
-        }
-        m_gradient_energy_per_band.push_back(gradient_energy.norm());
+        // const array4d              values_at_vertices   = {energies_at_vertices[0],
+        //                                                    energies_at_vertices[1],
+        //                                                    energies_at_vertices[2],
+        //                                                    energies_at_vertices[3]};
+        m_gradient_energy_per_band.push_back(compute_gradient_at_tetra(energies_at_vertices));
     }
 }
 
@@ -493,7 +480,7 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
 
     const double A = polygon_area(compute_band_iso_energy_surface(energy_eV, band_index));  // m^-2
 
-    const double grad = m_gradient_energy_per_band[band_index];  // eV·m
+    const double grad = m_gradient_energy_per_band[band_index].norm();  // eV·m
     if (A <= 0.0 || grad <= 0.0) return 0.0;
 
     constexpr double pref = 1.0 / (8.0 * M_PI * M_PI * M_PI);  // 1/(2π)^3 = 1/(8π^3)

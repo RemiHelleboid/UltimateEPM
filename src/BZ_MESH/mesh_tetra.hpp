@@ -85,7 +85,7 @@ class Tetra {
      * It is pre-computed and stored for optimization purposes.
      *
      */
-    std::vector<double> m_gradient_energy_per_band;
+    std::vector<vector3> m_gradient_energy_per_band;
 
     /**
      * @brief For each band, store the indices of the vertices sorted by increasing energy.
@@ -154,7 +154,10 @@ class Tetra {
     void   precompute_dos_on_energy_grid_per_band(double energy_step);
     double interpolate_dos_at_energy_per_band(double energy, std::size_t band_index) const;
 
-    bool                 is_energy_inside_band(double energy, std::size_t index_band) const;
+    vector3 get_gradient_energy_at_band(std::size_t band_index) const { return m_gradient_energy_per_band[band_index]; }
+
+        bool
+                         is_energy_inside_band(double energy, std::size_t index_band) const;
     bool                 does_intersect_band_energy_range(double e_min, double e_max, std::size_t index_band) const;
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
     double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;

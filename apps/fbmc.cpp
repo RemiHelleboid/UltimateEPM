@@ -30,8 +30,30 @@
 int main(int argc, const char** argv) {
     std::cout << "Hello SinglePartFBMC!" << std::endl;
 
-    const std::string file_mesh              = "mc_data/mesh_si_cb_1.msh";
-    const std::string file_phonon_scattering = "mc_data/rates_all.csv";
+    TCLAP::CmdLine               cmd("FBMC PROGRAM. SINGLE PARTICLE MONTE CARLO SIMULATION.", ' ', "1.0");
+    TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
+    TCLAP::ValueArg<std::string> arg_phonon_file("p", "phononfile", "File with phonon scattering rates.", true, "rates_all.csv", "string");
+    TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
+    TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
+    TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "ncbands", "Number of conduction bands to consider", false, -1, "int");
+    TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
+    TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
+    TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
+    TCLAP::SwitchArg plot_with_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
+    cmd.add(plot_with_python);
+    cmd.add(arg_mesh_file);
+    cmd.add(arg_material);
+    cmd.add(arg_nb_conduction_bands);
+    cmd.add(arg_nb_valence_bands);
+    cmd.add(arg_nb_energies);
+    cmd.add(arg_nb_threads);
+    cmd.add(plot_with_wedge);
+
+    cmd.parse(argc, argv);
+
+    const std::string file_mesh              = arg_mesh_file.getValue();
+    const std::string material_symbol        = arg_material.getValue();
+    const std::string file_phonon_scattering = arg_phonon_file.getValue();
     int               nb_conduction_bands    = 4;
     int               nb_valence_bands       = 0;
 

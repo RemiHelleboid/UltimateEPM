@@ -261,7 +261,8 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
     constexpr int chunk_size = 32;
 #pragma omp parallel for schedule(dynamic)
     for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
-        bool to_compute = (!irreducible_wedge_only) || (irreducible_wedge_only && is_irreducible_wedge(m_list_vertices[idx_k1].get_position()));
+        bool to_compute =
+            (!irreducible_wedge_only) || (irreducible_wedge_only && is_irreducible_wedge(m_list_vertices[idx_k1].get_position()));
 
         auto done = ++counter;
         if ((done % 100) == 0 || done == m_list_vertices.size() && omp_get_thread_num() == 0) {
@@ -270,7 +271,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
         }
         for (std::size_t idx_n1 = 0; idx_n1 < min_idx_conduction_band; ++idx_n1) {
             if (!to_compute) {
-                m_list_vertices[idx_k1].add_electron_phonon_rates(std::array<double, 8>{});
+                // m_list_vertices[idx_k1].add_electron_phonon_rates(std::array<double, 8>{});
                 continue;
             }
             auto hole_rate = compute_hole_phonon_rate(idx_n1, idx_k1);
@@ -279,7 +280,6 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
         }
         for (std::size_t idx_n1 = min_idx_conduction_band; idx_n1 <= max_idx_conduction_band; ++idx_n1) {
             if (!to_compute) {
-                m_list_vertices[idx_k1].add_electron_phonon_rates(std::array<double, 8>{});
                 continue;
             }
             auto rate = compute_electron_phonon_rate(idx_n1, idx_k1);
@@ -288,6 +288,18 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
     }
     std::cout << "\rComputed " << counter << " k-points out of " << m_list_vertices.size() << " (100%)";
     std::cout << std::endl;
+    if (irreducible_wedge_only) {
+        std::cout << "Set electron-phonon rates for all mesh vertices." << std::endl;
+        for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
+            for (std::size_t idx_n1 = 0; idx_n1 < max_idx_conduction_band; ++idx_n1) {
+                if (!is_irreducible_wedge(m_list_vertices[idx_k1].get_position())) {
+                    std::size_t idx_k1_symm = get_index_irreducible_wedge(m_list_vertices[idx_k1].get_position());
+                    auto        rates_symm  = m_list_vertices[idx_k1_symm].get_electron_phonon_rates(idx_n1);
+                    m_list_vertices[idx_k1].add_electron_phonon_rates(rates_symm);
+                }
+            }
+        }
+    }
 }
 
 void ElectronPhonon::compute_electron_phonon_rates_over_mesh_nk_npkp(bool irreducible_wedge_only) {
@@ -367,9 +379,9 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
 
         for (const auto& tetra : m_list_tetrahedra) {
             vector3 k_bary = tetra.compute_barycenter();
-            if (irreducible_wedge_only && !is_irreducible_wedge(k_bary)) {
-                continue;
-            }
+            // if (irreducible_wedge_only && !is_irreducible_wedge(k_bary)) {
+            //     continue;
+            // }
             for (int b = 0; b < nb_bands; ++b) {
                 const double dos_t = tetra.compute_tetra_dos_energy_band(E, b);
                 if (!std::isfinite(dos_t))

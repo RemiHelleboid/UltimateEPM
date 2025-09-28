@@ -188,12 +188,12 @@ struct DeformationPotential {
         constexpr double cm_to_m = 1e2;
 
         double boost_factor = 1.5; // empirical boost to match bulk mobility
-        
+
         if (m_mode == PhononMode::acoustic) {
             if (idx_band == 0) {
                 return boost_factor * 1.2 * q.norm();  // in eV/m
             } else {
-                return boost_factor * 1.7 * q.norm();  // in eV/m
+                return 1.0 * 1.7 * q.norm();  // in eV/m
             }
         } else {
             if (idx_band == 0) {

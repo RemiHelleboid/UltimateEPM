@@ -200,40 +200,20 @@ class MeshBZ {
     std::vector<int> get_indices_conduction_bands() const { return m_indices_conduction_bands; }
     int              get_nb_bands() const { return m_indices_valence_bands.size() + m_indices_conduction_bands.size(); }
 
-    void    precompute_G_shifts();
-    bool    is_inside_mesh_geometry(const vector3& k) const;
-    vector3 retrieve_k_inside_mesh_geometry(const vector3& k) const;
+    vector3 interpolate_energy_gradient_at_location(const vector3& location, const std::size_t& idx_band) const;
 
-    // --- O(1) WS-BZ folding (public API) ---
-    /**
-     * @brief Initialize the reciprocal basis and reduced-frame parameters for O(1) folding.
-     * @param b1_SI First reciprocal primitive vector (SI, 1/m)
-     * @param b2_SI Second reciprocal primitive vector (SI, 1/m)
-     * @param b3_SI Third reciprocal primitive vector (SI, 1/m)
-     * @param halfwidth_reduced Half-width in reduced coords (0.5 for [-0.5,0.5])
-     * @param si_to_reduced Scale factor from SI (1/m) to reduced coords used by plane tests
-     */
-    void init_reciprocal_basis(const Eigen::Vector3d& b1_SI,
-                               const Eigen::Vector3d& b2_SI,
-                               const Eigen::Vector3d& b3_SI,
-                               double                 halfwidth_reduced,
-                               double                 si_to_reduced);
-
-    /**
-     * @brief Fold k into the Wigner–Seitz BZ (truncated octahedron of bcc). Pure, no side effects.
-     * @param k_SI Input wavevector (SI, 1/m)
-     * @return Folded wavevector inside the first BZ (SI, 1/m)
-     */
-    vector3 fold_ws_bcc(const vector3& k_SI) const noexcept;
-
-    /**
-     * @brief Check if k is inside the WS BZ using the same plane tests as is_inside_mesh_geometry().
-     * @param k_SI Input wavevector (SI, 1/m)
-     * @return true if inside, false otherwise
-     */
-    bool inside_ws_bcc(const vector3& k_SI) const noexcept;
-
-    bool is_irreducible_wedge(const vector3& k_SI) const noexcept;
+    void        precompute_G_shifts();
+    bool        is_inside_mesh_geometry(const vector3& k) const;
+    vector3     retrieve_k_inside_mesh_geometry(const vector3& k) const;
+    void        init_reciprocal_basis(const Eigen::Vector3d& b1_SI,
+                                      const Eigen::Vector3d& b2_SI,
+                                      const Eigen::Vector3d& b3_SI,
+                                      double                 halfwidth_reduced,
+                                      double                 si_to_reduced);
+    vector3     fold_ws_bcc(const vector3& k_SI) const noexcept;
+    bool        inside_ws_bcc(const vector3& k_SI) const noexcept;
+    bool        is_irreducible_wedge(const vector3& k_SI) const noexcept;
+    std::size_t get_index_irreducible_wedge(const vector3& k_SI) const noexcept;
 
     vector3     get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
     std::size_t get_nearest_k_index(const Vector3D<double>& k) const;

@@ -284,9 +284,7 @@ void MeshBZ::precompute_dos_tetra(double energy_step) {
     for (std::size_t i = 0; i < m_list_tetrahedra.size(); ++i) {
         m_list_tetrahedra[i].precompute_dos_on_energy_grid_per_band(energy_step);
     }
-    
 }
-
 
 void MeshBZ::recompute_min_max_energies() {
     m_min_band.clear();
@@ -462,6 +460,14 @@ void MeshBZ::compute_energy_gradient_at_tetras() {
     }
 }
 
+vector3 MeshBZ::interpolate_energy_gradient_at_location(const vector3& location, const std::size_t& idx_band) const {
+    Tetra* tetra = find_tetra_at_location(location);
+    if (tetra == nullptr) {
+        throw std::runtime_error("Location is outside the mesh. Cannot interpolate energy gradient.");
+    }
+    return tetra->get_gradient_energy_at_band(idx_band);
+}
+
 double MeshBZ::compute_mesh_volume() const {
     double total_volume = 0.0;
     for (auto&& tetra : m_list_tetrahedra) {
@@ -598,7 +604,6 @@ void MeshBZ::export_k_points_to_file(const std::string& filename) const {
     file.close();
 }
 
-
 // helper: half-width in reduced units.
 static inline double bz_halfwidth_reduced() { return 1.0; }  // <- your case
 
@@ -650,15 +655,6 @@ void MeshBZ::precompute_G_shifts() {
     }
 }
 
-// vector3 MeshBZ::fold_ws_bcc_brut(const vector3d& k_SI) const noexcept {
-//     if (inside_ws_bcc(k_SI)) return k_SI;
-//     for (const auto& G : m_Gshifts) {
-//         const vector3d k_try = k_SI - G;
-//         if (inside_ws_bcc(k_try)) return k_try;
-//     }
-//     throw std::runtime_error("Could not fold k into WS-BZ");
-// }
-
 vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {
     for (const auto& G : m_Gshifts) {
         const vector3 kG = k + G;
@@ -670,9 +666,15 @@ vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {
     throw std::runtime_error("No k-point inside the mesh geometry found.");
 }
 
-// ---------------------------------------------------------
-// O(1) WS-BZ folding: init (call once after you know the lattice)
-// ---------------------------------------------------------
+// --- O(1) WS-BZ folding (public API) ---
+/**
+ * @brief Initialize the reciprocal basis and reduced-frame parameters for O(1) folding.
+ * @param b1_SI First reciprocal primitive vector (SI, 1/m)
+ * @param b2_SI Second reciprocal primitive vector (SI, 1/m)
+ * @param b3_SI Third reciprocal primitive vector (SI, 1/m)
+ * @param halfwidth_reduced Half-width in reduced coords (0.5 for [-0.5,0.5])
+ * @param si_to_reduced Scale factor from SI (1/m) to reduced coords used by plane tests
+ */
 void MeshBZ::init_reciprocal_basis(const Eigen::Vector3d& b1_SI,
                                    const Eigen::Vector3d& b2_SI,
                                    const Eigen::Vector3d& b3_SI,
@@ -687,9 +689,11 @@ void MeshBZ::init_reciprocal_basis(const Eigen::Vector3d& b1_SI,
     m_si2red       = si_to_reduced;      // must match your is_inside_mesh_geometry() scale
 }
 
-// ---------------------------------------------------------
-// O(1) WS-BZ folding: pure function
-// ---------------------------------------------------------
+/**
+ * @brief Fold k into the Wigner–Seitz BZ (truncated octahedron of bcc). Pure, no side effects.
+ * @param k_SI Input wavevector (SI, 1/m)
+ * @return Folded wavevector inside the first BZ (SI, 1/m)
+ */
 vector3 MeshBZ::fold_ws_bcc(const vector3& k_SI) const noexcept {
     // Convert to Eigen for the tiny linear algebra steps
     Eigen::Vector3d ke(k_SI.x(), k_SI.y(), k_SI.z());
@@ -746,9 +750,11 @@ vector3 MeshBZ::fold_ws_bcc(const vector3& k_SI) const noexcept {
     return vector3{kf.x(), kf.y(), kf.z()};
 }
 
-// ---------------------------------------------------------
-// Predicate (branch-lean), consistent with your existing checker
-// ---------------------------------------------------------
+/**
+ * @brief Check if k is inside the WS BZ using the same plane tests as is_inside_mesh_geometry().
+ * @param k_SI Input wavevector (SI, 1/m)
+ * @return true if inside, false otherwise
+ */
 bool MeshBZ::inside_ws_bcc(const vector3& k_SI) const noexcept {
     Eigen::Vector3d kr = m_si2red * Eigen::Vector3d(k_SI.x(), k_SI.y(), k_SI.z());
     const double    hw = m_bz_halfwidth, eps = 1e-12 * std::max(1.0, hw);
@@ -768,7 +774,6 @@ bool MeshBZ::inside_ws_bcc(const vector3& k_SI) const noexcept {
 //     return (k[2] >= 0.0 and k[2] <= k[1] and k[1] <= k[0] and k[0] <= 1.0) and \
 //         (np.sum(k) <= 3.0/2.0)
 
-
 bool MeshBZ::is_irreducible_wedge(const vector3& k_SI) const noexcept {
     const double x = k_SI.x() * si_to_reduced_scale();
     const double y = k_SI.y() * si_to_reduced_scale();
@@ -776,6 +781,56 @@ bool MeshBZ::is_irreducible_wedge(const vector3& k_SI) const noexcept {
     // std::cout << "Checking irreducible wedge for k = (" << x << ", " << y << ", " << z << ")" << std::endl;
     constexpr double eps = 1e-12;
     return (x >= -eps) && (y >= -eps) && (z >= -eps) && (x <= y + eps) && (y <= z + eps) && (z <= 1.0 + eps) && ((x + y + z) <= 1.5 + eps);
+}
+
+/**
+ * @brief Find the index of the vertex in the irreducible wedge that represents k_SI.
+ * In this version, we first first fold k_SI into the first IW, then search for the closest vertex.
+ * 
+ * 
+ * @param k_SI 
+ * @return std::size_t 
+ */
+std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const noexcept {
+    vector3 k_folded = {std::fabs(k_SI.x()), std::fabs(k_SI.y()), std::fabs(k_SI.z())};
+    // Test the 6 permutations of (|kx|, |ky|, |kz|)
+    std::array<vector3, 6> permutations = {
+        vector3{k_folded.x(), k_folded.y(), k_folded.z()},
+        vector3{k_folded.x(), k_folded.z(), k_folded.y()},
+        vector3{k_folded.y(), k_folded.x(), k_folded.z()},
+        vector3{k_folded.y(), k_folded.z(), k_folded.x()},
+        vector3{k_folded.z(), k_folded.x(), k_folded.y()},
+        vector3{k_folded.z(), k_folded.y(), k_folded.x()}};
+    bool found = false;
+    for (auto&& perm : permutations) {
+        if (is_irreducible_wedge(perm)) {
+            k_folded = perm;
+            found    = true;
+            break;
+        }
+    }
+    std::cout << std::setprecision(6) << std::fixed;
+    // std::cout << k_folded*si_to_reduced_scale() << std::endl;
+    if (!found) {
+        std::cout << "Could not fold k = " << k_SI << " into the irreducible wedge." << std::endl;
+        throw std::runtime_error("Could not fold k into the irreducible wedge.");
+    }
+    // Now search for the closest vertex in the IW
+    double       min_dist = std::numeric_limits<double>::max();
+    std::size_t  idx_min  = 0;
+    const double s        = si_to_reduced_scale();
+    for (const auto& vtx : m_list_vertices) {
+        if (is_irreducible_wedge(vtx.get_position())) {
+            double dist = (vtx.get_position() - k_folded).norm_squared();
+            if (dist < min_dist) {
+                min_dist = dist;
+                idx_min  = vtx.get_index();
+            }
+        }
+    }
+    // Scientific notation for very small distances
+    // std::cout << "Min dist in IW: " << std::scientific << std::sqrt(min_dist) * si_to_reduced_scale() << std::endl;
+    return idx_min;
 }
 
 /**

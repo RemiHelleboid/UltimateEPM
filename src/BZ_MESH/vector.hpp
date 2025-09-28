@@ -57,6 +57,7 @@ class alignas(32) vector3 {
     vector3 to_2d() const { return vector3{m_x, m_y, 0.0}; }
 
     double norm() const { return sqrt(m_x * m_x + m_y * m_y + m_z * m_z); }
+    double norm_squared() const { return (m_x * m_x + m_y * m_y + m_z * m_z); }
 
     void re_normalize() {
         const double v_norm = norm();
