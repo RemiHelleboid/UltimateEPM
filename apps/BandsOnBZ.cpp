@@ -57,8 +57,11 @@ int main(int argc, char* argv[]) {
     bool enable_soc                 = arg_enable_soc.isSet();
 
     Options my_options;
-    my_options.materialName     = arg_material.getValue();
-    my_options.nrLevels         = arg_nb_valence_bands.getValue() + arg_nb_conduction_bands.getValue() + 10;  // add some extra bands
+    my_options.materialName = arg_material.getValue();
+
+    constexpr int max_valence_bands = 8;
+    my_options.nrLevels             = arg_nb_valence_bands.getValue() + arg_nb_conduction_bands.getValue() +
+                          max_valence_bands;  // add extra bands for the calculations (won't be exported)
     my_options.nearestNeighbors = arg_nearest_neighbors.getValue();
     my_options.nrThreads        = arg_nb_threads.getValue();
     my_options.print_options();

@@ -84,7 +84,7 @@ struct SpinOrbitParameters {
         m_radial_extent_cation = node["radial_extent_cation"].as<double>();
         m_alpha                = node["alpha_soc"].as<double>();
         m_mu                   = 1.0 * Constants::Ryd_to_eV * node["mu_soc"].as<double>();
-        print_parameters();
+        // print_parameters();
     }
 
     /**
