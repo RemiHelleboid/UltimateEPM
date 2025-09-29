@@ -36,6 +36,14 @@ target_link_libraries(impact_io.epm PUBLIC libepp lib_bzmesh)
 target_compile_features(impact_io.epm PRIVATE cxx_std_20)
 target_link_libraries(impact_io.epm PUBLIC MPI::MPI_CXX)
 
+add_executable(bz_meshing.epm bz_meshing.cpp)
+target_link_libraries(bz_meshing.epm PUBLIC libepp lib_bzmesh)
+target_compile_features(bz_meshing.epm PRIVATE cxx_std_20)
+target_link_libraries(bz_meshing.epm PUBLIC MPI::MPI_CXX)
+target_include_directories(bz_meshing.epm  PUBLIC ${GMSH_INC})
+target_link_libraries(bz_meshing.epm  PUBLIC ${GMSH_LIB})
+
+
 if(USE_MPI_ACCELERATION)
   add_executable(mpiBandsOnBZ mpi_BandsOnBZ.cpp)
   target_link_libraries(mpiBandsOnBZ PUBLIC libepp Eigen3::Eigen)
