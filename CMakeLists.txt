@@ -171,7 +171,7 @@ endif()
 FetchContent_Declare(
   DocTest
   GIT_REPOSITORY "https://github.com/onqtam/doctest"
-  GIT_TAG "4d8716f1efc1d14aa736ef52ee727bd4204f4c40")
+  GIT_TAG "1da23a3e8119ec5cce4f9388e91b065e20bf06f5")
 
 FetchContent_Declare(
   yaml-cpp
