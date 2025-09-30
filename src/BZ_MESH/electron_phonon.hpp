@@ -18,7 +18,7 @@
 #pragma once
 
 #include <Eigen/Dense>
-// #include <Eigen/Sparse>
+#include <Eigen/Sparse>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -32,14 +32,11 @@
 
 // Eigen space
 
-namespace bz_mesh { 
-
+namespace bz_mesh {
 
 enum class PhononMode { acoustic, optical, none };
 enum class PhononDirection { longitudinal, transverse, none };
 enum class PhononEvent { absorption, emission, none };
-
-
 
 // Order: ac/opt × L/T × ab/em  → indices 0..7
 constexpr int rate_index(PhononMode m, PhononDirection d, PhononEvent e) {
@@ -187,7 +184,7 @@ struct DeformationPotential {
     double get_fischetti_deformation_potential(const vector3& q, int idx_band) const {
         constexpr double cm_to_m = 1e2;
 
-        double boost_factor = 1.5; // empirical boost to match bulk mobility
+        double boost_factor = 1.5;  // empirical boost to match bulk mobility
 
         if (m_mode == PhononMode::acoustic) {
             if (idx_band == 0) {
@@ -290,6 +287,8 @@ struct RateValues {
 };
 
 typedef std::pair<PhononMode, PhononDirection> PhononModeDirection;
+typedef Eigen::SparseMatrix<double>            EigenSparseMatrix;
+typedef Eigen::Triplet<double>                 EigenTriplet;
 
 class ElectronPhonon : public BZ_States {
  private:
@@ -318,10 +317,10 @@ class ElectronPhonon : public BZ_States {
      * rules).
      * M_i,j is the rate from state i to state j.
      * States are indexed as n * N_k + k, where n is the band index and k the k-point index.
-     * 
-     * 
+     *
+     *
      */
-    std::vector<Eigen::MatrixXd> m_phonon_nk_npkp_modes;
+    std::vector<EigenSparseMatrix> m_phonon_nk_npkp_modes;
 
  public:
     explicit ElectronPhonon(const EmpiricalPseudopotential::Material& material) : BZ_States(material) {}

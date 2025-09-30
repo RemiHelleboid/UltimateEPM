@@ -96,15 +96,18 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     }
 
     m_list_tetrahedra.reserve(number_elements);
-    for (std::size_t index_element = 0; index_element < number_elements; ++index_element) {
+    m_vertex_to_tetrahedra.resize(m_list_vertices.size());
+     for (std::size_t index_element = 0; index_element < number_elements; ++index_element) {
         const std::array<Vertex*, 4> array_element_vertices = {&m_list_vertices[elemNodeTags[0][4 * index_element] - 1],
                                                                &m_list_vertices[elemNodeTags[0][4 * index_element + 1] - 1],
                                                                &m_list_vertices[elemNodeTags[0][4 * index_element + 2] - 1],
                                                                &m_list_vertices[elemNodeTags[0][4 * index_element + 3] - 1]};
         Tetra                        new_tetra(index_element, array_element_vertices);
         m_list_tetrahedra.push_back(new_tetra);
+        for (std::size_t i = 0; i < 4; ++i) {
+            m_vertex_to_tetrahedra[elemNodeTags[0][4 * index_element + i] - 1].push_back(index_element);
+        }
     }
-
     gmsh::finalize();
     m_total_volume = compute_mesh_volume();
     std::cout << "Total mesh volume: " << m_total_volume << std::endl;
@@ -162,26 +165,26 @@ void MeshBZ::build_search_tree() {
 
 Tetra* MeshBZ::find_tetra_at_location(const vector3& location) const { return m_search_tree->find_tetra_at_location(location); }
 
-/**
- * @brief Get the nearest k index object.
- * Brute force search of the nearest k-point index. :(
- *
- * @param k
- * @return std::size_t
- */
-std::size_t MeshBZ::get_nearest_k_index(const Vector3D<double>& k) const {
-    vector3     K(k.X, k.Y, k.Z);
-    std::size_t index_nearest_k = 0;
-    double      min_distance    = std::numeric_limits<double>::max();
-    for (std::size_t index_k = 0; index_k < m_list_vertices.size(); ++index_k) {
-        double distance = (K - m_list_vertices[index_k].get_position()).norm();
-        if (distance < min_distance) {
-            min_distance    = distance;
-            index_nearest_k = index_k;
-        }
-    }
-    return index_nearest_k;
-}
+// /**
+//  * @brief Get the nearest k index object.
+//  * Brute force search of the nearest k-point index. :(
+//  *
+//  * @param k
+//  * @return std::size_t
+//  */
+// std::size_t MeshBZ::get_nearest_k_index(const Vector3D<double>& k) const {
+//     vector3     K(k.X, k.Y, k.Z);
+//     std::size_t index_nearest_k = 0;
+//     double      min_distance    = std::numeric_limits<double>::max();
+//     for (std::size_t index_k = 0; index_k < m_list_vertices.size(); ++index_k) {
+//         double distance = (K - m_list_vertices[index_k].get_position()).norm();
+//         if (distance < min_distance) {
+//             min_distance    = distance;
+//             index_nearest_k = index_k;
+//         }
+//     }
+//     return index_nearest_k;
+// }
 
 std::size_t MeshBZ::get_nearest_k_index(const vector3& k) const {
     std::size_t index_nearest_k = 0;
@@ -832,6 +835,12 @@ std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const noexc
     // std::cout << "Min dist in IW: " << std::scientific << std::sqrt(min_dist) * si_to_reduced_scale() << std::endl;
     return idx_min;
 }
+
+// std::vector<std::size_t> get_all_equivalent_indices_in_bz(const vector3& k_SI) const noexcept {
+//     std::vector<std::size_t> equivalent_indices;
+//     const double             s = si_to_reduced_scale();
+    
+// }
 
 /**
  * @brief Read phonon scattering rates from a file.

@@ -12,6 +12,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
 #include <filesystem>
 #include <regex>
 #include <sstream>
@@ -29,9 +30,11 @@ namespace bz_mesh {
 enum class PhMode : std::uint8_t { ALO, ALA, ATO, ATA, ELO, ELA, ETO, ETA, COUNT };
 constexpr std::size_t kModeCount = static_cast<std::size_t>(PhMode::COUNT);
 
-using Rate8           = std::array<double, kModeCount>;
-using BandRates       = std::vector<Rate8>;      // per band
-using VertexBandRates = std::vector<BandRates>;  // per vertex
+using Rate8                = std::array<double, kModeCount>;
+using BandRates            = std::vector<Rate8>;      // per band
+using VertexBandRates      = std::vector<BandRates>;  // per vertex
+using EigenIntSparseMatrix = Eigen::SparseMatrix<int, Eigen::RowMajor>;
+using TripletInt           = Eigen::Triplet<int>;
 
 enum class BandType { valence, conduction };
 
@@ -66,6 +69,15 @@ class MeshBZ {
      *
      */
     std::vector<Tetra> m_list_tetrahedra;
+
+    /**
+     * @brief Stores for each vertex index the list of tetrahedra indices that contains this vertex.
+     * For example, m_vertex_to_tetrahedra[5] = {0, 2, 3} means that the vertex with index 5 is part of the tetrahedra with indices 0, 2
+     * and 3.
+     *
+     * This is used to speed up the search of the tetrahedra containing a given vertex.
+     */
+    std::vector<std::vector<std::size_t>> m_vertex_to_tetrahedra;
 
     /**
      * @brief Factor applied to each tetra/vertex when we use only a part of the 1st BZ.
@@ -202,22 +214,25 @@ class MeshBZ {
 
     vector3 interpolate_energy_gradient_at_location(const vector3& location, const std::size_t& idx_band) const;
 
-    void        precompute_G_shifts();
-    bool        is_inside_mesh_geometry(const vector3& k) const;
-    vector3     retrieve_k_inside_mesh_geometry(const vector3& k) const;
-    void        init_reciprocal_basis(const Eigen::Vector3d& b1_SI,
-                                      const Eigen::Vector3d& b2_SI,
-                                      const Eigen::Vector3d& b3_SI,
-                                      double                 halfwidth_reduced,
-                                      double                 si_to_reduced);
-    vector3     fold_ws_bcc(const vector3& k_SI) const noexcept;
-    bool        inside_ws_bcc(const vector3& k_SI) const noexcept;
-    bool        is_irreducible_wedge(const vector3& k_SI) const noexcept;
-    std::size_t get_index_irreducible_wedge(const vector3& k_SI) const noexcept;
+    void                     precompute_G_shifts();
+    bool                     is_inside_mesh_geometry(const vector3& k) const;
+    vector3                  retrieve_k_inside_mesh_geometry(const vector3& k) const;
+    void                     init_reciprocal_basis(const Eigen::Vector3d& b1_SI,
+                                                   const Eigen::Vector3d& b2_SI,
+                                                   const Eigen::Vector3d& b3_SI,
+                                                   double                 halfwidth_reduced,
+                                                   double                 si_to_reduced);
+    vector3                  fold_ws_bcc(const vector3& k_SI) const noexcept;
+    bool                     inside_ws_bcc(const vector3& k_SI) const noexcept;
+    bool                     is_irreducible_wedge(const vector3& k_SI) const noexcept;
+    std::size_t              get_index_irreducible_wedge(const vector3& k_SI) const noexcept;
+    std::vector<std::size_t> get_all_equivalent_indices_in_bz(const vector3& k_SI) const noexcept;
 
-    vector3     get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
-    std::size_t get_nearest_k_index(const Vector3D<double>& k) const;
-    std::size_t get_nearest_k_index(const vector3& k) const;
+    vector3                         get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
+    std::size_t                     get_nearest_k_index(const vector3& k) const;
+    const std::vector<std::size_t>& get_tetrahedra_of_vertex(std::size_t vertex_index) const {
+        return m_vertex_to_tetrahedra[vertex_index];
+    }
 
     std::size_t               get_number_bands() const { return m_min_band.size(); }
     std::pair<double, double> get_min_max_energy_at_band(const int& band_index) const {

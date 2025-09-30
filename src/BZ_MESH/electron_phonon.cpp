@@ -150,6 +150,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                                                    rate_value));
                     if (populate_nk_npkp) {
                         std::size_t global_row = idx_k1 * indices_conduction_bands.size() + (idx_n1 - indices_conduction_bands.front());
+                        // std::vector<std::size_t> list_idx_tetra_vertices = get_all_equivalent_indices_in_bz(k2);
                         for (std::size_t idx_vertex : list_idx_tetra_vertices) {
                             std::size_t global_col =
                                 idx_vertex * indices_conduction_bands.size() + (idx_n2 - indices_conduction_bands.front());
@@ -157,7 +158,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                             int mode_idx =
                                 static_cast<int>(std::distance(m_phonon_dispersion.begin(), m_phonon_dispersion.find(mode_direction)));
                             if (mode_idx >= 0 && mode_idx < static_cast<int>(m_phonon_nk_npkp_modes.size())) {
-                                m_phonon_nk_npkp_modes[mode_idx](global_row, global_col) += rate_value * volume_tetra / 4.0;
+                                m_phonon_nk_npkp_modes[mode_idx].coeffRef(global_row, global_col) += rate_value * volume_tetra / 4.0;
                                 m_count_weight_tetra_per_vertex[idx_vertex] += volume_tetra / 4.0;
                             } else {
                                 throw std::runtime_error("Mode index out of bounds in compute_electron_phonon_rate");
@@ -278,7 +279,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
     std::cout << "Total number of states (n,k): " << total_nb_states << std::endl;
     std::cout << "Number of phonon modes: " << nb_modes << std::endl;
     for (std::size_t idx_mode = 0; idx_mode < nb_modes; ++idx_mode) {
-        m_phonon_nk_npkp_modes.push_back(Eigen::MatrixXd::Zero(total_nb_states, total_nb_states));
+        m_phonon_nk_npkp_modes.push_back(EigenSparseMatrix(total_nb_states, total_nb_states));
     }
 
     // Counter for progress display
@@ -341,8 +342,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh_nk_npkp(bool irredu
     std::cout << "Min index conduction band: " << min_idx_conduction_band << std::endl;
     std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() << " k-points." << std::endl;
 
-    const std::size_t total_states = m_list_vertices.size() * (max_idx_conduction_band + 1);
-    // m_phonon_nk_npkp               = Eigen::MatrixXd::Zero(total_states, total_states);
+    const std::size_t total_states = m_list_vertices.size() * m_indices_conduction_bands.size();
 
     // Counter for progress display
     std::cout << "Progress: 0%";
@@ -601,7 +601,7 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
             auto   waveType = carrier[wave];
             double A        = waveType["A"].as<double>();
             double B        = waveType["B"].as<double>();
-            std::cout << "A: " << A << " B: " << B << " energy-threshold: " << energy_threshold << std::endl;
+            // std::cout << "A: " << A << " B: " << B << " energy-threshold: " << energy_threshold << std::endl;
 
             PhononMode mode;
             if (wave == "acoustic") {
