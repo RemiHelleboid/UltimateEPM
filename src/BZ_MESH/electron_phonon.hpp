@@ -306,13 +306,13 @@ class ElectronPhonon : public BZ_States {
 
     /**
      * @brief Count the number of tetrahedra connected to each vertex in the el-ph computation.
-     * m_count_weight_tetra_per_vertex_per_band[band][vertex].
+     * m_count_weight_tetra_per_vertex[vertex].
      */
-    std::vector<std::vector<double>> m_count_weight_tetra_per_vertex_per_band;
+    std::vector<double> m_count_weight_tetra_per_vertex;
 
     /**
      * @brief Phonon rates.
-     * m_phonon_rates[mode][direction] gives the phonon dispersion for the given mode and direction.
+     * m_phonon_rates[mode] gives the phonon dispersion for the given mode.
      * Each matrix stores all the ((n,k) → (n',k')) rates for electron-phonon scattering.
      * It is a sparse matrix, as most transitions are not allowed (energy/momentum conservation
      * rules).
@@ -321,11 +321,7 @@ class ElectronPhonon : public BZ_States {
      * 
      * 
      */
-    // Eigen::MatrixXd m_phonon_nk_npkp;
-    std::vector<Eigen::MatrixXd> m_phonon_nk_npkp_modes; 
-
-
-    
+    std::vector<Eigen::MatrixXd> m_phonon_nk_npkp_modes;
 
  public:
     explicit ElectronPhonon(const EmpiricalPseudopotential::Material& material) : BZ_States(material) {}

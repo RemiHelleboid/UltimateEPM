@@ -81,12 +81,14 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                 continue;
             }
             // Final k chosen as tetra barycenter (SI)
-            const vector3 k2 = tetra.compute_barycenter();
+            const vector3 k2           = tetra.compute_barycenter();
+            const double  volume_tetra = std::fabs(tetra.get_signed_volume());
 
             // Overlap (dimensionless)
             // const double overlap2 = std::pow(electron_overlap_integral(k1, k2), 2);
-            const double overlap  = electron_overlap_integral(k1, k2);
-            const double overlap2 = overlap * overlap;
+            const double overlap                 = electron_overlap_integral(k1, k2);
+            const double overlap2                = overlap * overlap;
+            auto         list_idx_tetra_vertices = tetra.get_list_indices_vertices();
 
             // Loop phonon branches
             for (const auto& ph_mode : m_phonon_dispersion) {
@@ -146,6 +148,22 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                                                    mode_direction.second,
                                                    (sign_phonon < 0.0) ? PhononEvent::emission : PhononEvent::absorption,
                                                    rate_value));
+                    if (populate_nk_npkp) {
+                        std::size_t global_row = idx_k1 * indices_conduction_bands.size() + (idx_n1 - indices_conduction_bands.front());
+                        for (std::size_t idx_vertex : list_idx_tetra_vertices) {
+                            std::size_t global_col =
+                                idx_vertex * indices_conduction_bands.size() + (idx_n2 - indices_conduction_bands.front());
+                            // Find mode index
+                            int mode_idx =
+                                static_cast<int>(std::distance(m_phonon_dispersion.begin(), m_phonon_dispersion.find(mode_direction)));
+                            if (mode_idx >= 0 && mode_idx < static_cast<int>(m_phonon_nk_npkp_modes.size())) {
+                                m_phonon_nk_npkp_modes[mode_idx](global_row, global_col) += rate_value * volume_tetra / 4.0;
+                                m_count_weight_tetra_per_vertex[idx_vertex] += volume_tetra / 4.0;
+                            } else {
+                                throw std::runtime_error("Mode index out of bounds in compute_electron_phonon_rate");
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -237,6 +255,7 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
             }
         }
     }
+    
 
     return rates_k1_n1;
 }
@@ -253,6 +272,14 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
     auto max_idx_conduction_band  = *std::max_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
     std::cout << "Min index conduction band: " << min_idx_conduction_band << std::endl;
     std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() << " k-points." << std::endl;
+
+    int         nb_modes        = static_cast<int>(m_phonon_dispersion.size());
+    std::size_t total_nb_states = m_list_vertices.size() * m_indices_conduction_bands.size();
+    std::cout << "Total number of states (n,k): " << total_nb_states << std::endl;
+    std::cout << "Number of phonon modes: " << nb_modes << std::endl;
+    for (std::size_t idx_mode = 0; idx_mode < nb_modes; ++idx_mode) {
+        m_phonon_nk_npkp_modes.push_back(Eigen::MatrixXd::Zero(total_nb_states, total_nb_states));
+    }
 
     // Counter for progress display
     std::cout << "Progress: 0%";
@@ -293,8 +320,8 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
 #pragma omp parallel for schedule(dynamic)
         for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
             if ((idx_k1 % 1000) == 0) {
-                std::cout << "\rSetting rates for all k-points: " << idx_k1 << "/" << m_list_vertices.size() << " ("
-                          << std::fixed << std::setprecision(1) << (100.0 * idx_k1 / m_list_vertices.size()) << "%)" << std::flush;
+                std::cout << "\rSetting rates for all k-points: " << idx_k1 << "/" << m_list_vertices.size() << " (" << std::fixed
+                          << std::setprecision(1) << (100.0 * idx_k1 / m_list_vertices.size()) << "%)" << std::flush;
             }
             if (!is_irreducible_wedge(m_list_vertices[idx_k1].get_position())) {
                 std::size_t idx_k1_symm = get_index_irreducible_wedge(m_list_vertices[idx_k1].get_position());
