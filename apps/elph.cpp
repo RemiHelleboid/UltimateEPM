@@ -56,7 +56,7 @@ int main(int argc, char const *argv[])
 
     Options my_options;
     my_options.materialName = arg_material.getValue();
-    my_options.nrLevels     = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue() + 4;
+    my_options.nrLevels     = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
     my_options.nrThreads    = arg_nb_threads.getValue();
     int number_energies     = arg_nb_energies.getValue();
 

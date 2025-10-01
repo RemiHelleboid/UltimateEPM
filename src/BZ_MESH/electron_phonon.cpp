@@ -149,23 +149,23 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                                                    mode_direction.second,
                                                    (sign_phonon < 0.0) ? PhononEvent::emission : PhononEvent::absorption,
                                                    rate_value));
-                    if (populate_nk_npkp) {
-                        std::size_t global_row = idx_k1 * indices_conduction_bands.size() + (idx_n1 - indices_conduction_bands.front());
-                        // std::vector<std::size_t> list_idx_tetra_vertices = get_all_equivalent_indices_in_bz(k2);
-                        for (std::size_t idx_vertex : list_idx_tetra_vertices) {
-                            std::size_t global_col =
-                                idx_vertex * indices_conduction_bands.size() + (idx_n2 - indices_conduction_bands.front());
-                            // Find mode index
-                            int mode_idx =
-                                static_cast<int>(std::distance(m_phonon_dispersion.begin(), m_phonon_dispersion.find(mode_direction)));
-                            if (mode_idx >= 0 && mode_idx < static_cast<int>(m_phonon_nk_npkp_modes.size())) {
-                                m_phonon_nk_npkp_modes[mode_idx].coeffRef(global_row, global_col) += rate_value * volume_tetra / 4.0;
-                                m_count_weight_tetra_per_vertex[idx_vertex] += volume_tetra / 4.0;
-                            } else {
-                                throw std::runtime_error("Mode index out of bounds in compute_electron_phonon_rate");
-                            }
-                        }
-                    }
+                    // if (populate_nk_npkp) {
+                    //     std::size_t global_row = idx_k1 * indices_conduction_bands.size() + (idx_n1 - indices_conduction_bands.front());
+                    //     // std::vector<std::size_t> list_idx_tetra_vertices = get_all_equivalent_indices_in_bz(k2);
+                    //     for (std::size_t idx_vertex : list_idx_tetra_vertices) {
+                    //         std::size_t global_col =
+                    //             idx_vertex * indices_conduction_bands.size() + (idx_n2 - indices_conduction_bands.front());
+                    //         // Find mode index
+                    //         int mode_idx =
+                    //             static_cast<int>(std::distance(m_phonon_dispersion.begin(), m_phonon_dispersion.find(mode_direction)));
+                    //         if (mode_idx >= 0 && mode_idx < static_cast<int>(m_phonon_nk_npkp_modes.size())) {
+                    //             m_phonon_nk_npkp_modes[mode_idx].coeffRef(global_row, global_col) += rate_value * volume_tetra / 4.0;
+                    //             m_count_weight_tetra_per_vertex[idx_vertex] += volume_tetra / 4.0;
+                    //         } else {
+                    //             throw std::runtime_error("Mode index out of bounds in compute_electron_phonon_rate");
+                    //         }
+                    //     }
+                    // }
                 }
             }
         }
@@ -273,15 +273,16 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
     auto min_idx_conduction_band  = *std::min_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
     auto max_idx_conduction_band  = *std::max_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
     std::cout << "Min index conduction band: " << min_idx_conduction_band << std::endl;
+    std::cout << "Max index conduction band: " << max_idx_conduction_band << std::endl;
     std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() << " k-points." << std::endl;
 
-    int         nb_modes        = static_cast<int>(m_phonon_dispersion.size());
-    std::size_t total_nb_states = m_list_vertices.size() * m_indices_conduction_bands.size();
-    std::cout << "Total number of states (n,k): " << total_nb_states << std::endl;
-    std::cout << "Number of phonon modes: " << nb_modes << std::endl;
-    for (std::size_t idx_mode = 0; idx_mode < nb_modes; ++idx_mode) {
-        m_phonon_nk_npkp_modes.push_back(EigenSparseMatrix(total_nb_states, total_nb_states));
-    }
+    // int         nb_modes        = static_cast<int>(m_phonon_dispersion.size());
+    // std::size_t total_nb_states = m_list_vertices.size() * m_indices_conduction_bands.size();
+    // std::cout << "Total number of states (n,k): " << total_nb_states << std::endl;
+    // std::cout << "Number of phonon modes: " << nb_modes << std::endl;
+    // for (std::size_t idx_mode = 0; idx_mode < nb_modes; ++idx_mode) {
+    //     m_phonon_nk_npkp_modes.push_back(EigenSparseMatrix(total_nb_states, total_nb_states));
+    // }
 
     // Counter for progress display
     std::cout << "Progress: 0%";
@@ -294,7 +295,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
             (!irreducible_wedge_only) || (irreducible_wedge_only && is_irreducible_wedge(m_list_vertices[idx_k1].get_position()));
 
         auto done = ++counter;
-        if ((done % 100) == 0 || done == m_list_vertices.size() && omp_get_thread_num() == 0) {
+        if (done == 1 || (done % 100) == 0 || done == m_list_vertices.size()) {
             std::cout << "\rDone " << done << "/" << m_list_vertices.size() << " (" << std::fixed << std::setprecision(1)
                       << (100.0 * done / m_list_vertices.size()) << "%)" << std::flush;
         }
@@ -305,7 +306,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
             }
             auto hole_rate = compute_hole_phonon_rate(idx_n1, idx_k1);
             auto array_h   = hole_rate.to_array();
-            m_list_vertices[idx_k1].add_electron_phonon_rates(array_h);
+            // m_list_vertices[idx_k1].add_electron_phonon_rates(array_h);
         }
         for (std::size_t idx_n1 = min_idx_conduction_band; idx_n1 <= max_idx_conduction_band; ++idx_n1) {
             if (!to_compute) {
@@ -327,7 +328,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
             }
             if (!is_irreducible_wedge(m_list_vertices[idx_k1].get_position())) {
                 std::size_t idx_k1_symm = get_index_irreducible_wedge(m_list_vertices[idx_k1].get_position());
-                for (std::size_t idx_n1 = 0; idx_n1 < max_idx_conduction_band; ++idx_n1) {
+                for (std::size_t idx_n1 = 0; idx_n1 <= max_idx_conduction_band; ++idx_n1) {
                     auto rates_symm = m_list_vertices[idx_k1_symm].get_electron_phonon_rates(idx_n1);
                     m_list_vertices[idx_k1].add_electron_phonon_rates(rates_symm);
                 }
@@ -418,8 +419,13 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
                 dos_sum += dos_t;
 
                 const std::array<double, 8> rates = tetra.get_tetra_electron_phonon_rates(b);
-                for (int i = 0; i < 8; ++i)
+                for (int i = 0; i < 8; ++i){
                     num[i] += rates[i] * dos_t;
+                    if (rates[i]>1e20) {
+                        throw std::runtime_error("Numerator is NaN/Inf at E=" + std::to_string(E) + " band=" + std::to_string(b) +
+                                                 " channel=" + std::to_string(i));
+                    }
+                }
             }
         }
 

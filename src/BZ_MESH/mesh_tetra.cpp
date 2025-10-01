@@ -492,7 +492,6 @@ void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step) {
     m_precomputed_dos_at_energies_per_band.clear();
     m_energy_grid_per_band.clear();
     m_nb_bands = m_list_vertices[0]->get_number_bands();
-    // std::cout << "Tetra " << m_index << ": Precomputing DOS on energy grid for " << m_nb_bands << " bands." << std::endl;
     for (std::size_t band_index = 0; band_index < m_nb_bands; band_index++) {
         std::vector<double> energy_grid;
         std::vector<double> dos_grid;
@@ -501,15 +500,11 @@ void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step) {
         // Recompute step to have an integer number of steps
         std::size_t           nb_steps  = static_cast<std::size_t>(std::ceil((e_max - e_min) / energy_step));
         double                step      = (e_max - e_min) / static_cast<double>(nb_steps);
-        constexpr std::size_t min_steps = 10;
+        constexpr std::size_t min_steps = 5;
         if (nb_steps < min_steps) {
             nb_steps = min_steps;
             step     = (e_max - e_min) / static_cast<double>(nb_steps);
-            // std::cout << "Nb steps : " << nb_steps << std::endl;
         }
-        // std::cout << "Tetra " << m_index << ", band " << band_index << ": Precomputing DOS on energy grid from " << e_min << " to " <<
-        // e_max
-        //           << " eV with step " << step << " eV (" << nb_steps << " steps)" << std::endl;
         energy_grid.resize(nb_steps + 1);
         dos_grid.resize(nb_steps + 1);
 
@@ -540,14 +535,7 @@ double Tetra::interpolate_dos_at_energy_per_band(double energy, std::size_t band
     }
     const auto& energy_grid = m_energy_grid_per_band[band_index];
     const auto& dos_grid    = m_precomputed_dos_at_energies_per_band[band_index];
-    // if (energy_grid.size() != dos_grid.size()) {
-    //     throw std::runtime_error(
-    //         "In Tetra::interpolate_dos_at_energy_per_band, the precomputed DOS grid and energy grid have different sizes.");
-    // }
-    // if (energy_grid.size() < 2) {
-    //     throw std::runtime_error("In Tetra::interpolate_dos_at_energy_per_band, the precomputed DOS grid has less than 2 points.");
-    // }
-    // Binary search to find the right interval
+
     auto it = std::lower_bound(energy_grid.begin(), energy_grid.end(), energy);
     if (it == energy_grid.begin()) {
         throw std::runtime_error("In Tetra::interpolate_dos_at_energy_per_band, the energy is smaller than the minimum energy.");
@@ -569,16 +557,6 @@ double Tetra::interpolate_dos_at_energy_per_band(double energy, std::size_t band
         std::cout << "WARNING" << std::endl;
     }
     if (std::isnan(dos_interp) || dos_interp < 0.0) {
-        std::cout << "Tetra " << m_index << ", band " << band_index << ": Interpolated DOS is NaN or negative at energy " << energy
-                  << " eV." << std::endl;
-        std::cout << "Energy grid: ";
-        for (auto e : energy_grid) std::cout << e << " ";
-        std::cout << std::endl;
-        std::cout << "DOS grid: ";
-        for (auto d : dos_grid) std::cout << d << " ";
-        std::cout << std::endl;
-        std::cout << "e1: " << e1 << ", e2: " << e2 << ", d1: " << d1 << ", d2: " << d2 << std::endl;
-        std::cout << "idx: " << idx << ", energy_grid.size(): " << energy_grid.size() << std::endl;
         throw std::runtime_error("In Tetra::interpolate_dos_at_energy_per_band, the interpolated DOS is NaN or negative.");
     }
     return dos_interp;
