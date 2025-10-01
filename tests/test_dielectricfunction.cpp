@@ -41,7 +41,7 @@ TEST_CASE("Epsilon_Si") {
     // exit(0);
 
     // EmpiricalPseudopotential::Materials materials;
-    // const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
+    // const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     // materials.load_material_parameters(file_material_parameters);
     // EmpiricalPseudopotential::Material current_material = materials.materials.at("Si");
 
@@ -87,7 +87,7 @@ TEST_CASE("Epsilon_Si") {
     //         file_dielectric_function << list_energy[i] << "," << list_epsilon[i] << std::endl;
     //     }
     //     file_dielectric_function.close();
-    //     const std::string python_plot_band_structure_script = std::string(CMAKE_SOURCE_DIR) + "/python/plots/plot_eps_vs_energy.py";
+    //     const std::string python_plot_band_structure_script = std::string(PROJECT_SRC_DIR) + "/python/plots/plot_eps_vs_energy.py";
     //     std::string       python_call                       = "python3 " + python_plot_band_structure_script + " --filename " + filename;
     //     bool              call_python_plot                  = false;
     //     // bool call_python_plot = true;

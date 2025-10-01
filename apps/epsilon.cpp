@@ -84,7 +84,7 @@ void export_eps_result(const std::string& filename, const std::vector<double> en
         file << energies[i] << "," << eps[i] << std::endl;
     }
     file.close();
-    const std::string python_plot_band_structure_script = std::string(CMAKE_SOURCE_DIR) + "/python/plots/plot_eps_vs_energy.py";
+    const std::string python_plot_band_structure_script = std::string(PROJECT_SRC_DIR) + "/python/plots/plot_eps_vs_energy.py";
     std::string       python_call                       = "python3 " + python_plot_band_structure_script + " --filename " + filename;
     // bool              call_python_plot                  = false;
     // bool call_python_plot = true;
@@ -179,9 +179,9 @@ int main(int argc, char** argv) {
     bool use_irreducible_wedge = (bz_sampling == 48) ? true : false;
 
     EmpiricalPseudopotential::Materials materials;
-    std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
+    std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     if (nonlocal_epm) {
-        file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
+        file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
     }
     std::cout << "Loading material parameters from " << file_material_parameters << std::endl;
 

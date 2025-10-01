@@ -58,7 +58,7 @@ int main(int argc, const char** argv) {
     int               nb_valence_bands       = 0;
 
     const std::string mesh_band_input_file = "bz_si_cb_1.msh";
-    const std::string phonon_file          = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/phonon_kamakura.yaml";
+    const std::string phonon_file          = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
 
 
     bz_mesh::MeshBZ mesh;

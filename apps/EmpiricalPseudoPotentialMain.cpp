@@ -18,7 +18,7 @@
 #include "BandStructure.h"
 #include "Options.h"
 
-const std::string python_plot_band_structure_script = std::string(CMAKE_SOURCE_DIR) + "/python/plots/plot_band_structure.py";
+const std::string python_plot_band_structure_script = std::string(PROJECT_SRC_DIR) + "/python/plots/plot_band_structure.py";
 
 std::string python_plot_command(const std::string& output_file, int nb_bands = 10) {
     std::string python_call = "python3 " + python_plot_band_structure_script + " --file " + output_file + " -b " + std::to_string(nb_bands);
@@ -235,9 +235,9 @@ int main(int argc, char* argv[]) {
     }
 
     EmpiricalPseudopotential::Materials materials;
-    std::string                         file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
+    std::string                         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     if (!arg_enable_nonlocal_correction.isSet()) {
-        file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
+        file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     }
     materials.load_material_parameters(file_material_parameters);
     materials.print_material_parameters();

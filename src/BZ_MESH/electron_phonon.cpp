@@ -13,6 +13,7 @@
 
 #include <Eigen/Dense>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <filesystem>
 #include <fstream>

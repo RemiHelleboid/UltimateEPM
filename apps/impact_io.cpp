@@ -54,9 +54,9 @@ int main(int argc, char *argv[]) {
     bool                                nonlocal_epm = false;
     bool                                enable_soc   = false;
     EmpiricalPseudopotential::Materials materials;
-    std::string                         file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-cohen.yaml";
+    std::string                         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-cohen.yaml";
     if (nonlocal_epm) {
-        file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials.yaml";
+        file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
     }
     std::cout << "Loading material parameters from " << file_material_parameters << std::endl;
     materials.load_material_parameters(file_material_parameters);

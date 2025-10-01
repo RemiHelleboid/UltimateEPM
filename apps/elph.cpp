@@ -51,7 +51,7 @@ int main(int argc, char const *argv[])
     auto start = std::chrono::high_resolution_clock::now();
 
     EmpiricalPseudopotential::Materials materials;
-    const std::string                   file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
+    const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     materials.load_material_parameters(file_material_parameters);
 
     Options my_options;
@@ -64,8 +64,8 @@ int main(int argc, char const *argv[])
 
     const std::string mesh_band_input_file = arg_mesh_file.getValue();
     bz_mesh::ElectronPhonon   ElectronPhonon{current_material};
-    // const std::string phonon_file = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/phonon_michaillat.yaml";
-    const std::string phonon_file = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/phonon_kamakura.yaml";
+    // const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_michaillat.yaml";
+    const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
     
     
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
@@ -97,7 +97,7 @@ int main(int argc, char const *argv[])
     std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds" << std::endl;
 
     if (plot_with_python.getValue()) {
-        std::string command = "python3 " + std::string(CMAKE_SOURCE_DIR) + "/python/plots/plot_phonon_rate.py -f rates_vs_energy.csv";
+        std::string command = "python3 " + std::string(PROJECT_SRC_DIR) + "/python/plots/plot_phonon_rate.py -f rates_vs_energy.csv";
         std::cout << "Running command: " << command << std::endl;
         std::system(command.c_str());
     }

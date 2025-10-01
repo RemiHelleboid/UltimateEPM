@@ -17,9 +17,9 @@ target_link_libraries(lib_fbmc PUBLIC Eigen3::Eigen rapidcsv fmt::fmt)
 target_include_directories(lib_fbmc PUBLIC ${GMSH_INC})
 target_link_libraries(lib_fbmc PUBLIC ${GMSH_LIB})
 
-if(USE_OPENMP_ACCELERATION)
+if(ENABLE_OPEN_MP)
   target_link_libraries(lib_fbmc PUBLIC OpenMP::OpenMP_CXX)
-endif(USE_OPENMP_ACCELERATION)
+endif(ENABLE_OPEN_MP)
 
 # All users of this library will need at least C++20
 target_compile_features(lib_fbmc PRIVATE cxx_std_20)

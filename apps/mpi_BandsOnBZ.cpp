@@ -92,9 +92,9 @@ int main(int argc, char* argv[]) {
 
     std::string file_material_parameters = arg_material_parameters.getValue();
     if (file_material_parameters.empty()) {
-        file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-cohen.yaml";
+        file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-cohen.yaml";
         if (!arg_enable_nonlocal_correction.getValue()) {
-            file_material_parameters = std::string(CMAKE_SOURCE_DIR) + "/parameter_files/materials-local.yaml";
+            file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
         }
     }
 
