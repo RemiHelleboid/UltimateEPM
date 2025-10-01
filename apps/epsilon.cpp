@@ -26,7 +26,6 @@
 #define MASTER 0
 
 #include <mpi.h>
-
 #include <tclap/CmdLine.h>
 #include <yaml-cpp/yaml.h>
 
@@ -155,7 +154,7 @@ int main(int argc, char** argv) {
     int Nkz = config["Nkz"].as<int>();
 
     bool nonlocal_epm = false;
-    bool enable_soc = false;
+    bool enable_soc   = false;
     if (config["nonlocal"]) {
         nonlocal_epm = config["nonlocal"].as<bool>();
     }
@@ -179,7 +178,7 @@ int main(int argc, char** argv) {
     bool use_irreducible_wedge = (bz_sampling == 48) ? true : false;
 
     EmpiricalPseudopotential::Materials materials;
-    std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
+    std::string                         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     if (nonlocal_epm) {
         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
     }
@@ -225,7 +224,7 @@ int main(int argc, char** argv) {
         std::cout << "File list q: " << file_list_q << std::endl;
         list_q = read_qpoint_dat_file(file_list_q);
     } else {
-        double           min_q      = 1.0e-12;
+        double           min_q      = 5.0e-13;
         double           max_q_norm = 4.0;
         double           step_q     = 0.1e4;
         double           qx         = min_q;
@@ -245,20 +244,16 @@ int main(int argc, char** argv) {
     }
 
     // Define the number of k-points each process will be responsible for.
-    std::vector<int> counts_kpoints_per_process(number_processes);
-    std::vector<int> displacements_kpoints_per_process(number_processes);
+    std::vector<int> counts_kpoints_per_process(number_processes, 0);
+    std::vector<int> displacements_kpoints_per_process(number_processes, 0);
     int              nb_points = nb_k_points;
-    while (nb_points > 0) {
-        int displacement = 0;
-        for (int i = 0; i < number_processes; i++) {
-            counts_kpoints_per_process[i]++;
-            displacements_kpoints_per_process[i] = displacement;
-            displacement += counts_kpoints_per_process[i];
-            nb_points--;
-            if (nb_points <= 0) {
-                break;
-            }
-        }
+    const int        Ntot      = static_cast<int>(nb_k_points);
+    const int        base      = Ntot / number_processes;
+    const int        rem       = Ntot % number_processes;
+
+    for (int p = 0; p < number_processes; ++p) {
+        counts_kpoints_per_process[p]        = base + (p < rem ? 1 : 0);
+        displacements_kpoints_per_process[p] = (p == 0) ? 0 : displacements_kpoints_per_process[p - 1] + counts_kpoints_per_process[p - 1];
     }
 
     std::cout << "Process " << process_rank << " will handle " << counts_kpoints_per_process[process_rank] << " k-points" << std::endl;
@@ -283,43 +278,87 @@ int main(int argc, char** argv) {
     }
 
     // Gather the results from all the processes.
-    std::vector<double> dielectric_function_per_process_flat;
+    // --- Gather results robustly (works for equal or variable payload sizes) ---
+    const std::size_t Q  = nb_qpoints;
+    const std::size_t E  = list_energy.size();
+    const std::size_t QE = Q * E;
+
+    std::vector<double> flat_local = MyDielectricFunc.get_flat_dielectric_function();
+    const int           local_n    = static_cast<int>(flat_local.size());
+
+    // 1) Gather per-rank sizes to rank 0
+    std::vector<int> recvcounts, displs;
+    if (process_rank == 0) recvcounts.resize(number_processes, 0);
+
+    MPI_Gather(&local_n, 1, MPI_INT, process_rank == 0 ? recvcounts.data() : nullptr, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    // 2) Allocate receive buffer on rank 0 and compute displacements
+    std::vector<double> all_flat;
     if (process_rank == 0) {
-        dielectric_function_per_process_flat.resize(number_processes * nb_qpoints * list_energy.size());
+        displs.resize(number_processes, 0);
+        for (int p = 1; p < number_processes; ++p)
+            displs[p] = displs[p - 1] + recvcounts[p - 1];
+        const int total = (number_processes > 0) ? (displs.back() + recvcounts.back()) : 0;
+        all_flat.resize(static_cast<std::size_t>(total));
     }
-    std::vector<double> flattened_dielectric_function = MyDielectricFunc.get_flat_dielectric_function();
-    MPI_Gather(flattened_dielectric_function.data(),
-               flattened_dielectric_function.size(),
-               MPI_DOUBLE,
-               dielectric_function_per_process_flat.data(),
-               flattened_dielectric_function.size(),
-               MPI_DOUBLE,
-               0,
-               MPI_COMM_WORLD);
-    // Reconstruct the dielectric function.
+
+    // 3) Gatherv the payloads
+    MPI_Gatherv(flat_local.data(),
+                local_n,
+                MPI_DOUBLE,
+                process_rank == 0 ? all_flat.data() : nullptr,
+                process_rank == 0 ? recvcounts.data() : nullptr,
+                process_rank == 0 ? displs.data() : nullptr,
+                MPI_DOUBLE,
+                0,
+                MPI_COMM_WORLD);
+
+    // 4) Reconstruct a [process][q][e] cube on rank 0
     if (process_rank == 0) {
-        std::vector<std::vector<std::vector<double>>> dielectric_function_results(number_processes);
-        for (int i = 0; i < number_processes; i++) {
-            dielectric_function_results[i].resize(nb_qpoints);
-            for (std::size_t j = 0; j < nb_qpoints; j++) {
-                dielectric_function_results[i][j].resize(list_energy.size());
-                for (std::size_t k = 0; k < list_energy.size(); k++) {
-                    dielectric_function_results[i][j][k] =
-                        dielectric_function_per_process_flat[i * nb_qpoints * list_energy.size() + j * list_energy.size() + k];
+        std::vector<std::vector<std::vector<double>>> dielectric_function_results(
+            number_processes,
+            std::vector<std::vector<double>>(Q, std::vector<double>(E, 0.0)));
+
+        for (int p = 0; p < number_processes; ++p) {
+            const int         count = recvcounts[p];
+            const std::size_t base  = static_cast<std::size_t>(displs[p]);
+
+            if (count == static_cast<int>(QE)) {
+                // Case A: rank p already reduced over its local k's (exactly Q*E values)
+                for (std::size_t q = 0; q < Q; ++q) {
+                    const double* src = &all_flat[base + q * E];
+                    std::copy(src, src + E, dielectric_function_results[p][q].data());
                 }
+            } else if (count % static_cast<int>(QE) == 0) {
+                // Case B: rank p sent local_k blocks of size Q*E -> sum over k
+                const int k_loc = count / static_cast<int>(QE);
+                for (int k = 0; k < k_loc; ++k) {
+                    const std::size_t block = base + static_cast<std::size_t>(k) * QE;
+                    for (std::size_t q = 0; q < Q; ++q) {
+                        const double* src = &all_flat[block + q * E];
+                        double*       dst = dielectric_function_results[p][q].data();
+                        for (std::size_t e = 0; e < E; ++e)
+                            dst[e] += src[e];
+                    }
+                }
+                // If your per-k values are averages instead of sums, divide here by k_loc.
+                // for (std::size_t q = 0; q < Q; ++q)
+                //     for (std::size_t e = 0; e < E; ++e) dielectric_function_results[p][q][e] /= k_loc;
+            } else {
+                throw std::runtime_error("Unexpected payload size from rank " + std::to_string(p));
             }
         }
-        // Merge the results.
+
+        // 5) Merge and finish
         EmpiricalPseudopotential::DielectricFunction dielectric_function =
             EmpiricalPseudopotential::DielectricFunction::merge_results(MyDielectricFunc,
                                                                         dielectric_function_results,
                                                                         counts_kpoints_per_process);
-        dielectric_function.apply_kramers_kronig();
-        std::cout << "END" << std::endl;
 
+        dielectric_function.apply_kramers_kronig();
         std::filesystem::create_directories(outdir);
-        // Write the results to a file.
         dielectric_function.export_dielectric_function("", true);
+        std::cout << "END" << std::endl;
     }
 
     MPI_Finalize();
