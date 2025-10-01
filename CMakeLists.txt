@@ -12,7 +12,6 @@ include(CTest)
 include(cmake/CPM.cmake)
 
 # ---------------------------- Options ----------------------------
-option(ENABLE_OPEN_MP       "Build with OpenMP"                            ON)
 option(ENABLE_MPI_BUILD     "Build with MPI"                               ON)
 option(ENABLE_CLANG_TIDY    "Enable clang-tidy"                            OFF)
 option(ENABLE_BUILD_DOC     "Build documentation (Doxygen)"                OFF)
@@ -134,18 +133,12 @@ if(ENABLE_BUILD_TEST AND BUILD_TESTING)
 endif()
 
 # ---------------------------- OpenMP ----------------------------
-if(ENABLE_OPEN_MP)
-  find_package(OpenMP)
-  if(OpenMP_CXX_FOUND)
-    add_compile_definitions(USE_OPEN_MP=1)
-    set(OPENMP_IMPORTED_TARGET OpenMP::OpenMP_CXX CACHE STRING "" FORCE)
+find_package(OpenMP REQUIRED)
+if(OpenMP_CXX_FOUND)
+  set(OPENMP_IMPORTED_TARGET OpenMP::OpenMP_CXX CACHE STRING "" FORCE)
     message(STATUS "OpenMP found")
   else()
-    add_compile_definitions(USE_OPEN_MP=0)
     message(STATUS "OpenMP not found")
-  endif()
-else()
-  add_compile_definitions(USE_OPEN_MP=0)
 endif()
 
 # ---------------------------- MPI ----------------------------

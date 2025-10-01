@@ -37,9 +37,7 @@ target_link_libraries(libepp PUBLIC OpenMP::OpenMP_CXX)
 target_include_directories(libepp PUBLIC ${GMSH_INC} ${rapidcsv_SOURCE_DIR})
 target_link_libraries(libepp PUBLIC ${GMSH_LIB})
 
-if(ENABLE_OPEN_MP)
   target_link_libraries(libepp PUBLIC OpenMP::OpenMP_CXX)
-endif(ENABLE_OPEN_MP)
 
 # All users of this library will need at least C++20
 target_compile_features(libepp PRIVATE cxx_std_20)
