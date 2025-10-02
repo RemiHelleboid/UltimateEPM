@@ -43,7 +43,7 @@ void particle::update_k_vector(const vector3& v_electric_field) {
 
 void particle::update_group_velocity() {
     m_velocity = m_containing_bz_mesh_tetra->get_gradient_energy_at_band(m_band_index);
-    m_velocity *= (get_charge_sign() / EmpiricalPseudopotential::Constants::h_bar);
+    m_velocity *= (1.0 / EmpiricalPseudopotential::Constants::h_bar_eV);
 }
 
 std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(const vector3& location) {
@@ -51,5 +51,7 @@ std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(c
 }
 
 void particle::update_energy() { m_energy = m_containing_bz_mesh_tetra->interpolate_energy_at_band(m_k_vector, m_band_index); }
+
+void compute_post_phonon_scattering_state() {}
 
 }  // namespace fbmc

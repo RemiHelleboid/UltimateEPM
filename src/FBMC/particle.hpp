@@ -20,9 +20,9 @@
 #include "bz_mesh.hpp"
 #include "vector.hpp"
 // #include "particle_history_mc.hpp"
+#include "electron_phonon.hpp"
 #include "mesh_tetra.hpp"
 #include "vector.hpp"
-#include "electron_phonon.hpp"
 
 namespace fbmc {
 
@@ -181,6 +181,7 @@ class particle {
     void set_random_generator(std::mt19937 random_generator) { m_random_generator = random_generator; }
 
     std::array<double, 8> interpolate_phonon_scattering_rate_at_location(const vector3& location);
+    void                  compute_post_phonon_scattering_state();
 
     void draw_free_flight_time(double p_gamma);
     void update_k_vector(const vector3& v_electric_field);
