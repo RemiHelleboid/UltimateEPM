@@ -139,7 +139,7 @@ double F_2_function_gaussian(const Vector3D<double>& K1, const Vector3D<double>&
 std::complex<double> Material::compute_pseudopotential_non_local_correction(const Vector3D<double>& K1_normalized,
                                                                             const Vector3D<double>& K2_normalized,
                                                                             const Vector3D<double>& tau) const {
-    const double           diag_factor       = pow(Constants::h_bar, 2) / (2.0 * Constants::m0 * Constants::q_e);
+    const double           diag_factor       = pow(Constants::h_bar, 2) / (2.0 * Constants::m_e * Constants::q_e);
     const double           fourier_factor    = 2.0 * M_PI / get_lattice_constant_meter();
     const Vector3D<double> G_diff_normalized = (K1_normalized - K2_normalized);
     const Vector3D<double> K1                = K1_normalized * fourier_factor;

@@ -24,7 +24,7 @@
 #include "single_part_fbmc.hpp"
 namespace fbmc {
 
-Single_particle_simulation::Single_particle_simulation(bz_mesh::MeshBZ*             ptr_mesh_bz,
+Single_particle_simulation::Single_particle_simulation(bz_mesh::ElectronPhonon*     ptr_mesh_bz,
                                                        const Bulk_environment&      bulk_env,
                                                        const Simulation_parameters& sim_params)
     : m_ptr_mesh_bz(ptr_mesh_bz),
@@ -41,7 +41,9 @@ Single_particle_simulation::Single_particle_simulation(bz_mesh::MeshBZ*         
     std::cout << "Thermal energy at " << bulk_env.m_temperature << " K: " << thermal_energy << " eV" << std::endl;
     vector3 initial_k = m_ptr_mesh_bz->draw_random_k_point_at_energy(thermal_energy, 0, m_particle.get_random_generator());
     m_particle.set_k_vector(initial_k);
+    std::cout << "Initial k-vector (drawn at thermal energy): " << initial_k << std::endl;
     bz_mesh::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
+    std::cout << "Initial containing tetra index: " << containing_tetra->get_index() << std::endl;
     if (containing_tetra == nullptr) {
         throw std::runtime_error("Initial k-point is out of the Brillouin zone mesh.");
     }

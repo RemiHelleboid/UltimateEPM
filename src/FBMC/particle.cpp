@@ -16,7 +16,7 @@
 #include "Constants.hpp"
 namespace fbmc {
 
-particle::particle(std::size_t index, particle_type arg_particle_type, bz_mesh::MeshBZ* ptr_mesh_bz)
+particle::particle(std::size_t index, particle_type arg_particle_type, bz_mesh::ElectronPhonon* ptr_mesh_bz)
     : m_index(index),
       m_type(arg_particle_type),
       m_mesh_bz(ptr_mesh_bz) {}

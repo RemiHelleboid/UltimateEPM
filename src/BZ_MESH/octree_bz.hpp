@@ -34,7 +34,7 @@ class Octree_mesh {
      * @brief Minimum size of a node.
      * If the size of a node is smaller than this value, the node is not split anymore.
      */
-    static constexpr double min_size_of_a_node = 1e-2;
+    static constexpr double min_size_of_a_node = 1e8;
 
     /**
      * @brief Bounding box of the node.

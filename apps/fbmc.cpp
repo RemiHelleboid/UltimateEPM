@@ -20,12 +20,9 @@
 #include "Material.h"
 #include "Options.h"
 #include "bz_mesh.hpp"
-#include "bz_mesh.hpp"
 #include "bz_states.hpp"
 #include "electron_phonon.hpp"
 #include "single_part_fbmc.hpp"
-
-
 
 int main(int argc, const char** argv) {
     std::cout << "Hello SinglePartFBMC!" << std::endl;
@@ -48,22 +45,25 @@ int main(int argc, const char** argv) {
     cmd.add(arg_nb_energies);
     cmd.add(arg_nb_threads);
     cmd.add(plot_with_wedge);
+    cmd.add(arg_phonon_file);
+    
 
     cmd.parse(argc, argv);
 
     const std::string file_mesh              = arg_mesh_file.getValue();
     const std::string material_symbol        = arg_material.getValue();
     const std::string file_phonon_scattering = arg_phonon_file.getValue();
-    int               nb_conduction_bands    = 4;
     int               nb_valence_bands       = 0;
+    int               nb_conduction_bands    = 4;
 
-    const std::string mesh_band_input_file = "bz_si_cb_1.msh";
-    const std::string phonon_file          = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
+    EmpiricalPseudopotential::Materials materials;
+    const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
+    materials.load_material_parameters(file_material_parameters);
+    EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
-
-    bz_mesh::MeshBZ mesh;
+    bz_mesh::ElectronPhonon mesh(current_material);
     mesh.read_mesh_geometry_from_msh_file(file_mesh);
-    mesh.read_mesh_bands_from_msh_file(file_mesh, nb_valence_bands+nb_conduction_bands);
+    mesh.read_mesh_bands_from_msh_file(file_mesh, nb_conduction_bands);
     mesh.read_phonon_scattering_rates_from_file(file_phonon_scattering);
 
     fbmc::Bulk_environment bulk_env;

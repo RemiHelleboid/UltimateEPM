@@ -119,15 +119,14 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     std::cout << "Reduce BZ factor: " << m_reduce_bz_factor << std::endl;
 
     precompute_G_shifts();
-    // vector3 b1 = {-1.0, 1.0, 1.0};
-    // vector3 b2 = {1.0, -1.0, 1.0};
-    // vector3 b3 = {1.0, 1.0, -1.0};
     Eigen::Vector3d  b1_SI                = {-1.0, 1.0, 1.0};
     Eigen::Vector3d  b2_SI                = {1.0, -1.0, 1.0};
     Eigen::Vector3d  b3_SI                = {1.0, 1.0, -1.0};
     constexpr double halfwidth_reduced    = 1.0;
     const double     ssi_to_reduced_scale = si_to_reduced_scale();
     init_reciprocal_basis(b1_SI, b2_SI, b3_SI, halfwidth_reduced, ssi_to_reduced_scale);
+
+    build_search_tree();
 }
 
 bbox_mesh MeshBZ::compute_bounding_box() const {
@@ -571,10 +570,13 @@ std::size_t MeshBZ::draw_random_tetrahedron_index_with_dos_probability(double   
                                                                        std::mt19937& random_generator) const {
     std::vector<double> list_dos;
     list_dos.reserve(m_list_tetrahedra.size());
+    std::cout << "Computing DOS weights for tetrahedra at energy " << energy << " eV ..." << std::endl;
     for (auto&& tetra : m_list_tetrahedra) {
+        std::cout << "\rTetra " << tetra.get_index() << "/" << m_list_tetrahedra.size() << std::flush;
         double dos = tetra.compute_tetra_dos_energy_band(energy, idx_band);
         list_dos.push_back(dos);
     }
+    std::cout << "\nDrawing tetrahedron with DOS weights ..." << std::endl;
     std::discrete_distribution<std::size_t> distribution(list_dos.begin(), list_dos.end());
     return distribution(random_generator);
 }
@@ -593,6 +595,10 @@ vector3 MeshBZ::draw_random_k_point_at_energy(double energy, std::size_t idx_ban
         throw std::runtime_error("Energy is out of range");
     }
     const std::size_t index_tetra = draw_random_tetrahedron_index_with_dos_probability(energy, idx_band, random_generator);
+    std::cout << "Selected tetrahedron index: " << index_tetra << std::endl;
+    if (index_tetra >= m_list_tetrahedra.size()) {
+        throw std::runtime_error("Selected tetrahedron index is out of range");
+    }
     return m_list_tetrahedra[index_tetra].draw_random_uniform_point_at_energy(energy, idx_band, random_generator);
 }
 

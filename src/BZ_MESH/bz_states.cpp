@@ -156,11 +156,11 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
 
     // // prefactor in SI, with J→eV conversion
     // double prefactor = (EmpiricalPseudopotential::Constants::q_e * EmpiricalPseudopotential::Constants::q_e) /
-    //                    (EmpiricalPseudopotential::Constants::eps_zero * q_squared) / EmpiricalPseudopotential::Constants::q_e *
+    //                    (EmpiricalPseudopotential::Constants::eps_0 * q_squared) / EmpiricalPseudopotential::Constants::q_e *
     //                    (2.0 / std::pow(2.0 * M_PI, 3));
 
     double coulomb_prefactor_eV = (EmpiricalPseudopotential::Constants::q_e * EmpiricalPseudopotential::Constants::q_e) /
-                                   (EmpiricalPseudopotential::Constants::eps_zero * q_squared)  // J·m
+                                   (EmpiricalPseudopotential::Constants::eps_0 * q_squared)  // J·m
                                   / EmpiricalPseudopotential::Constants::q_e;                                                      // → eV·m
     double prefactor = coulomb_prefactor_eV * (2.0 / std::pow(2.0 * M_PI, 3));
 

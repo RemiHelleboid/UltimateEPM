@@ -36,16 +36,18 @@ struct Simulation_parameters {
 
 class Single_particle_simulation {
  private:
-    bz_mesh::MeshBZ*      m_ptr_mesh_bz;
-    Bulk_environment      m_bulk_env;
-    Simulation_parameters m_sim_params;
-    particle              m_particle;
+    bz_mesh::ElectronPhonon* m_ptr_mesh_bz;
+    Bulk_environment         m_bulk_env;
+    Simulation_parameters    m_sim_params;
+    particle                 m_particle;
 
     double m_time = 0.0;
 
  public:
     double a = 0;
-    Single_particle_simulation(bz_mesh::MeshBZ* ptr_mesh_bz, const Bulk_environment& bulk_env, const Simulation_parameters& sim_params);
+    Single_particle_simulation(bz_mesh::ElectronPhonon*     ptr_mesh_bz,
+                               const Bulk_environment&      bulk_env,
+                               const Simulation_parameters& sim_params);
 
     void run_simulation();
 
