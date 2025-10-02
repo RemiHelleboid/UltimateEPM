@@ -368,6 +368,32 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh_nk_npkp(bool irredu
     }
 }
 
+/**
+ * @brief Select the final state for a given initial state and phonon interaction.
+ * The final state is randomly selected based on the probabilities of all possible final states.
+ * So first compute all possible final states and their probabilities, then select one randomly.
+ * 
+ * @param idx_band_initial 
+ * @param idx_k_initial 
+ * @param mode 
+ * @param direction 
+ * @param event 
+ * @return std::pair<int, std::size_t> 
+ */
+std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     idx_band_initial,
+                                                             std::size_t     idx_k_initial,
+                                                             PhononMode      mode,
+                                                             PhononDirection direction,
+                                                             PhononEvent     event) const {
+    // List of possible final states and their rates list_final_state_rates[]
+    const std::size_t nb_bands = m_list_vertices.front().get_number_bands();
+    std::vector<std::vector<double>>       list_final_state_rates(nb_bands);
+    for (auto& rates : list_final_state_rates) {
+        rates.resize(m_list_tetrahedra.size(), 0.0);
+    }
+
+                                                             }
+
 void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int                nb_bands,
                                                                             double             max_energy,
                                                                             double             energy_step,

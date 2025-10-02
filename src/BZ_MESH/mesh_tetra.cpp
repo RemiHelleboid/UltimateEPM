@@ -488,7 +488,7 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
     return pref * (A / grad);
 }
 
-void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step) {
+void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double energy_threshold) {
     m_precomputed_dos_at_energies_per_band.clear();
     m_energy_grid_per_band.clear();
     m_nb_bands = m_list_vertices[0]->get_number_bands();
@@ -497,6 +497,9 @@ void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step) {
         std::vector<double> dos_grid;
         double              e_min = m_min_energy_per_band[band_index];
         double              e_max = m_max_energy_per_band[band_index];
+        if (e_min > energy_threshold) {
+            continue;
+        }
         // Recompute step to have an integer number of steps
         std::size_t           nb_steps  = static_cast<std::size_t>(std::ceil((e_max - e_min) / energy_step));
         double                step      = (e_max - e_min) / static_cast<double>(nb_steps);
@@ -514,9 +517,9 @@ void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step) {
             energy_grid[i] = e;
             dos_grid[i]    = dos_e;
         }
-        dos_grid[0]          = 0.0;
-        energy_grid[0]      = e_min;
-        dos_grid[nb_steps]  = 0.0;
+        dos_grid[0]           = 0.0;
+        energy_grid[0]        = e_min;
+        dos_grid[nb_steps]    = 0.0;
         energy_grid[nb_steps] = e_max;
 
         m_energy_grid_per_band.push_back(energy_grid);
@@ -548,7 +551,7 @@ double Tetra::interpolate_dos_at_energy_per_band(double energy, std::size_t band
     double      e2  = energy_grid[idx];
     double      d1  = dos_grid[idx - 1];
     double      d2  = dos_grid[idx];
-    if (std::fabs(e2-e1) < 1e-12) {
+    if (std::fabs(e2 - e1) < 1e-12) {
         std::cout << "WARNING !!! " << std::endl;
     }
     // Linear interpolation

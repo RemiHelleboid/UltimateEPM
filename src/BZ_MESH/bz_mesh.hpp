@@ -203,7 +203,7 @@ class MeshBZ {
     void auto_set_positive_valence_band_energies();
     void set_bands_in_right_order();
     void recompute_min_max_energies();
-    void precompute_dos_tetra(double energy_step = 0.01);
+    void precompute_dos_tetra(double energy_step = 0.01, double energy_threshold = 10.0);
 
     std::size_t      get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t      get_number_elements() const { return m_list_tetrahedra.size(); }

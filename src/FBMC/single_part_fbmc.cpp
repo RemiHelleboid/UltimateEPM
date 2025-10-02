@@ -48,6 +48,8 @@ Single_particle_simulation::Single_particle_simulation(bz_mesh::ElectronPhonon* 
         throw std::runtime_error("Initial k-point is out of the Brillouin zone mesh.");
     }
     m_particle.set_containing_bz_mesh_tetra(containing_tetra);
+    m_particle.update_group_velocity();
+    m_particle.update_energy();
 
     double init_energy_true = containing_tetra->interpolate_energy_at_band(m_particle.get_k_vector(), 0);
 

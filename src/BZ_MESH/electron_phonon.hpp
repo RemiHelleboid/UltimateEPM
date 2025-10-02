@@ -343,6 +343,12 @@ class ElectronPhonon : public BZ_States {
     void add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename);
     void compute_electron_phonon_rates_over_mesh_nk_npkp(bool irreducible_wedge_only = false);
 
+    std::pair<int, std::size_t> select_final_state(std::size_t idx_band_initial,
+                                                   std::size_t idx_k_initial,
+                                                   PhononMode  mode,
+                                                   PhononDirection direction,
+                                                   PhononEvent event) const;
+
     void export_rate_values(const std::string& filename) const;
 
     void compute_plot_electron_phonon_rates_vs_energy_over_mesh(int                nb_bands,
