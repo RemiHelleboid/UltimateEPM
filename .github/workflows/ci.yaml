@@ -19,7 +19,7 @@ jobs:
       # ---- Your project knobs ----
       CMAKE_BUILD_TYPE: Release
       CTEST_OUTPUT_ON_FAILURE: 1
-      CPM_SOURCE_CACHE: ${{ runner.temp }}/cpm-cache
+      CPM_SOURCE_CACHE: $RUNNER_TEMP/cpm-cache
 
     steps:
       - name: Checkout
@@ -82,15 +82,13 @@ jobs:
       - name: Cache ccache
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/.ccache
+          path: ~/.ccache
           key: ccache-${{ runner.os }}-${{ hashFiles('**/*.[ch]pp','**/*.[ch]','**/*.cmake','CMakeLists.txt') }}
           restore-keys: |
             ccache-${{ runner.os }}-
       - name: Configure (Release)
-        env:
-          CCACHE_DIR: ${{ runner.temp }}/.ccache
         run: |
-          cmake -S . -B build -G Ninja \
+          cmake -S . -B build  \
             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
