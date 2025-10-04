@@ -1,24 +1,32 @@
-# include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake OPTIONAL)
+include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake OPTIONAL)
 
-file(GLOB TEST_SOURCES *.cpp)
-message("TEST_SOURCES: ${TEST_SOURCES}")
+set(TEST_DIRS
+  "${CMAKE_CURRENT_SOURCE_DIR}/bz_mesh"
+  "${CMAKE_CURRENT_SOURCE_DIR}/epp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/fbmc"
+)
 
-message(STATUS "TESTS:")
-foreach(TEST_SRC ${TEST_SOURCES})
-  get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
-  message(STATUS "   └─ ${TEST_NAME}")
+foreach(dir IN LISTS TEST_DIRS)
+  file(GLOB TEST_SOURCES CONFIGURE_DEPENDS "${dir}/*.cpp")
 
-  add_executable(${TEST_NAME} ${TEST_SRC})
-  target_link_libraries(${TEST_NAME} PRIVATE
-    doctest::doctest
-    libepp
-    lib_bzmesh
-    ${EXTRA_LIBS}      # BLAS/LAPACK etc., if you collected them
-  )
+  foreach(src IN LISTS TEST_SOURCES)
+    get_filename_component(base "${src}" NAME_WE)
+    get_filename_component(dir_name "${dir}" NAME)  # unit/integration/...
+    # Unique target: e.g. unit_math, integration_db
+    set(exe "${dir_name}_${base}")
 
-  if(COMMAND doctest_discover_tests)
-    doctest_discover_tests(${TEST_NAME} DISCOVERY_MODE POST_BUILD)
-  else()
-    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-  endif()
+    add_executable(${exe} "${src}")
+    target_link_libraries(${exe} PRIVATE doctest::doctest libepp lib_bzmesh ${EXTRA_LIBS})
+
+    if(COMMAND doctest_discover_tests)
+      doctest_discover_tests(${exe}
+        DISCOVERY_MODE POST_BUILD
+        TEST_PREFIX "${dir_name}::"
+        PROPERTIES LABELS "${dir_name}"
+      )
+    else()
+      add_test(NAME "${dir_name}_${base}" COMMAND ${exe})
+      set_tests_properties("${dir_name}_${base}" PROPERTIES LABELS "${dir_name}")
+    endif()
+  endforeach()
 endforeach()

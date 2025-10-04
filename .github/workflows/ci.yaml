@@ -34,8 +34,7 @@ jobs:
             g++ cmake ninja-build git pkg-config \
             zlib1g-dev \
             libopenmpi-dev openmpi-bin \
-            libblas-dev liblapack-dev \
-            doxygen graphviz ccache
+             ccache
 
       # Cache the final installed Gmsh so we don't rebuild every run
       - name: Cache Gmsh install

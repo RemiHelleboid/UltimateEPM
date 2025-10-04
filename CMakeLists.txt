@@ -162,7 +162,7 @@ if(NOT GMSH_INC)
 endif()
 cmake_print_variables(GMSH_LIB GMSH_INC)
 
-# ---------------------------- BLAS / LAPACK (optional, for static gmsh etc.) ----------------------------
+# ---------------------------- BLAS / LAPACK ----------------------------
 find_package(BLAS)
 find_package(LAPACK)
 set(EXTRA_LIBS "")

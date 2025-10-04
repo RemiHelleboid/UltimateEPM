@@ -70,8 +70,8 @@ class bbox_mesh {
     double get_z_max() const { return m_z_max; }
 
     double get_x_size() const { return m_x_max - m_x_min; }
-    double get_z_size() const { return m_y_max - m_y_min; }
-    double get_y_size() const { return m_z_max - m_z_min; }
+    double get_y_size() const { return m_y_max - m_y_min; }
+    double get_z_size() const { return m_z_max - m_z_min; }
 
     double get_diagonal_size() const {
         return sqrt(get_x_size() * get_x_size() + get_y_size() * get_y_size() + get_z_size() * get_z_size());
@@ -136,9 +136,6 @@ class bbox_mesh {
                                this->m_z_min > second_box.m_z_max || second_box.m_z_min > this->m_z_max;
         return !noOverlap;
     }
-
-    vector3 draw_uniform_random_point_inside_box() const;
-    vector3 draw_uniform_random_point_inside_box(std::mt19937 &random_generator) const;
 
     friend std::ostream &operator<<(std::ostream &os, const bbox_mesh &my_box) {
         os << "bbox_mesh: x_min = " << my_box.m_x_min << " x_max = " << my_box.m_x_max << " y_min = " << my_box.m_y_min

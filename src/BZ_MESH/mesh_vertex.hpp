@@ -134,9 +134,9 @@ class Vertex {
      * @param new_energy
      */
     void set_band_energy(std::size_t index_band, double new_energy) {
-        if (index_band > m_band_energies.size()) {
-            throw std::invalid_argument("The energy of valence band " + std::to_string(index_band) +
-                                        " cannot be modify because it does not exists.");
+        if (index_band >= m_band_energies.size()) {
+            throw std::invalid_argument("The energy of band " + std::to_string(index_band) +
+                                        " cannot be modify because it does not exist.");
         }
         m_band_energies[index_band] = new_energy;
     }

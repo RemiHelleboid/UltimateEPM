@@ -6,9 +6,7 @@ Band structure and DOS computation using empirical pseudopotentials on the full 
 * __Spin-orbit coupling__ (SOC) for the EPM band structure.
 * MPI and OpenMP __parallelization__.
 
-[![Build & Unit Test](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml/badge.svg)](https://github.com/RemiHelleboid/EmpiricalPseudopotential/actions/workflows/build_code.yaml)
-[![Codacy Code Quality](https://app.codacy.com/project/badge/Grade/bdf5fb66f01347e096f807d113cc2985)](https://www.codacy.com/gh/RemiHelleboid/BzMeshBandsDos/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=RemiHelleboid/BzMeshBandsDos&amp;utm_campaign=Badge_Grade)
-[![CodeQL](https://github.com/RemiHelleboid/BzMeshBandsDos/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/RemiHelleboid/BzMeshBandsDos/actions/workflows/codeql-analysis.yml)  
+[![CI](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci.yaml/badge.svg)](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci.yaml)
 
 ---
 
