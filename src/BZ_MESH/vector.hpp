@@ -11,14 +11,11 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <optional>
 #include <vector>
-
-#include "Vector3D.h"
-
-
 
 namespace bz_mesh {
 
@@ -31,15 +28,14 @@ class alignas(32) vector3 {
     double m_z;
 
  public:
-    vector3() : m_x(0u), m_y(0u), m_z(0u) {}
-    vector3(double x, double y) : m_x(x), m_y(y), m_z(0u) {}
+    vector3() : m_x(0.0), m_y(0.0), m_z(0.0) {}
+    vector3(double x, double y) : m_x(x), m_y(y), m_z(0.0) {}
     vector3(double x, double y, double z) : m_x(x), m_y(y), m_z(z) {}
-    vector3(const vector3&)            = default;
-    vector3& operator=(const vector3&) = default;
-    vector3(vector3&&)                 = default;
-    vector3& operator=(vector3&&)      = default;
-    ~vector3()                         = default;
-    // vector3(const Vector3D<double>& v) : m_x(v.X), m_y(v.Y), m_z(v.Z) {}
+    vector3(const vector3 &)            = default;
+    vector3 &operator=(const vector3 &) = default;
+    vector3(vector3 &&)                 = default;
+    vector3 &operator=(vector3 &&)      = default;
+    ~vector3()                          = default;
 
     double x() const { return m_x; }
     double y() const { return m_y; }
@@ -56,11 +52,12 @@ class alignas(32) vector3 {
 
     vector3 to_2d() const { return vector3{m_x, m_y, 0.0}; }
 
-    double norm() const { return sqrt(m_x * m_x + m_y * m_y + m_z * m_z); }
+    double norm() const { return std::sqrt(m_x * m_x + m_y * m_y + m_z * m_z); }
     double norm_squared() const { return (m_x * m_x + m_y * m_y + m_z * m_z); }
 
     void re_normalize() {
         const double v_norm = norm();
+        if (v_norm == 0.0) return;  // avoid division by zero
         m_x /= v_norm;
         m_y /= v_norm;
         m_z /= v_norm;
@@ -68,12 +65,7 @@ class alignas(32) vector3 {
 
     /**
      * @brief Apply a reflection on the vector.
-     * For example, apply_reflection(1, -1, 1) will apply the reflexion with respect to the y axis.
-     * There is 2^3 = 8 possible reflexions.
-     *
-     * @param x_reflection
-     * @param y_reflection
-     * @param z_reflection
+     * (x_reflection, y_reflection, z_reflection) should typically be in {-1, 1}.
      */
     void apply_reflection(int x_reflection, int y_reflection, int z_reflection) {
         m_x = x_reflection * m_x;
@@ -82,10 +74,8 @@ class alignas(32) vector3 {
     }
 
     /**
-     * @brief Apply a permutation on the vector.
-     * There is 6 possible permutations.
-     *
-     * @param permutation
+     * @brief Apply a permutation on the vector (6 possibilities).
+     * XY, XZ, YZ are simple swaps; XYZ is identity; YZX and ZXY are 3-cycles.
      */
     void apply_permutation(permutaion_type permutation) {
         switch (permutation) {
@@ -99,127 +89,106 @@ class alignas(32) vector3 {
                 std::swap(m_y, m_z);
                 break;
             case permutaion_type::XYZ:
+                // identity
                 break;
-            case permutaion_type::YZX:
-                std::swap(m_y, m_z);
-                std::swap(m_x, m_y);
+            case permutaion_type::YZX: {
+                // (x, y, z) -> (y, z, x)
+                const double ox = m_x, oy = m_y, oz = m_z;
+                m_x = oy;
+                m_y = oz;
+                m_z = ox;
                 break;
-            case permutaion_type::ZXY:
-                std::swap(m_z, m_y);
-                std::swap(m_x, m_y);
+            }
+            case permutaion_type::ZXY: {
+                // (x, y, z) -> (z, x, y)
+                const double ox = m_x, oy = m_y, oz = m_z;
+                m_x = oz;
+                m_y = ox;
+                m_z = oy;
                 break;
+            }
         }
     }
 
-    double dot(const vector3 &vector_rhs) const { return (m_x * vector_rhs.m_x + m_y * vector_rhs.m_y + m_z * vector_rhs.m_z); }
+    double dot(const vector3 &rhs) const { return (m_x * rhs.m_x + m_y * rhs.m_y + m_z * rhs.m_z); }
 
-    friend double dot(const vector3 &vector_lhs, const vector3 &vector_rhs) {
-        return (vector_lhs.m_x * vector_rhs.m_x + vector_lhs.m_y * vector_rhs.m_y + vector_lhs.m_z * vector_rhs.m_z);
-    }
+    friend double dot(const vector3 &lhs, const vector3 &rhs) { return (lhs.m_x * rhs.m_x + lhs.m_y * rhs.m_y + lhs.m_z * rhs.m_z); }
 
-    friend vector3 middle(const vector3 &vector_lhs, const vector3 &vector_rhs) {
+    friend vector3 middle(const vector3 &lhs, const vector3 &rhs) {
         constexpr double one_half = 1.0 / 2.0;
-        return vector3{one_half * (vector_rhs.m_x + vector_lhs.m_x),
-                       one_half * (vector_rhs.m_y + vector_lhs.m_y),
-                       one_half * (vector_rhs.m_z + vector_lhs.m_z)};
+        return vector3{one_half * (rhs.m_x + lhs.m_x), one_half * (rhs.m_y + lhs.m_y), one_half * (rhs.m_z + lhs.m_z)};
     }
 
-    friend vector3 point_pair_to_vector(const vector3 &vector_lhs, const vector3 &vector_rhs) {
-        return vector3{vector_rhs.m_x - vector_lhs.m_x, vector_rhs.m_y - vector_lhs.m_y, vector_rhs.m_z - vector_lhs.m_z};
+    friend vector3 point_pair_to_vector(const vector3 &lhs, const vector3 &rhs) {
+        return vector3{rhs.m_x - lhs.m_x, rhs.m_y - lhs.m_y, rhs.m_z - lhs.m_z};
     }
 
-    friend double distance(const vector3 &vector_lhs, const vector3 &vector_rhs) {
-        return point_pair_to_vector(vector_lhs, vector_rhs).norm();
+    friend double distance(const vector3 &lhs, const vector3 &rhs) { return point_pair_to_vector(lhs, rhs).norm(); }
+
+    friend inline vector3 cross_product(const vector3 &lhs, const vector3 &rhs) {
+        return vector3(lhs.m_y * rhs.m_z - lhs.m_z * rhs.m_y, lhs.m_z * rhs.m_x - lhs.m_x * rhs.m_z, lhs.m_x * rhs.m_y - lhs.m_y * rhs.m_x);
     }
 
-    friend inline vector3 cross_product(const vector3 &vector_lhs, const vector3 &vector_rhs) {
-        return vector3(vector_lhs.m_y * vector_rhs.m_z - vector_lhs.m_z * vector_rhs.m_y,
-                       vector_lhs.m_z * vector_rhs.m_x - vector_lhs.m_x * vector_rhs.m_z,
-                       vector_lhs.m_x * vector_rhs.m_y - vector_lhs.m_y * vector_rhs.m_x);
-    }
-
-    friend inline double scalar_triple_product(const vector3 &vector_1, const vector3 &vector_2, const vector3 &vector_3) {
-        return vector_1.dot(cross_product(vector_2, vector_3));
+    friend inline double scalar_triple_product(const vector3 &v1, const vector3 &v2, const vector3 &v3) {
+        return v1.dot(cross_product(v2, v3));
     }
 
     friend inline double compte_cos_angle(const vector3 &V1, const vector3 &V2) {
-        double dot_product  = V1.dot(V2);
-        double norm_product = V1.norm() * V2.norm();
+        const double dot_product  = V1.dot(V2);
+        const double norm_product = V1.norm() * V2.norm();
         return (norm_product < 1.0e-13) ? 1.0 : dot_product / norm_product;
     }
 
-    /**
-     * @brief Check if a point is on the segment [A, B]
-     *
-     * @param point_A
-     * @param point_B
-     * @param point_to_test
-     * @return true
-     * @return false
-     */
-    friend inline bool is_point_between_two_others(const vector3 &point_A,
-                                                   const vector3 &point_B,
-                                                   const vector3 &point_to_test,
-                                                   double         epsilon = 1e-9) {
-        const double d_AB  = distance(point_A, point_B);
-        const double d_sum = distance(point_A, point_to_test) + distance(point_to_test, point_B);
+    friend inline bool is_point_between_two_others(const vector3 &A, const vector3 &B, const vector3 &P, double epsilon = 1e-9) {
+        const double d_AB  = distance(A, B);
+        const double d_sum = distance(A, P) + distance(P, B);
         return (d_AB <= d_sum + epsilon && d_AB >= d_sum - epsilon);
     }
 
-    /**
-     * @brief Compute a particular type of scalar product.
-     * It is mainly used for the computation of segment-segment intersection.
-     * It is equivalent to the determinant of the matrix made by using the tow vectors as columns.
-     *
-     * @param vector_1
-     * @param vector_2
-     */
-    friend double double_scalar_product_2d(const vector3 &vector_1, const vector3 &vector_2) {
-        return vector_1.m_x * vector_2.m_y - vector_1.m_y * vector_2.m_x;
+    friend double double_scalar_product_2d(const vector3 &v1, const vector3 &v2) {
+        // 2D determinant using (x,y) components
+        return v1.m_x * v2.m_y - v1.m_y * v2.m_x;
     }
 
     /**
-     * @brief Compute the intersection between two segments [vector_A vector_B] and [vector_C vector_D].
-     *
+     * @brief Compute the intersection between two 2D segments [A B] and [C D] (using x,y only).
+     * Returns std::nullopt if parallel/colinear or if intersection lies outside either segment.
      */
-    friend std::optional<vector3> compute_line_line_intersection(const vector3 &vector_A,
-                                                                 const vector3 &vector_B,
-                                                                 const vector3 &vector_C,
-                                                                 const vector3 &vector_D) {
-        constexpr double epsilon_intersection   = 1e-14;  // Maybe move that as some kind of global variable.
-        const vector3    segment_1              = vector_B - vector_A;
-        const vector3    segment_2              = vector_D - vector_C;
-        const vector3    starting_point_segment = vector_D - vector_A;
+    friend std::optional<vector3> compute_line_line_intersection(const vector3 &A, const vector3 &B, const vector3 &C, const vector3 &D) {
+        constexpr double eps = 1e-14;
+        const vector3    r   = B - A;  // segment 1
+        const vector3    s   = D - C;  // segment 2
+        const vector3    qmp = C - A;  // from A to C
 
-        const double segment_12_scalar_cross_product = double_scalar_product_2d(segment_1, segment_2);
-        if (fabs(segment_12_scalar_cross_product) < epsilon_intersection) {
-            // std::cout << "Line are colinear : "<< segment_12_scalar_cross_product <<"\n";
+        const double rxs = double_scalar_product_2d(r, s);
+        if (std::fabs(rxs) < eps) {
+            // Parallel (or colinear) in 2D
             return {};
         }
 
-        const double barycentric_intersection_segment_1 =
-            double_scalar_product_2d(starting_point_segment, segment_2) / segment_12_scalar_cross_product;
-        const double barycentric_intersection_segment_2 =
-            double_scalar_product_2d(starting_point_segment, segment_2) / segment_12_scalar_cross_product;
+        // Barycentric parameters:
+        // A + t*r  intersects  C + u*s
+        const double t = double_scalar_product_2d(qmp, s) / rxs;
+        const double u = double_scalar_product_2d(qmp, r) / rxs;
 
-        if (barycentric_intersection_segment_1 >= -epsilon_intersection && barycentric_intersection_segment_1 <= 1 + epsilon_intersection &&
-            barycentric_intersection_segment_2 >= -epsilon_intersection && barycentric_intersection_segment_2 <= 1 + epsilon_intersection) {
-            return {vector_A + barycentric_intersection_segment_1 * segment_1};
+        if (t >= -eps && t <= 1.0 + eps && u >= -eps && u <= 1.0 + eps) {
+            const vector3 P = A + t * r;
+            return {P};
         }
         return {};
     }
 
-    vector3 &operator+=(const vector3 &vector_lhs) {
-        m_x += vector_lhs.m_x;
-        m_y += vector_lhs.m_y;
-        m_z += vector_lhs.m_z;
+    vector3 &operator+=(const vector3 &lhs) {
+        m_x += lhs.m_x;
+        m_y += lhs.m_y;
+        m_z += lhs.m_z;
         return *this;
     }
 
-    vector3 &operator-=(const vector3 &vector_lhs) {
-        m_x -= vector_lhs.m_x;
-        m_y -= vector_lhs.m_y;
-        m_z -= vector_lhs.m_z;
+    vector3 &operator-=(const vector3 &lhs) {
+        m_x -= lhs.m_x;
+        m_y -= lhs.m_y;
+        m_z -= lhs.m_z;
         return *this;
     }
 
@@ -237,34 +206,34 @@ class alignas(32) vector3 {
         return *this;
     }
 
-    friend vector3 operator+(const vector3 &vector_lhs, const vector3 &vector_rhs) {
-        vector3 SumVector = vector_lhs;
-        SumVector += vector_rhs;
-        return SumVector;
+    friend vector3 operator+(const vector3 &lhs, const vector3 &rhs) {
+        vector3 v = lhs;
+        v += rhs;
+        return v;
     }
 
-    friend vector3 operator-(const vector3 &vector_lhs, const vector3 &vector_rhs) {
-        vector3 DiffVector = vector_lhs;
-        DiffVector -= vector_rhs;
-        return DiffVector;
+    friend vector3 operator-(const vector3 &lhs, const vector3 &rhs) {
+        vector3 v = lhs;
+        v -= rhs;
+        return v;
     }
 
-    friend vector3 operator*(const vector3 &vector_lhs, const double lambda) {
-        vector3 MultVector = vector_lhs;
-        MultVector *= lambda;
-        return MultVector;
+    friend vector3 operator*(const vector3 &lhs, const double lambda) {
+        vector3 v = lhs;
+        v *= lambda;
+        return v;
     }
 
-    friend vector3 operator*(const double lambda, const vector3 &vector_lhs) {
-        vector3 MultVector = vector_lhs;
-        MultVector *= lambda;
-        return MultVector;
+    friend vector3 operator*(const double lambda, const vector3 &lhs) {
+        vector3 v = lhs;
+        v *= lambda;
+        return v;
     }
 
-    friend vector3 operator/(const vector3 &vector_lhs, const double lambda) {
-        vector3 DivVector = vector_lhs;
-        DivVector /= lambda;
-        return DivVector;
+    friend vector3 operator/(const vector3 &lhs, const double lambda) {
+        vector3 v = lhs;
+        v /= lambda;
+        return v;
     }
 
     friend std::ostream &operator<<(std::ostream &os, const vector3 &vect) {

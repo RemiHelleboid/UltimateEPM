@@ -60,7 +60,6 @@ jobs:
             -DENABLE_HDF5=${GMSH_ENABLE_HDF5}
           cmake --build gmsh/build --target shared --parallel
           cmake --install gmsh/build
-          /opt/gmsh-install/bin/gmsh -version
 
       - name: Expose Gmsh to CMake & linker
         run: |
@@ -69,7 +68,6 @@ jobs:
           echo "/opt/gmsh-install/lib" | sudo tee /etc/ld.so.conf.d/gmsh.conf
           sudo ldconfig
           echo "LD_LIBRARY_PATH=/opt/gmsh-install/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-          /opt/gmsh-install/bin/gmsh -version
 
       - name: Cache CPM/FetchContent
         uses: actions/cache@v4
