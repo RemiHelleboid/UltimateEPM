@@ -20,6 +20,7 @@
 #include <iostream>
 #include <random>
 #include <tuple>
+#include <vector>
 
 #include "Constants.hpp"
 #include "Vector3D.h"
@@ -27,7 +28,16 @@
 #include "gmsh.h"
 #include "omp.h"
 
+// Combiner must be an expression. Use a helper function, then call it in the combiner.
+static inline void arr8_add(std::array<double, 8>& __restrict out, const std::array<double, 8>& __restrict in) noexcept {
+    for (int i = 0; i < 8; ++i)
+        out[i] += in[i];
+}
+
+#pragma omp declare reduction(merge : std::array<double, 8> : arr8_add(omp_out, omp_in)) initializer(omp_priv = std::array<double, 8>{})
+
 namespace bz_mesh {
+
 
 inline double ElectronPhonon::bose_einstein_distribution(double energy, double temperature) const {
     double x = energy / (EmpiricalPseudopotential::Constants::k_b_eV * temperature);
@@ -70,25 +80,27 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
     const auto& list_tetrahedra          = m_list_tetrahedra;
     const auto& indices_conduction_bands = m_indices_conduction_bands;
 
-    // Initial (eV, 1/m)
     const double energy_n1_k1 = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
     const auto&  k1           = m_list_vertices[idx_k1].get_position();
 
-    const double max_e_phonon = get_max_phonon_energy();  // ASSERT: this is energy (eV), not ω
+    const double max_e_phonon = get_max_phonon_energy();
     const double e_final_min  = energy_n1_k1 - max_e_phonon;
     const double e_final_max  = energy_n1_k1 + max_e_phonon;
 
+    constexpr double SMALL_OMEGA_CUTOFF = 1.0;  // [1/s], to avoid 1/ω blowups
+
     for (int idx_n2 : indices_conduction_bands) {
-        if (e_final_min > m_max_band[idx_n2] || e_final_max < m_min_band[idx_n2]) continue;
+        if (e_final_min > m_max_band[idx_n2] || e_final_max < m_min_band[idx_n2]) {
+            continue;
+        }
 
         for (const auto& tetra : list_tetrahedra) {
-            if (!tetra.does_intersect_band_energy_range(e_final_min, e_final_max, idx_n2)) continue;
+            if (!tetra.does_intersect_band_energy_range(e_final_min, e_final_max, idx_n2)) {
+                continue;
+            }
 
-            const vector3 k2 = tetra.compute_barycenter();
-            // const double  volume_tetra = std::fabs(tetra.get_signed_volume()); // unused unless nk-npkp block is on
-            // auto         list_idx_tetra_vertices = tetra.get_list_indices_vertices(); // unused
+            const vector3 k2 = tetra.get_barycenter();
 
-            // Overlap (dimensionless), robust at k1≈k2 if integral is stabilized (see below)
             const double overlap  = electron_overlap_integral(k1, k2);
             const double overlap2 = overlap * overlap;
 
@@ -98,11 +110,9 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
             if (!is_inside_mesh_geometry(q_ph)) {
                 q_ph = retrieve_k_inside_mesh_geometry(q_ph);  // normal processes only
             }
-            if (!is_inside_mesh_geometry(q_ph)) {
-                throw std::runtime_error("q not inside BZ after folding (normal process)");
-            }
+
+            assert(is_inside_mesh_geometry(q_ph) && "Q is not inside the BZ");
             const double q_ph_norm = q_ph.norm();
-            // std::cout << "q_ph norm: " << q_ph_norm << std::endl;
 
             // Loop phonon branches
             for (const auto& ph_mode : m_phonon_dispersion) {
@@ -111,17 +121,16 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
 
                 // ω(|q|) [1/s], guard tiny values to avoid 1/ω blowups
                 const double omega = disp.get_phonon_dispersion(q_ph_norm);
-                if (!(omega > 0.0)) continue;
-                if (omega < 1e-12) continue;  // tune threshold as needed
+
+                if (omega <= SMALL_OMEGA_CUTOFF) {
+                    continue;
+                }
 
                 // Energy & BE occupation (same for emission/absorption except the +1)
                 const double Eph_eV = EmpiricalPseudopotential::Constants::h_bar_eV * omega;
-                const double N0     = bose_einstein_distribution(Eph_eV, m_temperature);  // dimensionless
-                // std::cout << "Phonon mode: " << (mode_direction.first == PhononMode::acoustic ? "acoustic" : "optical")
-                //           << ", direction: " << (mode_direction.second == PhononDirection::longitudinal ? "longitudinal" : "transverse")
-                //           << ", ω: " << omega << " [1/s], ħω: " << Eph_eV << " [eV], N0: " << N0 << std::endl;
+                const double N0     = bose_einstein_distribution(Eph_eV, m_temperature);
 
-                // Deformation potential in Joules (eV→J)
+                // Deformation potential in Joules
                 const DeformationPotential defpot =
                     (mode_direction.first == PhononMode::acoustic) ? m_acoustic_deformation_potential_e : m_optical_deformation_potential_e;
                 const double Delta_J = defpot.get_fischetti_deformation_potential(q_ph, idx_n1) * EmpiricalPseudopotential::Constants::q_e;
@@ -144,10 +153,10 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                                                    mode_direction.second,
                                                    (sign_phonon < 0.0) ? PhononEvent::emission : PhononEvent::absorption,
                                                    rate_value));
-                }
-            }
-        }
-    }
+                }  // end sign_phonon
+            }  // end ph_mode
+        }  // end tetra
+    }  // end idx_n2
 
     return rates_k1_n1;
 }
@@ -242,10 +251,11 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
 /**
  * @brief Compute electron-phonon rates over the mesh.
  *
+ * @param energy_max Maximum electron energy (eV) to consider.
  * @param irreducible_wedge_only If true, only compute rates for the irreducible wedge.
  * Warning: one still have to loop over k2 in the full BZ for each k1 in the irreducible wedge.
  */
-void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_wedge_only) {
+void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, bool irreducible_wedge_only) {
     auto indices_conduction_bands = m_indices_conduction_bands;
     auto min_idx_conduction_band  = *std::min_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
     auto max_idx_conduction_band  = *std::max_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
@@ -289,8 +299,13 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
             if (!to_compute) {
                 continue;
             }
-            auto rate = compute_electron_phonon_rate(idx_n1, idx_k1);
-            m_list_vertices[idx_k1].add_electron_phonon_rates(rate.to_array());
+            if (m_list_vertices[idx_k1].get_energy_at_band(idx_n1) > energy_max) {
+                m_list_vertices[idx_k1].add_electron_phonon_rates(std::array<double, 8>{});
+                continue;
+            } else {
+                auto rate = compute_electron_phonon_rate(idx_n1, idx_k1);
+                m_list_vertices[idx_k1].add_electron_phonon_rates(rate.to_array());
+            }
         }
     }
     std::cout << "\rComputed " << counter << " k-points out of " << m_list_vertices.size() << " (100%)";
@@ -311,6 +326,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(bool irreducible_we
                 }
             }
         }
+        std::cout << "\rSet rates for all k-points: " << m_list_vertices.size() << "/" << m_list_vertices.size() << " (100%)" << std::endl;
     }
 }
 
@@ -548,7 +564,6 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
         double                dos_sum = 0.0;
         std::array<double, 8> num{};  // DOS-weighted numerators for each channel
         num.fill(0.0);
-
         for (const auto& tetra : m_list_tetrahedra) {
             vector3 k_bary = tetra.compute_barycenter();
             for (int b = 0; b < nb_bands; ++b) {

@@ -83,18 +83,19 @@ int main(int argc, char const *argv[])
     
     ElectronPhonon.load_phonon_parameters(phonon_file);
     bool irreducible_wedge_only = plot_with_wedge.getValue();
-    ElectronPhonon.compute_electron_phonon_rates_over_mesh(irreducible_wedge_only);
+
+    const double max_energy  = 6.0;  // eV
+    const double energy_step = 0.05; // eV
+    ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only);
     ElectronPhonon.export_rate_values("rates_all.csv");
 
-    const double energy_step = 0.01; // eV
-    const double max_energy  = 6.0;  // eV
     ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels, max_energy, energy_step, "rates_vs_energy.csv", irreducible_wedge_only);
 
-    ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
+    // ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
 
 
     auto stop = std::chrono::high_resolution_clock::now();
-    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds" << std::endl;
+    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n\n\n" << std::endl;
 
     if (plot_with_python.getValue()) {
         std::string command = "python3 " + std::string(PROJECT_SRC_DIR) + "/python/plots/plot_phonon_rate.py -f rates_vs_energy.csv";

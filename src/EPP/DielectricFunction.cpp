@@ -161,7 +161,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing, int mp
 }
 
 DielectricFunction DielectricFunction::merge_results(DielectricFunction                                  RootDielectricFunction,
-                                                     const std::vector<std::vector<std::vector<double>>> dielectric_function_results,
+                                                     const std::vector<std::vector<std::vector<double>>>& dielectric_function_results,
                                                      std::vector<int>                                    nb_kpoints_per_instance) {
     std::vector<std::vector<double>> total_dielectric_function;
     if (dielectric_function_results.size() == 0) {

@@ -183,7 +183,7 @@ class DielectricFunction {
      * @return std::vector<std::vector<double>>
      */
     static DielectricFunction merge_results(DielectricFunction                                  RootDielectricFunction,
-                                            const std::vector<std::vector<std::vector<double>>> dielectric_function_results,
+                                            const std::vector<std::vector<std::vector<double>>>& dielectric_function_results,
                                             std::vector<int>                                    nb_kpoints_per_instance);
 
     /**

@@ -25,6 +25,33 @@ namespace bz_mesh {
 
 using array4d = std::array<double, 4>;
 
+struct UniformDos {
+    bool               valid{false};
+    double             E0{0.0};
+    double             Emax{0.0};
+    double             inv_dx{0.0};  // 1 / dx
+    uint32_t           N{0};         // number of knots = nb_steps + 1
+    std::vector<float> D;            // try float to halve bandwidth; use double if needed
+
+    inline double sample_or_zero(double E) const noexcept {
+        if (!valid || E < E0 || E > Emax) {
+            return 0.0;
+        }
+        const double t   = (E - E0) * inv_dx;
+        int          idx = static_cast<int>(t);  // floor
+        // clamp to [0, N-2]
+        const int last = static_cast<int>(N) - 2;
+        if (idx < 0) idx = 0;
+        if (idx > last) idx = last;
+
+        const float  d0   = D[static_cast<size_t>(idx)];
+        const float  d1   = D[static_cast<size_t>(idx + 1)];
+        const double frac = t - static_cast<double>(idx);
+        // one FMA; cast once to double to keep precision in math path
+        return std::fma(frac, static_cast<double>(d1 - d0), static_cast<double>(d0));
+    }
+};
+
 class Tetra {
  private:
     /**
@@ -52,6 +79,12 @@ class Tetra {
      *
      */
     bbox_mesh m_bbox;
+
+    /**
+     * @brief Barycenter of the tetrahedra.
+     *
+     */
+    vector3 m_barycenter;
 
     /**
      * @brief Signed volume of the tetrahedra.
@@ -96,16 +129,10 @@ class Tetra {
     std::vector<std::array<int, 4>> m_sorted_slots_per_band;
 
     /**
-     * @brief Energy grid for each band on which the DOS has been precomputed.
+     * @brief Precomputed DOS on a uniform energy grid for each band.
      *
      */
-    std::vector<std::vector<double>> m_energy_grid_per_band;
-
-    /**
-     * @brief Precomputed DOS at the energies of m_energy_grid_per_band.
-     *
-     */
-    std::vector<std::vector<double>> m_precomputed_dos_at_energies_per_band;
+    std::vector<UniformDos> m_dos_per_band;
 
  public:
     /**
@@ -119,6 +146,7 @@ class Tetra {
     const bbox_mesh& get_bounding_box() const;
     bbox_mesh        compute_bounding_box() const;
     void             compute_min_max_energies_at_bands();
+    vector3          get_barycenter() const { return m_barycenter; }
 
     std::size_t                   get_index() const { return m_index; }
     const std::array<Vertex*, 4>& get_list_vertices() const { return m_list_vertices; }
@@ -152,12 +180,11 @@ class Tetra {
     }
 
     void   precompute_dos_on_energy_grid_per_band(double energy_step, double energy_threshold);
-    double interpolate_dos_at_energy_per_band(double energy, std::size_t band_index) const;
+    double interpolate_dos_at_energy_per_band(double energy, std::size_t band_index) const noexcept;
 
     vector3 get_gradient_energy_at_band(std::size_t band_index) const { return m_gradient_energy_per_band[band_index]; }
 
-        bool
-                         is_energy_inside_band(double energy, std::size_t index_band) const;
+    bool                 is_energy_inside_band(double energy, std::size_t index_band) const;
     bool                 does_intersect_band_energy_range(double e_min, double e_max, std::size_t index_band) const;
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
     double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;

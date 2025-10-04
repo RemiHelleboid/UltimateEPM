@@ -1,12 +1,12 @@
-# BzMeshBandsDos 
-Band structure and DOS computation using empirical pseudopotentials on the full Brillouin-Zone. It includes the following features:
+# UltimateEPM 
+Band structure and DOS computation using empirical pseudopotentials on the full Brillouin-Zone using Empirical Pseudo-Potential Method. It includes the following features:
 * Standard __EPM over high symmetry k-points__ in the Brillouin zone.
 * Calculation of the __band structure and DOS on a mesh of k-points in the Brillouin zone__.
 * __Nonlocal corrections__ to the EPM.
 * __Spin-orbit coupling__ (SOC) for the EPM band structure.
 * MPI and OpenMP __parallelization__.
 
-[![CI](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci.yaml/badge.svg)](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci.yaml)
+[![CI/CL](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci.yaml/badge.svg)](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci.yaml)
 
 ---
 

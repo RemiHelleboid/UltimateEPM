@@ -339,7 +339,7 @@ class ElectronPhonon : public BZ_States {
     void set_temperature(double temperature) { m_temperature = temperature; }
     void set_density(double rho) { m_rho = rho; }
 
-    void compute_electron_phonon_rates_over_mesh(bool irreducible_wedge_only = false);
+    void compute_electron_phonon_rates_over_mesh(double energy_max=100.0, bool irreducible_wedge_only = false);
     void add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename);
     void compute_electron_phonon_rates_over_mesh_nk_npkp(bool irreducible_wedge_only = false);
 

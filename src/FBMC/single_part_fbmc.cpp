@@ -43,7 +43,6 @@ Single_particle_simulation::Single_particle_simulation(bz_mesh::ElectronPhonon* 
     m_particle.set_k_vector(initial_k);
     std::cout << "Initial k-vector (drawn at thermal energy): " << initial_k << std::endl;
     bz_mesh::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
-    std::cout << "Initial containing tetra index: " << containing_tetra->get_index() << std::endl;
     if (containing_tetra == nullptr) {
         throw std::runtime_error("Initial k-point is out of the Brillouin zone mesh.");
     }

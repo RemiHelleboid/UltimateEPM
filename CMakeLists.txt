@@ -44,10 +44,10 @@ if(ENABLE_CLANG_TIDY)
 endif()
 
 # ---------------------------- CPU/Vectorization flags ----------------------------
-if(ENABLE_MARCH_NATIVE AND CMAKE_BUILD_TYPE STREQUAL "Release")
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    add_compile_options(-march=native -O3 -ffast-math -fno-trapping-math -fno-math-errno
-                        -funroll-loops -fomit-frame-pointer -fstrict-aliasing -fopenmp-simd
+    add_compile_options(-march=native -O3 -fno-trapping-math -fno-math-errno
+                         -fomit-frame-pointer -fstrict-aliasing -fopenmp-simd
                         -ftree-vectorize)
   endif()
 endif()
