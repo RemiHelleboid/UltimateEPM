@@ -10,7 +10,7 @@ jobs:
 
     env:
       # ---- Gmsh pin & feature toggles (change only when you mean to) ----
-      GMSH_REF: v4.14.1
+      GMSH_REF: gmsh_4_14_1
       GMSH_ENABLE_FLTK: "OFF"   # GUI
       GMSH_ENABLE_OCC:  "OFF"   # OpenCascade CAD kernel
       GMSH_ENABLE_MPI:  "OFF"
