@@ -811,4 +811,120 @@ void ElectronPhonon::export_rate_values(const std::string& filename) const {
     file.close();
 }
 
+/**
+ * @brief Read phonon scattering rates from a file.
+ *
+ * @param path
+ */
+void ElectronPhonon::read_phonon_scattering_rates_from_file(const std::filesystem::path& path) {
+    std::cout << "Reading phonon scattering rates (CSV) from file " << path.string() << " ..." << std::endl;
+
+    std::ifstream in(path);
+    if (!in.is_open()) {
+        throw std::runtime_error("Could not open file " + path.string());
+    }
+
+    m_list_phonon_scattering_rates.clear();
+    m_list_phonon_scattering_rates.resize(m_list_vertices.size());
+
+    std::string line;
+    std::size_t line_no = 0;
+
+    for (std::size_t idx_vtx = 0; idx_vtx < m_list_vertices.size(); ++idx_vtx) {
+        const auto&       vertex   = m_list_vertices[idx_vtx];
+        const std::size_t nbands   = vertex.get_number_bands();
+        auto&             per_band = m_list_phonon_scattering_rates[idx_vtx];
+        per_band.resize(nbands);
+
+        for (std::size_t idx_band = 0; idx_band < nbands; ++idx_band) {
+            do {
+                if (!std::getline(in, line)) {
+                    std::cout << "Line no: " << line_no << " " << line << std::endl;
+                    throw std::runtime_error("Unexpected EOF at vertex " + std::to_string(idx_vtx) + ", band " + std::to_string(idx_band));
+                }
+                ++line_no;
+            } while (line.empty() || line[0] == '#' || line[0] == ';');
+
+            for (char& c : line)
+                if (c == ',') c = ' ';
+            std::istringstream iss(line);
+
+            std::size_t band_idx_file{};
+            double      energy_file{};
+            Rate8       rates{};
+
+            if (!(iss >> band_idx_file >> energy_file >> rates[static_cast<std::size_t>(PhMode::ALO)] >>
+                  rates[static_cast<std::size_t>(PhMode::ALA)] >> rates[static_cast<std::size_t>(PhMode::ATO)] >>
+                  rates[static_cast<std::size_t>(PhMode::ATA)] >> rates[static_cast<std::size_t>(PhMode::ELO)] >>
+                  rates[static_cast<std::size_t>(PhMode::ELA)] >> rates[static_cast<std::size_t>(PhMode::ETO)] >>
+                  rates[static_cast<std::size_t>(PhMode::ETA)])) {
+                throw std::runtime_error("Malformed CSV line " + std::to_string(line_no));
+            }
+            if (band_idx_file == nbands) {
+                // More bands in the file than in the mesh: ignore extra bands
+                break;
+            }
+
+            per_band[idx_band] = rates;
+        }
+    }
+    in.close();
+
+    std::cout << "Finished reading phonon scattering rates for " << m_list_vertices.size() << " vertices." << std::endl;
+}
+
+/**
+ * @brief Interpolate the phonon scattering rate at a given location for a given band.
+ *
+ * @param location
+ * @param idx_band
+ * @return Rate8
+ */
+Rate8 ElectronPhonon::interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const {
+    // Find the tetrahedron containing the location
+    const Tetra* tetra = find_tetra_at_location(location);
+    if (!tetra) {
+        throw std::runtime_error("Location is not inside any tetrahedron");
+    }
+
+    // Get the vertex indices of the tetrahedron
+    const auto& vertex_indices = tetra->get_index_vertices_with_sorted_energy_at_band(idx_band);
+
+    // Interpolate the scattering rates at the vertices
+    Rate8 rates;
+    for (std::size_t i = 0; i < vertex_indices.size(); ++i) {
+        const auto& vertex = m_list_vertices[vertex_indices[i]];
+        for (std::size_t idx_mode = 0; idx_mode < rates.size(); ++idx_mode) {
+            rates[idx_mode] += m_list_phonon_scattering_rates[vertex.get_index()][idx_band][idx_mode];
+        }
+    }
+
+    // Average the rates
+    for (auto& rate : rates) {
+        rate /= static_cast<double>(vertex_indices.size());
+    }
+    return rates;
+}
+
+// Helper: sum 8 phonon-mode rates (ALO, ALA, ATO, ATA, ELO, ELA, ETO, ETA)
+inline double ElectronPhonon::sum_modes(const Rate8& r) const noexcept {
+    double s = 0.0;
+    for (std::size_t m = 0; m < kModeCount; ++m)
+        s += r[m];
+    return s;
+}
+
+double ElectronPhonon::compute_P_Gamma() const {
+    double pgamma_max = 0.0;
+    for (const auto& perVertex : m_list_phonon_scattering_rates) {
+        for (const auto& rate8 : perVertex) {
+            const double tot = sum_modes(rate8);
+            if (tot > pgamma_max) {
+                pgamma_max = tot;
+            }
+        }
+    }
+    return pgamma_max;
+}
+
 }  // namespace bz_mesh

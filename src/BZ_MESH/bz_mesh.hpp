@@ -27,12 +27,7 @@
 
 namespace bz_mesh {
 
-enum class PhMode : std::uint8_t { ALO, ALA, ATO, ATA, ELO, ELA, ETO, ETA, COUNT };
-constexpr std::size_t kModeCount = static_cast<std::size_t>(PhMode::COUNT);
 
-using Rate8                = std::array<double, kModeCount>;
-using BandRates            = std::vector<Rate8>;      // per band
-using VertexBandRates      = std::vector<BandRates>;  // per vertex
 using EigenIntSparseMatrix = Eigen::SparseMatrix<int, Eigen::RowMajor>;
 using TripletInt           = Eigen::Triplet<int>;
 
@@ -156,13 +151,7 @@ class MeshBZ {
      */
     double m_bz_halfwidth = 0.5;
 
-    /**
-     * @brief Precomputed electron-phonon scattering rates at each vertex of the mesh, for each band, for each phonon mode.
-     * m_list_phonon_scattering_rates[idx_vertex][idx_band][idx_mode] is the scattering rate at the idx_vertex-th vertex, for the
-     * idx_band-th band, for the idx_mode-th phonon mode. Each entry is an array of 8 doubles, containing the scattering rates for
-     * absorption and emission of acoustic and optical phonons.
-     */
-    std::vector<std::vector<Rate8>> m_list_phonon_scattering_rates;
+
 
  public:
     MeshBZ() = default;
@@ -263,10 +252,7 @@ class MeshBZ {
                                                                    int         num_threads,
                                                                    bool        use_interp = false) const;
 
-    void          read_phonon_scattering_rates_from_file(const std::filesystem::path& path);
-    Rate8         interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const;
-    inline double sum_modes(const Rate8& r) const noexcept;
-    double        compute_P_Gamma() const;
+
 };
 
 }  // namespace bz_mesh
