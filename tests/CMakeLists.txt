@@ -1,5 +1,7 @@
-include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake OPTIONAL)
-file(GLOB CONFIGURE_DEPENDS TEST_SOURCES *.cpp)
+# include(${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake OPTIONAL)
+
+file(GLOB TEST_SOURCES *.cpp)
+message("TEST_SOURCES: ${TEST_SOURCES}")
 
 message(STATUS "TESTS:")
 foreach(TEST_SRC ${TEST_SOURCES})

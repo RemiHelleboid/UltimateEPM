@@ -126,7 +126,7 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     const double     ssi_to_reduced_scale = si_to_reduced_scale();
     init_reciprocal_basis(b1_SI, b2_SI, b3_SI, halfwidth_reduced, ssi_to_reduced_scale);
 
-    build_search_tree();
+    // build_search_tree();
 }
 
 bbox_mesh MeshBZ::compute_bounding_box() const {

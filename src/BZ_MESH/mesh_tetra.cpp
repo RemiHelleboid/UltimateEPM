@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <iomanip>
 #include <vector>
 
 #include "Constants.hpp"
@@ -528,19 +529,25 @@ void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double en
 }
 
 double Tetra::interpolate_dos_at_energy_per_band(double energy, std::size_t band_index) const {
+    
+    if (band_index >= m_nb_bands) {
+        throw std::invalid_argument("In Tetra::interpolate_dos_at_energy_per_band, the band index is out of range.");
+    }
     if (energy < m_min_energy_per_band[band_index] || energy > m_max_energy_per_band[band_index]) {
         return 0.0;
     }
-    if (m_energy_grid_per_band.empty() || m_precomputed_dos_at_energies_per_band.empty()) {
+
+    if (band_index >= m_energy_grid_per_band.size() || band_index >= m_precomputed_dos_at_energies_per_band.size()) {
         throw std::runtime_error(
-            "In Tetra::interpolate_dos_at_energy_per_band, the precomputed DOS grid is empty. Call "
-            "precompute_dos_on_energy_grid_per_band first.");
+            "In Tetra::interpolate_dos_at_energy_per_band, the precomputed DOS grid does not contain the requested band index.");
     }
     const auto& energy_grid = m_energy_grid_per_band[band_index];
     const auto& dos_grid    = m_precomputed_dos_at_energies_per_band[band_index];
-
+    
     auto it = std::lower_bound(energy_grid.begin(), energy_grid.end(), energy);
     if (it == energy_grid.begin()) {
+        std::cout << std::setprecision(10) << "Band index: " << band_index << " " << energy << " " << m_min_energy_per_band[band_index] << " "
+                  << m_max_energy_per_band[band_index] << " " << energy_grid.front() << " " << energy_grid.back() << std::endl;
         throw std::runtime_error("In Tetra::interpolate_dos_at_energy_per_band, the energy is smaller than the minimum energy.");
     }
     if (it == energy_grid.end()) {
@@ -551,6 +558,7 @@ double Tetra::interpolate_dos_at_energy_per_band(double energy, std::size_t band
     double      e2  = energy_grid[idx];
     double      d1  = dos_grid[idx - 1];
     double      d2  = dos_grid[idx];
+    
     if (std::fabs(e2 - e1) < 1e-12) {
         std::cout << "WARNING !!! " << std::endl;
     }
