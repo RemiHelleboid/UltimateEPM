@@ -169,17 +169,16 @@ using EigenSparseMatrix = Eigen::SparseMatrix<double>;
 using EigenTriplet      = Eigen::Triplet<double>;
 
 struct Rates_nk_npkp_ctor {
-    PhononMode          mode             = PhononMode::none;
-    PhononDirection     direction        = PhononDirection::none;
-    PhononEvent         event            = PhononEvent::none;
+    PhononMode      mode      = PhononMode::none;
+    PhononDirection direction = PhononDirection::none;
+    PhononEvent     event     = PhononEvent::none;
     /**
      * @brief Preliminary constructor for the rate matrix (n,k) → (n',k') for a given (m,d,e) triplet.
     // (n,k) → (n',k') transition rate matrix. /!\ k' are the barycenters of final tetrahedra, not the mesh vertices!
     // So the size is (nk, n'k') where n'k' are the number of final tetrahedra × number of bands.
      *
      */
-    EigenSparseMatrix   matrix;  // (nk, n'k')
-
+    EigenSparseMatrix matrix;  // (nk, n'k')
 };
 
 class ElectronPhonon : public BZ_States {
@@ -216,6 +215,7 @@ class ElectronPhonon : public BZ_States {
     double        electron_overlap_integral(const vector3& k1, const vector3& k2) const;
     double        hole_overlap_integral(int n1, const vector3& k1, int n2, const vector3& k2) const;
 
+    Rate8      compute_transition_rates_pair(int idx_n1, std::size_t idx_k1, int idx_n2, std::size_t idx_tetra_final, bool push_nk_npkp);
     RateValues compute_electron_phonon_rate(int idx_n1, std::size_t idx_k1, bool populate_nk_npkp = false);
     RateValues compute_hole_phonon_rate(int idx_n1, std::size_t idx_k1);
 
