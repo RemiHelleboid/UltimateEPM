@@ -184,6 +184,8 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
     const double Ef_min  = Ei_eV - Eph_max;
     const double Ef_max  = Ei_eV + Eph_max;
 
+    std::size_t nnz = 0;
+
     for (int idx_n2 : m_indices_conduction_bands) {
         // Quick reject band window
         if (Ef_min > m_max_band[idx_n2] || Ef_max < m_min_band[idx_n2]) continue;
@@ -193,10 +195,14 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
             if (!tetra.does_intersect_band_energy_range(Ef_min, Ef_max, idx_n2)) continue;
 
             const Rate8 r = compute_transition_rates_pair(idx_n1, idx_k1, idx_n2, t, /*push=*/populate_nk_npkp);
+            nnz += (r != Rate8{});  // count non-zero contributions
             for (int i = 0; i < 8; ++i)
                 acc.v[i] += r[i];
         }
     }
+    std::cout << "Computed rates for (n,k)=(" << idx_n1 << "," << idx_k1 << ") Ei=" << std::setprecision(6) << Ei_eV
+              << " eV, non-zero contributions: " << nnz << " / " << m_indices_conduction_bands.size() * m_list_tetrahedra.size() << " = "
+              << (100.0 * nnz / (m_indices_conduction_bands.size() * m_list_tetrahedra.size())) << "%\n";
     return acc;
 }
 
@@ -276,7 +282,7 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
 
 // -------------------- Mesh sweeps & exporters --------------------
 
-void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, bool irreducible_wedge_only) {
+void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, bool irreducible_wedge_only, bool populate_nk_npkp) {
     auto indices_conduction_bands = m_indices_conduction_bands;
     auto min_idx_conduction_band  = *std::min_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
     auto max_idx_conduction_band  = *std::max_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
@@ -289,39 +295,44 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     const std::vector<int>& rows_bands = m_indices_conduction_bands;  // (n,k)
     const std::vector<int>& cols_bands = m_indices_conduction_bands;  // (n',k')
 
-    const std::size_t Nk      = m_list_vertices.size();
-    const std::size_t Nt      = m_list_tetrahedra.size();
-    const int         Nb_rows = static_cast<int>(rows_bands.size());
-    const int         Nb_cols = static_cast<int>(cols_bands.size());
+    if (populate_nk_npkp) {
+        const std::size_t Nk      = m_list_vertices.size();
+        const std::size_t Nt      = m_list_tetrahedra.size();
+        const int         Nb_rows = static_cast<int>(rows_bands.size());
+        const int         Nb_cols = static_cast<int>(cols_bands.size());
 
-    const Eigen::Index nrows = static_cast<Eigen::Index>(static_cast<std::size_t>(Nb_rows) * Nk);
-    const Eigen::Index ncols = static_cast<Eigen::Index>(static_cast<std::size_t>(Nb_cols) * Nt);
+        const Eigen::Index nrows = static_cast<Eigen::Index>(static_cast<std::size_t>(Nb_rows) * Nk);
+        const Eigen::Index ncols = static_cast<Eigen::Index>(static_cast<std::size_t>(Nb_cols) * Nt);
+        std::cout << "Matrix size: " << nrows << " x " << ncols << " (" << (nrows * ncols) << " elements)\n";
+        constexpr double percentage_reserve = 0.01;  // 1% of elements
+        std::cout << "Reserving " << (nrows * ncols * percentage_reserve) << " elements per matrix.\n";
 
-    m_rates_nk_npkp.clear();
-    m_rates_nk_npkp.resize(8);  // indices 0..7 must equal rate_index(m,d,e)
+        m_rates_nk_npkp.clear();
+        m_rates_nk_npkp.resize(8);  // indices 0..7 must equal rate_index(m,d,e)
 
-    // Eigen::VectorXi reserve_vec(nrows);
-    // reserve_vec.setConstant(std::max<Eigen::Index>(1, static_cast<Eigen::Index>(0.10 * Nb_cols * Nt)));
+        Eigen::VectorXi reserve_vec(nrows);
+        reserve_vec.setConstant(std::max<Eigen::Index>(1, static_cast<Eigen::Index>(percentage_reserve * Nb_cols * Nt)));
 
-    for (int M = 0; M < 2; ++M) {
-        const PhononMode m = (M == 0) ? PhononMode::acoustic : PhononMode::optical;
-        for (int D = 0; D < 2; ++D) {
-            const PhononDirection d = (D == 0) ? PhononDirection::longitudinal : PhononDirection::transverse;
-            for (int E = 0; E < 2; ++E) {
-                const PhononEvent e   = (E == 0) ? PhononEvent::absorption : PhononEvent::emission;  // matches your enum
-                const int         idx = rate_index(m, d, e);                                         // (M<<2)|(D<<1)|E  → [0..7]
+        for (int M = 0; M < 2; ++M) {
+            const PhononMode m = (M == 0) ? PhononMode::acoustic : PhononMode::optical;
+            for (int D = 0; D < 2; ++D) {
+                const PhononDirection d = (D == 0) ? PhononDirection::longitudinal : PhononDirection::transverse;
+                for (int E = 0; E < 2; ++E) {
+                    const PhononEvent e   = (E == 0) ? PhononEvent::absorption : PhononEvent::emission;  // matches your enum
+                    const int         idx = rate_index(m, d, e);                                         // (M<<2)|(D<<1)|E  → [0..7]
 
-                Rates_nk_npkp_ctor R;
-                R.mode      = m;
-                R.direction = d;
-                R.event     = e;
-                // R.matrix.resize(nrows, ncols);
-                // R.matrix.reserve(reserve_vec);
+                    Rates_nk_npkp_ctor R;
+                    R.mode      = m;
+                    R.direction = d;
+                    R.event     = e;
+                    R.matrix.resize(nrows, ncols);
+                    R.matrix.reserve(reserve_vec);
 
-                // m_rates_nk_npkp[idx] = std::move(R);
+                    m_rates_nk_npkp[idx] = std::move(R);
+                }
             }
         }
-    }
+    } // if populate_nk_npkp
 
     std::cout << "Progress: 0%";
     std::atomic<std::size_t> counter{0};

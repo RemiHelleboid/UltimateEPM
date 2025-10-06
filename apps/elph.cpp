@@ -37,6 +37,7 @@ int main(int argc, char const *argv[])
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     TCLAP::SwitchArg plot_with_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
+    TCLAP::SwitchArg plot_with_knkpnp("K", "knkpnp", "Compute and store the full (n,k) -> (n',k') transition rate matrices.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -45,6 +46,7 @@ int main(int argc, char const *argv[])
     cmd.add(arg_nb_energies);
     cmd.add(arg_nb_threads);
     cmd.add(plot_with_wedge);
+    cmd.add(plot_with_knkpnp);
 
     cmd.parse(argc, argv);
 
@@ -83,10 +85,11 @@ int main(int argc, char const *argv[])
     
     ElectronPhonon.load_phonon_parameters(phonon_file);
     bool irreducible_wedge_only = plot_with_wedge.getValue();
+    bool populate_nk_npkp = plot_with_knkpnp.getValue();
 
     const double max_energy  = 6.0;  // eV
     const double energy_step = 0.05; // eV
-    ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only);
+    ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
     ElectronPhonon.export_rate_values("rates_all.csv");
 
     ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels, max_energy, energy_step, "rates_vs_energy.csv", irreducible_wedge_only);
