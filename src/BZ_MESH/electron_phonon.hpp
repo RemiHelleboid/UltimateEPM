@@ -194,6 +194,9 @@ class ElectronPhonon : public BZ_States {
     // 4 dispersions: (ac/op) × (L/T); index via md_index()
     std::array<PhononDispersion, 4> m_phonon_dispersion;
 
+    // Transport rates. m_phonon_rates_transport[i]
+    std::vector<double> m_phonon_rates_transport;  // precomputed 1/τ_tr(E) on uniform grid
+
     // Precomputed rates on mesh: [vertex][band][8]
     std::vector<std::vector<Rate8>> m_list_phonon_scattering_rates;
     std::vector<double>             m_count_weight_tetra_per_vertex;

@@ -767,7 +767,7 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
         throw std::runtime_error("File " + filename + " is empty");
     }
 
-    std::cout << "File " << filename << " contains:\n" << config << std::endl;
+    // std::cout << "File " << filename << " contains:\n" << config << std::endl;
 
     auto               list_materials = config["materials"];
     const std::string& my_material    = m_material.get_name();
@@ -791,7 +791,7 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
             double w0       = waveType["w0"].as<double>();
             double vs       = waveType["vs"].as<double>();
             double c        = waveType["c"].as<double>();
-            std::cout << "w0: " << w0 << " vs: " << vs << " c: " << c << std::endl;
+            // std::cout << "w0: " << w0 << " vs: " << vs << " c: " << c << std::endl;
 
             PhononDirection direction = (std::string(type) == "longitudinal") ? PhononDirection::longitudinal : PhononDirection::transverse;
             PhononMode      mode      = (std::string(wave) == "acoustic") ? PhononMode::acoustic : PhononMode::optical;
@@ -799,7 +799,7 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
             PhononDispersion phononDispersion(mode, direction, w0, vs, c);
             double           q_max_norm = 1.5 / m_si2red;
             std::size_t      points     = 200;
-            std::cout << "Max q norm in reduced units: " << q_max_norm << std::endl;
+            // std::cout << "Max q norm in reduced units: " << q_max_norm << std::endl;
             phononDispersion.build_lookup(q_max_norm, points);
 
             const int md = md_index(mode, direction);

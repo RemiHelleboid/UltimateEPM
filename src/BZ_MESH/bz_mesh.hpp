@@ -27,9 +27,11 @@
 
 namespace bz_mesh {
 
-
 using EigenIntSparseMatrix = Eigen::SparseMatrix<int, Eigen::RowMajor>;
 using TripletInt           = Eigen::Triplet<int>;
+
+using MapStringToDoubles = std::map<std::string, std::vector<double>>;
+using MapStringToVectors = std::map<std::string, std::vector<vector3>>;
 
 enum class BandType { valence, conduction };
 
@@ -151,14 +153,18 @@ class MeshBZ {
      */
     double m_bz_halfwidth = 0.5;
 
-
-
  public:
     MeshBZ() = default;
     MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material) {};
     MeshBZ(const MeshBZ&) = default;
 
     void export_k_points_to_file(const std::string& filename) const;
+    void export_to_vtk(const std::string&        filename,
+                       const MapStringToDoubles& point_scalars = {},
+                       const MapStringToVectors& point_vectors = {},
+                       const MapStringToDoubles& cell_scalars  = {},
+                       const MapStringToVectors& cell_vectors  = {}) const;
+    void export_energies_and_gradients_to_vtk(const std::string& filename) const;
 
     vector3 get_vertex_position(std::size_t idx_vtx) const { return m_list_vertices[idx_vtx].get_position(); }
 
@@ -193,6 +199,8 @@ class MeshBZ {
     void set_bands_in_right_order();
     void recompute_min_max_energies();
     void precompute_dos_tetra(double energy_step = 0.01, double energy_threshold = 100.0);
+
+    void set_energy_gradient_at_vertices_by_averaging_tetras();
 
     std::size_t      get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t      get_number_elements() const { return m_list_tetrahedra.size(); }
@@ -251,8 +259,6 @@ class MeshBZ {
                                                                    std::size_t nb_points,
                                                                    int         num_threads,
                                                                    bool        use_interp = false) const;
-
-
 };
 
 }  // namespace bz_mesh

@@ -97,7 +97,7 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
 
     m_list_tetrahedra.reserve(number_elements);
     m_vertex_to_tetrahedra.resize(m_list_vertices.size());
-     for (std::size_t index_element = 0; index_element < number_elements; ++index_element) {
+    for (std::size_t index_element = 0; index_element < number_elements; ++index_element) {
         const std::array<Vertex*, 4> array_element_vertices = {&m_list_vertices[elemNodeTags[0][4 * index_element] - 1],
                                                                &m_list_vertices[elemNodeTags[0][4 * index_element + 1] - 1],
                                                                &m_list_vertices[elemNodeTags[0][4 * index_element + 2] - 1],
@@ -163,27 +163,6 @@ void MeshBZ::build_search_tree() {
 }
 
 Tetra* MeshBZ::find_tetra_at_location(const vector3& location) const { return m_search_tree->find_tetra_at_location(location); }
-
-// /**
-//  * @brief Get the nearest k index object.
-//  * Brute force search of the nearest k-point index. :(
-//  *
-//  * @param k
-//  * @return std::size_t
-//  */
-// std::size_t MeshBZ::get_nearest_k_index(const Vector3D<double>& k) const {
-//     vector3     K(k.X, k.Y, k.Z);
-//     std::size_t index_nearest_k = 0;
-//     double      min_distance    = std::numeric_limits<double>::max();
-//     for (std::size_t index_k = 0; index_k < m_list_vertices.size(); ++index_k) {
-//         double distance = (K - m_list_vertices[index_k].get_position()).norm();
-//         if (distance < min_distance) {
-//             min_distance    = distance;
-//             index_nearest_k = index_k;
-//         }
-//     }
-//     return index_nearest_k;
-// }
 
 std::size_t MeshBZ::get_nearest_k_index(const vector3& k) const {
     std::size_t index_nearest_k = 0;
@@ -260,6 +239,7 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_b
     auto_set_positive_valence_band_energies();
     compute_min_max_energies_at_tetras();
     compute_energy_gradient_at_tetras();
+    set_energy_gradient_at_vertices_by_averaging_tetras();
     for (auto&& tetra : m_list_tetrahedra) {
         tetra.pre_compute_sorted_slots_per_band();
     }
@@ -277,6 +257,8 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_b
         }
         std::cout << std::endl;
     }
+
+    export_energies_and_gradients_to_vtk("mesh_energies_gradients.vtk");
 }
 
 void MeshBZ::precompute_dos_tetra(double energy_step, double energy_threshold) {
@@ -286,6 +268,27 @@ void MeshBZ::precompute_dos_tetra(double energy_step, double energy_threshold) {
     for (std::size_t i = 0; i < m_list_tetrahedra.size(); ++i) {
         m_list_tetrahedra[i].precompute_dos_on_energy_grid_per_band(energy_step, energy_threshold);
     }
+}
+
+void MeshBZ::set_energy_gradient_at_vertices_by_averaging_tetras() {
+    std::cout << "Setting energy gradient at vertices by averaging tetrahedra gradients ..." << std::endl;
+    for (std::size_t i = 0; i < m_list_vertices.size(); ++i) {
+        for (std::size_t b = 0; b < m_list_vertices[i].get_number_bands(); ++b) {
+            vector3 gradient_sum(0.0, 0.0, 0.0);
+            int     count = 0;
+            for (auto&& tetra_idx : m_vertex_to_tetrahedra[i]) {
+                gradient_sum += m_list_tetrahedra[tetra_idx].get_gradient_energy_at_band(b);
+                count++;
+            }
+            if (count > 0) {
+                gradient_sum /= static_cast<double>(count);
+                m_list_vertices[i].push_back_energy_gradient_at_band(gradient_sum);
+            } else {
+                m_list_vertices[i].push_back_energy_gradient_at_band(vector3(0.0, 0.0, 0.0));
+            }
+        }
+    }
+    std::cout << "Done." << std::endl;
 }
 
 void MeshBZ::recompute_min_max_energies() {
@@ -795,22 +798,21 @@ bool MeshBZ::is_irreducible_wedge(const vector3& k_SI) const noexcept {
 /**
  * @brief Find the index of the vertex in the irreducible wedge that represents k_SI.
  * In this version, we first first fold k_SI into the first IW, then search for the closest vertex.
- * 
- * 
- * @param k_SI 
- * @return std::size_t 
+ *
+ *
+ * @param k_SI
+ * @return std::size_t
  */
 std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const noexcept {
     vector3 k_folded = {std::fabs(k_SI.x()), std::fabs(k_SI.y()), std::fabs(k_SI.z())};
     // Test the 6 permutations of (|kx|, |ky|, |kz|)
-    std::array<vector3, 6> permutations = {
-        vector3{k_folded.x(), k_folded.y(), k_folded.z()},
-        vector3{k_folded.x(), k_folded.z(), k_folded.y()},
-        vector3{k_folded.y(), k_folded.x(), k_folded.z()},
-        vector3{k_folded.y(), k_folded.z(), k_folded.x()},
-        vector3{k_folded.z(), k_folded.x(), k_folded.y()},
-        vector3{k_folded.z(), k_folded.y(), k_folded.x()}};
-    bool found = false;
+    std::array<vector3, 6> permutations = {vector3{k_folded.x(), k_folded.y(), k_folded.z()},
+                                           vector3{k_folded.x(), k_folded.z(), k_folded.y()},
+                                           vector3{k_folded.y(), k_folded.x(), k_folded.z()},
+                                           vector3{k_folded.y(), k_folded.z(), k_folded.x()},
+                                           vector3{k_folded.z(), k_folded.x(), k_folded.y()},
+                                           vector3{k_folded.z(), k_folded.y(), k_folded.x()}};
+    bool                   found        = false;
     for (auto&& perm : permutations) {
         if (is_irreducible_wedge(perm)) {
             k_folded = perm;
@@ -842,6 +844,133 @@ std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const noexc
     return idx_min;
 }
 
+#include <fstream>
+#include <iomanip>
+#include <map>
+#include <stdexcept>
+#include <string>
 
+static inline void bz_write_vtk_scalars(std::ofstream&             out,
+                                        const std::string&         name,
+                                        const std::vector<double>& vals,
+                                        const char*                loc_keyword,  // "POINT_DATA" or "CELL_DATA" already emitted
+                                        std::size_t                expected_count) {
+    if (vals.size() != expected_count) {
+        throw std::runtime_error("VTK export: scalar field '" + name + "' has size " + std::to_string(vals.size()) + ", expected " +
+                                 std::to_string(expected_count));
+    }
+    out << "SCALARS " << name << " double 1\n";
+    out << "LOOKUP_TABLE default\n";
+    out << std::setprecision(17);
+    for (double v : vals)
+        out << v << "\n";
+}
+
+static inline void bz_write_vtk_vectors(std::ofstream&              out,
+                                        const std::string&          name,
+                                        const std::vector<vector3>& vecs,
+                                        const char*                 loc_keyword,
+                                        std::size_t                 expected_count) {
+    if (vecs.size() != expected_count) {
+        throw std::runtime_error("VTK export: vector field '" + name + "' has size " + std::to_string(vecs.size()) + ", expected " +
+                                 std::to_string(expected_count));
+    }
+    out << "VECTORS " << name << " double\n";
+    out << std::setprecision(17);
+    for (const auto& v : vecs) {
+        out << v.x() << " " << v.y() << " " << v.z() << "\n";
+    }
+}
+
+void MeshBZ::export_to_vtk(const std::string&        filename,
+                           const MapStringToDoubles& point_scalars,
+                           const MapStringToVectors& point_vectors,
+                           const MapStringToDoubles& cell_scalars,
+                           const MapStringToVectors& cell_vectors) const {
+    const std::size_t n_points = m_list_vertices.size();
+    const std::size_t n_cells  = m_list_tetrahedra.size();
+
+    std::ofstream out(filename);
+    if (!out) throw std::runtime_error("Cannot open VTK file '" + filename + "' for writing.");
+
+    // --- VTK legacy header (ASCII, UnstructuredGrid) ---
+    out << "# vtk DataFile Version 4.2\n";
+    out << "BZ mesh export\n";
+    out << "ASCII\n";
+    out << "DATASET UNSTRUCTURED_GRID\n";
+
+    // --- POINTS ---
+    out << "POINTS " << n_points << " double\n";
+    out << std::setprecision(17);
+    for (const auto& v : m_list_vertices) {
+        const auto& p = v.get_position();
+        out << p.x() << " " << p.y() << " " << p.z() << "\n";
+    }
+
+    // --- CELLS (tetra) ---
+    // For legacy VTK: total_indices = n_cells * (1 + 4) because each line: "4 i0 i1 i2 i3"
+    const std::size_t total_idx = n_cells * (1 + 4);
+    out << "CELLS " << n_cells << " " << total_idx << "\n";
+    for (const auto& t : m_list_tetrahedra) {
+        const auto ids = t.get_list_indices_vertices();  // assumes 0-based vertex ids
+        out << "4 " << ids[0] << " " << ids[1] << " " << ids[2] << " " << ids[3] << "\n";
+    }
+
+    // --- CELL_TYPES (tetra = 10) ---
+    out << "CELL_TYPES " << n_cells << "\n";
+    for (std::size_t i = 0; i < n_cells; ++i)
+        out << "10\n";
+
+    // --- Optional per-vertex data ---
+    if (!point_scalars.empty() || !point_vectors.empty()) {
+        out << "POINT_DATA " << n_points << "\n";
+        for (const auto& [name, vals] : point_scalars) {
+            bz_write_vtk_scalars(out, name, vals, "POINT_DATA", n_points);
+        }
+        for (const auto& [name, vecs] : point_vectors) {
+            bz_write_vtk_vectors(out, name, vecs, "POINT_DATA", n_points);
+        }
+    }
+
+    // --- Optional per-cell data ---
+    if (!cell_scalars.empty() || !cell_vectors.empty()) {
+        out << "CELL_DATA " << n_cells << "\n";
+        for (const auto& [name, vals] : cell_scalars) {
+            bz_write_vtk_scalars(out, name, vals, "CELL_DATA", n_cells);
+        }
+        for (const auto& [name, vecs] : cell_vectors) {
+            bz_write_vtk_vectors(out, name, vecs, "CELL_DATA", n_cells);
+        }
+    }
+    out.close();
+}
+
+void MeshBZ::export_energies_and_gradients_to_vtk(const std::string& filename) const {
+    std::map<std::string, std::vector<double>> point_scalars;
+    std::map<std::string, std::vector<vector3>> point_vectors;
+
+    // Per-vertex band energies
+    for (std::size_t b = 0; b < m_list_vertices[0].get_number_bands(); ++b) {
+        std::string               name = "band_energy_" + std::to_string(b);
+        std::vector<double>       vals;
+        vals.reserve(m_list_vertices.size());
+        for (const auto& v : m_list_vertices) {
+            vals.push_back(v.get_energy_at_band(b));
+        }
+        point_scalars[name] = vals;
+    }
+
+    // Per-vertex band energy gradients
+    for (std::size_t b = 0; b < m_list_vertices[0].get_number_bands(); ++b) {
+        std::string               name = "band_grad_" + std::to_string(b);
+        std::vector<vector3>      vecs;
+        vecs.reserve(m_list_vertices.size());
+        for (const auto& v : m_list_vertices) {
+            vecs.push_back(v.get_energy_gradient_at_band(b));
+        }
+        point_vectors[name] = vecs;
+    }
+    export_to_vtk(filename, point_scalars, point_vectors, {}, {});
+}
 
 }  // namespace bz_mesh

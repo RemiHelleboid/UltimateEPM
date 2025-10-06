@@ -44,10 +44,18 @@ class Vertex {
     std::vector<double> m_band_energies;
 
     /**
+     * @brief The energy gradient at each band at this vertex.
+     * The energy gradient is stored as a vector3 for each band.
+     * For example, m_energy_gradient_at_bands[3] is the energy gradient of the band 3 at the k-point with position m_position.
+     *
+     */
+    std::vector<vector3> m_energy_gradient_at_bands = {};
+
+    /**
      * @brief Electron-phonon rates for each band.
      * The rates are stored as an array of 8 values:
      * [ALO, ALA, ATO, ATA, ELO, ELA, ETO, ETA] (ALO: absorption longitudinal optical, ALA: absorption longitudinal acoustic, ...)
-     * 
+     *
      */
     std::vector<std::array<double, 8>> m_electron_phonon_rates = {};
 
@@ -118,7 +126,6 @@ class Vertex {
      */
     void add_band_energy_value(double energy) { m_band_energies.push_back(energy); }
 
-
     void remove_band_energy(std::size_t band_index) {
         if (band_index >= m_band_energies.size()) {
             throw std::invalid_argument("The energy of band " + std::to_string(band_index) +
@@ -149,8 +156,7 @@ class Vertex {
      */
     void swap_bands(std::size_t old_index, std::size_t new_index) {
         if (old_index >= m_band_energies.size() || new_index >= m_band_energies.size()) {
-            throw std::invalid_argument("The energy of band " + std::to_string(old_index) +
-                                        " or " + std::to_string(new_index) +
+            throw std::invalid_argument("The energy of band " + std::to_string(old_index) + " or " + std::to_string(new_index) +
                                         " cannot be swapped because it does not exists.");
         }
         std::swap(m_band_energies[old_index], m_band_energies[new_index]);
@@ -171,7 +177,26 @@ class Vertex {
      */
     double get_energy_at_band(std::size_t band_index) const { return m_band_energies[band_index]; }
 
+    /**
+     * @brief Get the list of band energies.
+     *
+     * @return const std::vector<double>&
+     */
     const std::vector<double>& get_band_energies() const { return m_band_energies; }
+
+    const std::vector<vector3>& get_energy_gradient_at_bands() const { return m_energy_gradient_at_bands; }
+
+    const vector3& get_energy_gradient_at_band(std::size_t band_index) const { return m_energy_gradient_at_bands[band_index]; }
+    void           set_energy_gradient_at_bands(const std::vector<vector3>& gradients) { m_energy_gradient_at_bands = gradients; }
+    void           set_energy_gradient_at_band(std::size_t band_index, const vector3& gradient) {
+        if (band_index >= m_energy_gradient_at_bands.size()) {
+            throw std::invalid_argument("The energy gradient of band " + std::to_string(band_index) +
+                                        " cannot be modify because it does not exist.");
+        }
+        m_energy_gradient_at_bands[band_index] = gradient;
+    }
+    void resize_energy_gradient_at_bands(std::size_t new_size) { m_energy_gradient_at_bands.resize(new_size); }
+    void push_back_energy_gradient_at_band(const vector3& gradient) { m_energy_gradient_at_bands.push_back(gradient); }
 
     /**
      * @brief Add the electron-phonon rates for a given band.
@@ -189,7 +214,6 @@ class Vertex {
     const std::array<double, 8>& get_electron_phonon_rates(std::size_t band_index) const { return m_electron_phonon_rates[band_index]; }
 
     const std::vector<std::array<double, 8>>& get_electron_phonon_rates_all_bands() const { return m_electron_phonon_rates; }
-
 };
 
 }  // namespace bz_mesh
