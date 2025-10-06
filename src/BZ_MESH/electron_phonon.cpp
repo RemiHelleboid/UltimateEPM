@@ -73,9 +73,7 @@ double ElectronPhonon::get_max_phonon_energy() const {
     return max_energy * EmpiricalPseudopotential::Constants::h_bar_eV;  // ħω → eV
 }
 
-// -------------------- Electron rates (lean hot path) --------------------
-
-RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t idx_k1, bool /*populate_nk_npkp*/) {
+RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t idx_k1, bool populate_nk_npkp) {
     RateValues rates_k1_n1;
 
     const auto& list_tetrahedra          = m_list_tetrahedra;
@@ -153,6 +151,13 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                         rate_value *= m_spin_degeneracy;
 
                         rates_k1_n1.add(mode, dir, PhononEvent::absorption, rate_value);
+
+                        if (populate_nk_npkp) {
+                            // Store in sparse matrix for (n,k) → (n',k') transitions.
+                            int idx_npkp = static_cast<int>(tetra.get_index() * m_nb_bands + idx_n2);  // final state index
+                            int idx_nk   = static_cast<int>(idx_k1 * m_nb_bands + idx_n1);             // initial state index
+                            int md_idx   = (static_cast<int>(mode) << 1) | static_cast<int>(dir);      // 0..3
+                        }
                     }
                 }
             }  // md
@@ -247,16 +252,67 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     std::cout << "Max index conduction band: " << max_idx_conduction_band << "\n";
     std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() << " k-points.\n";
 
+    // --- Decide band set for rows/cols (compact conduction example) ---
+    const std::vector<int>& rows_bands = m_indices_conduction_bands;  // (n,k)
+    const std::vector<int>& cols_bands = m_indices_conduction_bands;  // (n',k')
+
+    const std::size_t Nk      = m_list_vertices.size();
+    const std::size_t Nt      = m_list_tetrahedra.size();
+    const int         Nb_rows = static_cast<int>(rows_bands.size());
+    const int         Nb_cols = static_cast<int>(cols_bands.size());
+
+    const Eigen::Index nrows = static_cast<Eigen::Index>(static_cast<std::size_t>(Nb_rows) * Nk);
+    const Eigen::Index ncols = static_cast<Eigen::Index>(static_cast<std::size_t>(Nb_cols) * Nt);
+
+    m_rates_nk_npkp.clear();
+    m_rates_nk_npkp.resize(8);  // indices 0..7 must equal rate_index(m,d,e)
+
+    Eigen::VectorXi reserve_vec(nrows);
+    reserve_vec.setConstant(std::max<Eigen::Index>(1, static_cast<Eigen::Index>(0.10 * Nb_cols * Nt)));
+
+    for (int M = 0; M < 2; ++M) {
+        const PhononMode m = (M == 0) ? PhononMode::acoustic : PhononMode::optical;
+        for (int D = 0; D < 2; ++D) {
+            const PhononDirection d = (D == 0) ? PhononDirection::longitudinal : PhononDirection::transverse;
+            for (int E = 0; E < 2; ++E) {
+                const PhononEvent e   = (E == 0) ? PhononEvent::absorption : PhononEvent::emission;  // matches your enum
+                const int         idx = rate_index(m, d, e);                                         // (M<<2)|(D<<1)|E  → [0..7]
+
+                Rates_nk_npkp_ctor R;
+                R.mode      = m;
+                R.direction = d;
+                R.event     = e;
+                R.matrix.resize(nrows, ncols);
+                R.matrix.reserve(reserve_vec);
+
+                m_rates_nk_npkp[idx] = std::move(R);
+            }
+        }
+    }
+
     std::cout << "Progress: 0%";
     std::atomic<std::size_t> counter{0};
+    constexpr int            chunk_size = 32;
 
-#pragma omp parallel for schedule(dynamic)
-    for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
-        const bool to_compute =
+    // Create a shuffled list of indices to balance load when using irreducible wedge only
+    std::vector<std::size_t> random_indices(m_list_vertices.size());
+    for (std::size_t i = 0; i < m_list_vertices.size(); ++i)
+        random_indices[i] = i;
+    if (irreducible_wedge_only) {
+        constexpr int seed = 0;
+        std::mt19937  g(seed);
+        std::shuffle(random_indices.begin(), random_indices.end(), g);
+    }
+
+#pragma omp parallel for schedule(dynamic, chunk_size)
+    for (std::size_t idx = 0; idx < m_list_vertices.size(); ++idx) {
+        // Use random index if irreducible wedge only
+        const std::size_t idx_k1 = irreducible_wedge_only ? random_indices[idx] : idx;
+        const bool        to_compute =
             (!irreducible_wedge_only) || (irreducible_wedge_only && is_irreducible_wedge(m_list_vertices[idx_k1].get_position()));
 
         const auto done = ++counter;
-        if (omp_get_thread_num() == 0 && (done == 1 || (done % 100) == 0 || done == m_list_vertices.size())) {
+        if (omp_get_thread_num() == 0) {
             std::cout << "\rDone " << done << "/" << m_list_vertices.size() << " (" << std::fixed << std::setprecision(1)
                       << (100.0 * done / m_list_vertices.size()) << "%)" << std::flush;
         }

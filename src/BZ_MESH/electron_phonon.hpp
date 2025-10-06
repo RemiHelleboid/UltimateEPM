@@ -157,16 +157,30 @@ struct HoleOverlapIntParams {
     }
 };
 
-// ---------- Eigen aliases ----------
-using EigenSparseMatrix = Eigen::SparseMatrix<double>;
-using EigenTriplet      = Eigen::Triplet<double>;
-
 // Helper: compact container for 4 (mode×direction) dispersions
 inline constexpr int md_index(PhononMode m, PhononDirection d) noexcept {
     const int M = (m == PhononMode::acoustic) ? 0 : (m == PhononMode::optical) ? 1 : -1;
     const int D = (d == PhononDirection::longitudinal) ? 0 : (d == PhononDirection::transverse) ? 1 : -1;
     return (M | D) < 0 ? -1 : ((M << 1) | D);  // 0..3
 }
+
+// ---------- Eigen aliases ----------
+using EigenSparseMatrix = Eigen::SparseMatrix<double>;
+using EigenTriplet      = Eigen::Triplet<double>;
+
+struct Rates_nk_npkp_ctor {
+    PhononMode          mode             = PhononMode::none;
+    PhononDirection     direction        = PhononDirection::none;
+    PhononEvent         event            = PhononEvent::none;
+    /**
+     * @brief Preliminary constructor for the rate matrix (n,k) → (n',k') for a given (m,d,e) triplet.
+    // (n,k) → (n',k') transition rate matrix. /!\ k' are the barycenters of final tetrahedra, not the mesh vertices!
+    // So the size is (nk, n'k') where n'k' are the number of final tetrahedra × number of bands.
+     *
+     */
+    EigenSparseMatrix   matrix;  // (nk, n'k')
+
+};
 
 class ElectronPhonon : public BZ_States {
  private:
@@ -185,8 +199,10 @@ class ElectronPhonon : public BZ_States {
     std::vector<std::vector<Rate8>> m_list_phonon_scattering_rates;
     std::vector<double>             m_count_weight_tetra_per_vertex;
 
-    // Per-mode sparse transition matrices (nk → n'k')
-    std::vector<EigenSparseMatrix> m_phonon_nk_npkp_modes;
+    // (n,k) → (n',k') transition rate matrices. /!\ k' are the barycenters of final tetrahedra, not the mesh vertices!
+    // So the size is (nk, n'k') where n'k' are the number of final tetrahedra × number of bands.
+    // One matrix per (m,d,e) triplet.
+    std::vector<Rates_nk_npkp_ctor> m_rates_nk_npkp;
 
  public:
     explicit ElectronPhonon(const EmpiricalPseudopotential::Material& material) : BZ_States(material) {}
@@ -227,7 +243,9 @@ class ElectronPhonon : public BZ_States {
     void          read_phonon_scattering_rates_from_file(const std::filesystem::path& path);
     Rate8         interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const;
     inline double sum_modes(const Rate8& r) const noexcept;
-    double compute_P_Gamma() const;
+    double        compute_P_Gamma() const;
+
+    void compute_RTA_mobility();
 };
 
 }  // namespace bz_mesh
