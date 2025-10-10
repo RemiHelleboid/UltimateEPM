@@ -38,6 +38,56 @@ static inline void arr8_add(std::array<double, 8>& __restrict out, const std::ar
 
 // -------------------- Small inline helpers --------------------
 
+inline double fermi_dirac_distribution(double energy_eV, double fermi_level_eV, double temperature_K) {
+    const double kT = EmpiricalPseudopotential::Constants::k_b_eV * temperature_K;
+
+    // Handle T <= 0 K as the T→0 limit (Heaviside step).
+    if (!(kT > 0.0)) {
+        if (energy_eV < fermi_level_eV) return 1.0;
+        if (energy_eV > fermi_level_eV) return 0.0;
+        return 0.5;  // at E = Ef, take the symmetric limit
+    }
+
+    const double x = (energy_eV - fermi_level_eV) / kT;
+
+    // In double precision, |x| >= 40 puts f within ~1e-17 of 0 or 1.
+    constexpr double X_CUTOFF = 40.0;
+    if (x >= X_CUTOFF) return 0.0;
+    if (x <= -X_CUTOFF) return 1.0;
+
+    // Stable logistic: avoid large exp(x) when x > 0.
+    if (x > 0.0) {
+        const double emx = std::exp(-x);
+        return emx / (1.0 + emx);
+    } else {
+        const double ex = std::exp(x);
+        return 1.0 / (1.0 + ex);
+    }
+}
+
+inline double d_de_fermi_dirac_dE(double energy_eV, double fermi_level_eV, double temperature_K) {
+    const double kT = EmpiricalPseudopotential::Constants::k_b_eV * temperature_K;
+
+    // T <= 0: derivative is a Dirac delta in theory; return 0 numerically.
+    if (!(kT > 0.0)) return 0.0;
+
+    const double x = (energy_eV - fermi_level_eV) / kT;
+
+    constexpr double X_CUTOFF = 40.0;
+    if (x >= X_CUTOFF || x <= -X_CUTOFF) return 0.0;
+
+    // Compute f stably, then use df/dE = -(1/kT) * f * (1 - f).
+    double f;
+    if (x > 0.0) {
+        const double emx = std::exp(-x);
+        f                = emx / (1.0 + emx);
+    } else {
+        const double ex = std::exp(x);
+        f               = 1.0 / (1.0 + ex);
+    }
+    return -(f * (1.0 - f)) / kT;
+}
+
 inline double ElectronPhonon::bose_einstein_distribution(double energy_eV, double temperature_K) const {
     // N0 = 1 / (exp(E / kT) - 1)
     const double x = energy_eV / (EmpiricalPseudopotential::Constants::k_b_eV * temperature_K);
@@ -56,21 +106,38 @@ inline double ElectronPhonon::electron_overlap_integral(const vector3& k1, const
     return 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
 }
 
-double ElectronPhonon::hole_overlap_integral(int n1, const vector3& k1, int n2, const vector3& k2) const {
-    const double cos_angle_k1_k2   = compte_cos_angle(k1, k2);
+inline double ElectronPhonon::hole_overlap_integral(int n1, const vector3& k1, int n2, const vector3& k2) const {
+    const double cos_angle_k1_k2   = compute_cos_angle(k1, k2);
     const double cos_angle_k1_k2_2 = cos_angle_k1_k2 * cos_angle_k1_k2;
     auto         A_B_params        = m_hole_overlap_int_params.get_params(n1, n2);
     double       integral          = 0.5 * std::sqrt(A_B_params[0] + A_B_params[1] * cos_angle_k1_k2_2);
     return integral;
 }
 
-double ElectronPhonon::get_max_phonon_energy() const {
+inline double ElectronPhonon::get_max_phonon_energy() const {
     double max_energy = std::numeric_limits<double>::lowest();
     for (const auto& disp : m_phonon_dispersion) {
         double max_w = disp.max_omega();  // ω_max [1/s]
         if (max_w > max_energy) max_energy = max_w;
     }
     return max_energy * EmpiricalPseudopotential::Constants::h_bar_eV;  // ħω → eV
+}
+
+/**
+ * @brief Transport weight factor 1 - cos(θ) where θ is the angle between v0 and v1, the group velocities.
+ *
+ * @param v0
+ * @param v1
+ * @return double
+ */
+inline double ElectronPhonon::transport_weight(const vector3& v0, const vector3& v1) {
+    const double norm_v0 = v0.norm_squared();
+    const double norm_v1 = v1.norm_squared();
+    if (norm_v0 < 1e-24 || norm_v1 < 1e-24) return 1.0;  // degeneracy/edge guard
+    double cos_theta = v0.dot(v1) / std::sqrt(norm_v0 * norm_v1);
+    if (cos_theta > 1.0) cos_theta = 1.0;
+    if (cos_theta < -1.0) cos_theta = -1.0;
+    return 1.0 - cos_theta;  // = 1 - cos θ
 }
 
 // --- Pairwise kernel: one (n1,k1) → (n2, bary(t)) transition, returns 8 channels ---
@@ -119,6 +186,11 @@ Rate8 ElectronPhonon::compute_transition_rates_pair(int         idx_n1,
     const double     qe                 = EmpiricalPseudopotential::Constants::q_e;       // J/eV
     const double     hbar_eV            = EmpiricalPseudopotential::Constants::h_bar_eV;  // eV·s
 
+    double       inv_mrta_rate          = 0.0;
+    vector3      vnk                    = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);   // m/s
+    vector3      v_npkp                 = tetra.get_gradient_energy_at_band(idx_n2) * (1.0 / hbar_eV);  // m/s
+    const double transport_weight_value = this->transport_weight(vnk, v_npkp);
+
     // Loop 4 branches: md=0..3 → (ac/op)×(L/T)
     for (int md = 0; md < 4; ++md) {
         const auto&           disp = m_phonon_dispersion[md];
@@ -148,11 +220,7 @@ Rate8 ElectronPhonon::compute_transition_rates_pair(int         idx_n1,
                     const double val = pref * (N0 + 1.0) * (dos_eV / qe);
                     const int    b   = rate_index(mode, dir, PhononEvent::emission);
                     out[static_cast<std::size_t>(b)] += val;
-
-                    // optional sparse push
-                    // if (push_nk_npkp && row >= 0 && col >= 0) {
-                    //     push_nk_npkp(b, row, col, val);
-                    // }
+                    inv_mrta_rate += val * transport_weight_value;  // for 1/τ_tr
                 }
             }
         }
@@ -165,17 +233,15 @@ Rate8 ElectronPhonon::compute_transition_rates_pair(int         idx_n1,
                     const double val = pref * (N0) * (dos_eV / qe);
                     const int    b   = rate_index(mode, dir, PhononEvent::absorption);
                     out[static_cast<std::size_t>(b)] += val;
-
-                    // if (push_nk_npkp && row >= 0 && col >= 0) {
-                    //     push_nk_npkp(b, row, col, val);
-                    // }
+                    inv_mrta_rate += val * transport_weight_value;  // for 1/τ_tr
                 }
             }
         }
     }
-
+    m_phonon_rates_transport[idx_n1][idx_k1] += inv_mrta_rate;  // accumulate 1/τ_tr(E) on uniform grid
     return out;
 }
+
 RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t idx_k1, bool populate_nk_npkp) {
     RateValues acc;
 
@@ -200,9 +266,9 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                 acc.v[i] += r[i];
         }
     }
-    std::cout << "Computed rates for (n,k)=(" << idx_n1 << "," << idx_k1 << ") Ei=" << std::setprecision(6) << Ei_eV
-              << " eV, non-zero contributions: " << nnz << " / " << m_indices_conduction_bands.size() * m_list_tetrahedra.size() << " = "
-              << (100.0 * nnz / (m_indices_conduction_bands.size() * m_list_tetrahedra.size())) << "%\n";
+    // std::cout << "Computed rates for (n,k)=(" << idx_n1 << "," << idx_k1 << ") Ei=" << std::setprecision(6) << Ei_eV
+    //           << " eV, non-zero contributions: " << nnz << " / " << m_indices_conduction_bands.size() * m_list_tetrahedra.size() << " = "
+    //           << (100.0 * nnz / (m_indices_conduction_bands.size() * m_list_tetrahedra.size())) << "%\n";
     return acc;
 }
 
@@ -332,12 +398,17 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
                 }
             }
         }
-    } // if populate_nk_npkp
+    }  // if populate_nk_npkp
 
     std::cout << "Progress: 0%";
     std::atomic<std::size_t> counter{0};
     constexpr int            chunk_size = 32;
 
+    m_phonon_rates_transport.clear();
+    m_phonon_rates_transport.resize(static_cast<std::size_t>(m_indices_conduction_bands.size()));
+    for (auto& vec : m_phonon_rates_transport) {
+        vec.resize(m_list_vertices.size(), 0.0);
+    }
     // Create a shuffled list of indices to balance load when using irreducible wedge only
     std::vector<std::size_t> random_indices(m_list_vertices.size());
     for (std::size_t i = 0; i < m_list_vertices.size(); ++i)
@@ -348,7 +419,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
         std::shuffle(random_indices.begin(), random_indices.end(), g);
     }
 
-#pragma omp parallel for schedule(dynamic, chunk_size)
+#pragma omp parallel for schedule(dynamic, chunk_size) num_threads(m_nb_threads)
     for (std::size_t idx = 0; idx < m_list_vertices.size(); ++idx) {
         // Use random index if irreducible wedge only
         const std::size_t idx_k1 = irreducible_wedge_only ? random_indices[idx] : idx;
@@ -389,7 +460,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
 
     if (irreducible_wedge_only) {
         std::cout << "Set electron-phonon rates for all mesh vertices.\n";
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads)
         for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
             if ((idx_k1 % 1000) == 0 && omp_get_thread_num() == 0) {
                 std::cout << "\rSetting rates for all k-points: " << idx_k1 << "/" << m_list_vertices.size() << " (" << std::fixed
@@ -417,7 +488,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh_nk_npkp(bool irredu
     std::cout << "Progress: 0%";
     std::atomic<std::size_t> counter{0};
 
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads)
     for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
         bool to_compute = is_irreducible_wedge(m_list_vertices[idx_k1].get_position()) && irreducible_wedge_only;
 
@@ -434,25 +505,22 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh_nk_npkp(bool irredu
     }
 }
 
-// -------------------- Sampling a final state --------------------
 
 std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     idx_band_initial,
-                                                               std::size_t     idx_k_initial,
+                                                               const vector3&  k_initial,
                                                                PhononMode      mode,
                                                                PhononDirection direction,
-                                                               PhononEvent     event) const {
-    using std::size_t;
-
-    if (m_list_vertices.empty() || m_list_tetrahedra.empty()) throw std::runtime_error("select_final_state: empty mesh.");
-    if (idx_k_initial >= m_list_vertices.size()) throw std::out_of_range("select_final_state: idx_k_initial OOB.");
+                                                               PhononEvent     event,
+                                                               std::mt19937&  rng) const {  
 
     const int md = md_index(mode, direction);
     if (md < 0) throw std::runtime_error("select_final_state: invalid mode/direction.");
-    const auto& disp = m_phonon_dispersion[md];  // ω(|q|) in s^-1
+    const auto& disp = m_phonon_dispersion[md];
 
     // Initial state
-    const double  Ei_eV = m_list_vertices[idx_k_initial].get_energy_at_band(static_cast<int>(idx_band_initial));
-    const vector3 k1    = m_list_vertices[idx_k_initial].get_position();
+    Tetra* init_tetra = find_tetra_at_location(k_initial);
+    if (!init_tetra) throw std::runtime_error("select_final_state: initial k not inside any tetrahedron.");
+    const double Ei_eV = init_tetra->interpolate_energy_at_band(k_initial, idx_band_initial);
 
     const double sign_ph = (event == PhononEvent::emission) ? -1.0 : +1.0;
 
@@ -479,7 +547,7 @@ std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     i
 
             const vector3 k2_bary = tetra.compute_barycenter();
 
-            vector3 q = k2_bary - k1;
+            vector3 q = k2_bary - k_initial;
             if (!is_inside_mesh_geometry(q)) q = retrieve_k_inside_mesh_geometry(q);
             if (!is_inside_mesh_geometry(q)) continue;
 
@@ -497,7 +565,7 @@ std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     i
 
             const double dos_per_J = dos_eV / qe;
 
-            const double I  = electron_overlap_integral(k1, k2_bary);
+            const double I  = electron_overlap_integral(k_initial, k2_bary);
             const double I2 = I * I;
 
             const DeformationPotential& defpot  = (mode == PhononMode::acoustic) ? m_ac_defpot_e : m_op_defpot_e;
@@ -517,13 +585,7 @@ std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     i
     if (!(total > 0.0) || !std::isfinite(total))
         throw std::runtime_error("select_final_state: no admissible final states (total probability = 0).");
 
-    // Thread-local RNG
-    thread_local std::mt19937_64           rng([] {
-        std::random_device rd;
-        auto               s1 = static_cast<uint64_t>(rd());
-        auto               s2 = static_cast<uint64_t>(rd());
-        return (s1 << 32) ^ s2;
-    }());
+
     std::uniform_real_distribution<double> U(0.0, 1.0);
     const double                           threshold = U(rng) * total;
 
@@ -536,14 +598,7 @@ std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     i
             return {n2, t};  // band, tetra index (k' = barycenter(t))
         }
     }
-    // Fallback: last positive
-    for (size_t flat = probs_flat.size(); flat-- > 0;) {
-        if (probs_flat[flat] > 0.0) {
-            const int    n2 = static_cast<int>(flat / nb_tetra);
-            const size_t t  = static_cast<size_t>(flat % nb_tetra);
-            return {n2, t};
-        }
-    }
+
     throw std::runtime_error("select_final_state: internal sampling error.");
 }
 

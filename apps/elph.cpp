@@ -35,6 +35,8 @@ int main(int argc, char const *argv[])
     TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "ncbands", "Number of conduction bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
+    TCLAP::ValueArg<double>      arg_temperature("T", "temperature", "Temperature in Kelvin.", false, 300.0, "double");
+    TCLAP::ValueArg<double>      arg_energy_range("E", "energy_window", "Energy window around the band gap to consider (in eV).", false, 0.3, "double");
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     TCLAP::SwitchArg plot_with_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
     TCLAP::SwitchArg plot_with_knkpnp("K", "knkpnp", "Compute and store the full (n,k) -> (n',k') transition rate matrices.", false);
@@ -47,6 +49,8 @@ int main(int argc, char const *argv[])
     cmd.add(arg_nb_threads);
     cmd.add(plot_with_wedge);
     cmd.add(plot_with_knkpnp);
+    cmd.add(arg_temperature);
+    cmd.add(arg_energy_range);
 
     cmd.parse(argc, argv);
 
@@ -66,6 +70,8 @@ int main(int argc, char const *argv[])
 
     const std::string mesh_band_input_file = arg_mesh_file.getValue();
     bz_mesh::ElectronPhonon   ElectronPhonon{current_material};
+    ElectronPhonon.set_nb_threads(my_options.nrThreads);
+
     // const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_michaillat.yaml";
     const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
     
@@ -87,7 +93,11 @@ int main(int argc, char const *argv[])
     bool irreducible_wedge_only = plot_with_wedge.getValue();
     bool populate_nk_npkp = plot_with_knkpnp.getValue();
 
-    const double max_energy  = 6.0;  // eV
+    // const double max_energy  = 6.0;  // eV
+    const double max_energy  = arg_energy_range.getValue();  // eV
+    const double temperature = arg_temperature.getValue();
+    ElectronPhonon.set_temperature(temperature);
+    std::cout << "Max energy: " << max_energy << " eV" << std::endl;
     const double energy_step = 0.05; // eV
     ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
     ElectronPhonon.export_rate_values("rates_all.csv");

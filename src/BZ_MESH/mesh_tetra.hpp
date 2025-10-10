@@ -75,6 +75,13 @@ class Tetra {
     std::array<vector3, 6> m_list_edges{};
 
     /**
+     * @brief Midpoints of the edges of the tetrahedra.
+     * Constructed and stored uniquely if P2 elements are used, e.g. for precise DOS calculation.
+     *
+     */
+    std::array<Vertex, 6> m_edge_midpoints{};  // midpoints of edges, for caching
+
+    /**
      * @brief Bounding box of the tetrahedra.
      *
      */
@@ -182,7 +189,7 @@ class Tetra {
     void   precompute_dos_on_energy_grid_per_band(double energy_step, double energy_threshold);
     double interpolate_dos_at_energy_per_band(double energy, std::size_t band_index) const noexcept;
 
-    vector3 get_gradient_energy_at_band(std::size_t band_index) const { return m_gradient_energy_per_band[band_index]; }
+    const vector3& get_gradient_energy_at_band(std::size_t band_index) const { return m_gradient_energy_per_band[band_index]; }
 
     bool                 is_energy_inside_band(double energy, std::size_t index_band) const;
     bool                 does_intersect_band_energy_range(double e_min, double e_max, std::size_t index_band) const;

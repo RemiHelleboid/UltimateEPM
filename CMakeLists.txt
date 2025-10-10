@@ -94,6 +94,7 @@ if(Eigen_ADDED)
 endif()
 
 
+
 # fmt (pin release)
 message(STATUS "Fetching fmt")
 FetchContent_Declare(
@@ -161,6 +162,7 @@ if(NOT GMSH_INC)
   message(FATAL_ERROR "Could not find gmsh.h")
 endif()
 cmake_print_variables(GMSH_LIB GMSH_INC)
+
 
 # ---------------------------- BLAS / LAPACK ----------------------------
 find_package(BLAS)

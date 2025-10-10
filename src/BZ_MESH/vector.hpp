@@ -133,7 +133,7 @@ class alignas(32) vector3 {
         return v1.dot(cross_product(v2, v3));
     }
 
-    friend inline double compte_cos_angle(const vector3 &V1, const vector3 &V2) {
+    friend inline double compute_cos_angle(const vector3 &V1, const vector3 &V2) {
         const double dot_product  = V1.dot(V2);
         const double norm_product = V1.norm() * V2.norm();
         return (norm_product < 1.0e-13) ? 1.0 : dot_product / norm_product;

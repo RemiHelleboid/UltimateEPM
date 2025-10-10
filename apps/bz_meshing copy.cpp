@@ -160,7 +160,7 @@ int main(int argc, char **argv) try {
     // Build a discrete volume from the initial points using gmsh::algorithm::tetrahedralize
     std::vector<double>      coords0 = flatten_xyz(initPts);
     std::vector<std::size_t> tets0;
-    gmsh::model::mesh::tetrahedralize(coords0, tets0);
+    gmsh::algorithm::tetrahedralize(coords0, tets0);
 
     // Create a discrete volume entity and add nodes/elements
     const int                dim       = 3;
@@ -170,8 +170,8 @@ int main(int argc, char **argv) try {
     // Element type 4 = 4-node tetrahedron, node connectivity concatenated per element
     gmsh::model::mesh::addElementsByType(volTag, /*type*/ 4, /*elt tags*/ {}, tets0);
 
-    // for (int i = 0; i < nb_levels; ++i)
-    //     gmsh::model::mesh::refine();
+    for (int i = 0; i < nb_levels; ++i)
+        gmsh::model::mesh::refine();
 
     // Gather all nodes of the refined mesh
     std::vector<std::size_t> nodeTags;
@@ -209,7 +209,7 @@ int main(int argc, char **argv) try {
     // Flatten and tetrahedralize the expanded point cloud
     std::vector<double>      coords = flatten_xyz(symPts);
     std::vector<std::size_t> tets;
-    gmsh::model::mesh::tetrahedralize(coords, tets);
+    gmsh::algorithm::tetrahedralize(coords, tets);
 
     // Node tags 1..N
     std::vector<std::size_t> nodeTags2 = iota_tags(symPts.size(), 1);
@@ -235,4 +235,3 @@ int main(int argc, char **argv) try {
     }
     return 1;
 }
-

@@ -188,6 +188,10 @@ class particle {
     void update_energy();
     void update_group_velocity();
 
+    std::pair<int, std::size_t> select_final_state_after_phonon_scattering(bz_mesh::PhononMode      mode,
+                                                                           bz_mesh::PhononDirection direction,
+                                                                           bz_mesh::PhononEvent     event);
+
     std::mt19937& get_random_generator() { return m_random_generator; }
     void          draw_random_k_point_at_energy(double energy, std::size_t idx_band) {
         m_mesh_bz->draw_random_k_point_at_energy(energy, idx_band, get_random_generator());

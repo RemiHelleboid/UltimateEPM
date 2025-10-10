@@ -108,7 +108,7 @@
 //     const Vector3D<double> K2                = K2_normalized * fourier_factor;
 //     const double           norm_K1           = K1.Length();
 //     const double           norm_K2           = K2.Length();
-//     const double           cos_angle_K1_K2   = compte_cos_angle(K1, K2);
+//     const double           cos_angle_K1_K2   = compute_cos_angle(K1, K2);
 //     const double           V_pre_factor      = 4.0 * M_PI / get_atomic_volume();
 //     const double           legendre_0        = 1.0;
 //     const double           legendre_2        = 0.5 * (3 * cos_angle_K1_K2 * cos_angle_K1_K2 - 1);
@@ -258,7 +258,7 @@
 // //     if (m_non_local_parameters.m_R0_anion == 0.0) {
 // //         return 0.0;
 // //     }
-// //     const double cos_angle_K1_K2   = compte_cos_angle(K1_normalized, K2_normalized);
+// //     const double cos_angle_K1_K2   = compute_cos_angle(K1_normalized, K2_normalized);
 // //     const double legendre_0        = 1.0;
 // //     const double legendre_2        = 0.5 * (3 * cos_angle_K1_K2 * cos_angle_K1_K2 - 1);
 // //     const double norm_K1_normlized = K1_normalized.Length();
@@ -293,7 +293,7 @@
 // //     if (m_non_local_parameters.m_R0_cation == 0.0) {
 // //         return 0.0;
 // //     }
-// //     const double cos_angle_K1_K2   = compte_cos_angle(K1_normalized, K2_normalized);
+// //     const double cos_angle_K1_K2   = compute_cos_angle(K1_normalized, K2_normalized);
 // //     const double legendre_0        = 1.0;
 // //     const double legendre_2        = 0.5 * (3 * cos_angle_K1_K2 * cos_angle_K1_K2 - 1);
 // //     const double norm_K1_normlized = K1_normalized.Length();

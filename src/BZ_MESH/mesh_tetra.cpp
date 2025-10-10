@@ -489,6 +489,8 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
 
     return pref * (A / grad);
 }
+
+
 void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double energy_threshold) {
     m_nb_bands = m_list_vertices[0]->get_number_bands();
     m_dos_per_band.assign(m_nb_bands, UniformDos{});
@@ -506,8 +508,9 @@ void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double en
 
         // integer number of steps; enforce a small minimum
         std::size_t nb_steps = static_cast<std::size_t>(std::ceil((Emax - Emin) / energy_step));
-        if (nb_steps < 5) {
-            nb_steps = 5;
+        constexpr std::size_t min_steps = 5;
+        if (nb_steps < min_steps) {
+            nb_steps = min_steps;
         }
         const double dx = (Emax - Emin) / static_cast<double>(nb_steps);
 

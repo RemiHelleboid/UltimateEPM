@@ -125,6 +125,9 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     constexpr double halfwidth_reduced    = 1.0;
     const double     ssi_to_reduced_scale = si_to_reduced_scale();
     init_reciprocal_basis(b1_SI, b2_SI, b3_SI, halfwidth_reduced, ssi_to_reduced_scale);
+    // assemble_mass_matrix();
+    // std::cout << "Mass matrix assembled, Trace: " << M.coeff(0, 0) << std::endl;
+    // std::cout << "Mass matrix assembled, nnz: " << M.nonZeros() << std::endl;
 
     // build_search_tree();
 }
@@ -240,6 +243,8 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_b
     compute_min_max_energies_at_tetras();
     compute_energy_gradient_at_tetras();
     set_energy_gradient_at_vertices_by_averaging_tetras();
+
+    compute_energy_gradient_mass_matrix_method();
     for (auto&& tetra : m_list_tetrahedra) {
         tetra.pre_compute_sorted_slots_per_band();
     }
@@ -271,24 +276,103 @@ void MeshBZ::precompute_dos_tetra(double energy_step, double energy_threshold) {
 }
 
 void MeshBZ::set_energy_gradient_at_vertices_by_averaging_tetras() {
-    std::cout << "Setting energy gradient at vertices by averaging tetrahedra gradients ..." << std::endl;
+    std::cout << "Setting energy gradient at vertices by volume-weighted averaging ..." << std::endl;
+
+    constexpr double eps = 1e-18;
+
     for (std::size_t i = 0; i < m_list_vertices.size(); ++i) {
-        for (std::size_t b = 0; b < m_list_vertices[i].get_number_bands(); ++b) {
-            vector3 gradient_sum(0.0, 0.0, 0.0);
-            int     count = 0;
-            for (auto&& tetra_idx : m_vertex_to_tetrahedra[i]) {
-                gradient_sum += m_list_tetrahedra[tetra_idx].get_gradient_energy_at_band(b);
-                count++;
+        const std::size_t nb_bands = m_list_vertices[i].get_number_bands();
+
+        for (std::size_t b = 0; b < nb_bands; ++b) {
+            vector3 accum(0.0, 0.0, 0.0);
+            double  wsum = 0.0;
+
+            // Loop over incident tetrahedra
+            for (auto t_idx : m_vertex_to_tetrahedra[i]) {
+                const auto&  T  = m_list_tetrahedra[t_idx];
+                const double VT = std::abs(T.get_signed_volume());
+                if (VT <= eps) continue;
+                const vector3 gT = T.get_gradient_energy_at_band(b);  // P1: constant per tet
+                accum += VT * gT;
+                wsum += VT;
             }
-            if (count > 0) {
-                gradient_sum /= static_cast<double>(count);
-                m_list_vertices[i].push_back_energy_gradient_at_band(gradient_sum);
-            } else {
-                m_list_vertices[i].push_back_energy_gradient_at_band(vector3(0.0, 0.0, 0.0));
+
+            const vector3 g_i = (wsum > 0.0) ? (accum / wsum) : vector3(0.0, 0.0, 0.0);
+            m_list_vertices[i].push_back_energy_gradient_at_band(g_i);
+        }
+    }
+
+    std::cout << "Done." << std::endl;
+}
+
+void MeshBZ::assemble_mass_matrix()  {
+    std::cout << "Assembling mass matrix ..." << std::endl;
+    auto              start       = std::chrono::high_resolution_clock::now();
+    std::size_t       nb_vertices = m_list_vertices.size();
+    std::size_t       nb_tets     = m_list_tetrahedra.size();
+    std::vector<Trip> trips;
+    trips.reserve(nb_tets * 16);
+
+    for (auto&& tet : m_list_tetrahedra) {
+        double                        V             = tet.get_signed_volume();
+        const std::array<Vertex*, 4>& verts         = tet.get_list_vertices();
+        const double                  diag_value    = 2.0 * V / 20.0;
+        const double                  offdiag_value = V / 20.0;
+        for (std::size_t i = 0; i < 4; ++i) {
+            std::size_t row = verts[i]->get_index();
+            trips.emplace_back(row, row, diag_value);
+            for (std::size_t j = i + 1; j < 4; ++j) {
+                std::size_t col = verts[j]->get_index();
+                trips.emplace_back(row, col, offdiag_value);
+                trips.emplace_back(col, row, offdiag_value);
             }
         }
     }
-    std::cout << "Done." << std::endl;
+    SpMat M(nb_vertices, nb_vertices);
+    M.setFromTriplets(trips.begin(), trips.end());
+    m_mass_matrix = M;
+    auto end   = std::chrono::high_resolution_clock::now();
+    auto total = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    std::cout << "Mass matrix assembled in " << total / 1000.0 << "s" << std::endl;
+    std::cout << "Mass matrix nnz: " << m_mass_matrix.nonZeros() << std::endl;
+    std::cout << "Decomposing mass matrix ... size: " << m_mass_matrix.rows() << "x" << m_mass_matrix.cols() << std::endl;
+    m_mass_matrix_solver.compute(m_mass_matrix);
+    if (m_mass_matrix_solver.info() != Eigen::Success) {
+        throw std::runtime_error("Mass matrix decomposition failed. Abort.");
+    }
+    std::cout << "Mass matrix decomposition done." << std::endl;
+}
+
+void MeshBZ::compute_energy_gradient_mass_matrix_method() {
+    std::size_t nb_bands = m_list_vertices[0].get_number_bands();
+    std::cout << "Computing energy gradient at vertices using mass matrix method ..." << std::endl;
+
+    for (std::size_t idx_band = 0; idx_band < nb_bands; ++idx_band) {
+        Eigen::VectorXd rhs_x = Eigen::VectorXd::Zero(m_list_vertices.size());
+        Eigen::VectorXd rhs_y = Eigen::VectorXd::Zero(m_list_vertices.size());
+        Eigen::VectorXd rhs_z = Eigen::VectorXd::Zero(m_list_vertices.size());
+
+        for (auto&& tetra : m_list_tetrahedra) {
+            const double tetra_vol = std::abs(tetra.get_signed_volume());
+            const double weight = tetra_vol / 4.0;
+            const vector3& grad_tetra = tetra.get_gradient_energy_at_band(idx_band);
+            std::array<std::size_t, 4> list_vtx_idx = tetra.get_list_indices_vertices();
+            for (std::size_t i = 0; i < 4; ++i) {
+                std::size_t vtx_idx = list_vtx_idx[i];
+                rhs_x(vtx_idx) += weight * grad_tetra.x();
+                rhs_y(vtx_idx) += weight * grad_tetra.y();
+                rhs_z(vtx_idx) += weight * grad_tetra.z();
+            }
+        }
+        Eigen::VectorXd sol_x = m_mass_matrix_solver.solve(rhs_x);
+        Eigen::VectorXd sol_y = m_mass_matrix_solver.solve(rhs_y);
+        Eigen::VectorXd sol_z = m_mass_matrix_solver.solve(rhs_z);
+
+        for (std::size_t i = 0; i < m_list_vertices.size(); ++i) {
+            vector3 grad_vertex(sol_x(i), sol_y(i), sol_z(i));
+            m_list_vertices[i].push_back_energy_gradient_at_band(grad_vertex);
+        }
+    }
 }
 
 void MeshBZ::recompute_min_max_energies() {
@@ -946,13 +1030,13 @@ void MeshBZ::export_to_vtk(const std::string&        filename,
 }
 
 void MeshBZ::export_energies_and_gradients_to_vtk(const std::string& filename) const {
-    std::map<std::string, std::vector<double>> point_scalars;
+    std::map<std::string, std::vector<double>>  point_scalars;
     std::map<std::string, std::vector<vector3>> point_vectors;
 
     // Per-vertex band energies
     for (std::size_t b = 0; b < m_list_vertices[0].get_number_bands(); ++b) {
-        std::string               name = "band_energy_" + std::to_string(b);
-        std::vector<double>       vals;
+        std::string         name = "band_energy_" + std::to_string(b);
+        std::vector<double> vals;
         vals.reserve(m_list_vertices.size());
         for (const auto& v : m_list_vertices) {
             vals.push_back(v.get_energy_at_band(b));
@@ -961,9 +1045,9 @@ void MeshBZ::export_energies_and_gradients_to_vtk(const std::string& filename) c
     }
 
     // Per-vertex band energy gradients
-    for (std::size_t b = 0; b < m_list_vertices[0].get_number_bands(); ++b) {
-        std::string               name = "band_grad_" + std::to_string(b);
-        std::vector<vector3>      vecs;
+    for (std::size_t b = 0; b < m_list_vertices[0].get_energy_gradient_at_bands().size(); ++b) {
+        std::string          name = "band_grad_" + std::to_string(b);
+        std::vector<vector3> vecs;
         vecs.reserve(m_list_vertices.size());
         for (const auto& v : m_list_vertices) {
             vecs.push_back(v.get_energy_gradient_at_band(b));

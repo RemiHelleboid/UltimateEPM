@@ -52,6 +52,11 @@ std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(c
 
 void particle::update_energy() { m_energy = m_containing_bz_mesh_tetra->interpolate_energy_at_band(m_k_vector, m_band_index); }
 
-void compute_post_phonon_scattering_state() {}
+std::pair<int, std::size_t> particle::select_final_state_after_phonon_scattering(bz_mesh::PhononMode      mode,
+                                                                                 bz_mesh::PhononDirection direction,
+                                                                                 bz_mesh::PhononEvent     event) {
+    auto idxBand_idxFinalTetra = m_mesh_bz->select_final_state(m_band_index, m_k_vector, mode, direction, event, m_random_generator);
+    return idxBand_idxFinalTetra;
+}
 
 }  // namespace fbmc

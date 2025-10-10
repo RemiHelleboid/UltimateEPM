@@ -29,6 +29,9 @@ namespace bz_mesh {
 
 using EigenIntSparseMatrix = Eigen::SparseMatrix<int, Eigen::RowMajor>;
 using TripletInt           = Eigen::Triplet<int>;
+using SpMat                = Eigen::SparseMatrix<double>;
+using Trip                 = Eigen::Triplet<double>;
+using EigenVec             = Eigen::VectorXd;
 
 using MapStringToDoubles = std::map<std::string, std::vector<double>>;
 using MapStringToVectors = std::map<std::string, std::vector<vector3>>;
@@ -151,7 +154,20 @@ class MeshBZ {
     /**
      * @brief Half-width in the reduced frame (e.g. 0.5 for [-0.5,0.5]).
      */
-    double m_bz_halfwidth = 0.5;
+    double m_bz_halfwidth = 1.0;
+
+    /**
+     * @brief Mass matrix for the precise energy gradient calculation.
+     * 
+     */
+    SpMat m_mass_matrix;
+
+    /**
+     * @brief Solver Cholesky for the mass matrix.
+     * 
+     */
+    Eigen::SimplicialLDLT<SpMat> m_mass_matrix_solver;
+    // Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>> m_mass_matrix_solver;
 
  public:
     MeshBZ() = default;
@@ -201,6 +217,12 @@ class MeshBZ {
     void precompute_dos_tetra(double energy_step = 0.01, double energy_threshold = 100.0);
 
     void set_energy_gradient_at_vertices_by_averaging_tetras();
+
+    // PRECISE ENERGY GRADIENT
+
+    void assemble_mass_matrix() ;
+    void compute_energy_gradient_mass_matrix_method();
+
 
     std::size_t      get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t      get_number_elements() const { return m_list_tetrahedra.size(); }

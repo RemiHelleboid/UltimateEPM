@@ -156,6 +156,7 @@ void Single_particle_simulation::run_simulation() {
             continue;
         }
     }
+    // auto indx_final_band_idx_final_tetra = 
     std::cout << "Simulation finished at time " << m_time << " s" << std::endl;
     std::cout << "Number of foldings: " << nb_foldings << std::endl;
     free_flight_time_file.close();

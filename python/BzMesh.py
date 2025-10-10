@@ -1,20 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-FCC IBZ → BZ builder with strict union option.
-
-Modes:
-  --mode {iw,octant,full}   : single IBZ; 6 wedges in +octant; 48 wedges (full BZ)
-  --mesh <h>                : target size (default 0.01)
-  --outfile <path>          : output .msh (defaults per mode)
-  --nopopup                 : skip GUI
-  --union                   : boolean-union all wedges into ONE watertight volume
-  --octant-filter           : (octant mode) build 48, keep only +octant via bbox
-  --bbox-tol <tol>          : bbox tol for octant-filter (default 1e-12)
-
-The IBZ is constructed EXACTLY like your .geo (same points/lines/loops/surfaces).
-"""
-
 import sys
 import argparse
 import itertools
@@ -74,36 +57,36 @@ def _get_all_vols():
     return gmsh.model.getEntities(3)  # list[(3, tag)]
 
 
-# --------------------------- EXACT IBZ geometry (matches your .geo) ---------------------------
+# --------------------------- IBZ geometry ---------------------------
 
 def build_ibz_wedge(h=0.01, gamma_mesh=1.0):
     # Points
-    Gamma = gmsh.model.occ.addPoint(0.0, 0.0, 0.0, h * gamma_mesh) # Γ
-    L = gmsh.model.occ.addPoint(0.5, 0.5, 0.5, h)     # L
-    X = gmsh.model.occ.addPoint(1.0, 0.0, 0.0, h)     # X
-    K = gmsh.model.occ.addPoint(0.75, 0.75, 0.0, h)   # K
-    W = gmsh.model.occ.addPoint(1.0, 0.5, 0.0, h)     # W
-    U = gmsh.model.occ.addPoint(1.0, 0.25, 0.25, h)   # U
+    Gamma = gmsh.model.occ.addPoint(0.0, 0.0, 0.0, h)  # Γ
+    L     = gmsh.model.occ.addPoint(0.5, 0.5, 0.5, h * gamma_mesh)  # L
+    X     = gmsh.model.occ.addPoint(1.0, 0.0, 0.0, h * gamma_mesh)  # X
+    K     = gmsh.model.occ.addPoint(0.75, 0.75, 0.0, h)  # K
+    W     = gmsh.model.occ.addPoint(1.0, 0.5, 0.0, h)    # W
+    U     = gmsh.model.occ.addPoint(1.0, 0.25, 0.25, h)  # U
 
     # KLUW (quad)
-    l1 = gmsh.model.occ.addLine(K, L)
-    l2 = gmsh.model.occ.addLine(L, U)
-    l3 = gmsh.model.occ.addLine(U, W)
-    l4 = gmsh.model.occ.addLine(W, K)
+    l1 = gmsh.model.occ.addLine(K, L)   # LK
+    l2 = gmsh.model.occ.addLine(L, U)   # LU
+    l3 = gmsh.model.occ.addLine(U, W)   # UW
+    l4 = gmsh.model.occ.addLine(W, K)   # WK
     s10 = gmsh.model.occ.addPlaneSurface([gmsh.model.occ.addCurveLoop([l1, l2, l3, l4])])
 
     # UWX (tri)
-    l6 = gmsh.model.occ.addLine(W, X)
-    l7 = gmsh.model.occ.addLine(X, U)
+    l6 = gmsh.model.occ.addLine(W, X)   # WX
+    l7 = gmsh.model.occ.addLine(X, U)   # XU
     s11 = gmsh.model.occ.addPlaneSurface([gmsh.model.occ.addCurveLoop([l3, l6, l7])])
 
     # ΓLK (tri)
-    l8  = gmsh.model.occ.addLine(Gamma, L)
-    l10 = gmsh.model.occ.addLine(K, Gamma)
+    l8  = gmsh.model.occ.addLine(Gamma, L)  # ΓL
+    l10 = gmsh.model.occ.addLine(K, Gamma)  # KΓ
     s12 = gmsh.model.occ.addPlaneSurface([gmsh.model.occ.addCurveLoop([l8, -l1, l10])])
 
     # ΓLUX (quad)
-    l12 = gmsh.model.occ.addLine(X, Gamma)
+    l12 = gmsh.model.occ.addLine(X, Gamma)  # XΓ (Γ–X edge)
     s13 = gmsh.model.occ.addPlaneSurface([gmsh.model.occ.addCurveLoop([l8, l2, -l7, l12])])
 
     # ΓKWX (quad)
@@ -111,210 +94,227 @@ def build_ibz_wedge(h=0.01, gamma_mesh=1.0):
 
     # Volume
     v21 = gmsh.model.occ.addVolume([gmsh.model.occ.addSurfaceLoop([s10, s11, s12, s13, s14])])
-    return v21, (s10, s11, s12, s13, s14)
+
+    # Important edge/point tags for refinement
+    edges = {
+        "GX": l12,
+        "LK": l1,
+        "LU": l2,
+        "GL": l8,
+    }
+    points = {
+        "L": L,
+        "Gamma": Gamma,
+        "X": X,
+    }
+    return v21, (s10, s11, s12, s13, s14), edges, points
 
 
-# --------------------------- strict union utility ---------------------------
+# --------------------------- meshing ---------------------------
 
-def strict_union_all_volumes(batch=8, max_passes=6):
-    """
-    Robustly reduce ALL current OCC volumes to ONE by repeated fragment/fuse.
-    - Works in batches to avoid heavy single-call unions.
-    - Stops early if a single volume remains.
-    """
-    def fuse_two_sets(A, B):
-        if not A or not B:
-            return A or B
-        out, _ = gmsh.model.occ.fuse(A, B)
-        gmsh.model.occ.removeAllDuplicates()
-        gmsh.model.occ.synchronize()
-        return out
-
-    for _ in range(max_passes):
-        vols = _get_all_vols()
-        if len(vols) <= 1:
-            break
-
-        # Pre-fragment once to split overlapping shells and align faces
-        gmsh.model.occ.fragment(vols[:1], vols[1:])
-        gmsh.model.occ.removeAllDuplicates()
-        gmsh.model.occ.synchronize()
-
-        # Batch fuse
-        vols = _get_all_vols()
-        if len(vols) <= 1:
-            break
-
-        # Group into chunks and fuse progressively
-        chunks = [vols[i:i+batch] for i in range(0, len(vols), batch)]
-        # Fuse within each chunk
-        fused_chunks = []
-        for ch in chunks:
-            if len(ch) == 1:
-                fused_chunks.append(ch)
-                continue
-            out, _ = gmsh.model.occ.fuse(ch[:1], ch[1:])
-            gmsh.model.occ.removeAllDuplicates()
-            gmsh.model.occ.synchronize()
-            fused_chunks.append(out)
-
-        # Fuse chunks together
-        current = fused_chunks[0]
-        for ch in fused_chunks[1:]:
-            current = fuse_two_sets(current, ch)
-
-        gmsh.model.occ.removeAllDuplicates()
-        gmsh.model.occ.synchronize()
-
-        if len(_get_all_vols()) <= 1:
-            break
-
-    # Final assert (best effort)
-    vols = _get_all_vols()
-    if len(vols) > 1:
-        # As a last resort, keep the volume with the largest bbox diagonal, remove the rest
-        sizes = []
-        for (d, t) in vols:
-            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(d, t)
-            diag2 = (xmax-xmin)**2 + (ymax-ymin)**2 + (zmax-zmin)**2
-            sizes.append((diag2, (d, t)))
-        sizes.sort(reverse=True)
-        keep = sizes[0][1]
-        remove = [x[1] for x in sizes[1:]]
-        gmsh.model.occ.remove(remove, recursive=True)
-        gmsh.model.occ.removeAllDuplicates()
-        gmsh.model.occ.synchronize()
-
-
-# --------------------------- build modes ---------------------------
-
-def build_mode_iw(h, outfile, nopopup, do_union, gamma_mesh=1.0):
-    v21, faces = build_ibz_wedge(h, gamma_mesh=gamma_mesh)
+def build_mode_bz(h, outfile, gamma_mesh=1.0,
+                  # Δ-valley refinement (ellipsoidal/cigar around t0 on Γ->X)
+                  delta_t0=0.85, delta_axial=0.12, delta_radial=0.03, h_delta=0.003,
+                  # tube along Γ–X to improve grading (optional)
+                  tube_size_min_factor=0.6, tube_rmin=0.02, tube_rmax=0.06, enable_tube=True,
+                  # L-point refinement
+                  enable_L=True, L_radius=0.06, h_L=0.004,
+                  # star tubes from L along LK, LU, and ΓL
+                  enable_L_tubes=True, L_tube_size_min_factor=0.7, L_tube_rmin=0.02, L_tube_rmax=0.05):
+    v21, faces, edges, points = build_ibz_wedge(h, gamma_mesh=gamma_mesh)
     gmsh.model.occ.synchronize()
 
-    if do_union:
-        # Single wedge already one volume; no-op but keep API symmetry
-        strict_union_all_volumes()
+    # Make background field authoritative-ish
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 1)
 
+    fields_to_min = []
+
+    # ---------- Δ-focused refinement (ELLIPSOID = cigar) ----------
+    # Ellipsoidal "distance": r = sqrt(((x-t0)/ax)^2 + (y/rr)^2 + (z/rr)^2)
+    # Threshold on r: fine for r <= 0.5, smooth to baseline by r = 1
+    f_ell = gmsh.model.mesh.field.add("MathEval")
+    t0 = float(delta_t0)
+    ax = max(1e-9, float(delta_axial))
+    rr = max(1e-9, float(delta_radial))
+    expr = f"sqrt(((x-{t0})/{ax})^2 + (y/{rr})^2 + (z/{rr})^2)"
+    gmsh.model.mesh.field.setString(f_ell, "F", expr)
+
+    f_thr_delta = gmsh.model.mesh.field.add("Threshold")
+    gmsh.model.mesh.field.setNumber(f_thr_delta, "InField", f_ell)
+    gmsh.model.mesh.field.setNumber(f_thr_delta, "SizeMin", h_delta)  # fine at core
+    gmsh.model.mesh.field.setNumber(f_thr_delta, "SizeMax", h)        # baseline outside
+    gmsh.model.mesh.field.setNumber(f_thr_delta, "DistMin", 0.5)      # inner core (normalized)
+    gmsh.model.mesh.field.setNumber(f_thr_delta, "DistMax", 1.0)      # outer boundary
+    fields_to_min.append(f_thr_delta)
+
+    # Optional: gentle tube along Γ–X (helps alignment/gradation)
+    if enable_tube and "GX" in edges:
+        f_dist_edge = gmsh.model.mesh.field.add("Distance")
+        gmsh.model.mesh.field.setNumbers(f_dist_edge, "EdgesList", [abs(edges["GX"])])
+
+        f_thr_edge = gmsh.model.mesh.field.add("Threshold")
+        gmsh.model.mesh.field.setNumber(f_thr_edge, "InField", f_dist_edge)
+        gmsh.model.mesh.field.setNumber(f_thr_edge, "SizeMin", max(1e-9, tube_size_min_factor * h))
+        gmsh.model.mesh.field.setNumber(f_thr_edge, "SizeMax", h)
+        gmsh.model.mesh.field.setNumber(f_thr_edge, "DistMin", tube_rmin)
+        gmsh.model.mesh.field.setNumber(f_thr_edge, "DistMax", tube_rmax)
+        fields_to_min.append(f_thr_edge)
+
+    # ---------- L-point refinement (bubble at L) ----------
+    if enable_L:
+        f_dist_L = gmsh.model.mesh.field.add("Distance")
+        # L is a geometry vertex; PointsList is typically supported
+        try:
+            gmsh.model.mesh.field.setNumbers(f_dist_L, "PointsList", [points["L"]])
+        except Exception:
+            # Fallback via node on the vertex
+            node_tags, _, _ = gmsh.model.mesh.getNodes(0, points["L"])
+            if not node_tags:
+                try:
+                    gmsh.model.mesh.embed(0, [points["L"]], 3, 1)
+                except Exception:
+                    pass
+                node_tags, _, _ = gmsh.model.mesh.getNodes(0, points["L"])
+            if node_tags:
+                gmsh.model.mesh.field.setNumbers(f_dist_L, "NodesList", [int(node_tags[0])])
+
+        f_thr_L = gmsh.model.mesh.field.add("Threshold")
+        gmsh.model.mesh.field.setNumber(f_thr_L, "InField", f_dist_L)
+        gmsh.model.mesh.field.setNumber(f_thr_L, "SizeMin", h_L)
+        gmsh.model.mesh.field.setNumber(f_thr_L, "SizeMax", h)
+        gmsh.model.mesh.field.setNumber(f_thr_L, "DistMin", max(1e-6, 0.5 * L_radius))
+        gmsh.model.mesh.field.setNumber(f_thr_L, "DistMax", L_radius)
+        fields_to_min.append(f_thr_L)
+
+        if enable_L_tubes:
+            # Star tubes along LK, LU, and ΓL
+            edge_list = [abs(edges["LK"]), abs(edges["LU"]), abs(edges["GL"])]
+            f_dist_L_edges = gmsh.model.mesh.field.add("Distance")
+            gmsh.model.mesh.field.setNumbers(f_dist_L_edges, "EdgesList", edge_list)
+
+            f_thr_L_edges = gmsh.model.mesh.field.add("Threshold")
+            gmsh.model.mesh.field.setNumber(f_thr_L_edges, "InField", f_dist_L_edges)
+            gmsh.model.mesh.field.setNumber(f_thr_L_edges, "SizeMin", max(1e-9, L_tube_size_min_factor * h))
+            gmsh.model.mesh.field.setNumber(f_thr_L_edges, "SizeMax", h)
+            gmsh.model.mesh.field.setNumber(f_thr_L_edges, "DistMin", L_tube_rmin)
+            gmsh.model.mesh.field.setNumber(f_thr_L_edges, "DistMax", L_tube_rmax)
+            fields_to_min.append(f_thr_L_edges)
+
+    # Global cap via MathEval (version-proof)
+    f_const = gmsh.model.mesh.field.add("MathEval")
+    gmsh.model.mesh.field.setString(f_const, "F", str(h))
+    fields_to_min.append(f_const)
+
+    # Combine and apply as background mesh
+    f_min = gmsh.model.mesh.field.add("Min")
+    gmsh.model.mesh.field.setNumbers(f_min, "FieldsList", fields_to_min)
+    gmsh.model.mesh.field.setAsBackgroundMesh(f_min)
+
+    # ---------- tagging + mesh ----------
     gmsh.model.addPhysicalGroup(3, [v21], 1)
     gmsh.model.setPhysicalName(3, 1, "IBZ_Wedge")
-    # gmsh.model.addPhysicalGroup(2, list(faces), 2)
-    # gmsh.model.setPhysicalName(2, 2, "IBZ_Faces")
 
     gmsh.model.mesh.generate(3)
     gmsh.write(outfile or "ibz.msh")
-    if not nopopup:
-        gmsh.fltk.run()
 
-def build_mode_octant(h, outfile, nopopup, do_union, octant_filter=False, bbox_tol=1e-12):
-    v21, faces = build_ibz_wedge(h)
-    gmsh.model.occ.synchronize()
+    # ---------- export nodes + symmetry expansion ----------
+    nodes = gmsh.model.mesh.getNodes()
+    print(f"Number of nodes: {len(nodes[0])}")
+    list_points = np.array(nodes[1]).reshape(-1, 3)
+    np.savetxt("ibz_nodes.csv", list_points, delimiter=",")
 
-    if octant_filter:
-        # Build 48 and keep only +octant via bbox
-        for M in _symmetry_ops_full():
-            if _is_identity(M):
-                continue
-            _apply_affine_to_copy(v21, M)
-        gmsh.model.occ.removeAllDuplicates()
-        gmsh.model.occ.synchronize()
-        kept = []
-        for (dim, tag) in _get_all_vols():
-            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(dim, tag)
-            if xmin >= -bbox_tol and ymin >= -bbox_tol and zmin >= -bbox_tol:
-                kept.append((dim, tag))
-        to_remove = [ent for ent in _get_all_vols() if ent not in kept]
-        if to_remove:
-            gmsh.model.occ.remove(to_remove, recursive=True)
-        gmsh.model.occ.removeAllDuplicates()
-        gmsh.model.occ.synchronize()
-    else:
-        # Only 6 permutations (no reflections)
-        for M in _symmetry_ops_octant():
-            if _is_identity(M):
-                continue
-            _apply_affine_to_copy(v21, M)
-        gmsh.model.occ.removeAllDuplicates()
-        gmsh.model.occ.synchronize()
+    AllTransforms = _symmetry_ops_full()
+    print(f"Number of symmetry operations: {len(AllTransforms)}")
+    List_new_nodes = []
+    for op in AllTransforms:
+        for p in list_points:
+            p_new = op @ p
+            List_new_nodes.append(tuple(np.round(p_new, 8)))
+    List_new_nodes = list(set(List_new_nodes))
+    print(f"Number of unique new nodes: {len(List_new_nodes)}")
+    np.savetxt("ibz_nodes_full_symmetry.csv", np.array(List_new_nodes),
+               delimiter=",", header="X,Y,Z", comments='')
 
-    if do_union:
-        strict_union_all_volumes()
+    gmsh.model.add("bz_from_ibz_full_symmetry")
 
-    vol_tags = [tag for (_, tag) in _get_all_vols()]
-    gmsh.model.addPhysicalGroup(3, vol_tags, 1)
-    gmsh.model.setPhysicalName(3, 1, "BZ_positive_octant")
-    # gmsh.model.addPhysicalGroup(2, list(faces), 2)
-    # gmsh.model.setPhysicalName(2, 2, "IBZ_Faces")
+    vol2 = gmsh.model.addDiscreteEntity(3)
+    N = len(List_new_nodes)
+    list_coords = []
+    for node in List_new_nodes:
+        list_coords.extend([node[0], node[1], node[2]])
+    points_arr = np.array(list_coords, dtype=float)
+    tets = gmsh.algorithm.tetrahedralize(points_arr)
+    gmsh.model.mesh.addNodes(3, vol2, range(1, N+1), points_arr)
+    gmsh.model.mesh.addElementsByType(vol2, 4, [], tets)
 
-    gmsh.model.mesh.generate(3)
-    gmsh.write(outfile or ("bz_positive_octant_union.msh" if do_union else "bz_positive_octant_from_ibz.msh"))
-    if not nopopup:
-        gmsh.fltk.run()
-
-def build_mode_full(h, outfile, nopopup, do_union):
-    v21, faces = build_ibz_wedge(h)
-    gmsh.model.occ.synchronize()
-
-    for M in _symmetry_ops_full():
-        if _is_identity(M):
-            continue
-        _apply_affine_to_copy(v21, M)
-
-    gmsh.model.occ.removeAllDuplicates()
-    gmsh.model.occ.synchronize()
-
-    if do_union:
-        strict_union_all_volumes()
-
-    vol_tags = [tag for (_, tag) in _get_all_vols()]
-    gmsh.model.addPhysicalGroup(3, vol_tags, 1)
-    gmsh.model.setPhysicalName(3, 1, "BZ_full")
-    # gmsh.model.addPhysicalGroup(2, list(faces), 2)
-    # gmsh.model.setPhysicalName(2, 2, "IBZ_Faces")
-
-    gmsh.model.mesh.generate(3)
-    gmsh.write(outfile or ("full_bz_union.msh" if do_union else "full_bz_from_ibz.msh"))
-    if not nopopup:
-        gmsh.fltk.run()
-
+    gmsh.write(outfile or "bz_full_symmetry.msh")
+    gmsh.write("bz_full_symmetry.vtk")
 
 
 # --------------------------- main ---------------------------
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="FCC IBZ / BZ builder with strict union.")
-    ap.add_argument("--mode", choices=["iw", "octant", "full"], default="iw")
+    ap = argparse.ArgumentParser(description="FCC IBZ / BZ builder with Δ-cigar + L refinement.")
     ap.add_argument("--mesh", type=float, default=0.01)
     ap.add_argument("--outfile", type=str, default="")
     ap.add_argument("--nopopup", action="store_true")
-    ap.add_argument("--union", action="store_true", help="Boolean-union wedges into ONE volume.")
-    ap.add_argument("--octant-filter", action="store_true", default=True,
-                    help="(octant) build 48 then keep only +octant via bbox.")
     ap.add_argument("--bbox-tol", type=float, default=1e-12)
     ap.add_argument("--mesh-gamma", type=float, default=1.0,
                     help="refinement factor at Γ point (default 1.0 = uniform).")
+
+    # Δ valley (along Γ->X), ellipsoidal
+    ap.add_argument("--delta-t0", type=float, default=0.85, help="Δ position along Γ->X in [0,1].")
+    ap.add_argument("--delta-axial", type=float, default=0.12, help="Semi-axis length along Γ->X.")
+    ap.add_argument("--delta-radial", type=float, default=0.03, help="Semi-axis radius across (y,z).")
+    ap.add_argument("--delta-h", type=float, default=0.003, help="Target size at Δ core.")
+
+    # Optional tube along Γ–X
+    ap.add_argument("--tube", action="store_true", default=True,
+                    help="Enable gentle refinement tube along Γ–X.")
+    ap.add_argument("--tube-size-min-factor", type=float, default=0.6,
+                    help="Min size factor (× --mesh) on Γ–X tube core.")
+    ap.add_argument("--tube-rmin", type=float, default=0.02, help="Tube inner radius.")
+    ap.add_argument("--tube-rmax", type=float, default=0.06, help="Tube outer radius.")
+
+    # L point
+    ap.add_argument("--L", dest="enable_L", action="store_true", default=True,
+                    help="Enable refinement around L.")
+    ap.add_argument("--L-radius", type=float, default=0.06, help="Refinement radius around L.")
+    ap.add_argument("--L-h", type=float, default=0.004, help="Target size at L core.")
+    ap.add_argument("--L-tubes", dest="enable_L_tubes", action="store_true", default=True,
+                    help="Enable tubes along L–K, L–U, and Γ–L.")
+    ap.add_argument("--L-tube-size-min-factor", type=float, default=0.7,
+                    help="Min size factor (× --mesh) on L-star tube cores.")
+    ap.add_argument("--L-tube-rmin", type=float, default=0.02, help="L tubes inner radius.")
+    ap.add_argument("--L-tube-rmax", type=float, default=0.05, help="L tubes outer radius.")
+
     args = ap.parse_args(argv)
 
     gmsh.initialize()
     gmsh.model.add("BZ_from_IBZ")
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.mesh)
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", args.mesh)
-
     # 3D mesh algorithm (1: Delaunay, 3: Initial mesh only, 4: Frontal, 7: MMG3D, 9: R-tree, 10: HXT)
     gmsh.option.setNumber("Mesh.Algorithm3D", 1)
 
     try:
-        if args.mode == "iw":
-            build_mode_iw(args.mesh, args.outfile, args.nopopup, args.union, args.mesh_gamma)
-        elif args.mode == "octant":
-            build_mode_octant(args.mesh, args.outfile, args.nopopup, args.union,
-                              octant_filter=args.octant_filter, bbox_tol=args.bbox_tol)
-        else:
-            build_mode_full(args.mesh, args.outfile, args.nopopup, args.union)
+        build_mode_bz(
+            args.mesh, args.outfile, args.mesh_gamma,
+            delta_t0=args.delta_t0,
+            delta_axial=args.delta_axial, delta_radial=args.delta_radial,
+            h_delta=args.delta_h,
+            tube_size_min_factor=args.tube_size_min_factor,
+            tube_rmin=args.tube_rmin, tube_rmax=args.tube_rmax,
+            enable_tube=args.tube,
+            enable_L=args.enable_L, L_radius=args.L_radius, h_L=args.L_h,
+            enable_L_tubes=args.enable_L_tubes,
+            L_tube_size_min_factor=args.L_tube_size_min_factor,
+            L_tube_rmin=args.L_tube_rmin, L_tube_rmax=args.L_tube_rmax
+        )
     finally:
         gmsh.finalize()
     return 0
 
-if __name__ == "__main__":
-    main()
 
+if __name__ == "__main__":
+    sys.exit(main())

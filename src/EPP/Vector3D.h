@@ -72,7 +72,7 @@ class Vector3D {
      * @param V2
      * @return double
      */
-    friend double compte_cos_angle(const Vector3D& V1, const Vector3D& V2) {
+    friend double compute_cos_angle(const Vector3D& V1, const Vector3D& V2) {
         double dot_product  = V1 * V2;
         double norm_product = V1.Length() * V2.Length();
         return (norm_product < 1.0e-13) ? 1.0 : dot_product / (V1.Length() * V2.Length());
