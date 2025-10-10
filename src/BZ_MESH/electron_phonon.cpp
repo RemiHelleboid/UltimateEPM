@@ -306,6 +306,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
                 for (std::size_t idx_n1 = 0; idx_n1 < m_nb_bands; ++idx_n1) {
                     auto rates_symm = m_list_vertices[idx_k1_symm].get_electron_phonon_rates(idx_n1);
                     m_list_vertices[idx_k1].add_electron_phonon_rates(rates_symm);
+                    m_phonon_rates_transport[idx_n1][idx_k1] = m_phonon_rates_transport[idx_n1][idx_k1_symm];
                 }
             }
         }
