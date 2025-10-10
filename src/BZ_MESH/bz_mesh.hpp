@@ -36,7 +36,7 @@ using EigenVec             = Eigen::VectorXd;
 using MapStringToDoubles = std::map<std::string, std::vector<double>>;
 using MapStringToVectors = std::map<std::string, std::vector<vector3>>;
 
-enum class BandType { valence, conduction };
+enum class MeshParticleType { valence, conduction };
 
 class MeshBZ {
  protected:
@@ -93,20 +93,17 @@ class MeshBZ {
     std::unique_ptr<Octree_mesh> m_search_tree;
 
     /**
-     * @brief The indexes of the valence bands within the Vertex list of energies.
-     * For example, if indices_valence_bands = [0, 1, 2] it means that
-     * the m_band_energies[0], m_band_energies[1], m_band_energies[2] correspond to valence bands.
+     * @brief Number of bands in the mesh.
      *
      */
-    std::vector<int> m_indices_valence_bands{};
+    std::size_t m_nb_bands = 0;  // number of bands in the mesh
 
     /**
-     * @brief The indexes of the conduction bands within the Vertex list of energies.
-     * For example, if indices_conduction_bands = [3, 4, 5] it means that
-     * the values m_band_energies[3], m_band_energies[4], m_band_energies[5] correspond to conduction bands.
+     * @brief Type of particles in the mesh (valence or conduction).
+     * THE MESH CAN ONLY REPRESENT ONE TYPE OF PARTICLES AT A TIME.
      *
      */
-    std::vector<int> m_indices_conduction_bands{};
+    MeshParticleType m_particle_type = MeshParticleType::conduction;
 
     /**
      * @brief The value m_min_band[i] is the minimum energy of the band with index i.
@@ -207,7 +204,7 @@ class MeshBZ {
     void read_mesh_bands_from_msh_file(const std::string& filename, int nb_bands_to_load = -1);
     void read_mesh_bands_from_multi_band_files(const std::string& dir_bands, int nb_bands_to_load = 100);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
-    void keep_only_bands(const int nb_valence_bands, const int nb_conduction_bands);
+    void keep_only_bands(std::size_t required_nb_bands);
     void compute_min_max_energies_at_tetras();
     void compute_energy_gradient_at_tetras();
     void auto_shift_conduction_band_energies();
@@ -227,9 +224,7 @@ class MeshBZ {
     std::size_t      get_number_vertices() const { return m_list_vertices.size(); }
     std::size_t      get_number_elements() const { return m_list_tetrahedra.size(); }
     double           get_volume() const { return m_total_volume; }
-    std::vector<int> get_indices_valence_bands() const { return m_indices_valence_bands; }
-    std::vector<int> get_indices_conduction_bands() const { return m_indices_conduction_bands; }
-    int              get_nb_bands() const { return m_indices_valence_bands.size() + m_indices_conduction_bands.size(); }
+    int              get_nb_bands() const { return m_nb_bands; }
 
     vector3 interpolate_energy_gradient_at_location(const vector3& location, const std::size_t& idx_band) const;
 

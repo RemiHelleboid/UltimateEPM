@@ -15,6 +15,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <random>
 #include <sstream>
 #include <tuple>
@@ -36,108 +37,13 @@ static inline void arr8_add(std::array<double, 8>& __restrict out, const std::ar
 }
 #pragma omp declare reduction(merge : std::array<double, 8> : arr8_add(omp_out, omp_in)) initializer(omp_priv = std::array<double, 8>{})
 
-// -------------------- Small inline helpers --------------------
-
-inline double fermi_dirac_distribution(double energy_eV, double fermi_level_eV, double temperature_K) {
-    const double kT = EmpiricalPseudopotential::Constants::k_b_eV * temperature_K;
-
-    // Handle T <= 0 K as the T→0 limit (Heaviside step).
-    if (!(kT > 0.0)) {
-        if (energy_eV < fermi_level_eV) return 1.0;
-        if (energy_eV > fermi_level_eV) return 0.0;
-        return 0.5;  // at E = Ef, take the symmetric limit
-    }
-
-    const double x = (energy_eV - fermi_level_eV) / kT;
-
-    // In double precision, |x| >= 40 puts f within ~1e-17 of 0 or 1.
-    constexpr double X_CUTOFF = 40.0;
-    if (x >= X_CUTOFF) return 0.0;
-    if (x <= -X_CUTOFF) return 1.0;
-
-    // Stable logistic: avoid large exp(x) when x > 0.
-    if (x > 0.0) {
-        const double emx = std::exp(-x);
-        return emx / (1.0 + emx);
-    } else {
-        const double ex = std::exp(x);
-        return 1.0 / (1.0 + ex);
-    }
-}
-
-inline double d_de_fermi_dirac_dE(double energy_eV, double fermi_level_eV, double temperature_K) {
-    const double kT = EmpiricalPseudopotential::Constants::k_b_eV * temperature_K;
-
-    // T <= 0: derivative is a Dirac delta in theory; return 0 numerically.
-    if (!(kT > 0.0)) return 0.0;
-
-    const double x = (energy_eV - fermi_level_eV) / kT;
-
-    constexpr double X_CUTOFF = 40.0;
-    if (x >= X_CUTOFF || x <= -X_CUTOFF) return 0.0;
-
-    // Compute f stably, then use df/dE = -(1/kT) * f * (1 - f).
-    double f;
-    if (x > 0.0) {
-        const double emx = std::exp(-x);
-        f                = emx / (1.0 + emx);
-    } else {
-        const double ex = std::exp(x);
-        f               = 1.0 / (1.0 + ex);
-    }
-    return -(f * (1.0 - f)) / kT;
-}
-
-inline double ElectronPhonon::bose_einstein_distribution(double energy_eV, double temperature_K) const {
-    // N0 = 1 / (exp(E / kT) - 1)
-    const double x = energy_eV / (EmpiricalPseudopotential::Constants::k_b_eV * temperature_K);
-    return 1.0 / std::expm1(x);  // stable for small x
-}
-
-inline double ElectronPhonon::electron_overlap_integral(const vector3& k1, const vector3& k2) const {
-    // Spherical j1-like: 3 (sin x - x cos x)/x^3 with x = |k1-k2| * R_WS
-    constexpr double R_Wigner_Seitz = 2.122e-10;  // m
-    const double     x              = (k1 - k2).norm() * R_Wigner_Seitz;
-
-    if (std::abs(x) < 1e-6) {
-        const double x2 = x * x;
-        return 1.0 - 0.1 * x2;  // 1 - x^2/10 + O(x^4)
-    }
-    return 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
-}
-
-inline double ElectronPhonon::hole_overlap_integral(int n1, const vector3& k1, int n2, const vector3& k2) const {
-    const double cos_angle_k1_k2   = compute_cos_angle(k1, k2);
-    const double cos_angle_k1_k2_2 = cos_angle_k1_k2 * cos_angle_k1_k2;
-    auto         A_B_params        = m_hole_overlap_int_params.get_params(n1, n2);
-    double       integral          = 0.5 * std::sqrt(A_B_params[0] + A_B_params[1] * cos_angle_k1_k2_2);
-    return integral;
-}
-
-inline double ElectronPhonon::get_max_phonon_energy() const {
+double ElectronPhonon::get_max_phonon_energy() const {
     double max_energy = std::numeric_limits<double>::lowest();
     for (const auto& disp : m_phonon_dispersion) {
         double max_w = disp.max_omega();  // ω_max [1/s]
         if (max_w > max_energy) max_energy = max_w;
     }
     return max_energy * EmpiricalPseudopotential::Constants::h_bar_eV;  // ħω → eV
-}
-
-/**
- * @brief Transport weight factor 1 - cos(θ) where θ is the angle between v0 and v1, the group velocities.
- *
- * @param v0
- * @param v1
- * @return double
- */
-inline double ElectronPhonon::transport_weight(const vector3& v0, const vector3& v1) {
-    const double norm_v0 = v0.norm_squared();
-    const double norm_v1 = v1.norm_squared();
-    if (norm_v0 < 1e-24 || norm_v1 < 1e-24) return 1.0;  // degeneracy/edge guard
-    double cos_theta = v0.dot(v1) / std::sqrt(norm_v0 * norm_v1);
-    if (cos_theta > 1.0) cos_theta = 1.0;
-    if (cos_theta < -1.0) cos_theta = -1.0;
-    return 1.0 - cos_theta;  // = 1 - cos θ
 }
 
 // --- Pairwise kernel: one (n1,k1) → (n2, bary(t)) transition, returns 8 channels ---
@@ -157,7 +63,7 @@ Rate8 ElectronPhonon::compute_transition_rates_pair(int         idx_n1,
     const vector3 k2    = tetra.compute_barycenter();
 
     // Overlap once
-    const double I  = electron_overlap_integral(k1, k2);
+    const double I  = electron_overlap_integral(k1, k2, m_radius_wigner_seitz_m);
     const double I2 = I * I;
 
     // q = k2 - k1, fold to 1st BZ if needed (normal processes only)
@@ -167,20 +73,6 @@ Rate8 ElectronPhonon::compute_transition_rates_pair(int         idx_n1,
 
     const double qn = q.norm();
 
-    // Row/col for optional sparse insert (compact conduction indexing assumed)
-    Eigen::Index Nk = static_cast<Eigen::Index>(m_list_vertices.size());
-    Eigen::Index Nt = static_cast<Eigen::Index>(m_list_tetrahedra.size());
-
-    // If you compact bands for matrices, map full band → compact band index
-    auto band_to_comp = [&](int n) -> int {
-        auto it = std::find(m_indices_conduction_bands.begin(), m_indices_conduction_bands.end(), n);
-        return (it == m_indices_conduction_bands.end()) ? -1 : int(it - m_indices_conduction_bands.begin());
-    };
-    const int          n1c = band_to_comp(idx_n1);
-    const int          n2c = band_to_comp(idx_n2);
-    const Eigen::Index row = (n1c >= 0) ? (Eigen::Index)n1c * Nk + (Eigen::Index)idx_k1 : -1;
-    const Eigen::Index col = (n2c >= 0) ? (Eigen::Index)n2c * Nt + (Eigen::Index)idx_t : -1;
-
     constexpr double SMALL_OMEGA_CUTOFF = 1.0;  // [1/s]
     const double     pi                 = EmpiricalPseudopotential::Constants::pi;
     const double     qe                 = EmpiricalPseudopotential::Constants::q_e;       // J/eV
@@ -189,7 +81,7 @@ Rate8 ElectronPhonon::compute_transition_rates_pair(int         idx_n1,
     double       inv_mrta_rate          = 0.0;
     vector3      vnk                    = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);   // m/s
     vector3      v_npkp                 = tetra.get_gradient_energy_at_band(idx_n2) * (1.0 / hbar_eV);  // m/s
-    const double transport_weight_value = this->transport_weight(vnk, v_npkp);
+    const double transport_weight_value = transport_weight_RTA(vnk, v_npkp);
 
     // Loop 4 branches: md=0..3 → (ac/op)×(L/T)
     for (int md = 0; md < 4; ++md) {
@@ -252,7 +144,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
 
     std::size_t nnz = 0;
 
-    for (int idx_n2 : m_indices_conduction_bands) {
+    for (std::size_t idx_n2 = 0; idx_n2 < m_nb_bands; ++idx_n2) {
         // Quick reject band window
         if (Ef_min > m_max_band[idx_n2] || Ef_max < m_min_band[idx_n2]) continue;
 
@@ -266,9 +158,8 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
                 acc.v[i] += r[i];
         }
     }
-    // std::cout << "Computed rates for (n,k)=(" << idx_n1 << "," << idx_k1 << ") Ei=" << std::setprecision(6) << Ei_eV
-    //           << " eV, non-zero contributions: " << nnz << " / " << m_indices_conduction_bands.size() * m_list_tetrahedra.size() << " = "
-    //           << (100.0 * nnz / (m_indices_conduction_bands.size() * m_list_tetrahedra.size())) << "%\n";
+    std::cout << " (found " << nnz << " non-zero transitions)"; 
+
     return acc;
 }
 
@@ -276,19 +167,18 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
 
 RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_k1) {
     RateValues  rates_k1_n1;
-    const auto& list_tetrahedra       = m_list_tetrahedra;
-    const auto& indices_valence_bands = m_indices_valence_bands;
+    const auto& list_tetrahedra = m_list_tetrahedra;
 
     const double  Ei_eV = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
     const vector3 k1    = m_list_vertices[idx_k1].get_position();
 
     constexpr double SMALL_OMEGA_CUTOFF = 1.0;
 
-    for (int idx_n2 : indices_valence_bands) {
+    for (std::size_t idx_n2 = 0; idx_n2 < m_nb_bands; ++idx_n2) {
         for (const auto& tetra : list_tetrahedra) {
             const vector3 k2 = tetra.compute_barycenter();
 
-            const double overlap  = hole_overlap_integral(idx_n1, k1, idx_n2, k2);
+            const double overlap  = hole_overlap_integral(idx_n1, k1, idx_n2, k2, m_hole_overlap_int_params);
             const double overlap2 = overlap * overlap;
 
             vector3 q = k2 - k1;
@@ -349,63 +239,12 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
 // -------------------- Mesh sweeps & exporters --------------------
 
 void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, bool irreducible_wedge_only, bool populate_nk_npkp) {
-    auto indices_conduction_bands = m_indices_conduction_bands;
-    auto min_idx_conduction_band  = *std::min_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
-    auto max_idx_conduction_band  = *std::max_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
-
-    std::cout << "Min index conduction band: " << min_idx_conduction_band << "\n";
-    std::cout << "Max index conduction band: " << max_idx_conduction_band << "\n";
-    std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() << " k-points.\n";
-
-    // --- Decide band set for rows/cols (compact conduction example) ---
-    const std::vector<int>& rows_bands = m_indices_conduction_bands;  // (n,k)
-    const std::vector<int>& cols_bands = m_indices_conduction_bands;  // (n',k')
-
-    if (populate_nk_npkp) {
-        const std::size_t Nk      = m_list_vertices.size();
-        const std::size_t Nt      = m_list_tetrahedra.size();
-        const int         Nb_rows = static_cast<int>(rows_bands.size());
-        const int         Nb_cols = static_cast<int>(cols_bands.size());
-
-        const Eigen::Index nrows = static_cast<Eigen::Index>(static_cast<std::size_t>(Nb_rows) * Nk);
-        const Eigen::Index ncols = static_cast<Eigen::Index>(static_cast<std::size_t>(Nb_cols) * Nt);
-        std::cout << "Matrix size: " << nrows << " x " << ncols << " (" << (nrows * ncols) << " elements)\n";
-        constexpr double percentage_reserve = 0.01;  // 1% of elements
-        std::cout << "Reserving " << (nrows * ncols * percentage_reserve) << " elements per matrix.\n";
-
-        m_rates_nk_npkp.clear();
-        m_rates_nk_npkp.resize(8);  // indices 0..7 must equal rate_index(m,d,e)
-
-        Eigen::VectorXi reserve_vec(nrows);
-        reserve_vec.setConstant(std::max<Eigen::Index>(1, static_cast<Eigen::Index>(percentage_reserve * Nb_cols * Nt)));
-
-        for (int M = 0; M < 2; ++M) {
-            const PhononMode m = (M == 0) ? PhononMode::acoustic : PhononMode::optical;
-            for (int D = 0; D < 2; ++D) {
-                const PhononDirection d = (D == 0) ? PhononDirection::longitudinal : PhononDirection::transverse;
-                for (int E = 0; E < 2; ++E) {
-                    const PhononEvent e   = (E == 0) ? PhononEvent::absorption : PhononEvent::emission;  // matches your enum
-                    const int         idx = rate_index(m, d, e);                                         // (M<<2)|(D<<1)|E  → [0..7]
-
-                    Rates_nk_npkp_ctor R;
-                    R.mode      = m;
-                    R.direction = d;
-                    R.event     = e;
-                    R.matrix.resize(nrows, ncols);
-                    R.matrix.reserve(reserve_vec);
-
-                    m_rates_nk_npkp[idx] = std::move(R);
-                }
-            }
-        }
-    }  // if populate_nk_npkp
-
     std::cout << "Progress: 0%";
     std::atomic<std::size_t> counter{0};
     constexpr int            chunk_size = 32;
 
     m_phonon_rates_transport.clear();
-    m_phonon_rates_transport.resize(static_cast<std::size_t>(m_indices_conduction_bands.size()));
+    m_phonon_rates_transport.resize(m_nb_bands);
     for (auto& vec : m_phonon_rates_transport) {
         vec.resize(m_list_vertices.size(), 0.0);
     }
@@ -418,6 +257,8 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
         std::mt19937  g(seed);
         std::shuffle(random_indices.begin(), random_indices.end(), g);
     }
+    std::cout << "Nb bands: " << m_nb_bands << ", Nb k-points: " << m_list_vertices.size()
+              << (irreducible_wedge_only ? " (irreducible wedge only)" : "") << "\n";
 
 #pragma omp parallel for schedule(dynamic, chunk_size) num_threads(m_nb_threads)
     for (std::size_t idx = 0; idx < m_list_vertices.size(); ++idx) {
@@ -431,26 +272,20 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
             std::cout << "\rDone " << done << "/" << m_list_vertices.size() << " (" << std::fixed << std::setprecision(1)
                       << (100.0 * done / m_list_vertices.size()) << "%)" << std::flush;
         }
-
-        // Valence bands (holes)
-        for (std::size_t idx_n1 = 0; idx_n1 < static_cast<std::size_t>(min_idx_conduction_band); ++idx_n1) {
-            if (!to_compute) continue;
-            auto hole_rate = compute_hole_phonon_rate(static_cast<int>(idx_n1), idx_k1);
-            (void)hole_rate;  // attach to vertices if/when needed
-            // m_list_vertices[idx_k1].add_electron_phonon_rates(hole_rate.as_array());
-        }
-
         // Conduction bands (electrons)
-        for (std::size_t idx_n1 = static_cast<std::size_t>(min_idx_conduction_band);
-             idx_n1 <= static_cast<std::size_t>(max_idx_conduction_band);
-             ++idx_n1) {
+        for (std::size_t idx_n1 = 0; idx_n1 < m_nb_bands; ++idx_n1) {
             if (!to_compute) continue;
 
             if (m_list_vertices[idx_k1].get_energy_at_band(static_cast<int>(idx_n1)) > energy_max) {
+                std::cout << "\rSkipping rates for band " << idx_n1 << " at k-point " << idx_k1 << ": "
+                          << "E = " << m_list_vertices[idx_k1].get_energy_at_band(static_cast<int>(idx_n1)) << " eV > " << energy_max
+                          << " eV\n"
+                          << std::flush;
                 m_list_vertices[idx_k1].add_electron_phonon_rates(std::array<double, 8>{});
                 continue;
             } else {
                 auto rate = compute_electron_phonon_rate(static_cast<int>(idx_n1), idx_k1);
+
                 m_list_vertices[idx_k1].add_electron_phonon_rates(rate.as_array());
             }
         }
@@ -468,7 +303,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
             }
             if (!is_irreducible_wedge(m_list_vertices[idx_k1].get_position())) {
                 std::size_t idx_k1_symm = get_index_irreducible_wedge(m_list_vertices[idx_k1].get_position());
-                for (std::size_t idx_n1 = 0; idx_n1 <= static_cast<std::size_t>(max_idx_conduction_band); ++idx_n1) {
+                for (std::size_t idx_n1 = 0; idx_n1 < m_nb_bands; ++idx_n1) {
                     auto rates_symm = m_list_vertices[idx_k1_symm].get_electron_phonon_rates(idx_n1);
                     m_list_vertices[idx_k1].add_electron_phonon_rates(rates_symm);
                 }
@@ -479,10 +314,6 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
 }
 
 void ElectronPhonon::compute_electron_phonon_rates_over_mesh_nk_npkp(bool irreducible_wedge_only) {
-    auto indices_conduction_bands = m_indices_conduction_bands;
-    auto min_idx_conduction_band  = *std::min_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
-
-    std::cout << "Min index conduction band: " << min_idx_conduction_band << "\n";
     std::cout << "Computing electron-phonon rates over mesh for " << m_list_vertices.size() << " k-points.\n";
 
     std::cout << "Progress: 0%";
@@ -497,22 +328,16 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh_nk_npkp(bool irredu
             std::cout << "\rDone " << done << "/" << m_list_vertices.size() << " (" << std::fixed << std::setprecision(1)
                       << (100.0 * done / m_list_vertices.size()) << "%)" << std::flush;
         }
-
-        for (std::size_t idx_n1 = 0; idx_n1 < static_cast<std::size_t>(min_idx_conduction_band); ++idx_n1) {
-            if (!to_compute) continue;
-            (void)compute_hole_phonon_rate(static_cast<int>(idx_n1), idx_k1);
-        }
+        assert("TO BE COMPLETED: nk→npkp rates not yet implemented." && !to_compute);
     }
 }
-
 
 std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     idx_band_initial,
                                                                const vector3&  k_initial,
                                                                PhononMode      mode,
                                                                PhononDirection direction,
                                                                PhononEvent     event,
-                                                               std::mt19937&  rng) const {  
-
+                                                               std::mt19937&   rng) const {
     const int md = md_index(mode, direction);
     if (md < 0) throw std::runtime_error("select_final_state: invalid mode/direction.");
     const auto& disp = m_phonon_dispersion[md];
@@ -535,7 +360,7 @@ std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     i
 
     const double Eph_max_eV = get_max_phonon_energy();
 
-    for (int n2 : m_indices_conduction_bands) {
+    for (std::size_t n2 = 0; n2 < nb_bands; ++n2) {
         // Band window
         const double Ef_min = Ei_eV - Eph_max_eV;
         const double Ef_max = Ei_eV + Eph_max_eV;
@@ -565,7 +390,7 @@ std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     i
 
             const double dos_per_J = dos_eV / qe;
 
-            const double I  = electron_overlap_integral(k_initial, k2_bary);
+            const double I  = electron_overlap_integral(k_initial, k2_bary, m_radius_wigner_seitz_m);
             const double I2 = I * I;
 
             const DeformationPotential& defpot  = (mode == PhononMode::acoustic) ? m_ac_defpot_e : m_op_defpot_e;
@@ -584,7 +409,6 @@ std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     i
         total += p;
     if (!(total > 0.0) || !std::isfinite(total))
         throw std::runtime_error("select_final_state: no admissible final states (total probability = 0).");
-
 
     std::uniform_real_distribution<double> U(0.0, 1.0);
     const double                           threshold = U(rng) * total;
@@ -747,11 +571,7 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
     gmsh::model::mesh::reclassifyNodes();
     gmsh::model::mesh::getNodes(node_tags, nodeCoords, nodeParams, -1, -1, false, false);
 
-    auto indices_conduction_bands = m_indices_conduction_bands;
-    auto max_idx_conduction_band  = *std::max_element(indices_conduction_bands.begin(), indices_conduction_bands.end());
-    int  nb_bands                 = static_cast<int>(m_indices_conduction_bands.size() + m_indices_valence_bands.size());
-
-    for (int idx_val_band = 0; idx_val_band < max_idx_conduction_band; ++idx_val_band) {
+    for (int idx_band = 0; idx_band < m_nb_bands; ++idx_band) {
         std::vector<double> rates_ac_lo_em(m_list_vertices.size());
         std::vector<double> rates_ac_lo_ab(m_list_vertices.size());
         std::vector<double> rates_ac_tr_em(m_list_vertices.size());
@@ -762,7 +582,7 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
         std::vector<double> rates_opt_tr_ab(m_list_vertices.size());
 
         for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
-            auto rates              = m_list_vertices[idx_k1].get_electron_phonon_rates(static_cast<std::size_t>(idx_val_band));
+            auto rates              = m_list_vertices[idx_k1].get_electron_phonon_rates(static_cast<std::size_t>(idx_band));
             rates_ac_lo_em[idx_k1]  = rates[0];
             rates_ac_lo_ab[idx_k1]  = rates[1];
             rates_ac_tr_em[idx_k1]  = rates[2];
@@ -773,14 +593,14 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
             rates_opt_tr_ab[idx_k1] = rates[7];
         }
 
-        std::string name_rate_ac_lo_em  = "ac_lo_em_" + std::to_string(idx_val_band);
-        std::string name_rate_ac_lo_ab  = "ac_lo_ab_" + std::to_string(idx_val_band);
-        std::string name_rate_ac_tr_em  = "ac_tr_em_" + std::to_string(idx_val_band);
-        std::string name_rate_ac_tr_ab  = "ac_tr_ab_" + std::to_string(idx_val_band);
-        std::string name_rate_opt_lo_em = "opt_lo_em_" + std::to_string(idx_val_band);
-        std::string name_rate_opt_lo_ab = "opt_lo_ab_" + std::to_string(idx_val_band);
-        std::string name_rate_opt_tr_em = "opt_tr_em_" + std::to_string(idx_val_band);
-        std::string name_rate_opt_tr_ab = "opt_tr_ab_" + std::to_string(idx_val_band);
+        std::string name_rate_ac_lo_em  = "ac_lo_em_" + std::to_string(idx_band);
+        std::string name_rate_ac_lo_ab  = "ac_lo_ab_" + std::to_string(idx_band);
+        std::string name_rate_ac_tr_em  = "ac_tr_em_" + std::to_string(idx_band);
+        std::string name_rate_ac_tr_ab  = "ac_tr_ab_" + std::to_string(idx_band);
+        std::string name_rate_opt_lo_em = "opt_lo_em_" + std::to_string(idx_band);
+        std::string name_rate_opt_lo_ab = "opt_lo_ab_" + std::to_string(idx_band);
+        std::string name_rate_opt_tr_em = "opt_tr_em_" + std::to_string(idx_band);
+        std::string name_rate_opt_tr_ab = "opt_tr_ab_" + std::to_string(idx_band);
 
         int data_tag_ac_lo_em  = gmsh::view::add(name_rate_ac_lo_em);
         int data_tag_ac_lo_ab  = gmsh::view::add(name_rate_ac_lo_ab);
@@ -834,8 +654,8 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
     }
     auto material = *it_material;
 
-    double radiusWS      = material["Radius-WS"].as<double>();
-    m_radii_wigner_seitz = radiusWS;
+    double radiusWS         = material["Radius-WS"].as<double>();
+    m_radius_wigner_seitz_m = radiusWS;
 
     // Dispersion → m_phonon_dispersion[md]
     auto dispersion = material["dispersion"];

@@ -9,7 +9,11 @@ set(HEADER_FILES_LIBBZMESH
     impact_ionization.hpp
     dielectric_mesh.hpp
     bbox_mesh.hpp
-    octree_bz.hpp)
+    octree_bz.hpp
+    elph_common.hpp
+    elph_deformation_potential.hpp
+    elph_dispersion.hpp
+    elph_overlap_integral.hpp)
 
 set(SOURCE_FILES_LIBBZMESH
     mesh_tetra.cpp

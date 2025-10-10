@@ -259,7 +259,9 @@ int apply_background_fields(const BuildResult &g, const MeshKnobs &k) {
     // Δ cigar via MathEval ellipsoidal distance (normalized)
     int f_ell = add("MathEval");
     {
-        double             t0 = k.delta_t0, ax = std::max(1e-9, k.delta_axial), rr = std::max(1e-9, k.delta_radial);
+        double t0 = k.delta_t0;
+        double ax = std::max(1e-9, k.delta_axial);
+        double rr = std::max(1e-9, k.delta_radial);
         std::ostringstream oss;
         // r = sqrt(((x-t0)/ax)^2 + (y/rr)^2 + (z/rr)^2)
         oss << "sqrt(((x-" << std::setprecision(17) << t0 << ")/" << ax << ")^2 + "
@@ -347,9 +349,9 @@ MeshKnobs apply_presets(Mode mode, int level, const MeshKnobs &base, bool no_L =
     };
 
     static const Pack ladder[5] = {
-        {0.10, 0.10, 0.05, 0.0060, 0.08, 0.0060, 0.8, 0.9},    // L0
-        {0.05, 0.12, 0.04, 0.0045, 0.07, 0.0050, 0.7, 0.8},    // L1
-        {0.0250, 0.14, 0.03, 0.0030, 0.06, 0.0040, 0.6, 0.7},    // L2
+        {0.1, 0.20, 0.1, 0.0050, 0.08, 0.0060, 0.8, 0.9},    // L0
+        {0.1, 0.2, 0.1, 0.0025, 0.07, 0.0050, 0.7, 0.8},    // L1
+        {0.05, 0.3, 0.2, 0.0025, 0.06, 0.0040, 0.6, 0.7},    // L2
         {0.01, 0.16, 0.025, 0.0022, 0.05, 0.0032, 0.55, 0.6},  // L3
         {0.005, 0.18, 0.020, 0.0016, 0.04, 0.0026, 0.5, 0.5}    // L4
     };

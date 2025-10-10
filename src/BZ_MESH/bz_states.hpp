@@ -20,7 +20,6 @@ namespace bz_mesh {
 
 class BZ_States : public MeshBZ {
  protected:
-    int m_nb_bands = 0;
 
     std::vector<Vector3D<int>> m_basisVectors;
 

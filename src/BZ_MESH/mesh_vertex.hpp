@@ -195,8 +195,11 @@ class Vertex {
         }
         m_energy_gradient_at_bands[band_index] = gradient;
     }
+    void resize_band_energies(std::size_t new_size) { m_band_energies.resize(new_size); }
     void resize_energy_gradient_at_bands(std::size_t new_size) { m_energy_gradient_at_bands.resize(new_size); }
+    void shrink_energy_gradient_at_bands() { m_energy_gradient_at_bands.shrink_to_fit(); }
     void push_back_energy_gradient_at_band(const vector3& gradient) { m_energy_gradient_at_bands.push_back(gradient); }
+    void reverse_energies_order() { std::reverse(m_band_energies.begin(), m_band_energies.end()); }
 
     /**
      * @brief Add the electron-phonon rates for a given band.
