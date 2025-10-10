@@ -96,7 +96,6 @@ int main(int argc, char const *argv[])
     // const double max_energy  = 6.0;  // eV
     const double max_energy  = arg_energy_range.getValue();  // eV
     const double temperature = arg_temperature.getValue();
-    ElectronPhonon.set_temperature(temperature);
     std::cout << "Max energy: " << max_energy << " eV" << std::endl;
     const double energy_step = 0.05; // eV
     ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);

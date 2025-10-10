@@ -338,7 +338,7 @@ int apply_background_fields(const BuildResult &g, const MeshKnobs &k) {
 
 enum class Mode { Conduction, Valence };
 
-MeshKnobs apply_presets(Mode mode, int level, const MeshKnobs &base) {
+MeshKnobs apply_presets(Mode mode, int level, const MeshKnobs &base, bool no_L = true) {
     MeshKnobs k = base;  // start from user/base
 
     // Level 0 = coarsest, Level 4 = finest.
@@ -363,22 +363,24 @@ MeshKnobs apply_presets(Mode mode, int level, const MeshKnobs &base) {
     k.tube_size_min_factor   = p.tubeFac;
     k.L_tube_size_min_factor = p.LtubeFac;
 
+
     // Mode nudges:
     if (mode == Mode::Conduction) {
         // emphasize Δ (Γ->X); slightly de-emphasize L
         k.delta_t0    = 0.85;
-        k.enable_tube = true;
-        k.enable_L    = true;
+        k.enable_tube = (not no_L);
+        k.enable_L    = (not no_L);
         k.h_L *= 1.2;  // a bit coarser at L
         k.L_radius *= 0.9;
     } else {
         // Valence: emphasize L; Δ still there but milder
         k.delta_t0 = 0.80;  // can shift the cigar slightly toward Γ
         k.h_delta *= 1.3;   // slightly coarser at Δ
-        k.enable_L = true;
+        k.enable_L = false;
         k.h_L *= 0.8;  // finer at L
         k.L_radius *= 1.1;
     }
+    k.enable_L_tubes = (not no_L);
     return k;
 }
 
@@ -392,9 +394,11 @@ void export_kmap(const std::string &filename, const std::vector<std::vector<std:
     ofs << "# Irreducible wedge to full BZ k-point map\n";
     ofs << "# Format: k_index_iwedge k_indices_BZ\n";
     for (std::size_t iw = 0; iw < maps_k_iwedge.size(); ++iw) {
+        ofs << iw;
         for (std::size_t k : maps_k_iwedge[iw]) {
-            ofs << iw << " " << k << "\n";
+            ofs << " " << k;
         }
+        ofs << "\n";
     }
     ofs.close();
     std::cout << "[info] wrote kmap to " << filename << "\n";
@@ -502,7 +506,6 @@ int main(int argc, char **argv) try {
 
     // Mesh
     gmsh::model::mesh::generate(3);
-    gmsh::write(outArg.getValue());
 
     // Export nodes
     std::vector<std::size_t> nodeTags;
@@ -576,10 +579,7 @@ int main(int argc, char **argv) try {
 
     // Write additional outputs
     std::string out  = outArg.getValue();
-    auto        stem = out;
-    if (auto pos = stem.rfind("."); pos != std::string::npos) stem = stem.substr(0, pos);
-    gmsh::write(stem + "_bz_full_symmetry.msh");
-    gmsh::write(stem + "_bz_full_symmetry.vtk");
+    gmsh::write(out);
 
     if (!noGui.getValue()) gmsh::fltk::run();
     gmsh::finalize();
