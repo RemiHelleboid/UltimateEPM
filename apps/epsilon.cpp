@@ -177,7 +177,7 @@ int main(int argc, char** argv) {
 
     bool use_irreducible_wedge = (bz_sampling == 48) ? true : false;
 
-    EmpiricalPseudopotential::Materials materials;
+    uepm::pseudopotential::Materials materials;
     std::string                         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     if (nonlocal_epm) {
         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
@@ -185,11 +185,11 @@ int main(int argc, char** argv) {
     std::cout << "Loading material parameters from " << file_material_parameters << std::endl;
 
     materials.load_material_parameters(file_material_parameters);
-    EmpiricalPseudopotential::Material      current_material = materials.materials.at("Si");
-    EmpiricalPseudopotential::BandStructure band_structure{};
+    uepm::pseudopotential::Material      current_material = materials.materials.at("Si");
+    uepm::pseudopotential::BandStructure band_structure{};
 
     band_structure.Initialize(current_material, nb_bands, {}, nb_nearest_neighbors, nonlocal_epm, enable_soc);
-    EmpiricalPseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
+    uepm::pseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
 
     double shift = 0.0;
     MyDielectricFunc.generate_k_points_grid(Nkx, Nky, Nkz, shift, use_irreducible_wedge);
@@ -350,8 +350,8 @@ int main(int argc, char** argv) {
         }
 
         // 5) Merge and finish
-        EmpiricalPseudopotential::DielectricFunction dielectric_function =
-            EmpiricalPseudopotential::DielectricFunction::merge_results(MyDielectricFunc,
+        uepm::pseudopotential::DielectricFunction dielectric_function =
+            uepm::pseudopotential::DielectricFunction::merge_results(MyDielectricFunc,
                                                                         dielectric_function_results,
                                                                         counts_kpoints_per_process);
 

@@ -98,7 +98,7 @@ void bz_mesh_points::add_band_on_mesh(const std::string& band_name, const std::v
 }
 
 void bz_mesh_points::add_all_bands_on_mesh(const std::string&                             out_filename,
-                                           const EmpiricalPseudopotential::BandStructure& my_band,
+                                           const uepm::pseudopotential::BandStructure& my_band,
                                            int                                            nb_valence_bands_to_export,
                                            int                                            nb_conduction_bands_to_export) {
     gmsh::initialize();
@@ -168,117 +168,6 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string&                   
     }
     gmsh::finalize();
 }
-
-void bz_mesh_points::add_all_bands_on_mesh_separate_files(const std::string&                             out_dir,
-                                                          const EmpiricalPseudopotential::BandStructure& my_band) {
-    gmsh::initialize();
-    try {
-        gmsh::option::setNumber("General.Verbosity", 0);
-        // Choose a stable MSH version (2.2 or 4.1 both fine)
-        gmsh::option::setNumber("Mesh.MshFileVersion", 4.1);
-
-        const std::size_t nbands = my_band.get_number_of_bands();
-
-        for (std::size_t index_band = 0; index_band < nbands; ++index_band) {
-            // Fresh model each band to avoid accumulating views
-            gmsh::clear();
-            gmsh::open(m_filename);  // load the base mesh
-
-            std::string model_name;
-            gmsh::model::getCurrent(model_name);
-
-            // Always get node tags from THIS session/model
-            std::vector<std::size_t> nodeTags;
-            std::vector<double>      nodeCoords, nodeParams;
-            gmsh::model::mesh::reclassifyNodes();
-            gmsh::model::mesh::getNodes(nodeTags, nodeCoords, nodeParams);
-
-            const std::vector<double> band_values = my_band.get_band(index_band);
-            if (band_values.size() != nodeTags.size()) {
-                std::cout << "Band " << index_band << " — node/value size mismatch: " << nodeTags.size() << " vs " << band_values.size()
-                          << std::endl;
-                throw std::runtime_error("Node/value size mismatch.");
-            }
-
-            const std::string band_name = "band_" + std::to_string(index_band);
-            const int         view_tag  = gmsh::view::add(band_name);
-            gmsh::view::addHomogeneousModelData(view_tag, 0, model_name, "NodeData", nodeTags, band_values);
-
-            // Optional: hide in GUI
-            const int index_view = gmsh::view::getIndex(view_tag);
-            gmsh::option::setNumber("View[" + std::to_string(index_view) + "].Visible", 0);
-
-            // Write ONE file per band: mesh + this single view
-            // out_dir can be a directory path; we build "out_dir/band_<i>.msh"
-
-            std::filesystem::create_directories(out_dir);  // Ensure the directory exists
-            const std::string out_file = out_dir + "/band_" + std::to_string(index_band) + ".msh";
-            gmsh::view::write(view_tag, out_file, true);
-        }
-    } catch (...) {
-        try {
-            gmsh::finalize();
-        } catch (...) {
-        }
-        throw;
-    }
-    gmsh::finalize();
-}
-
-// void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_dir, const EmpiricalPseudopotential::BandStructure& my_band) {
-//     gmsh::initialize();
-//     try {
-//         gmsh::option::setNumber("General.Verbosity", 0);
-//         // Choose a stable MSH version (2.2 or 4.1 both fine)
-//         gmsh::option::setNumber("Mesh.MshFileVersion", 4.1);
-
-//         const std::size_t nbands = my_band.get_number_of_bands();
-
-//         for (std::size_t index_band = 0; index_band < nbands; ++index_band) {
-//             // Fresh model each band to avoid accumulating views
-//             gmsh::clear();
-//             gmsh::open(m_filename);  // load the base mesh
-
-//             std::string model_name;
-//             gmsh::model::getCurrent(model_name);
-
-//             // Always get node tags from THIS session/model
-//             std::vector<std::size_t> nodeTags;
-//             std::vector<double>      nodeCoords, nodeParams;
-//             gmsh::model::mesh::reclassifyNodes();
-//             gmsh::model::mesh::getNodes(nodeTags, nodeCoords, nodeParams);
-
-//             const std::vector<double> band_values = my_band.get_band(index_band);
-//             if (band_values.size() != nodeTags.size()) {
-//                 std::cout << "Band " << index_band << " — node/value size mismatch: " << nodeTags.size() << " vs " << band_values.size()
-//                           << std::endl;
-//                 throw std::runtime_error("Node/value size mismatch.");
-//             }
-
-//             const std::string band_name = "band_" + std::to_string(index_band);
-//             const int         view_tag  = gmsh::view::add(band_name);
-//             gmsh::view::addHomogeneousModelData(view_tag, 0, model_name, "NodeData", nodeTags, band_values);
-
-//             // Optional: hide in GUI
-//             const int index_view = gmsh::view::getIndex(view_tag);
-//             gmsh::option::setNumber("View[" + std::to_string(index_view) + "].Visible", 0);
-
-//             // Write ONE file per band: mesh + this single view
-//             // out_dir can be a directory path; we build "out_dir/band_<i>.msh"
-
-//             std::filesystem::create_directories(out_dir);  // Ensure the directory exists
-//             const std::string out_file = out_dir + "/band_" + std::to_string(index_band) + ".msh";
-//             gmsh::view::write(view_tag, out_file, true);
-//         }
-//     } catch (...) {
-//         try {
-//             gmsh::finalize();
-//         } catch (...) {
-//         }
-//         throw;
-//     }
-//     gmsh::finalize();
-// }
 
 /**
  * @brief Add band structure energies to gmsh mesh as views.

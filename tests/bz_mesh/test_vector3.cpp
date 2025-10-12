@@ -5,8 +5,8 @@
 #include "doctest/doctest.h"
 #include "vector.hpp"
 
-using bz_mesh::permutaion_type;
-using bz_mesh::vector3;
+using uepm::mesh_bz::permutaion_type;
+using uepm::mesh_bz::vector3;
 
 TEST_SUITE("[vector3] basics") {
     TEST_CASE("default and value construction + accessors") {

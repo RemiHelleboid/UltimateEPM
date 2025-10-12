@@ -22,9 +22,9 @@
 
 #include "Constants.hpp"
 #include "single_part_fbmc.hpp"
-namespace fbmc {
+namespace uepm::fbmc {
 
-Single_particle_simulation::Single_particle_simulation(bz_mesh::ElectronPhonon*     ptr_mesh_bz,
+Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPhonon*     ptr_mesh_bz,
                                                        const Bulk_environment&      bulk_env,
                                                        const Simulation_parameters& sim_params)
     : m_ptr_mesh_bz(ptr_mesh_bz),
@@ -35,14 +35,14 @@ Single_particle_simulation::Single_particle_simulation(bz_mesh::ElectronPhonon* 
     const std::size_t index = 0;
     m_particle              = particle(index, particle_type::electron, m_ptr_mesh_bz);
     m_particle.set_position({0.0, 0.0, 0.0});
-    const double thermal_energy = bulk_env.m_temperature * EmpiricalPseudopotential::Constants::k_b_eV;
+    const double thermal_energy = bulk_env.m_temperature * uepm::pseudopotential::Constants::k_b_eV;
     m_particle.set_energy(thermal_energy);
     m_particle.set_velocity({0.0, 0.0, 0.0});
     std::cout << "Thermal energy at " << bulk_env.m_temperature << " K: " << thermal_energy << " eV" << std::endl;
     vector3 initial_k = m_ptr_mesh_bz->draw_random_k_point_at_energy(thermal_energy, 0, m_particle.get_random_generator());
     m_particle.set_k_vector(initial_k);
     std::cout << "Initial k-vector (drawn at thermal energy): " << initial_k << std::endl;
-    bz_mesh::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
+    uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
     if (containing_tetra == nullptr) {
         throw std::runtime_error("Initial k-point is out of the Brillouin zone mesh.");
     }
@@ -93,7 +93,7 @@ void Single_particle_simulation::run_simulation() {
         //           << m_particle.get_k_vector().z() << std::endl;
 
         // Find containing tetrahedron
-        bz_mesh::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
+        uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
         if (containing_tetra == nullptr) {
             // TEST
             bool is_inside_bz = m_ptr_mesh_bz->inside_ws_bcc(m_particle.get_k_vector());
@@ -185,4 +185,4 @@ void Single_particle_simulation::export_history(const std::string& filename) {
     std::cout << "Particle history exported to " << filename << std::endl;
 }
 
-}  // namespace fbmc
+}  // namespace uepm::fbmc

@@ -15,7 +15,7 @@
 
 #include "gmsh.h"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 void DielectricMesh::read_dielectric_file(const std::string& filename) {
     std::cout << "Opening file " << filename << std::endl;
@@ -149,4 +149,4 @@ complex_d DielectricMesh::interpolate_dielectric_function(const vector3& k, doub
     return (1 - t) * dielectric_function_interpolated_low + t * dielectric_function_interpolated_high;
 }
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

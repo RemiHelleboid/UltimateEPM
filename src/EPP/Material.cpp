@@ -6,7 +6,7 @@
 #include "bessel_func.hpp"
 #include "yaml-cpp/yaml.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 const double Bohr = 0.52917721092;  // in Angstroms
 
@@ -230,4 +230,4 @@ void Materials::print_material_parameters() const {
     }
 }
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

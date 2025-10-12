@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
 
     cmd.parse(argc, argv);
 
-    EmpiricalPseudopotential::Materials materials;
+    uepm::pseudopotential::Materials materials;
 
     std::string file_material_parameters = arg_material_parameters.getValue();
     if (file_material_parameters.empty()) {
@@ -107,7 +107,7 @@ int main(int argc, char* argv[]) {
     my_options.nrThreads        = arg_nb_threads.getValue();
     // my_options.print_options();
 
-    EmpiricalPseudopotential::Material mat = materials.materials.at(my_options.materialName);
+    uepm::pseudopotential::Material mat = materials.materials.at(my_options.materialName);
 
     // Create a new MPI type for the struct k_vector.
     MPI_Datatype k_vector_type;
@@ -181,7 +181,7 @@ int main(int argc, char* argv[]) {
 
     bool                                    enable_nonlocal_correction = arg_enable_nonlocal_correction.getValue();
     bool                                    enable_soc                 = arg_enable_soc.getValue();
-    EmpiricalPseudopotential::BandStructure my_bandstructure;
+    uepm::pseudopotential::BandStructure my_bandstructure;
     my_bandstructure
         .Initialize(mat, my_options.nrLevels, Chunk_list_k_points, my_options.nearestNeighbors, enable_nonlocal_correction, enable_soc);
     my_bandstructure.Compute();

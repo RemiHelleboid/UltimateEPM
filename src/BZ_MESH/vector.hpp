@@ -17,7 +17,7 @@
 #include <optional>
 #include <vector>
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 enum class permutaion_type { XY, XZ, YZ, XYZ, YZX, ZXY };
 
@@ -245,4 +245,4 @@ class alignas(32) vector3 {
 static_assert(std::is_trivially_copyable_v<vector3>, "vector3 must be trivially copyable");
 static_assert(std::is_standard_layout_v<vector3>, "vector3 must be standard-layout");
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

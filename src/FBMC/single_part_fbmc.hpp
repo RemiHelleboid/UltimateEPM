@@ -21,7 +21,7 @@
 #include "particle.hpp"
 #include "vector.hpp"
 
-namespace fbmc {
+namespace uepm::fbmc {
 
 struct Bulk_environment {
     double  m_temperature;
@@ -36,7 +36,7 @@ struct Simulation_parameters {
 
 class Single_particle_simulation {
  private:
-    bz_mesh::ElectronPhonon* m_ptr_mesh_bz;
+    uepm::mesh_bz::ElectronPhonon* m_ptr_mesh_bz;
     Bulk_environment         m_bulk_env;
     Simulation_parameters    m_sim_params;
     particle                 m_particle;
@@ -45,7 +45,7 @@ class Single_particle_simulation {
 
  public:
     double a = 0;
-    Single_particle_simulation(bz_mesh::ElectronPhonon*     ptr_mesh_bz,
+    Single_particle_simulation(uepm::mesh_bz::ElectronPhonon*     ptr_mesh_bz,
                                const Bulk_environment&      bulk_env,
                                const Simulation_parameters& sim_params);
 
@@ -53,4 +53,4 @@ class Single_particle_simulation {
 
     void export_history(const std::string& filename);
 };
-}  // namespace fbmc
+}  // namespace uepm::fbmc

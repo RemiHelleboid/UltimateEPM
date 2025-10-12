@@ -24,7 +24,7 @@
 // #include "NonLocalParameters.hpp"
 // #include "Vector3D.h"
 
-// namespace EmpiricalPseudopotential {
+// namespace uepm::pseudopotential {
 
 // /**
 //  * @brief Functor class to compute the non-local correction to the Hamiltonian.
@@ -64,4 +64,4 @@
 //     std::complex<double> operator()(const Vector3D<double>& K1_normalized, const Vector3D<double>& K2_normalized) const;
 // };
 
-// }  // namespace EmpiricalPseudopotential
+// }  // namespace uepm::pseudopotential

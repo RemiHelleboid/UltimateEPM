@@ -17,7 +17,7 @@
 #include <memory>
 #include <vector>
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 Octree_mesh::Octree_mesh(const std::vector<Tetra *> &list_tetras, const bbox_mesh &bounding_box) {
     if (list_tetras.size() <= max_number_of_elements_per_node || bounding_box.get_diagonal_size() < min_size_of_a_node) {
@@ -77,4 +77,4 @@ Tetra *Octree_mesh::find_tetra_at_location(const vector3 &location) const {
     return it_tetra != m_list_tetras.end() ? *it_tetra : nullptr;
 }
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

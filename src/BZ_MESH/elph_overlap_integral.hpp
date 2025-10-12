@@ -7,7 +7,7 @@
 #include "elph_common.hpp"
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 // Parameters for hole-hole overlap integrals (HH/LH/SO style).
 // Units: dimensionless (fits are empirical).
@@ -68,4 +68,4 @@ struct HoleOverlapIntParams {
     return 0.5 * std::sqrt(rad);
 }
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

@@ -44,7 +44,7 @@ void print_arguments(const std::vector<std::string>& path,
     std::cout << "Result directory: " << result_dir << std::endl;
 }
 
-int compute_path_mat(const EmpiricalPseudopotential::Material& material,
+int compute_path_mat(const uepm::pseudopotential::Material& material,
                      const std::vector<std::string>&           path,
                      unsigned int                              nb_points,
                      unsigned int                              nb_bands,
@@ -57,7 +57,7 @@ int compute_path_mat(const EmpiricalPseudopotential::Material& material,
     my_options.nearestNeighbors = nearestNeighbors;
     my_options.nrPoints         = nb_points;
     my_options.nrLevels         = nb_bands;
-    EmpiricalPseudopotential::BandStructure my_bandstructure;
+    uepm::pseudopotential::BandStructure my_bandstructure;
     my_bandstructure.Initialize(material,
                                 my_options.nrLevels,
                                 path,
@@ -80,7 +80,7 @@ int compute_path_mat(const EmpiricalPseudopotential::Material& material,
     return 0;
 }
 
-int compute_all_mat(EmpiricalPseudopotential::Materials list_materials,
+int compute_all_mat(uepm::pseudopotential::Materials list_materials,
                     const std::vector<std::string>&     path,
                     int                                 nb_bands,
                     int                                 nearestNeighbors,
@@ -103,7 +103,7 @@ int compute_all_mat(EmpiricalPseudopotential::Materials list_materials,
             std::cout << point << " ";
         }
         std::cout << std::endl;
-        EmpiricalPseudopotential::BandStructure my_bandstructure;
+        uepm::pseudopotential::BandStructure my_bandstructure;
         my_bandstructure.Initialize(mat,
                                     my_options.nrLevels,
                                     path,
@@ -131,7 +131,7 @@ int compute_all_mat(EmpiricalPseudopotential::Materials list_materials,
     return 0;
 }
 
-int compute_all_path_all_mat(EmpiricalPseudopotential::Materials list_materials,
+int compute_all_path_all_mat(uepm::pseudopotential::Materials list_materials,
                              int                                 nb_bands,
                              int                                 nearestNeighbors,
                              int                                 nrPoints,
@@ -155,7 +155,7 @@ int compute_all_path_all_mat(EmpiricalPseudopotential::Materials list_materials,
                 std::cout << point << " ";
             }
             std::cout << std::endl;
-            EmpiricalPseudopotential::BandStructure my_bandstructure;
+            uepm::pseudopotential::BandStructure my_bandstructure;
             my_bandstructure.Initialize(mat,
                                         my_options.nrLevels,
                                         my_options.paths[path_index],
@@ -234,7 +234,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    EmpiricalPseudopotential::Materials materials;
+    uepm::pseudopotential::Materials materials;
     std::string                         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     if (!arg_enable_nonlocal_correction.isSet()) {
         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";

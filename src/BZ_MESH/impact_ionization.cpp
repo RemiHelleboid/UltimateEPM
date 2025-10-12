@@ -24,9 +24,9 @@
 #include "bz_states.hpp"
 #include "omp.h"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
-ImpactIonization::ImpactIonization(const EmpiricalPseudopotential::Material& material, const std::string& initial_mesh_path) {
+ImpactIonization::ImpactIonization(const uepm::pseudopotential::Material& material, const std::string& initial_mesh_path) {
     std::filesystem::path path(initial_mesh_path);
     if (!std::filesystem::exists(path)) {
         std::cerr << "Error: file " << initial_mesh_path << " does not exist." << std::endl;
@@ -81,9 +81,9 @@ void ImpactIonization::interp_test_dielectric_function(std::string filename) {
 
 void ImpactIonization::compute_eigenstates(int nb_threads) {
     int                nb_bands_to_use = 16;
-    bz_mesh::BZ_States my_bz_mesh(m_material);
+    uepm::mesh_bz::BZ_States my_bz_mesh(m_material);
     my_bz_mesh.set_nb_bands(nb_bands_to_use);
-    EmpiricalPseudopotential::BandStructure band_structure{};
+    uepm::pseudopotential::BandStructure band_structure{};
     int                                     nb_nearest_neighbors = 10;
     bool                                    nonlocal_epm         = false;
     bool                                    enable_soc           = false;
@@ -184,8 +184,8 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
                     double  energy_w = m_list_BZ_states[0]->get_energies()[idx_n1] - m_list_BZ_states[0]->get_energies()[n1_prime];
                     // complex_d epsilon    = m_dielectric_mesh.interpolate_dielectric_function(q_a, energy_w);
                     // complex_d epsilon    = 1.0;
-                    // complex_d factor_eps = EmpiricalPseudopotential::Constants::q_e * EmpiricalPseudopotential::Constants::q_e /
-                    //                        (EmpiricalPseudopotential::Constants::eps_0 * epsilon * q_a.norm() * q_a.norm());
+                    // complex_d factor_eps = uepm::pseudopotential::Constants::q_e * uepm::pseudopotential::Constants::q_e /
+                    //                        (uepm::pseudopotential::Constants::eps_0 * epsilon * q_a.norm() * q_a.norm());
                     // sum += std::conj(A_1_prime(idx_G1_prime, n1_prime)) * A_1(idx_G1, idx_n1) * factor_eps;
                 }
             }
@@ -238,4 +238,4 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
     return 0.0;
 }
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

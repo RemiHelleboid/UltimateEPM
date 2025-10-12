@@ -56,26 +56,26 @@ int main(int argc, const char** argv) {
     int               nb_valence_bands       = 0;
     int               nb_conduction_bands    = 4;
 
-    EmpiricalPseudopotential::Materials materials;
+    uepm::pseudopotential::Materials materials;
     const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     materials.load_material_parameters(file_material_parameters);
-    EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
+    uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
-    bz_mesh::ElectronPhonon mesh(current_material);
+    uepm::mesh_bz::ElectronPhonon mesh(current_material);
     mesh.read_mesh_geometry_from_msh_file(file_mesh);
     mesh.read_mesh_bands_from_msh_file(file_mesh, nb_conduction_bands);
     mesh.read_phonon_scattering_rates_from_file(file_phonon_scattering);
 
-    fbmc::Bulk_environment bulk_env;
+    uepm::fbmc::Bulk_environment bulk_env;
     bulk_env.m_temperature          = 300.0;
     bulk_env.m_electric_field       = {1e5, 0.0, 0.0};
     bulk_env.m_doping_concentration = 1e10;
 
-    fbmc::Simulation_parameters sim_params;
+    uepm::fbmc::Simulation_parameters sim_params;
     sim_params.m_simulation_time  = 2000e-12;
     sim_params.m_export_frequency = 1;
 
-    fbmc::Single_particle_simulation sim(&mesh, bulk_env, sim_params);
+    uepm::fbmc::Single_particle_simulation sim(&mesh, bulk_env, sim_params);
     sim.run_simulation();
 
     std::string timestamp = std::to_string(std::time(nullptr));

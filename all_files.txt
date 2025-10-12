@@ -12,7 +12,7 @@
 
 #include "Hamiltonian.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 std::string BandStructure::get_path_as_string() const {
     std::string path = "";
@@ -313,7 +313,7 @@ void export_vector_bands_result_in_file(const std::string& filename, std::vector
     }
 }
 
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file Constants.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -329,7 +329,7 @@ void export_vector_bands_result_in_file(const std::string& filename, std::vector
 #include <cmath>
 #include <numbers>
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 namespace Constants {
 
@@ -366,7 +366,7 @@ constexpr double eV_to_Hartree = 1.0 / Hartree_to_eV;
 constexpr double eV_to_Ryd     = 1.0 / Ryd_to_eV;
 
 }  // namespace Constants
-}  // namespace EmpiricalPseudopotential#include "Material.h"
+}  // namespace uepm::pseudopotential#include "Material.h"
 
 #include <cmath>
 
@@ -374,7 +374,7 @@ constexpr double eV_to_Ryd     = 1.0 / Ryd_to_eV;
 #include "bessel_func.hpp"
 #include "yaml-cpp/yaml.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 const double Bohr = 0.52917721092;  // in Angstroms
 
@@ -598,7 +598,7 @@ void Materials::print_material_parameters() const {
     }
 }
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential
 /**
  * @file bz_mesh.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
@@ -699,7 +699,7 @@ void bz_mesh_points::add_band_on_mesh(const std::string& band_name, const std::v
 }
 
 void bz_mesh_points::add_all_bands_on_mesh(const std::string&                             out_filename,
-                                           const EmpiricalPseudopotential::BandStructure& my_band,
+                                           const uepm::pseudopotential::BandStructure& my_band,
                                            int                                            nb_valence_bands_to_export,
                                            int                                            nb_conduction_bands_to_export) {
     gmsh::initialize();
@@ -771,7 +771,7 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string&                   
 }
 
 void bz_mesh_points::add_all_bands_on_mesh_separate_files(const std::string&                             out_dir,
-                                                          const EmpiricalPseudopotential::BandStructure& my_band) {
+                                                          const uepm::pseudopotential::BandStructure& my_band) {
     gmsh::initialize();
     try {
         gmsh::option::setNumber("General.Verbosity", 0);
@@ -826,7 +826,7 @@ void bz_mesh_points::add_all_bands_on_mesh_separate_files(const std::string&    
     gmsh::finalize();
 }
 
-// void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_dir, const EmpiricalPseudopotential::BandStructure& my_band) {
+// void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_dir, const uepm::pseudopotential::BandStructure& my_band) {
 //     gmsh::initialize();
 //     try {
 //         gmsh::option::setNumber("General.Verbosity", 0);
@@ -956,7 +956,7 @@ void bz_mesh_points::export_bands_as_csv(const std::vector<double>& band_values,
 }
 #include "SymmetryPoints.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 SymmetryPoints::SymmetryPoints() {
     symmetryPoints["L"] = SymmetryPoint("L", Vector3D<double>(0.5, 0.5, 0.5));
@@ -1025,7 +1025,7 @@ std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<s
     return result;
 }
 
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file SpinOrbitFunctions.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -1050,7 +1050,7 @@ std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<s
 #include "SpinOrbitParameters.hpp"
 #include "Vector3D.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 /**
  * @brief Functor class to compute the spin-orbit Hamiltonian.
@@ -1091,7 +1091,7 @@ class SpinOrbitCorrection {
     static Eigen::Matrix<std::complex<double>, 2, 2> compute_pauli_state_dot_product(const Vector3D<double>& a);
 };
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential
 #include "Options.h"
 
 #include <iostream>
@@ -1170,7 +1170,7 @@ void Options::print_options() {
 #include "Hamiltonian.h"
 #include "Material.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 bool is_in_irreducible_wedge(const Vector3D<double>& k) {
     return (k.Z >= 0.0) && (k.Y >= k.Z) && (k.X >= k.Y) && (k.X <= 1.0) && (k.X + k.Y + k.Z <= 3.0 / 2.0);
@@ -1434,7 +1434,7 @@ void DielectricFunction::export_kpoints(const std::string& filename) const {
     }
 }
 
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file NonLocalParameters.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -1454,7 +1454,7 @@ void DielectricFunction::export_kpoints(const std::string& filename) const {
 #include "Constants.hpp"
 #include "yaml-cpp/yaml.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 enum class non_local_well_type { square, gaussian, unknown };
 
@@ -1565,7 +1565,7 @@ struct NonLocalParameters {
         std::cout << "well_type: " << static_cast<int>(m_well_type) << std::endl;
     }
 };
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file bessel_func.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -1630,7 +1630,7 @@ inline double bessel_2nd_order_first_kind(double x) {
 #include "SpinOrbitFunctional.hpp"
 #include "Vector3D.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 Hamiltonian::Hamiltonian(const Material& material, const std::vector<Vector3D<int>>& basisVectors)
     : m_material(material),
@@ -1731,7 +1731,7 @@ void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
     }
 }
 
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file SpinOrbitParameters.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -1751,7 +1751,7 @@ void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
 #include "Constants.hpp"
 #include "yaml-cpp/yaml.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 /**
  * @brief Struct to store the Spin-Orbit Coupling (SOC) parameters.
@@ -1835,7 +1835,7 @@ struct SpinOrbitParameters {
     }
 };
 
-}  // namespace EmpiricalPseudopotential// /**
+}  // namespace uepm::pseudopotential// /**
 //  * @file NonLocalFunctional.cpp
 //  * @author remzerrr (remi.helleboid@gmail.com)
 //  * @brief
@@ -1851,7 +1851,7 @@ struct SpinOrbitParameters {
 // #include "Vector3D.h"
 // #include "bessel_func.hpp"
 
-// namespace EmpiricalPseudopotential {
+// namespace uepm::pseudopotential {
 
 // /**
 //  * @brief Constructor of the NonLocalFunctional functor.
@@ -2173,7 +2173,7 @@ struct SpinOrbitParameters {
 // //     return std::complex<double>(cos(const_two * M_PI * Gtau) * V_symmetric, sin(const_two * M_PI * Gtau) * V_antisymmetric);
 // // }
 
-// }  // namespace EmpiricalPseudopotential/**
+// }  // namespace uepm::pseudopotential/**
  * @file bz_mesh.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -2210,9 +2210,9 @@ class bz_mesh_points {
     std::vector<Vector3D<double>>& get_kpoints() { return m_kpoints; };
 
     void add_band_on_mesh(const std::string& band_name, const std::vector<double>& band_values);
-    void add_all_bands_on_mesh_separate_files(const std::string& out_dir, const EmpiricalPseudopotential::BandStructure& my_band);
+    void add_all_bands_on_mesh_separate_files(const std::string& out_dir, const uepm::pseudopotential::BandStructure& my_band);
     void add_all_bands_on_mesh(const std::string&                             out_filename,
-                               const EmpiricalPseudopotential::BandStructure& my_band,
+                               const uepm::pseudopotential::BandStructure& my_band,
                                int                                            nb_valence_bands_to_export,
                                int                                            nb_conduction_bands_to_export);
     void add_all_bands_on_mesh(const std::string& out_filename, const std::vector<double>& band_values, int number_bands);
@@ -2239,7 +2239,7 @@ class bz_mesh_points {
 #include "SymmetryPoints.h"
 #include "Vector3D.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 class DielectricFunction {
  protected:
@@ -2428,7 +2428,7 @@ class DielectricFunction {
     void export_dielectric_function(const std::string& filename, bool name_auto) const;
 };
 
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file SpinOrbitDunctional.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -2445,7 +2445,7 @@ class DielectricFunction {
 #include <iostream>
 #include <vector>
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 double SpinOrbitCorrection::compute_B2_cation(const Vector3D<double>& K) const {
     double kappa = K.Length() * (Constants::bohr_radius / m_soc_parameters.m_radial_extent_cation);
@@ -2539,7 +2539,7 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
     return res_matrix;
 }
 
-}  // namespace EmpiricalPseudopotential// /**
+}  // namespace uepm::pseudopotential// /**
 //  * @file NonLocalFunctional.hpp
 //  * @author remzerrr (remi.helleboid@gmail.com)
 //  * @brief
@@ -2565,7 +2565,7 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
 // #include "NonLocalParameters.hpp"
 // #include "Vector3D.h"
 
-// namespace EmpiricalPseudopotential {
+// namespace uepm::pseudopotential {
 
 // /**
 //  * @brief Functor class to compute the non-local correction to the Hamiltonian.
@@ -2605,7 +2605,7 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
 //     std::complex<double> operator()(const Vector3D<double>& K1_normalized, const Vector3D<double>& K2_normalized) const;
 // };
 
-// }  // namespace EmpiricalPseudopotential#include "Pseudopotential.h"
+// }  // namespace uepm::pseudopotential#include "Pseudopotential.h"
 
 #define _USE_MATH_DEFINES 1
 #include <array>
@@ -2615,7 +2615,7 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
 
 #include "Constants.hpp"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 Pseudopotential::Pseudopotential(double V3S, double V4S, double V8S, double V11S, double V3A, double V4A, double V8A, double V11A)
     : m_V3S(V3S),
@@ -2680,7 +2680,7 @@ void Pseudopotential::print_parameters() const {
     std::cout << "V11A = " << m_V11A << std::endl;
 }
 
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file single_part_fbmc.cpp
  * @author your name (you@domain.com)
  * @brief 
@@ -2704,9 +2704,9 @@ void Pseudopotential::print_parameters() const {
 
 #include "Constants.hpp"
 #include "single_part_fbmc.hpp"
-namespace fbmc {
+namespace uepm::fbmc {
 
-Single_particle_simulation::Single_particle_simulation(bz_mesh::ElectronPhonon*     ptr_mesh_bz,
+Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPhonon*     ptr_mesh_bz,
                                                        const Bulk_environment&      bulk_env,
                                                        const Simulation_parameters& sim_params)
     : m_ptr_mesh_bz(ptr_mesh_bz),
@@ -2717,14 +2717,14 @@ Single_particle_simulation::Single_particle_simulation(bz_mesh::ElectronPhonon* 
     const std::size_t index = 0;
     m_particle              = particle(index, particle_type::electron, m_ptr_mesh_bz);
     m_particle.set_position({0.0, 0.0, 0.0});
-    const double thermal_energy = bulk_env.m_temperature * EmpiricalPseudopotential::Constants::k_b_eV;
+    const double thermal_energy = bulk_env.m_temperature * uepm::pseudopotential::Constants::k_b_eV;
     m_particle.set_energy(thermal_energy);
     m_particle.set_velocity({0.0, 0.0, 0.0});
     std::cout << "Thermal energy at " << bulk_env.m_temperature << " K: " << thermal_energy << " eV" << std::endl;
     vector3 initial_k = m_ptr_mesh_bz->draw_random_k_point_at_energy(thermal_energy, 0, m_particle.get_random_generator());
     m_particle.set_k_vector(initial_k);
     std::cout << "Initial k-vector (drawn at thermal energy): " << initial_k << std::endl;
-    bz_mesh::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
+    uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
     if (containing_tetra == nullptr) {
         throw std::runtime_error("Initial k-point is out of the Brillouin zone mesh.");
     }
@@ -2775,7 +2775,7 @@ void Single_particle_simulation::run_simulation() {
         //           << m_particle.get_k_vector().z() << std::endl;
 
         // Find containing tetrahedron
-        bz_mesh::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
+        uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
         if (containing_tetra == nullptr) {
             // TEST
             bool is_inside_bz = m_ptr_mesh_bz->inside_ws_bcc(m_particle.get_k_vector());
@@ -2866,7 +2866,7 @@ void Single_particle_simulation::export_history(const std::string& filename) {
     std::cout << "Particle history exported to " << filename << std::endl;
 }
 
-}  // namespace fbmc/**
+}  // namespace uepm::fbmc/**
  * @file single_part_fbmc.hpp
  * @author your name (you@domain.com)
  * @brief
@@ -2889,7 +2889,7 @@ void Single_particle_simulation::export_history(const std::string& filename) {
 #include "particle.hpp"
 #include "vector.hpp"
 
-namespace fbmc {
+namespace uepm::fbmc {
 
 struct Bulk_environment {
     double  m_temperature;
@@ -2904,7 +2904,7 @@ struct Simulation_parameters {
 
 class Single_particle_simulation {
  private:
-    bz_mesh::ElectronPhonon* m_ptr_mesh_bz;
+    uepm::mesh_bz::ElectronPhonon* m_ptr_mesh_bz;
     Bulk_environment         m_bulk_env;
     Simulation_parameters    m_sim_params;
     particle                 m_particle;
@@ -2913,7 +2913,7 @@ class Single_particle_simulation {
 
  public:
     double a = 0;
-    Single_particle_simulation(bz_mesh::ElectronPhonon*     ptr_mesh_bz,
+    Single_particle_simulation(uepm::mesh_bz::ElectronPhonon*     ptr_mesh_bz,
                                const Bulk_environment&      bulk_env,
                                const Simulation_parameters& sim_params);
 
@@ -2921,7 +2921,7 @@ class Single_particle_simulation {
 
     void export_history(const std::string& filename);
 };
-}  // namespace fbmc/**
+}  // namespace uepm::fbmc/**
  * @file particle.hpp
  * @author your name (you@domain.com)
  * @brief Particle simulation class for the FBMC (Full Band Monte Carlo) method.
@@ -2947,11 +2947,11 @@ class Single_particle_simulation {
 #include "mesh_tetra.hpp"
 #include "vector.hpp"
 
-namespace fbmc {
+namespace uepm::fbmc {
 
 enum class particle_type { electron = -1, hole = 1 };
 
-using vector3 = bz_mesh::vector3;
+using vector3 = uepm::mesh_bz::vector3;
 
 struct scattering_rate {
     std::array<double, 8> m_phonon_rate;
@@ -2997,7 +2997,7 @@ class particle {
      * @brief Pointer to the Brillouin Zone Mesh.
      *
      */
-    bz_mesh::ElectronPhonon* m_mesh_bz = nullptr;
+    uepm::mesh_bz::ElectronPhonon* m_mesh_bz = nullptr;
 
     /**
      * @brief Index of the particle in the simulation.
@@ -3057,7 +3057,7 @@ class particle {
      * @brief Pointer to the tetrahedron in which the particle lies.
      *
      */
-    bz_mesh::Tetra* m_containing_bz_mesh_tetra = nullptr;
+    uepm::mesh_bz::Tetra* m_containing_bz_mesh_tetra = nullptr;
 
     /**
      * @brief Random number generator.
@@ -3079,7 +3079,7 @@ class particle {
 
  public:
     particle() = default;
-    particle(std::size_t index, particle_type type, bz_mesh::ElectronPhonon* mesh);
+    particle(std::size_t index, particle_type type, uepm::mesh_bz::ElectronPhonon* mesh);
     particle(const particle& other)            = default;
     particle& operator=(const particle& other) = default;
     ~particle()                                = default;
@@ -3099,8 +3099,8 @@ class particle {
     double          get_energy() const { return m_energy; }
     void            set_energy(double energy) { m_energy = energy; }
     double          get_current_free_flight_time() const { return m_current_free_flight_time; }
-    bz_mesh::Tetra* get_containing_bz_mesh_tetra() const { return m_containing_bz_mesh_tetra; }
-    void set_containing_bz_mesh_tetra(bz_mesh::Tetra* containing_bz_mesh_tetra) { m_containing_bz_mesh_tetra = containing_bz_mesh_tetra; }
+    uepm::mesh_bz::Tetra* get_containing_bz_mesh_tetra() const { return m_containing_bz_mesh_tetra; }
+    void set_containing_bz_mesh_tetra(uepm::mesh_bz::Tetra* containing_bz_mesh_tetra) { m_containing_bz_mesh_tetra = containing_bz_mesh_tetra; }
     void set_random_generator(std::mt19937 random_generator) { m_random_generator = random_generator; }
 
     std::array<double, 8> interpolate_phonon_scattering_rate_at_location(const vector3& location);
@@ -3120,7 +3120,7 @@ class particle {
     void                    reset_history() { m_history = particle_history(m_index); }
 };
 
-}  // namespace fbmc/**
+}  // namespace uepm::fbmc/**
  * @file particle.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -3136,9 +3136,9 @@ class particle {
 #include <random>
 
 #include "Constants.hpp"
-namespace fbmc {
+namespace uepm::fbmc {
 
-particle::particle(std::size_t index, particle_type arg_particle_type, bz_mesh::ElectronPhonon* ptr_mesh_bz)
+particle::particle(std::size_t index, particle_type arg_particle_type, uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz)
     : m_index(index),
       m_type(arg_particle_type),
       m_mesh_bz(ptr_mesh_bz) {}
@@ -3159,13 +3159,13 @@ void particle::draw_free_flight_time(double p_gamma) {
  * @param v_electric_field The electric field vector.
  */
 void particle::update_k_vector(const vector3& v_electric_field) {
-    m_k_vector += (get_charge_sign() * EmpiricalPseudopotential::Constants::q_e / EmpiricalPseudopotential::Constants::h_bar) *
+    m_k_vector += (get_charge_sign() * uepm::pseudopotential::Constants::q_e / uepm::pseudopotential::Constants::h_bar) *
                   v_electric_field * m_current_free_flight_time;
 }
 
 void particle::update_group_velocity() {
     m_velocity = m_containing_bz_mesh_tetra->get_gradient_energy_at_band(m_band_index);
-    m_velocity *= (1.0 / EmpiricalPseudopotential::Constants::h_bar_eV);
+    m_velocity *= (1.0 / uepm::pseudopotential::Constants::h_bar_eV);
 }
 
 std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(const vector3& location) {
@@ -3176,7 +3176,7 @@ void particle::update_energy() { m_energy = m_containing_bz_mesh_tetra->interpol
 
 void compute_post_phonon_scattering_state() {}
 
-}  // namespace fbmc/**
+}  // namespace uepm::fbmc/**
  * @file dielectric_mesh.hpp
  * @author your name (you@domain.com)
  * @brief
@@ -3200,7 +3200,7 @@ void compute_post_phonon_scattering_state() {}
 #include "Material.h"
 #include "bz_mesh.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 typedef std::complex<double> complex_d;
 
@@ -3222,7 +3222,7 @@ class DielectricMesh : public MeshBZ {
 
  public:
     DielectricMesh() = default;
-    DielectricMesh(const EmpiricalPseudopotential::Material& material) : MeshBZ(material) {}
+    DielectricMesh(const uepm::pseudopotential::Material& material) : MeshBZ(material) {}
 
     /**
      * @brief Read the dielectric function from a .msf file (created by epsilon.epm).
@@ -3253,7 +3253,7 @@ class DielectricMesh : public MeshBZ {
     complex_d interpolate_dielectric_function(const vector3& k, double energy) const;
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file bz_dielectric.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -3275,7 +3275,7 @@ class DielectricMesh : public MeshBZ {
 #include "bz_states.hpp"
 #include "dielectric_mesh.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 typedef std::complex<double>       complex_d;
 typedef std::unique_ptr<BZ_States> uptr_BZstates;
@@ -3305,7 +3305,7 @@ class ImpactIonization {
      * @brief Material of the system.
      *
      */
-    EmpiricalPseudopotential::Material m_material;
+    uepm::pseudopotential::Material m_material;
 
     /**
      * @brief Mesh of the dielectric function.
@@ -3320,7 +3320,7 @@ class ImpactIonization {
     std::vector<double> m_impact_ionization_results;
 
  public:
-    ImpactIonization(const EmpiricalPseudopotential::Material& material, const std::string& initial_mesh_path);
+    ImpactIonization(const uepm::pseudopotential::Material& material, const std::string& initial_mesh_path);
     void read_dielectric_file(const std::string& filename);
     void interp_test_dielectric_function(std::string filename);
 
@@ -3340,7 +3340,7 @@ class ImpactIonization {
     double compute_impact_ionization_rate(int idx_n1, std::size_t idx_k1);
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file electron_phonon.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -3362,7 +3362,7 @@ class ImpactIonization {
 
 #include "bz_states.hpp"  // for vector3, BZ_States, material
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 // ---------- Discrete axes ----------
 enum class PhononMode : uint8_t { acoustic = 0, optical = 1, none = 2 };
@@ -3552,7 +3552,7 @@ class ElectronPhonon : public BZ_States {
     std::vector<Rates_nk_npkp_ctor> m_rates_nk_npkp;
 
  public:
-    explicit ElectronPhonon(const EmpiricalPseudopotential::Material& material) : BZ_States(material) {}
+    explicit ElectronPhonon(const uepm::pseudopotential::Material& material) : BZ_States(material) {}
 
     // .cpp implements these (keep header slim—no YAML/iostream here)
     void   load_phonon_parameters(const std::string& filename);
@@ -3605,7 +3605,7 @@ class ElectronPhonon : public BZ_States {
     void compute_RTA_mobility();
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz
 /**
  * @file box_bz.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
@@ -3625,7 +3625,7 @@ class ElectronPhonon : public BZ_States {
 
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 /**
  * @brief Class representing a box in 3D space.
@@ -3752,7 +3752,7 @@ class bbox_mesh {
     }
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file Octree_mesh.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -3771,7 +3771,7 @@ class bbox_mesh {
 #include <memory>
 #include <vector>
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 Octree_mesh::Octree_mesh(const std::vector<Tetra *> &list_tetras, const bbox_mesh &bounding_box) {
     if (list_tetras.size() <= max_number_of_elements_per_node || bounding_box.get_diagonal_size() < min_size_of_a_node) {
@@ -3831,7 +3831,7 @@ Tetra *Octree_mesh::find_tetra_at_location(const vector3 &location) const {
     return it_tetra != m_list_tetras.end() ? *it_tetra : nullptr;
 }
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz
 /**
  * @file bz_mesh.cpp
  * @author Rémi Helleboid (remi.helleboid@st.com)
@@ -3856,7 +3856,7 @@ Tetra *Octree_mesh::find_tetra_at_location(const vector3 &location) const {
 
 #pragma omp declare reduction(merge : std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 void MeshBZ::shift_bz_center(const vector3& center) {
     m_center = center;
@@ -4810,7 +4810,7 @@ void MeshBZ::export_energies_and_gradients_to_vtk(const std::string& filename) c
     export_to_vtk(filename, point_scalars, point_vectors, {}, {});
 }
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file iso_triangle.hpp
  * @author Rémi Helleboid (remi.helleboid@st.com)
  * @brief
@@ -4827,7 +4827,7 @@ void MeshBZ::export_energies_and_gradients_to_vtk(const std::string& filename) c
 
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 /**
  * @brief This class represent the iso energy triangle within a Tetra.
@@ -4912,7 +4912,7 @@ class IsoTriangle {
     }
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file mesh_tetra.cpp
  * @author Rémi Helleboid (remi.helleboid@st.com)
  * @brief
@@ -4935,7 +4935,7 @@ class IsoTriangle {
 #include "bbox_mesh.hpp"
 #include "iso_triangle.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 bbox_mesh Tetra::compute_bounding_box() const {
     std::array<double, 4> coordinates_x;
@@ -5518,7 +5518,7 @@ std::array<double, 8> Tetra::get_tetra_electron_phonon_rates(int band_index) con
     return mean_rates;
 }
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file bz_mesh.hpp
  * @author Rémi Helleboid (remi.helleboid@st.com)
  * @brief
@@ -5545,7 +5545,7 @@ std::array<double, 8> Tetra::get_tetra_electron_phonon_rates(int band_index) con
 #include "octree_bz.hpp"
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 using EigenIntSparseMatrix = Eigen::SparseMatrix<int, Eigen::RowMajor>;
 using TripletInt           = Eigen::Triplet<int>;
@@ -5561,7 +5561,7 @@ class MeshBZ {
      * @brief The material of the Brillouin zone.
      *
      */
-    EmpiricalPseudopotential::Material m_material;
+    uepm::pseudopotential::Material m_material;
 
     /**
      * @brief G vector on which the BZ is centered.
@@ -5675,7 +5675,7 @@ class MeshBZ {
 
  public:
     MeshBZ() = default;
-    MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material) {};
+    MeshBZ(const uepm::pseudopotential::Material& material) : m_material(material) {};
     MeshBZ(const MeshBZ&) = default;
 
     void export_k_points_to_file(const std::string& filename) const;
@@ -5781,7 +5781,7 @@ class MeshBZ {
                                                                    bool        use_interp = false) const;
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file Octree_mesh.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -5801,7 +5801,7 @@ class MeshBZ {
 #include "vector.hpp"
 #include "bbox_mesh.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 
 
@@ -5850,7 +5850,7 @@ class Octree_mesh {
     Tetra *find_tetra_at_location(const vector3 &location) const;
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz
 /**
  * @file mesh_vertex.hpp
  * @author Rémi Helleboid (remi.helleboid@st.com)
@@ -5872,7 +5872,7 @@ class Octree_mesh {
 
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 class Vertex {
  private:
@@ -6069,7 +6069,7 @@ class Vertex {
     const std::vector<std::array<double, 8>>& get_electron_phonon_rates_all_bands() const { return m_electron_phonon_rates; }
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file vector.hpp
  * @author Rémi Helleboid (remi@helleboid.net)
  * @brief Vector class header.
@@ -6088,7 +6088,7 @@ class Vertex {
 #include <optional>
 #include <vector>
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 enum class permutaion_type { XY, XZ, YZ, XYZ, YZX, ZXY };
 
@@ -6316,7 +6316,7 @@ class alignas(32) vector3 {
 static_assert(std::is_trivially_copyable_v<vector3>, "vector3 must be trivially copyable");
 static_assert(std::is_standard_layout_v<vector3>, "vector3 must be standard-layout");
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file bz_states.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -6337,7 +6337,7 @@ static_assert(std::is_standard_layout_v<vector3>, "vector3 must be standard-layo
 #include "bz_mesh.hpp"
 #include "omp.h"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 void BZ_States::compute_eigenstates(int nb_threads) {
     double     normalization_factor = 2.0 * M_PI / m_material.get_lattice_constant_meter();
@@ -6345,9 +6345,9 @@ void BZ_States::compute_eigenstates(int nb_threads) {
     const bool keep_eigenvectors    = true;
     m_eigenvalues_k.resize(m_list_vertices.size());
     m_eigenvectors_k.resize(m_list_vertices.size());
-    std::vector<EmpiricalPseudopotential::Hamiltonian> hamiltonian_per_thread;
+    std::vector<uepm::pseudopotential::Hamiltonian> hamiltonian_per_thread;
     for (int i = 0; i < nb_threads; i++) {
-        hamiltonian_per_thread.push_back(EmpiricalPseudopotential::Hamiltonian(m_material, m_basisVectors));
+        hamiltonian_per_thread.push_back(uepm::pseudopotential::Hamiltonian(m_material, m_basisVectors));
     }
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (std::size_t idx_k = 0; idx_k < m_list_vertices.size(); ++idx_k) {
@@ -6377,9 +6377,9 @@ void BZ_States::compute_shifted_eigenstates(const Vector3D<double>& q_shift, int
     const bool keep_eigenvectors    = true;
     m_eigenvalues_k_plus_q.resize(m_list_vertices.size());
     m_eigenvectors_k_plus_q.resize(m_list_vertices.size());
-    std::vector<EmpiricalPseudopotential::Hamiltonian> hamiltonian_per_thread;
+    std::vector<uepm::pseudopotential::Hamiltonian> hamiltonian_per_thread;
     for (int i = 0; i < nb_threads; i++) {
-        hamiltonian_per_thread.push_back(EmpiricalPseudopotential::Hamiltonian(m_material, m_basisVectors));
+        hamiltonian_per_thread.push_back(uepm::pseudopotential::Hamiltonian(m_material, m_basisVectors));
     }
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (std::size_t idx_k = 0; idx_k < m_list_vertices.size(); ++idx_k) {
@@ -6473,13 +6473,13 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
     double q_squared = m_q_shift.Length() * m_q_shift.Length();
 
     // // prefactor in SI, with J→eV conversion
-    // double prefactor = (EmpiricalPseudopotential::Constants::q_e * EmpiricalPseudopotential::Constants::q_e) /
-    //                    (EmpiricalPseudopotential::Constants::eps_0 * q_squared) / EmpiricalPseudopotential::Constants::q_e *
+    // double prefactor = (uepm::pseudopotential::Constants::q_e * uepm::pseudopotential::Constants::q_e) /
+    //                    (uepm::pseudopotential::Constants::eps_0 * q_squared) / uepm::pseudopotential::Constants::q_e *
     //                    (2.0 / std::pow(2.0 * M_PI, 3));
 
-    double coulomb_prefactor_eV = (EmpiricalPseudopotential::Constants::q_e * EmpiricalPseudopotential::Constants::q_e) /
-                                   (EmpiricalPseudopotential::Constants::eps_0 * q_squared)  // J·m
-                                  / EmpiricalPseudopotential::Constants::q_e;                                                      // → eV·m
+    double coulomb_prefactor_eV = (uepm::pseudopotential::Constants::q_e * uepm::pseudopotential::Constants::q_e) /
+                                   (uepm::pseudopotential::Constants::eps_0 * q_squared)  // J·m
+                                  / uepm::pseudopotential::Constants::q_e;                                                      // → eV·m
     double prefactor = coulomb_prefactor_eV * (2.0 / std::pow(2.0 * M_PI, 3));
 
     for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
@@ -6523,7 +6523,7 @@ void BZ_States::export_full_eigenstates() const {
 
 // void BZ_States::populate_vtx_dielectric_function(const std::vector<double>& energies, double eta_smearing);
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file dielectric_mesh.cpp
  * @author your name (you@domain.com)
  * @brief
@@ -6540,7 +6540,7 @@ void BZ_States::export_full_eigenstates() const {
 
 #include "gmsh.h"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 void DielectricMesh::read_dielectric_file(const std::string& filename) {
     std::cout << "Opening file " << filename << std::endl;
@@ -6674,7 +6674,7 @@ complex_d DielectricMesh::interpolate_dielectric_function(const vector3& k, doub
     return (1 - t) * dielectric_function_interpolated_low + t * dielectric_function_interpolated_high;
 }
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file mesh_tetra.hpp
  * @author Rémi Helleboid (remi.helleboid@st.com)
  * @brief
@@ -6697,7 +6697,7 @@ complex_d DielectricMesh::interpolate_dielectric_function(const vector3& k, doub
 #include "bbox_mesh.hpp"
 #include "mesh_vertex.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 using array4d = std::array<double, 4>;
 
@@ -6895,7 +6895,7 @@ class Tetra {
     }
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file bz_states.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -6921,9 +6921,9 @@ class Tetra {
 #include "bz_states.hpp"
 #include "omp.h"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
-ImpactIonization::ImpactIonization(const EmpiricalPseudopotential::Material& material, const std::string& initial_mesh_path) {
+ImpactIonization::ImpactIonization(const uepm::pseudopotential::Material& material, const std::string& initial_mesh_path) {
     std::filesystem::path path(initial_mesh_path);
     if (!std::filesystem::exists(path)) {
         std::cerr << "Error: file " << initial_mesh_path << " does not exist." << std::endl;
@@ -6978,9 +6978,9 @@ void ImpactIonization::interp_test_dielectric_function(std::string filename) {
 
 void ImpactIonization::compute_eigenstates(int nb_threads) {
     int                nb_bands_to_use = 16;
-    bz_mesh::BZ_States my_bz_mesh(m_material);
+    uepm::mesh_bz::BZ_States my_bz_mesh(m_material);
     my_bz_mesh.set_nb_bands(nb_bands_to_use);
-    EmpiricalPseudopotential::BandStructure band_structure{};
+    uepm::pseudopotential::BandStructure band_structure{};
     int                                     nb_nearest_neighbors = 10;
     bool                                    nonlocal_epm         = false;
     bool                                    enable_soc           = false;
@@ -7081,8 +7081,8 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
                     double  energy_w = m_list_BZ_states[0]->get_energies()[idx_n1] - m_list_BZ_states[0]->get_energies()[n1_prime];
                     // complex_d epsilon    = m_dielectric_mesh.interpolate_dielectric_function(q_a, energy_w);
                     // complex_d epsilon    = 1.0;
-                    // complex_d factor_eps = EmpiricalPseudopotential::Constants::q_e * EmpiricalPseudopotential::Constants::q_e /
-                    //                        (EmpiricalPseudopotential::Constants::eps_0 * epsilon * q_a.norm() * q_a.norm());
+                    // complex_d factor_eps = uepm::pseudopotential::Constants::q_e * uepm::pseudopotential::Constants::q_e /
+                    //                        (uepm::pseudopotential::Constants::eps_0 * epsilon * q_a.norm() * q_a.norm());
                     // sum += std::conj(A_1_prime(idx_G1_prime, n1_prime)) * A_1(idx_G1, idx_n1) * factor_eps;
                 }
             }
@@ -7135,7 +7135,7 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
     return 0.0;
 }
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file bz_dielectric.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -7153,7 +7153,7 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
 #include "Material.h"
 #include "bz_mesh.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 class BZ_States : public MeshBZ {
  protected:
@@ -7202,7 +7202,7 @@ class BZ_States : public MeshBZ {
     std::size_t m_nb_kpoints = 0;
 
  public:
-    BZ_States(const EmpiricalPseudopotential::Material& material) : MeshBZ(material) {}
+    BZ_States(const uepm::pseudopotential::Material& material) : MeshBZ(material) {}
     BZ_States(const BZ_States& other) = default;
 
     void                              set_nb_bands(int nb_bands) { m_nb_bands = nb_bands; }
@@ -7229,7 +7229,7 @@ class BZ_States : public MeshBZ {
     void export_full_eigenstates() const;
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file elelectron_phonon.cpp
  * @brief Electron–phonon implementation (matches refactored header: m_phonon_dispersion[4], RateValues::add)
  * @date 2024-02-09
@@ -7258,7 +7258,7 @@ class BZ_States : public MeshBZ {
 #include "omp.h"
 #include "yaml-cpp/yaml.h"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 // ----- OpenMP custom reduction for std::array<double,8> -----
 static inline void arr8_add(std::array<double, 8>& __restrict out, const std::array<double, 8>& __restrict in) noexcept {
@@ -7271,7 +7271,7 @@ static inline void arr8_add(std::array<double, 8>& __restrict out, const std::ar
 
 inline double ElectronPhonon::bose_einstein_distribution(double energy_eV, double temperature_K) const {
     // N0 = 1 / (exp(E / kT) - 1)
-    const double x = energy_eV / (EmpiricalPseudopotential::Constants::k_b_eV * temperature_K);
+    const double x = energy_eV / (uepm::pseudopotential::Constants::k_b_eV * temperature_K);
     return 1.0 / std::expm1(x);  // stable for small x
 }
 
@@ -7301,7 +7301,7 @@ inline double ElectronPhonon::get_max_phonon_energy() const {
         double max_w = disp.max_omega();  // ω_max [1/s]
         if (max_w > max_energy) max_energy = max_w;
     }
-    return max_energy * EmpiricalPseudopotential::Constants::h_bar_eV;  // ħω → eV
+    return max_energy * uepm::pseudopotential::Constants::h_bar_eV;  // ħω → eV
 }
 
 /**
@@ -7363,9 +7363,9 @@ Rate8 ElectronPhonon::compute_transition_rates_pair(int         idx_n1,
     const Eigen::Index col = (n2c >= 0) ? (Eigen::Index)n2c * Nt + (Eigen::Index)idx_t : -1;
 
     constexpr double SMALL_OMEGA_CUTOFF = 1.0;  // [1/s]
-    const double     pi                 = EmpiricalPseudopotential::Constants::pi;
-    const double     qe                 = EmpiricalPseudopotential::Constants::q_e;       // J/eV
-    const double     hbar_eV            = EmpiricalPseudopotential::Constants::h_bar_eV;  // eV·s
+    const double     pi                 = uepm::pseudopotential::Constants::pi;
+    const double     qe                 = uepm::pseudopotential::Constants::q_e;       // J/eV
+    const double     hbar_eV            = uepm::pseudopotential::Constants::h_bar_eV;  // eV·s
 
     double       inv_mrta_rate          = 0.0;
     vector3      vnk                    = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);   // m/s
@@ -7486,19 +7486,19 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
                 const double omega = disp.omega_lookup(q_norm);
                 if (omega <= SMALL_OMEGA_CUTOFF) continue;
 
-                const double Eph_eV = EmpiricalPseudopotential::Constants::h_bar_eV * omega;
+                const double Eph_eV = uepm::pseudopotential::Constants::h_bar_eV * omega;
                 const double N0     = bose_einstein_distribution(Eph_eV, m_temperature);
 
                 const DeformationPotential& defpot = (mode == PhononMode::acoustic) ? m_ac_defpot_h : m_op_defpot_h;
-                const double Delta_J = defpot.get_fischetti_deformation_potential(q, idx_n1) * EmpiricalPseudopotential::Constants::q_e;
+                const double Delta_J = defpot.get_fischetti_deformation_potential(q, idx_n1) * uepm::pseudopotential::Constants::q_e;
 
                 // Emission
                 {
                     const double Ef_eV  = Ei_eV - Eph_eV;
                     const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
                     if (dos_eV > 0.0) {
-                        const double dos_per_J = dos_eV / EmpiricalPseudopotential::Constants::q_e;
-                        double rate_value = (EmpiricalPseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
+                        const double dos_per_J = dos_eV / uepm::pseudopotential::Constants::q_e;
+                        double rate_value = (uepm::pseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
                                             (N0 + 1.0) * dos_per_J;
                         rate_value /= m_reduce_bz_factor;
                         rate_value *= m_spin_degeneracy;
@@ -7511,9 +7511,9 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
                     const double Ef_eV  = Ei_eV + Eph_eV;
                     const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
                     if (dos_eV > 0.0) {
-                        const double dos_per_J = dos_eV / EmpiricalPseudopotential::Constants::q_e;
+                        const double dos_per_J = dos_eV / uepm::pseudopotential::Constants::q_e;
                         double       rate_value =
-                            (EmpiricalPseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 * (N0)*dos_per_J;
+                            (uepm::pseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 * (N0)*dos_per_J;
                         rate_value /= m_reduce_bz_factor;
                         rate_value *= m_spin_degeneracy;
 
@@ -7713,9 +7713,9 @@ std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     i
     std::vector<double> probs_flat(nb_bands * nb_tetra, 0.0);
     auto                P_ref = [&](int n2, size_t t) -> double& { return probs_flat[static_cast<size_t>(n2) * nb_tetra + t]; };
 
-    const double pi      = EmpiricalPseudopotential::Constants::pi;
-    const double qe      = EmpiricalPseudopotential::Constants::q_e;
-    const double hbar_eV = EmpiricalPseudopotential::Constants::h_bar_eV;
+    const double pi      = uepm::pseudopotential::Constants::pi;
+    const double qe      = uepm::pseudopotential::Constants::q_e;
+    const double hbar_eV = uepm::pseudopotential::Constants::h_bar_eV;
 
     const double Eph_max_eV = get_max_phonon_energy();
 
@@ -7915,7 +7915,7 @@ void ElectronPhonon::plot_phonon_dispersion(const std::string& filename) const {
             auto q = k;
             q /= m_material.get_fourier_factor();
             const auto&  disp = m_phonon_dispersion[md];
-            const double e_ph = disp.omega_lookup(q.norm()) * EmpiricalPseudopotential::Constants::h_bar_eV;
+            const double e_ph = disp.omega_lookup(q.norm()) * uepm::pseudopotential::Constants::h_bar_eV;
             file << e_ph << " ";
         }
         file << '\n';
@@ -8178,7 +8178,7 @@ double ElectronPhonon::compute_P_Gamma() const {
     return pgamma_max;
 }
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz
 #include "BandStructure.h"
 
 #include <omp.h>
@@ -8193,7 +8193,7 @@ double ElectronPhonon::compute_P_Gamma() const {
 
 #include "Hamiltonian.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 std::string BandStructure::get_path_as_string() const {
     std::string path = "";
@@ -8494,7 +8494,7 @@ void export_vector_bands_result_in_file(const std::string& filename, std::vector
     }
 }
 
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file Constants.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -8510,7 +8510,7 @@ void export_vector_bands_result_in_file(const std::string& filename, std::vector
 #include <cmath>
 #include <numbers>
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 namespace Constants {
 
@@ -8547,7 +8547,7 @@ constexpr double eV_to_Hartree = 1.0 / Hartree_to_eV;
 constexpr double eV_to_Ryd     = 1.0 / Ryd_to_eV;
 
 }  // namespace Constants
-}  // namespace EmpiricalPseudopotential#include "Material.h"
+}  // namespace uepm::pseudopotential#include "Material.h"
 
 #include <cmath>
 
@@ -8555,7 +8555,7 @@ constexpr double eV_to_Ryd     = 1.0 / Ryd_to_eV;
 #include "bessel_func.hpp"
 #include "yaml-cpp/yaml.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 const double Bohr = 0.52917721092;  // in Angstroms
 
@@ -8779,7 +8779,7 @@ void Materials::print_material_parameters() const {
     }
 }
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential
 /**
  * @file bz_mesh.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
@@ -8880,7 +8880,7 @@ void bz_mesh_points::add_band_on_mesh(const std::string& band_name, const std::v
 }
 
 void bz_mesh_points::add_all_bands_on_mesh(const std::string&                             out_filename,
-                                           const EmpiricalPseudopotential::BandStructure& my_band,
+                                           const uepm::pseudopotential::BandStructure& my_band,
                                            int                                            nb_valence_bands_to_export,
                                            int                                            nb_conduction_bands_to_export) {
     gmsh::initialize();
@@ -8952,7 +8952,7 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string&                   
 }
 
 void bz_mesh_points::add_all_bands_on_mesh_separate_files(const std::string&                             out_dir,
-                                                          const EmpiricalPseudopotential::BandStructure& my_band) {
+                                                          const uepm::pseudopotential::BandStructure& my_band) {
     gmsh::initialize();
     try {
         gmsh::option::setNumber("General.Verbosity", 0);
@@ -9007,7 +9007,7 @@ void bz_mesh_points::add_all_bands_on_mesh_separate_files(const std::string&    
     gmsh::finalize();
 }
 
-// void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_dir, const EmpiricalPseudopotential::BandStructure& my_band) {
+// void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_dir, const uepm::pseudopotential::BandStructure& my_band) {
 //     gmsh::initialize();
 //     try {
 //         gmsh::option::setNumber("General.Verbosity", 0);
@@ -9137,7 +9137,7 @@ void bz_mesh_points::export_bands_as_csv(const std::vector<double>& band_values,
 }
 #include "SymmetryPoints.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 SymmetryPoints::SymmetryPoints() {
     symmetryPoints["L"] = SymmetryPoint("L", Vector3D<double>(0.5, 0.5, 0.5));
@@ -9206,7 +9206,7 @@ std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<s
     return result;
 }
 
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file SpinOrbitFunctions.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -9231,7 +9231,7 @@ std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<s
 #include "SpinOrbitParameters.hpp"
 #include "Vector3D.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 /**
  * @brief Functor class to compute the spin-orbit Hamiltonian.
@@ -9272,7 +9272,7 @@ class SpinOrbitCorrection {
     static Eigen::Matrix<std::complex<double>, 2, 2> compute_pauli_state_dot_product(const Vector3D<double>& a);
 };
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential
 #include "Options.h"
 
 #include <iostream>
@@ -9351,7 +9351,7 @@ void Options::print_options() {
 #include "Hamiltonian.h"
 #include "Material.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 bool is_in_irreducible_wedge(const Vector3D<double>& k) {
     return (k.Z >= 0.0) && (k.Y >= k.Z) && (k.X >= k.Y) && (k.X <= 1.0) && (k.X + k.Y + k.Z <= 3.0 / 2.0);
@@ -9615,7 +9615,7 @@ void DielectricFunction::export_kpoints(const std::string& filename) const {
     }
 }
 
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file NonLocalParameters.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -9635,7 +9635,7 @@ void DielectricFunction::export_kpoints(const std::string& filename) const {
 #include "Constants.hpp"
 #include "yaml-cpp/yaml.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 enum class non_local_well_type { square, gaussian, unknown };
 
@@ -9746,7 +9746,7 @@ struct NonLocalParameters {
         std::cout << "well_type: " << static_cast<int>(m_well_type) << std::endl;
     }
 };
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file bessel_func.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -9811,7 +9811,7 @@ inline double bessel_2nd_order_first_kind(double x) {
 #include "SpinOrbitFunctional.hpp"
 #include "Vector3D.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 Hamiltonian::Hamiltonian(const Material& material, const std::vector<Vector3D<int>>& basisVectors)
     : m_material(material),
@@ -9912,7 +9912,7 @@ void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
     }
 }
 
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file SpinOrbitParameters.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -9932,7 +9932,7 @@ void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
 #include "Constants.hpp"
 #include "yaml-cpp/yaml.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 /**
  * @brief Struct to store the Spin-Orbit Coupling (SOC) parameters.
@@ -10016,7 +10016,7 @@ struct SpinOrbitParameters {
     }
 };
 
-}  // namespace EmpiricalPseudopotential// /**
+}  // namespace uepm::pseudopotential// /**
 //  * @file NonLocalFunctional.cpp
 //  * @author remzerrr (remi.helleboid@gmail.com)
 //  * @brief
@@ -10032,7 +10032,7 @@ struct SpinOrbitParameters {
 // #include "Vector3D.h"
 // #include "bessel_func.hpp"
 
-// namespace EmpiricalPseudopotential {
+// namespace uepm::pseudopotential {
 
 // /**
 //  * @brief Constructor of the NonLocalFunctional functor.
@@ -10354,7 +10354,7 @@ struct SpinOrbitParameters {
 // //     return std::complex<double>(cos(const_two * M_PI * Gtau) * V_symmetric, sin(const_two * M_PI * Gtau) * V_antisymmetric);
 // // }
 
-// }  // namespace EmpiricalPseudopotential/**
+// }  // namespace uepm::pseudopotential/**
  * @file bz_mesh.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -10391,9 +10391,9 @@ class bz_mesh_points {
     std::vector<Vector3D<double>>& get_kpoints() { return m_kpoints; };
 
     void add_band_on_mesh(const std::string& band_name, const std::vector<double>& band_values);
-    void add_all_bands_on_mesh_separate_files(const std::string& out_dir, const EmpiricalPseudopotential::BandStructure& my_band);
+    void add_all_bands_on_mesh_separate_files(const std::string& out_dir, const uepm::pseudopotential::BandStructure& my_band);
     void add_all_bands_on_mesh(const std::string&                             out_filename,
-                               const EmpiricalPseudopotential::BandStructure& my_band,
+                               const uepm::pseudopotential::BandStructure& my_band,
                                int                                            nb_valence_bands_to_export,
                                int                                            nb_conduction_bands_to_export);
     void add_all_bands_on_mesh(const std::string& out_filename, const std::vector<double>& band_values, int number_bands);
@@ -10420,7 +10420,7 @@ class bz_mesh_points {
 #include "SymmetryPoints.h"
 #include "Vector3D.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 class DielectricFunction {
  protected:
@@ -10609,7 +10609,7 @@ class DielectricFunction {
     void export_dielectric_function(const std::string& filename, bool name_auto) const;
 };
 
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file SpinOrbitDunctional.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -10626,7 +10626,7 @@ class DielectricFunction {
 #include <iostream>
 #include <vector>
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 double SpinOrbitCorrection::compute_B2_cation(const Vector3D<double>& K) const {
     double kappa = K.Length() * (Constants::bohr_radius / m_soc_parameters.m_radial_extent_cation);
@@ -10720,7 +10720,7 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
     return res_matrix;
 }
 
-}  // namespace EmpiricalPseudopotential// /**
+}  // namespace uepm::pseudopotential// /**
 //  * @file NonLocalFunctional.hpp
 //  * @author remzerrr (remi.helleboid@gmail.com)
 //  * @brief
@@ -10746,7 +10746,7 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
 // #include "NonLocalParameters.hpp"
 // #include "Vector3D.h"
 
-// namespace EmpiricalPseudopotential {
+// namespace uepm::pseudopotential {
 
 // /**
 //  * @brief Functor class to compute the non-local correction to the Hamiltonian.
@@ -10786,7 +10786,7 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
 //     std::complex<double> operator()(const Vector3D<double>& K1_normalized, const Vector3D<double>& K2_normalized) const;
 // };
 
-// }  // namespace EmpiricalPseudopotential#include "Pseudopotential.h"
+// }  // namespace uepm::pseudopotential#include "Pseudopotential.h"
 
 #define _USE_MATH_DEFINES 1
 #include <array>
@@ -10796,7 +10796,7 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
 
 #include "Constants.hpp"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 Pseudopotential::Pseudopotential(double V3S, double V4S, double V8S, double V11S, double V3A, double V4A, double V8A, double V11A)
     : m_V3S(V3S),
@@ -10861,7 +10861,7 @@ void Pseudopotential::print_parameters() const {
     std::cout << "V11A = " << m_V11A << std::endl;
 }
 
-}  // namespace EmpiricalPseudopotential/**
+}  // namespace uepm::pseudopotential/**
  * @file single_part_fbmc.cpp
  * @author your name (you@domain.com)
  * @brief 
@@ -10885,9 +10885,9 @@ void Pseudopotential::print_parameters() const {
 
 #include "Constants.hpp"
 #include "single_part_fbmc.hpp"
-namespace fbmc {
+namespace uepm::fbmc {
 
-Single_particle_simulation::Single_particle_simulation(bz_mesh::ElectronPhonon*     ptr_mesh_bz,
+Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPhonon*     ptr_mesh_bz,
                                                        const Bulk_environment&      bulk_env,
                                                        const Simulation_parameters& sim_params)
     : m_ptr_mesh_bz(ptr_mesh_bz),
@@ -10898,14 +10898,14 @@ Single_particle_simulation::Single_particle_simulation(bz_mesh::ElectronPhonon* 
     const std::size_t index = 0;
     m_particle              = particle(index, particle_type::electron, m_ptr_mesh_bz);
     m_particle.set_position({0.0, 0.0, 0.0});
-    const double thermal_energy = bulk_env.m_temperature * EmpiricalPseudopotential::Constants::k_b_eV;
+    const double thermal_energy = bulk_env.m_temperature * uepm::pseudopotential::Constants::k_b_eV;
     m_particle.set_energy(thermal_energy);
     m_particle.set_velocity({0.0, 0.0, 0.0});
     std::cout << "Thermal energy at " << bulk_env.m_temperature << " K: " << thermal_energy << " eV" << std::endl;
     vector3 initial_k = m_ptr_mesh_bz->draw_random_k_point_at_energy(thermal_energy, 0, m_particle.get_random_generator());
     m_particle.set_k_vector(initial_k);
     std::cout << "Initial k-vector (drawn at thermal energy): " << initial_k << std::endl;
-    bz_mesh::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
+    uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
     if (containing_tetra == nullptr) {
         throw std::runtime_error("Initial k-point is out of the Brillouin zone mesh.");
     }
@@ -10956,7 +10956,7 @@ void Single_particle_simulation::run_simulation() {
         //           << m_particle.get_k_vector().z() << std::endl;
 
         // Find containing tetrahedron
-        bz_mesh::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
+        uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
         if (containing_tetra == nullptr) {
             // TEST
             bool is_inside_bz = m_ptr_mesh_bz->inside_ws_bcc(m_particle.get_k_vector());
@@ -11047,7 +11047,7 @@ void Single_particle_simulation::export_history(const std::string& filename) {
     std::cout << "Particle history exported to " << filename << std::endl;
 }
 
-}  // namespace fbmc/**
+}  // namespace uepm::fbmc/**
  * @file single_part_fbmc.hpp
  * @author your name (you@domain.com)
  * @brief
@@ -11070,7 +11070,7 @@ void Single_particle_simulation::export_history(const std::string& filename) {
 #include "particle.hpp"
 #include "vector.hpp"
 
-namespace fbmc {
+namespace uepm::fbmc {
 
 struct Bulk_environment {
     double  m_temperature;
@@ -11085,7 +11085,7 @@ struct Simulation_parameters {
 
 class Single_particle_simulation {
  private:
-    bz_mesh::ElectronPhonon* m_ptr_mesh_bz;
+    uepm::mesh_bz::ElectronPhonon* m_ptr_mesh_bz;
     Bulk_environment         m_bulk_env;
     Simulation_parameters    m_sim_params;
     particle                 m_particle;
@@ -11094,7 +11094,7 @@ class Single_particle_simulation {
 
  public:
     double a = 0;
-    Single_particle_simulation(bz_mesh::ElectronPhonon*     ptr_mesh_bz,
+    Single_particle_simulation(uepm::mesh_bz::ElectronPhonon*     ptr_mesh_bz,
                                const Bulk_environment&      bulk_env,
                                const Simulation_parameters& sim_params);
 
@@ -11102,7 +11102,7 @@ class Single_particle_simulation {
 
     void export_history(const std::string& filename);
 };
-}  // namespace fbmc/**
+}  // namespace uepm::fbmc/**
  * @file particle.hpp
  * @author your name (you@domain.com)
  * @brief Particle simulation class for the FBMC (Full Band Monte Carlo) method.
@@ -11128,11 +11128,11 @@ class Single_particle_simulation {
 #include "mesh_tetra.hpp"
 #include "vector.hpp"
 
-namespace fbmc {
+namespace uepm::fbmc {
 
 enum class particle_type { electron = -1, hole = 1 };
 
-using vector3 = bz_mesh::vector3;
+using vector3 = uepm::mesh_bz::vector3;
 
 struct scattering_rate {
     std::array<double, 8> m_phonon_rate;
@@ -11178,7 +11178,7 @@ class particle {
      * @brief Pointer to the Brillouin Zone Mesh.
      *
      */
-    bz_mesh::ElectronPhonon* m_mesh_bz = nullptr;
+    uepm::mesh_bz::ElectronPhonon* m_mesh_bz = nullptr;
 
     /**
      * @brief Index of the particle in the simulation.
@@ -11238,7 +11238,7 @@ class particle {
      * @brief Pointer to the tetrahedron in which the particle lies.
      *
      */
-    bz_mesh::Tetra* m_containing_bz_mesh_tetra = nullptr;
+    uepm::mesh_bz::Tetra* m_containing_bz_mesh_tetra = nullptr;
 
     /**
      * @brief Random number generator.
@@ -11260,7 +11260,7 @@ class particle {
 
  public:
     particle() = default;
-    particle(std::size_t index, particle_type type, bz_mesh::ElectronPhonon* mesh);
+    particle(std::size_t index, particle_type type, uepm::mesh_bz::ElectronPhonon* mesh);
     particle(const particle& other)            = default;
     particle& operator=(const particle& other) = default;
     ~particle()                                = default;
@@ -11280,8 +11280,8 @@ class particle {
     double          get_energy() const { return m_energy; }
     void            set_energy(double energy) { m_energy = energy; }
     double          get_current_free_flight_time() const { return m_current_free_flight_time; }
-    bz_mesh::Tetra* get_containing_bz_mesh_tetra() const { return m_containing_bz_mesh_tetra; }
-    void set_containing_bz_mesh_tetra(bz_mesh::Tetra* containing_bz_mesh_tetra) { m_containing_bz_mesh_tetra = containing_bz_mesh_tetra; }
+    uepm::mesh_bz::Tetra* get_containing_bz_mesh_tetra() const { return m_containing_bz_mesh_tetra; }
+    void set_containing_bz_mesh_tetra(uepm::mesh_bz::Tetra* containing_bz_mesh_tetra) { m_containing_bz_mesh_tetra = containing_bz_mesh_tetra; }
     void set_random_generator(std::mt19937 random_generator) { m_random_generator = random_generator; }
 
     std::array<double, 8> interpolate_phonon_scattering_rate_at_location(const vector3& location);
@@ -11301,7 +11301,7 @@ class particle {
     void                    reset_history() { m_history = particle_history(m_index); }
 };
 
-}  // namespace fbmc/**
+}  // namespace uepm::fbmc/**
  * @file particle.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -11317,9 +11317,9 @@ class particle {
 #include <random>
 
 #include "Constants.hpp"
-namespace fbmc {
+namespace uepm::fbmc {
 
-particle::particle(std::size_t index, particle_type arg_particle_type, bz_mesh::ElectronPhonon* ptr_mesh_bz)
+particle::particle(std::size_t index, particle_type arg_particle_type, uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz)
     : m_index(index),
       m_type(arg_particle_type),
       m_mesh_bz(ptr_mesh_bz) {}
@@ -11340,13 +11340,13 @@ void particle::draw_free_flight_time(double p_gamma) {
  * @param v_electric_field The electric field vector.
  */
 void particle::update_k_vector(const vector3& v_electric_field) {
-    m_k_vector += (get_charge_sign() * EmpiricalPseudopotential::Constants::q_e / EmpiricalPseudopotential::Constants::h_bar) *
+    m_k_vector += (get_charge_sign() * uepm::pseudopotential::Constants::q_e / uepm::pseudopotential::Constants::h_bar) *
                   v_electric_field * m_current_free_flight_time;
 }
 
 void particle::update_group_velocity() {
     m_velocity = m_containing_bz_mesh_tetra->get_gradient_energy_at_band(m_band_index);
-    m_velocity *= (1.0 / EmpiricalPseudopotential::Constants::h_bar_eV);
+    m_velocity *= (1.0 / uepm::pseudopotential::Constants::h_bar_eV);
 }
 
 std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(const vector3& location) {
@@ -11357,7 +11357,7 @@ void particle::update_energy() { m_energy = m_containing_bz_mesh_tetra->interpol
 
 void compute_post_phonon_scattering_state() {}
 
-}  // namespace fbmc/**
+}  // namespace uepm::fbmc/**
  * @file dielectric_mesh.hpp
  * @author your name (you@domain.com)
  * @brief
@@ -11381,7 +11381,7 @@ void compute_post_phonon_scattering_state() {}
 #include "Material.h"
 #include "bz_mesh.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 typedef std::complex<double> complex_d;
 
@@ -11403,7 +11403,7 @@ class DielectricMesh : public MeshBZ {
 
  public:
     DielectricMesh() = default;
-    DielectricMesh(const EmpiricalPseudopotential::Material& material) : MeshBZ(material) {}
+    DielectricMesh(const uepm::pseudopotential::Material& material) : MeshBZ(material) {}
 
     /**
      * @brief Read the dielectric function from a .msf file (created by epsilon.epm).
@@ -11434,7 +11434,7 @@ class DielectricMesh : public MeshBZ {
     complex_d interpolate_dielectric_function(const vector3& k, double energy) const;
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file bz_dielectric.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -11456,7 +11456,7 @@ class DielectricMesh : public MeshBZ {
 #include "bz_states.hpp"
 #include "dielectric_mesh.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 typedef std::complex<double>       complex_d;
 typedef std::unique_ptr<BZ_States> uptr_BZstates;
@@ -11486,7 +11486,7 @@ class ImpactIonization {
      * @brief Material of the system.
      *
      */
-    EmpiricalPseudopotential::Material m_material;
+    uepm::pseudopotential::Material m_material;
 
     /**
      * @brief Mesh of the dielectric function.
@@ -11501,7 +11501,7 @@ class ImpactIonization {
     std::vector<double> m_impact_ionization_results;
 
  public:
-    ImpactIonization(const EmpiricalPseudopotential::Material& material, const std::string& initial_mesh_path);
+    ImpactIonization(const uepm::pseudopotential::Material& material, const std::string& initial_mesh_path);
     void read_dielectric_file(const std::string& filename);
     void interp_test_dielectric_function(std::string filename);
 
@@ -11521,7 +11521,7 @@ class ImpactIonization {
     double compute_impact_ionization_rate(int idx_n1, std::size_t idx_k1);
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file electron_phonon.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -11543,7 +11543,7 @@ class ImpactIonization {
 
 #include "bz_states.hpp"  // for vector3, BZ_States, material
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 // ---------- Discrete axes ----------
 enum class PhononMode : uint8_t { acoustic = 0, optical = 1, none = 2 };
@@ -11733,7 +11733,7 @@ class ElectronPhonon : public BZ_States {
     std::vector<Rates_nk_npkp_ctor> m_rates_nk_npkp;
 
  public:
-    explicit ElectronPhonon(const EmpiricalPseudopotential::Material& material) : BZ_States(material) {}
+    explicit ElectronPhonon(const uepm::pseudopotential::Material& material) : BZ_States(material) {}
 
     // .cpp implements these (keep header slim—no YAML/iostream here)
     void   load_phonon_parameters(const std::string& filename);
@@ -11786,7 +11786,7 @@ class ElectronPhonon : public BZ_States {
     void compute_RTA_mobility();
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz
 /**
  * @file box_bz.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
@@ -11806,7 +11806,7 @@ class ElectronPhonon : public BZ_States {
 
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 /**
  * @brief Class representing a box in 3D space.
@@ -11933,7 +11933,7 @@ class bbox_mesh {
     }
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file Octree_mesh.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -11952,7 +11952,7 @@ class bbox_mesh {
 #include <memory>
 #include <vector>
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 Octree_mesh::Octree_mesh(const std::vector<Tetra *> &list_tetras, const bbox_mesh &bounding_box) {
     if (list_tetras.size() <= max_number_of_elements_per_node || bounding_box.get_diagonal_size() < min_size_of_a_node) {
@@ -12012,7 +12012,7 @@ Tetra *Octree_mesh::find_tetra_at_location(const vector3 &location) const {
     return it_tetra != m_list_tetras.end() ? *it_tetra : nullptr;
 }
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz
 /**
  * @file bz_mesh.cpp
  * @author Rémi Helleboid (remi.helleboid@st.com)
@@ -12037,7 +12037,7 @@ Tetra *Octree_mesh::find_tetra_at_location(const vector3 &location) const {
 
 #pragma omp declare reduction(merge : std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 void MeshBZ::shift_bz_center(const vector3& center) {
     m_center = center;
@@ -12991,7 +12991,7 @@ void MeshBZ::export_energies_and_gradients_to_vtk(const std::string& filename) c
     export_to_vtk(filename, point_scalars, point_vectors, {}, {});
 }
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file iso_triangle.hpp
  * @author Rémi Helleboid (remi.helleboid@st.com)
  * @brief
@@ -13008,7 +13008,7 @@ void MeshBZ::export_energies_and_gradients_to_vtk(const std::string& filename) c
 
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 /**
  * @brief This class represent the iso energy triangle within a Tetra.
@@ -13093,7 +13093,7 @@ class IsoTriangle {
     }
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file mesh_tetra.cpp
  * @author Rémi Helleboid (remi.helleboid@st.com)
  * @brief
@@ -13116,7 +13116,7 @@ class IsoTriangle {
 #include "bbox_mesh.hpp"
 #include "iso_triangle.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 bbox_mesh Tetra::compute_bounding_box() const {
     std::array<double, 4> coordinates_x;
@@ -13699,7 +13699,7 @@ std::array<double, 8> Tetra::get_tetra_electron_phonon_rates(int band_index) con
     return mean_rates;
 }
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file bz_mesh.hpp
  * @author Rémi Helleboid (remi.helleboid@st.com)
  * @brief
@@ -13726,7 +13726,7 @@ std::array<double, 8> Tetra::get_tetra_electron_phonon_rates(int band_index) con
 #include "octree_bz.hpp"
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 using EigenIntSparseMatrix = Eigen::SparseMatrix<int, Eigen::RowMajor>;
 using TripletInt           = Eigen::Triplet<int>;
@@ -13742,7 +13742,7 @@ class MeshBZ {
      * @brief The material of the Brillouin zone.
      *
      */
-    EmpiricalPseudopotential::Material m_material;
+    uepm::pseudopotential::Material m_material;
 
     /**
      * @brief G vector on which the BZ is centered.
@@ -13856,7 +13856,7 @@ class MeshBZ {
 
  public:
     MeshBZ() = default;
-    MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material) {};
+    MeshBZ(const uepm::pseudopotential::Material& material) : m_material(material) {};
     MeshBZ(const MeshBZ&) = default;
 
     void export_k_points_to_file(const std::string& filename) const;
@@ -13962,7 +13962,7 @@ class MeshBZ {
                                                                    bool        use_interp = false) const;
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file Octree_mesh.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -13982,7 +13982,7 @@ class MeshBZ {
 #include "vector.hpp"
 #include "bbox_mesh.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 
 
@@ -14031,7 +14031,7 @@ class Octree_mesh {
     Tetra *find_tetra_at_location(const vector3 &location) const;
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz
 /**
  * @file mesh_vertex.hpp
  * @author Rémi Helleboid (remi.helleboid@st.com)
@@ -14053,7 +14053,7 @@ class Octree_mesh {
 
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 class Vertex {
  private:
@@ -14250,7 +14250,7 @@ class Vertex {
     const std::vector<std::array<double, 8>>& get_electron_phonon_rates_all_bands() const { return m_electron_phonon_rates; }
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file vector.hpp
  * @author Rémi Helleboid (remi@helleboid.net)
  * @brief Vector class header.
@@ -14269,7 +14269,7 @@ class Vertex {
 #include <optional>
 #include <vector>
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 enum class permutaion_type { XY, XZ, YZ, XYZ, YZX, ZXY };
 
@@ -14497,7 +14497,7 @@ class alignas(32) vector3 {
 static_assert(std::is_trivially_copyable_v<vector3>, "vector3 must be trivially copyable");
 static_assert(std::is_standard_layout_v<vector3>, "vector3 must be standard-layout");
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file bz_states.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -14518,7 +14518,7 @@ static_assert(std::is_standard_layout_v<vector3>, "vector3 must be standard-layo
 #include "bz_mesh.hpp"
 #include "omp.h"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 void BZ_States::compute_eigenstates(int nb_threads) {
     double     normalization_factor = 2.0 * M_PI / m_material.get_lattice_constant_meter();
@@ -14526,9 +14526,9 @@ void BZ_States::compute_eigenstates(int nb_threads) {
     const bool keep_eigenvectors    = true;
     m_eigenvalues_k.resize(m_list_vertices.size());
     m_eigenvectors_k.resize(m_list_vertices.size());
-    std::vector<EmpiricalPseudopotential::Hamiltonian> hamiltonian_per_thread;
+    std::vector<uepm::pseudopotential::Hamiltonian> hamiltonian_per_thread;
     for (int i = 0; i < nb_threads; i++) {
-        hamiltonian_per_thread.push_back(EmpiricalPseudopotential::Hamiltonian(m_material, m_basisVectors));
+        hamiltonian_per_thread.push_back(uepm::pseudopotential::Hamiltonian(m_material, m_basisVectors));
     }
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (std::size_t idx_k = 0; idx_k < m_list_vertices.size(); ++idx_k) {
@@ -14558,9 +14558,9 @@ void BZ_States::compute_shifted_eigenstates(const Vector3D<double>& q_shift, int
     const bool keep_eigenvectors    = true;
     m_eigenvalues_k_plus_q.resize(m_list_vertices.size());
     m_eigenvectors_k_plus_q.resize(m_list_vertices.size());
-    std::vector<EmpiricalPseudopotential::Hamiltonian> hamiltonian_per_thread;
+    std::vector<uepm::pseudopotential::Hamiltonian> hamiltonian_per_thread;
     for (int i = 0; i < nb_threads; i++) {
-        hamiltonian_per_thread.push_back(EmpiricalPseudopotential::Hamiltonian(m_material, m_basisVectors));
+        hamiltonian_per_thread.push_back(uepm::pseudopotential::Hamiltonian(m_material, m_basisVectors));
     }
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (std::size_t idx_k = 0; idx_k < m_list_vertices.size(); ++idx_k) {
@@ -14654,13 +14654,13 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
     double q_squared = m_q_shift.Length() * m_q_shift.Length();
 
     // // prefactor in SI, with J→eV conversion
-    // double prefactor = (EmpiricalPseudopotential::Constants::q_e * EmpiricalPseudopotential::Constants::q_e) /
-    //                    (EmpiricalPseudopotential::Constants::eps_0 * q_squared) / EmpiricalPseudopotential::Constants::q_e *
+    // double prefactor = (uepm::pseudopotential::Constants::q_e * uepm::pseudopotential::Constants::q_e) /
+    //                    (uepm::pseudopotential::Constants::eps_0 * q_squared) / uepm::pseudopotential::Constants::q_e *
     //                    (2.0 / std::pow(2.0 * M_PI, 3));
 
-    double coulomb_prefactor_eV = (EmpiricalPseudopotential::Constants::q_e * EmpiricalPseudopotential::Constants::q_e) /
-                                   (EmpiricalPseudopotential::Constants::eps_0 * q_squared)  // J·m
-                                  / EmpiricalPseudopotential::Constants::q_e;                                                      // → eV·m
+    double coulomb_prefactor_eV = (uepm::pseudopotential::Constants::q_e * uepm::pseudopotential::Constants::q_e) /
+                                   (uepm::pseudopotential::Constants::eps_0 * q_squared)  // J·m
+                                  / uepm::pseudopotential::Constants::q_e;                                                      // → eV·m
     double prefactor = coulomb_prefactor_eV * (2.0 / std::pow(2.0 * M_PI, 3));
 
     for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
@@ -14704,7 +14704,7 @@ void BZ_States::export_full_eigenstates() const {
 
 // void BZ_States::populate_vtx_dielectric_function(const std::vector<double>& energies, double eta_smearing);
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file dielectric_mesh.cpp
  * @author your name (you@domain.com)
  * @brief
@@ -14721,7 +14721,7 @@ void BZ_States::export_full_eigenstates() const {
 
 #include "gmsh.h"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 void DielectricMesh::read_dielectric_file(const std::string& filename) {
     std::cout << "Opening file " << filename << std::endl;
@@ -14855,7 +14855,7 @@ complex_d DielectricMesh::interpolate_dielectric_function(const vector3& k, doub
     return (1 - t) * dielectric_function_interpolated_low + t * dielectric_function_interpolated_high;
 }
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file mesh_tetra.hpp
  * @author Rémi Helleboid (remi.helleboid@st.com)
  * @brief
@@ -14878,7 +14878,7 @@ complex_d DielectricMesh::interpolate_dielectric_function(const vector3& k, doub
 #include "bbox_mesh.hpp"
 #include "mesh_vertex.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 using array4d = std::array<double, 4>;
 
@@ -15076,7 +15076,7 @@ class Tetra {
     }
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file bz_states.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -15102,9 +15102,9 @@ class Tetra {
 #include "bz_states.hpp"
 #include "omp.h"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
-ImpactIonization::ImpactIonization(const EmpiricalPseudopotential::Material& material, const std::string& initial_mesh_path) {
+ImpactIonization::ImpactIonization(const uepm::pseudopotential::Material& material, const std::string& initial_mesh_path) {
     std::filesystem::path path(initial_mesh_path);
     if (!std::filesystem::exists(path)) {
         std::cerr << "Error: file " << initial_mesh_path << " does not exist." << std::endl;
@@ -15159,9 +15159,9 @@ void ImpactIonization::interp_test_dielectric_function(std::string filename) {
 
 void ImpactIonization::compute_eigenstates(int nb_threads) {
     int                nb_bands_to_use = 16;
-    bz_mesh::BZ_States my_bz_mesh(m_material);
+    uepm::mesh_bz::BZ_States my_bz_mesh(m_material);
     my_bz_mesh.set_nb_bands(nb_bands_to_use);
-    EmpiricalPseudopotential::BandStructure band_structure{};
+    uepm::pseudopotential::BandStructure band_structure{};
     int                                     nb_nearest_neighbors = 10;
     bool                                    nonlocal_epm         = false;
     bool                                    enable_soc           = false;
@@ -15262,8 +15262,8 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
                     double  energy_w = m_list_BZ_states[0]->get_energies()[idx_n1] - m_list_BZ_states[0]->get_energies()[n1_prime];
                     // complex_d epsilon    = m_dielectric_mesh.interpolate_dielectric_function(q_a, energy_w);
                     // complex_d epsilon    = 1.0;
-                    // complex_d factor_eps = EmpiricalPseudopotential::Constants::q_e * EmpiricalPseudopotential::Constants::q_e /
-                    //                        (EmpiricalPseudopotential::Constants::eps_0 * epsilon * q_a.norm() * q_a.norm());
+                    // complex_d factor_eps = uepm::pseudopotential::Constants::q_e * uepm::pseudopotential::Constants::q_e /
+                    //                        (uepm::pseudopotential::Constants::eps_0 * epsilon * q_a.norm() * q_a.norm());
                     // sum += std::conj(A_1_prime(idx_G1_prime, n1_prime)) * A_1(idx_G1, idx_n1) * factor_eps;
                 }
             }
@@ -15316,7 +15316,7 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
     return 0.0;
 }
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file bz_dielectric.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
@@ -15334,7 +15334,7 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
 #include "Material.h"
 #include "bz_mesh.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 class BZ_States : public MeshBZ {
  protected:
@@ -15383,7 +15383,7 @@ class BZ_States : public MeshBZ {
     std::size_t m_nb_kpoints = 0;
 
  public:
-    BZ_States(const EmpiricalPseudopotential::Material& material) : MeshBZ(material) {}
+    BZ_States(const uepm::pseudopotential::Material& material) : MeshBZ(material) {}
     BZ_States(const BZ_States& other) = default;
 
     void                              set_nb_bands(int nb_bands) { m_nb_bands = nb_bands; }
@@ -15410,7 +15410,7 @@ class BZ_States : public MeshBZ {
     void export_full_eigenstates() const;
 };
 
-}  // namespace bz_mesh/**
+}  // namespace uepm::mesh_bz/**
  * @file elelectron_phonon.cpp
  * @brief Electron–phonon implementation (matches refactored header: m_phonon_dispersion[4], RateValues::add)
  * @date 2024-02-09
@@ -15439,7 +15439,7 @@ class BZ_States : public MeshBZ {
 #include "omp.h"
 #include "yaml-cpp/yaml.h"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 // ----- OpenMP custom reduction for std::array<double,8> -----
 static inline void arr8_add(std::array<double, 8>& __restrict out, const std::array<double, 8>& __restrict in) noexcept {
@@ -15452,7 +15452,7 @@ static inline void arr8_add(std::array<double, 8>& __restrict out, const std::ar
 
 inline double ElectronPhonon::bose_einstein_distribution(double energy_eV, double temperature_K) const {
     // N0 = 1 / (exp(E / kT) - 1)
-    const double x = energy_eV / (EmpiricalPseudopotential::Constants::k_b_eV * temperature_K);
+    const double x = energy_eV / (uepm::pseudopotential::Constants::k_b_eV * temperature_K);
     return 1.0 / std::expm1(x);  // stable for small x
 }
 
@@ -15482,7 +15482,7 @@ inline double ElectronPhonon::get_max_phonon_energy() const {
         double max_w = disp.max_omega();  // ω_max [1/s]
         if (max_w > max_energy) max_energy = max_w;
     }
-    return max_energy * EmpiricalPseudopotential::Constants::h_bar_eV;  // ħω → eV
+    return max_energy * uepm::pseudopotential::Constants::h_bar_eV;  // ħω → eV
 }
 
 /**
@@ -15544,9 +15544,9 @@ Rate8 ElectronPhonon::compute_transition_rates_pair(int         idx_n1,
     const Eigen::Index col = (n2c >= 0) ? (Eigen::Index)n2c * Nt + (Eigen::Index)idx_t : -1;
 
     constexpr double SMALL_OMEGA_CUTOFF = 1.0;  // [1/s]
-    const double     pi                 = EmpiricalPseudopotential::Constants::pi;
-    const double     qe                 = EmpiricalPseudopotential::Constants::q_e;       // J/eV
-    const double     hbar_eV            = EmpiricalPseudopotential::Constants::h_bar_eV;  // eV·s
+    const double     pi                 = uepm::pseudopotential::Constants::pi;
+    const double     qe                 = uepm::pseudopotential::Constants::q_e;       // J/eV
+    const double     hbar_eV            = uepm::pseudopotential::Constants::h_bar_eV;  // eV·s
 
     double       inv_mrta_rate          = 0.0;
     vector3      vnk                    = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);   // m/s
@@ -15667,19 +15667,19 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
                 const double omega = disp.omega_lookup(q_norm);
                 if (omega <= SMALL_OMEGA_CUTOFF) continue;
 
-                const double Eph_eV = EmpiricalPseudopotential::Constants::h_bar_eV * omega;
+                const double Eph_eV = uepm::pseudopotential::Constants::h_bar_eV * omega;
                 const double N0     = bose_einstein_distribution(Eph_eV, m_temperature);
 
                 const DeformationPotential& defpot = (mode == PhononMode::acoustic) ? m_ac_defpot_h : m_op_defpot_h;
-                const double Delta_J = defpot.get_fischetti_deformation_potential(q, idx_n1) * EmpiricalPseudopotential::Constants::q_e;
+                const double Delta_J = defpot.get_fischetti_deformation_potential(q, idx_n1) * uepm::pseudopotential::Constants::q_e;
 
                 // Emission
                 {
                     const double Ef_eV  = Ei_eV - Eph_eV;
                     const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
                     if (dos_eV > 0.0) {
-                        const double dos_per_J = dos_eV / EmpiricalPseudopotential::Constants::q_e;
-                        double rate_value = (EmpiricalPseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
+                        const double dos_per_J = dos_eV / uepm::pseudopotential::Constants::q_e;
+                        double rate_value = (uepm::pseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
                                             (N0 + 1.0) * dos_per_J;
                         rate_value /= m_reduce_bz_factor;
                         rate_value *= m_spin_degeneracy;
@@ -15692,9 +15692,9 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
                     const double Ef_eV  = Ei_eV + Eph_eV;
                     const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
                     if (dos_eV > 0.0) {
-                        const double dos_per_J = dos_eV / EmpiricalPseudopotential::Constants::q_e;
+                        const double dos_per_J = dos_eV / uepm::pseudopotential::Constants::q_e;
                         double       rate_value =
-                            (EmpiricalPseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 * (N0)*dos_per_J;
+                            (uepm::pseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 * (N0)*dos_per_J;
                         rate_value /= m_reduce_bz_factor;
                         rate_value *= m_spin_degeneracy;
 
@@ -15894,9 +15894,9 @@ std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     i
     std::vector<double> probs_flat(nb_bands * nb_tetra, 0.0);
     auto                P_ref = [&](int n2, size_t t) -> double& { return probs_flat[static_cast<size_t>(n2) * nb_tetra + t]; };
 
-    const double pi      = EmpiricalPseudopotential::Constants::pi;
-    const double qe      = EmpiricalPseudopotential::Constants::q_e;
-    const double hbar_eV = EmpiricalPseudopotential::Constants::h_bar_eV;
+    const double pi      = uepm::pseudopotential::Constants::pi;
+    const double qe      = uepm::pseudopotential::Constants::q_e;
+    const double hbar_eV = uepm::pseudopotential::Constants::h_bar_eV;
 
     const double Eph_max_eV = get_max_phonon_energy();
 
@@ -16096,7 +16096,7 @@ void ElectronPhonon::plot_phonon_dispersion(const std::string& filename) const {
             auto q = k;
             q /= m_material.get_fourier_factor();
             const auto&  disp = m_phonon_dispersion[md];
-            const double e_ph = disp.omega_lookup(q.norm()) * EmpiricalPseudopotential::Constants::h_bar_eV;
+            const double e_ph = disp.omega_lookup(q.norm()) * uepm::pseudopotential::Constants::h_bar_eV;
             file << e_ph << " ";
         }
         file << '\n';
@@ -16359,4 +16359,4 @@ double ElectronPhonon::compute_P_Gamma() const {
     return pgamma_max;
 }
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

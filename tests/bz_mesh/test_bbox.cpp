@@ -8,8 +8,8 @@
 #include "bbox_mesh.hpp"
 #include "doctest/doctest.h"
 
-using bz_mesh::bbox_mesh;
-using bz_mesh::vector3;
+using uepm::mesh_bz::bbox_mesh;
+using uepm::mesh_bz::vector3;
 
 TEST_SUITE("[bbox_mesh] construction & invariants") {
     TEST_CASE("default ctor yields zero-sized box at origin") {

@@ -40,18 +40,18 @@ TEST_CASE("Epsilon_Si") {
     // }
     // exit(0);
 
-    // EmpiricalPseudopotential::Materials materials;
+    // uepm::pseudopotential::Materials materials;
     // const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     // materials.load_material_parameters(file_material_parameters);
-    // EmpiricalPseudopotential::Material current_material = materials.materials.at("Si");
+    // uepm::pseudopotential::Material current_material = materials.materials.at("Si");
 
-    // EmpiricalPseudopotential::BandStructure band_structure{};
+    // uepm::pseudopotential::BandStructure band_structure{};
     // const std::size_t                       nb_bands           = 18;
     // const std::size_t                       nearest_neightbors = 10;
     // const bool                              non_local_corr     = false;
     // band_structure.Initialize(current_material, nb_bands, {}, nearest_neightbors, non_local_corr);
 
-    // EmpiricalPseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
+    // uepm::pseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
     // // const std::size_t                            nb_kpoints = 2000;
     // // MyDielectricFunc.generate_k_points_random(nb_kpoints);
 

@@ -20,7 +20,7 @@
 #include "bz_states.hpp"
 #include "dielectric_mesh.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 typedef std::complex<double>       complex_d;
 typedef std::unique_ptr<BZ_States> uptr_BZstates;
@@ -50,7 +50,7 @@ class ImpactIonization {
      * @brief Material of the system.
      *
      */
-    EmpiricalPseudopotential::Material m_material;
+    uepm::pseudopotential::Material m_material;
 
     /**
      * @brief Mesh of the dielectric function.
@@ -65,7 +65,7 @@ class ImpactIonization {
     std::vector<double> m_impact_ionization_results;
 
  public:
-    ImpactIonization(const EmpiricalPseudopotential::Material& material, const std::string& initial_mesh_path);
+    ImpactIonization(const uepm::pseudopotential::Material& material, const std::string& initial_mesh_path);
     void read_dielectric_file(const std::string& filename);
     void interp_test_dielectric_function(std::string filename);
 
@@ -85,4 +85,4 @@ class ImpactIonization {
     double compute_impact_ionization_rate(int idx_n1, std::size_t idx_k1);
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

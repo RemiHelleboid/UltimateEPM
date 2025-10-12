@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
 
     cmd.parse(argc, argv);
 
-    EmpiricalPseudopotential::Materials materials;
+    uepm::pseudopotential::Materials materials;
     const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     materials.load_material_parameters(file_material_parameters);
     bool enable_nonlocal_correction = arg_enable_nonlocal_correction.isSet();
@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
     my_options.nrThreads        = arg_nb_threads.getValue();
     my_options.print_options();
 
-    EmpiricalPseudopotential::Material mat = materials.materials.at(my_options.materialName);
+    uepm::pseudopotential::Material mat = materials.materials.at(my_options.materialName);
 
     // bz_mesh my_mesh("mesh.msh");
     const std::string mesh_filename = arg_mesh_file.getValue();
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    EmpiricalPseudopotential::BandStructure my_bandstructure;
+    uepm::pseudopotential::BandStructure my_bandstructure;
     my_bandstructure
         .Initialize(mat, my_options.nrLevels, mesh_kpoints, my_options.nearestNeighbors, enable_nonlocal_correction, arg_enable_soc);
 

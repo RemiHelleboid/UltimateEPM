@@ -12,7 +12,7 @@
 
 #include "Hamiltonian.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 std::string BandStructure::get_path_as_string() const {
     std::string path = "";
@@ -313,4 +313,4 @@ void export_vector_bands_result_in_file(const std::string& filename, std::vector
     }
 }
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

@@ -1,6 +1,6 @@
 /**
  * @file test_tetra_gradient.cpp
- * @brief Doctest for bz_mesh::Tetra::compute_gradient_scalar_field
+ * @brief Doctest for uepm::mesh_bz::Tetra::compute_gradient_scalar_field
  *
  * Assumptions:
  *  - Tetra constructor computes/stores m_signed_volume (or otherwise makes it available
@@ -22,9 +22,9 @@
 #include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
 
-using bz_mesh::Tetra;
-using bz_mesh::Vertex;
-using bz_mesh::vector3;
+using uepm::mesh_bz::Tetra;
+using uepm::mesh_bz::Vertex;
+using uepm::mesh_bz::vector3;
 
 // ---- Small helpers ----------------------------------------------------------
 

@@ -26,7 +26,7 @@
 #include "Hamiltonian.h"
 #include "Material.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 bool is_in_irreducible_wedge(const Vector3D<double>& k) {
     return (k.Z >= 0.0) && (k.Y >= k.Z) && (k.X >= k.Y) && (k.X <= 1.0) && (k.X + k.Y + k.Z <= 3.0 / 2.0);
@@ -290,4 +290,4 @@ void DielectricFunction::export_kpoints(const std::string& filename) const {
     }
 }
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

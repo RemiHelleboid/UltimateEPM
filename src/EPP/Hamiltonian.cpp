@@ -12,7 +12,7 @@
 #include "SpinOrbitFunctional.hpp"
 #include "Vector3D.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 Hamiltonian::Hamiltonian(const Material& material, const std::vector<Vector3D<int>>& basisVectors)
     : m_material(material),
@@ -113,4 +113,4 @@ void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
     }
 }
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

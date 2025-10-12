@@ -16,7 +16,7 @@
 #include "Material.h"
 #include "bz_mesh.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 class BZ_States : public MeshBZ {
  protected:
@@ -64,7 +64,7 @@ class BZ_States : public MeshBZ {
     std::size_t m_nb_kpoints = 0;
 
  public:
-    BZ_States(const EmpiricalPseudopotential::Material& material) : MeshBZ(material) {}
+    BZ_States(const uepm::pseudopotential::Material& material) : MeshBZ(material) {}
     BZ_States(const BZ_States& other) = default;
 
     void                              set_nb_bands(int nb_bands) { m_nb_bands = nb_bands; }
@@ -77,6 +77,8 @@ class BZ_States : public MeshBZ {
     void                       set_energies(const std::vector<double>& energies) { m_list_energies = energies; }
 
     const std::vector<Eigen::MatrixXcd>& get_eigen_states() const { return m_eigenvectors_k; }
+
+    const double compute_fermi_level(double doping_concentration, double temperature) const;
 
     void compute_dielectric_function(const std::vector<double>& energies, double eta_smearing, int nb_threads = 1);
     void export_dielectric_function(const std::string& prefix) const;
@@ -91,4 +93,4 @@ class BZ_States : public MeshBZ {
     void export_full_eigenstates() const;
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

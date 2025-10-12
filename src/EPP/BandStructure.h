@@ -7,7 +7,7 @@
 #include "SymmetryPoints.h"
 #include "Vector3D.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 class BandStructure {
  public:
@@ -103,4 +103,4 @@ class BandStructure {
 
 void export_vector_bands_result_in_file(const std::string& filename, std::vector<std::vector<double>>);
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

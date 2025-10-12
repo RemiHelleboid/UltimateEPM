@@ -25,7 +25,7 @@
 #include "octree_bz.hpp"
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 using EigenIntSparseMatrix = Eigen::SparseMatrix<int, Eigen::RowMajor>;
 using TripletInt           = Eigen::Triplet<int>;
@@ -44,7 +44,7 @@ class MeshBZ {
      * @brief The material of the Brillouin zone.
      *
      */
-    EmpiricalPseudopotential::Material m_material;
+    uepm::pseudopotential::Material m_material;
 
     /**
      * @brief G vector on which the BZ is centered.
@@ -168,7 +168,7 @@ class MeshBZ {
 
  public:
     MeshBZ() = default;
-    MeshBZ(const EmpiricalPseudopotential::Material& material) : m_material(material) {};
+    MeshBZ(const uepm::pseudopotential::Material& material) : m_material(material) {};
     MeshBZ(const MeshBZ&) = default;
 
     void export_k_points_to_file(const std::string& filename) const;
@@ -278,4 +278,4 @@ class MeshBZ {
                                                                    bool        use_interp = false) const;
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

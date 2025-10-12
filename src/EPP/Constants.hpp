@@ -14,7 +14,7 @@
 #include <cmath>
 #include <numbers>
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 namespace Constants {
 
@@ -51,4 +51,4 @@ constexpr double eV_to_Hartree = 1.0 / Hartree_to_eV;
 constexpr double eV_to_Ryd     = 1.0 / Ryd_to_eV;
 
 }  // namespace Constants
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

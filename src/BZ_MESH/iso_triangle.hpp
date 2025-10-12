@@ -15,7 +15,7 @@
 
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 /**
  * @brief This class represent the iso energy triangle within a Tetra.
@@ -100,4 +100,4 @@ class IsoTriangle {
     }
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

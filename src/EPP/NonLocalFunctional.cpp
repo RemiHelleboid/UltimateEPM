@@ -14,7 +14,7 @@
 // #include "Vector3D.h"
 // #include "bessel_func.hpp"
 
-// namespace EmpiricalPseudopotential {
+// namespace uepm::pseudopotential {
 
 // /**
 //  * @brief Constructor of the NonLocalFunctional functor.
@@ -336,4 +336,4 @@
 // //     return std::complex<double>(cos(const_two * M_PI * Gtau) * V_symmetric, sin(const_two * M_PI * Gtau) * V_antisymmetric);
 // // }
 
-// }  // namespace EmpiricalPseudopotential
+// }  // namespace uepm::pseudopotential

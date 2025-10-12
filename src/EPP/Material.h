@@ -9,7 +9,7 @@
 #include "Pseudopotential.h"
 #include "yaml-cpp/yaml.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 class Material {
  protected:
@@ -186,4 +186,4 @@ class Materials {
     void print_material_parameters() const;
 };
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

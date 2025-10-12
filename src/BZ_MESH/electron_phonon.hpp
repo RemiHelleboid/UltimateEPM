@@ -26,7 +26,7 @@
 #include "elph_dispersion.hpp"
 #include "elph_overlap_integral.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 // ---------- Eigen aliases ----------
 using EigenSparseMatrix = Eigen::SparseMatrix<double>;
@@ -88,7 +88,7 @@ class ElectronPhonon : public BZ_States {
     std::vector<Rates_nk_npkp_ctor> m_rates_nk_npkp;
 
  public:
-    explicit ElectronPhonon(const EmpiricalPseudopotential::Material& material) : BZ_States(material) {}
+    explicit ElectronPhonon(const uepm::pseudopotential::Material& material) : BZ_States(material) {}
 
     void   load_phonon_parameters(const std::string& filename);
     void   plot_phonon_dispersion(const std::string& filename) const;
@@ -136,4 +136,4 @@ class ElectronPhonon : public BZ_States {
     void compute_RTA_mobility();
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

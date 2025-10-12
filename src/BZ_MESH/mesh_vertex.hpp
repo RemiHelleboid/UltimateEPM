@@ -19,7 +19,7 @@
 
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 class Vertex {
  private:
@@ -219,4 +219,4 @@ class Vertex {
     const std::vector<std::array<double, 8>>& get_electron_phonon_rates_all_bands() const { return m_electron_phonon_rates; }
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

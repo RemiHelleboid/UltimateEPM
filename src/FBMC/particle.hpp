@@ -24,11 +24,11 @@
 #include "mesh_tetra.hpp"
 #include "vector.hpp"
 
-namespace fbmc {
+namespace uepm::fbmc {
 
 enum class particle_type { electron = -1, hole = 1 };
 
-using vector3 = bz_mesh::vector3;
+using vector3 = uepm::mesh_bz::vector3;
 
 struct scattering_rate {
     std::array<double, 8> m_phonon_rate;
@@ -74,7 +74,7 @@ class particle {
      * @brief Pointer to the Brillouin Zone Mesh.
      *
      */
-    bz_mesh::ElectronPhonon* m_mesh_bz = nullptr;
+    uepm::mesh_bz::ElectronPhonon* m_mesh_bz = nullptr;
 
     /**
      * @brief Index of the particle in the simulation.
@@ -134,7 +134,7 @@ class particle {
      * @brief Pointer to the tetrahedron in which the particle lies.
      *
      */
-    bz_mesh::Tetra* m_containing_bz_mesh_tetra = nullptr;
+    uepm::mesh_bz::Tetra* m_containing_bz_mesh_tetra = nullptr;
 
     /**
      * @brief Random number generator.
@@ -156,7 +156,7 @@ class particle {
 
  public:
     particle() = default;
-    particle(std::size_t index, particle_type type, bz_mesh::ElectronPhonon* mesh);
+    particle(std::size_t index, particle_type type, uepm::mesh_bz::ElectronPhonon* mesh);
     particle(const particle& other)            = default;
     particle& operator=(const particle& other) = default;
     ~particle()                                = default;
@@ -176,8 +176,8 @@ class particle {
     double          get_energy() const { return m_energy; }
     void            set_energy(double energy) { m_energy = energy; }
     double          get_current_free_flight_time() const { return m_current_free_flight_time; }
-    bz_mesh::Tetra* get_containing_bz_mesh_tetra() const { return m_containing_bz_mesh_tetra; }
-    void set_containing_bz_mesh_tetra(bz_mesh::Tetra* containing_bz_mesh_tetra) { m_containing_bz_mesh_tetra = containing_bz_mesh_tetra; }
+    uepm::mesh_bz::Tetra* get_containing_bz_mesh_tetra() const { return m_containing_bz_mesh_tetra; }
+    void set_containing_bz_mesh_tetra(uepm::mesh_bz::Tetra* containing_bz_mesh_tetra) { m_containing_bz_mesh_tetra = containing_bz_mesh_tetra; }
     void set_random_generator(std::mt19937 random_generator) { m_random_generator = random_generator; }
 
     std::array<double, 8> interpolate_phonon_scattering_rate_at_location(const vector3& location);
@@ -188,9 +188,9 @@ class particle {
     void update_energy();
     void update_group_velocity();
 
-    std::pair<int, std::size_t> select_final_state_after_phonon_scattering(bz_mesh::PhononMode      mode,
-                                                                           bz_mesh::PhononDirection direction,
-                                                                           bz_mesh::PhononEvent     event);
+    std::pair<int, std::size_t> select_final_state_after_phonon_scattering(uepm::mesh_bz::PhononMode      mode,
+                                                                           uepm::mesh_bz::PhononDirection direction,
+                                                                           uepm::mesh_bz::PhononEvent     event);
 
     std::mt19937& get_random_generator() { return m_random_generator; }
     void          draw_random_k_point_at_energy(double energy, std::size_t idx_band) {
@@ -201,4 +201,4 @@ class particle {
     void                    reset_history() { m_history = particle_history(m_index); }
 };
 
-}  // namespace fbmc
+}  // namespace uepm::fbmc

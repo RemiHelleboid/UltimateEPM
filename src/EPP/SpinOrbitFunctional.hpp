@@ -23,7 +23,7 @@
 #include "SpinOrbitParameters.hpp"
 #include "Vector3D.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 /**
  * @brief Functor class to compute the spin-orbit Hamiltonian.
@@ -64,4 +64,4 @@ class SpinOrbitCorrection {
     static Eigen::Matrix<std::complex<double>, 2, 2> compute_pauli_state_dot_product(const Vector3D<double>& a);
 };
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

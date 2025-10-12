@@ -12,7 +12,7 @@
 
 #include "elph_common.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 struct DeformationPotential {
     PhononMode mode             = PhononMode::none;
@@ -39,4 +39,4 @@ struct DeformationPotential {
     }
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

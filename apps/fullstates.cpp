@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
 
     bool                                nonlocal_epm = false;
     bool                                enable_soc   = false;
-    EmpiricalPseudopotential::Materials materials;
+    uepm::pseudopotential::Materials materials;
     std::string                         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-cohen.yaml";
     if (nonlocal_epm) {
         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
@@ -58,11 +58,11 @@ int main(int argc, char *argv[]) {
     int  nb_bands_to_use = arg_nb_bands.getValue();
     auto start           = std::chrono::high_resolution_clock::now();
 
-    EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
+    uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
-    bz_mesh::BZ_States my_bz_mesh(current_material);
+    uepm::mesh_bz::BZ_States my_bz_mesh(current_material);
     my_bz_mesh.set_nb_bands(nb_bands_to_use);
-    EmpiricalPseudopotential::BandStructure band_structure{};
+    uepm::pseudopotential::BandStructure band_structure{};
 
     int nb_nearest_neighbors = 10;
     band_structure.Initialize(current_material, nb_bands_to_use, {}, nb_nearest_neighbors, nonlocal_epm, enable_soc);

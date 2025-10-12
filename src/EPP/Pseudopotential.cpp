@@ -8,7 +8,7 @@
 
 #include "Constants.hpp"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 Pseudopotential::Pseudopotential(double V3S, double V4S, double V8S, double V11S, double V3A, double V4A, double V8A, double V11A)
     : m_V3S(V3S),
@@ -73,4 +73,4 @@ void Pseudopotential::print_parameters() const {
     std::cout << "V11A = " << m_V11A << std::endl;
 }
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

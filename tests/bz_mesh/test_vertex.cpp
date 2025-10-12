@@ -5,8 +5,8 @@
 
 #include "mesh_vertex.hpp"
 
-using bz_mesh::vector3;
-using bz_mesh::Vertex;
+using uepm::mesh_bz::vector3;
+using uepm::mesh_bz::Vertex;
 
 TEST_SUITE("[Vertex] construction & position") {
     TEST_CASE("default ctor and getters") {

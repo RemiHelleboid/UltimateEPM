@@ -19,7 +19,7 @@
 #include "bz_mesh.hpp"
 #include "omp.h"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 void BZ_States::compute_eigenstates(int nb_threads) {
     double     normalization_factor = 2.0 * M_PI / m_material.get_lattice_constant_meter();
@@ -27,9 +27,9 @@ void BZ_States::compute_eigenstates(int nb_threads) {
     const bool keep_eigenvectors    = true;
     m_eigenvalues_k.resize(m_list_vertices.size());
     m_eigenvectors_k.resize(m_list_vertices.size());
-    std::vector<EmpiricalPseudopotential::Hamiltonian> hamiltonian_per_thread;
+    std::vector<uepm::pseudopotential::Hamiltonian> hamiltonian_per_thread;
     for (int i = 0; i < nb_threads; i++) {
-        hamiltonian_per_thread.push_back(EmpiricalPseudopotential::Hamiltonian(m_material, m_basisVectors));
+        hamiltonian_per_thread.push_back(uepm::pseudopotential::Hamiltonian(m_material, m_basisVectors));
     }
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (std::size_t idx_k = 0; idx_k < m_list_vertices.size(); ++idx_k) {
@@ -59,9 +59,9 @@ void BZ_States::compute_shifted_eigenstates(const Vector3D<double>& q_shift, int
     const bool keep_eigenvectors    = true;
     m_eigenvalues_k_plus_q.resize(m_list_vertices.size());
     m_eigenvectors_k_plus_q.resize(m_list_vertices.size());
-    std::vector<EmpiricalPseudopotential::Hamiltonian> hamiltonian_per_thread;
+    std::vector<uepm::pseudopotential::Hamiltonian> hamiltonian_per_thread;
     for (int i = 0; i < nb_threads; i++) {
-        hamiltonian_per_thread.push_back(EmpiricalPseudopotential::Hamiltonian(m_material, m_basisVectors));
+        hamiltonian_per_thread.push_back(uepm::pseudopotential::Hamiltonian(m_material, m_basisVectors));
     }
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (std::size_t idx_k = 0; idx_k < m_list_vertices.size(); ++idx_k) {
@@ -155,13 +155,13 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
     double q_squared = m_q_shift.Length() * m_q_shift.Length();
 
     // // prefactor in SI, with J→eV conversion
-    // double prefactor = (EmpiricalPseudopotential::Constants::q_e * EmpiricalPseudopotential::Constants::q_e) /
-    //                    (EmpiricalPseudopotential::Constants::eps_0 * q_squared) / EmpiricalPseudopotential::Constants::q_e *
+    // double prefactor = (uepm::pseudopotential::Constants::q_e * uepm::pseudopotential::Constants::q_e) /
+    //                    (uepm::pseudopotential::Constants::eps_0 * q_squared) / uepm::pseudopotential::Constants::q_e *
     //                    (2.0 / std::pow(2.0 * M_PI, 3));
 
-    double coulomb_prefactor_eV = (EmpiricalPseudopotential::Constants::q_e * EmpiricalPseudopotential::Constants::q_e) /
-                                   (EmpiricalPseudopotential::Constants::eps_0 * q_squared)  // J·m
-                                  / EmpiricalPseudopotential::Constants::q_e;                                                      // → eV·m
+    double coulomb_prefactor_eV = (uepm::pseudopotential::Constants::q_e * uepm::pseudopotential::Constants::q_e) /
+                                   (uepm::pseudopotential::Constants::eps_0 * q_squared)  // J·m
+                                  / uepm::pseudopotential::Constants::q_e;                                                      // → eV·m
     double prefactor = coulomb_prefactor_eV * (2.0 / std::pow(2.0 * M_PI, 3));
 
     for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
@@ -169,6 +169,11 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
     }
 
     std::cout << "EPS[0] = " << m_dielectric_function_real[0] << std::endl;
+}
+
+const double BZ_States::compute_fermi_level(double doping_concentration, double temperature) const {
+    // TODO: implement this function
+    return 0.0;
 }
 
 // Export the dielectric function to a file in the format (energy, dielectric function) (csv format).
@@ -205,4 +210,4 @@ void BZ_States::export_full_eigenstates() const {
 
 // void BZ_States::populate_vtx_dielectric_function(const std::vector<double>& energies, double eta_smearing);
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

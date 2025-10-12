@@ -18,7 +18,7 @@
 #include "vector.hpp"
 #include "bbox_mesh.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 
 
@@ -67,4 +67,4 @@ class Octree_mesh {
     Tetra *find_tetra_at_location(const vector3 &location) const;
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

@@ -22,7 +22,7 @@
 
 #pragma omp declare reduction(merge : std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 void MeshBZ::shift_bz_center(const vector3& center) {
     m_center = center;
@@ -1019,4 +1019,4 @@ void MeshBZ::export_energies_and_gradients_to_vtk(const std::string& filename) c
     export_to_vtk(filename, point_scalars, point_vectors, {}, {});
 }
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

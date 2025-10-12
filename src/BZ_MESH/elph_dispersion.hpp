@@ -18,7 +18,7 @@
 
 #include "elph_common.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 
 struct PhononDispersion {
@@ -72,4 +72,4 @@ struct PhononDispersion {
     }
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

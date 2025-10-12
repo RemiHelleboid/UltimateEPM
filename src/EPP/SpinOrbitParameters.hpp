@@ -18,7 +18,7 @@
 #include "Constants.hpp"
 #include "yaml-cpp/yaml.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 /**
  * @brief Struct to store the Spin-Orbit Coupling (SOC) parameters.
@@ -102,4 +102,4 @@ struct SpinOrbitParameters {
     }
 };
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

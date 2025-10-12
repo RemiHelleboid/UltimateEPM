@@ -6,7 +6,7 @@
 
 #include "Vector3D.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 class SymmetryPoint {
  public:
@@ -41,4 +41,4 @@ class SymmetryPoints {
     
 };
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

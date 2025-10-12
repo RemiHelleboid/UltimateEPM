@@ -21,7 +21,7 @@
 #include "bbox_mesh.hpp"
 #include "iso_triangle.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 bbox_mesh Tetra::compute_bounding_box() const {
     std::array<double, 4> coordinates_x;
@@ -607,4 +607,4 @@ std::array<double, 8> Tetra::get_tetra_electron_phonon_rates(int band_index) con
     return mean_rates;
 }
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

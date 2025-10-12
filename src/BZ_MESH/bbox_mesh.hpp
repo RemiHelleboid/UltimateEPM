@@ -17,7 +17,7 @@
 
 #include "vector.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 /**
  * @brief Class representing a box in 3D space.
@@ -144,4 +144,4 @@ class bbox_mesh {
     }
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

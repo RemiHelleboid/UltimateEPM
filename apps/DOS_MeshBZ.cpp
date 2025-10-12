@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 
     cmd.parse(argc, argv);
 
-    EmpiricalPseudopotential::Materials materials;
+    uepm::pseudopotential::Materials materials;
     const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     materials.load_material_parameters(file_material_parameters);
 
@@ -83,11 +83,11 @@ int main(int argc, char *argv[]) {
     bool use_interp      = arg_test_interp.getValue();
     auto start           = std::chrono::high_resolution_clock::now();
 
-    EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
+    uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
     const std::string mesh_band_input_file = arg_mesh_file.getValue();
 
-    bz_mesh::MeshBZ my_bz_mesh{current_material};
+    uepm::mesh_bz::MeshBZ my_bz_mesh{current_material};
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file);
     my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file, nb_bands_to_use);
     int nb_bands = my_bz_mesh.get_nb_bands();

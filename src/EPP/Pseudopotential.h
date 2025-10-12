@@ -4,7 +4,7 @@
 
 #include "Vector3D.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 class Pseudopotential {
  public:
@@ -33,4 +33,4 @@ class Pseudopotential {
     void                 print_parameters() const;
 };
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

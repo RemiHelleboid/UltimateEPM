@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
 
     bool                                nonlocal_epm = false;
     bool                                enable_soc   = false;
-    EmpiricalPseudopotential::Materials materials;
+    uepm::pseudopotential::Materials materials;
     std::string                         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-cohen.yaml";
     if (nonlocal_epm) {
         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
@@ -70,9 +70,9 @@ int main(int argc, char *argv[]) {
     int  nb_threads      = arg_nb_threads.getValue();
     auto start           = std::chrono::high_resolution_clock::now();
 
-    EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
+    uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
-    bz_mesh::ImpactIonization my_impact_ionization(current_material, arg_mesh_file.getValue());
+    uepm::mesh_bz::ImpactIonization my_impact_ionization(current_material, arg_mesh_file.getValue());
     my_impact_ionization.read_dielectric_file(arg_dielectric_file.getValue());
     my_impact_ionization.interp_test_dielectric_function("test_dielectric_function.csv");
 

@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
 
     cmd.parse(argc, argv);
 
-    EmpiricalPseudopotential::Materials materials;
+    uepm::pseudopotential::Materials materials;
     const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
     materials.load_material_parameters(file_material_parameters);
 
@@ -133,10 +133,10 @@ int main(int argc, char *argv[]) {
     my_options.nrThreads    = arg_nb_threads.getValue();
     int number_energies     = arg_nb_energies.getValue();
 
-    EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
+    uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
     const std::string mesh_band_input_file = arg_mesh_file.getValue();
-    bz_mesh::MeshBZ   my_bz_mesh{current_material};
+    uepm::mesh_bz::MeshBZ   my_bz_mesh{current_material};
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file);
     my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file);
 

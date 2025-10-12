@@ -20,7 +20,7 @@
 #include "SymmetryPoints.h"
 #include "Vector3D.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 class DielectricFunction {
  protected:
@@ -209,4 +209,4 @@ class DielectricFunction {
     void export_dielectric_function(const std::string& filename, bool name_auto) const;
 };
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

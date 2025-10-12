@@ -21,7 +21,7 @@
 #include "bbox_mesh.hpp"
 #include "mesh_vertex.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 using array4d = std::array<double, 4>;
 
@@ -226,4 +226,4 @@ class Tetra {
     }
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

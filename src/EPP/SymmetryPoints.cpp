@@ -1,6 +1,6 @@
 #include "SymmetryPoints.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 SymmetryPoints::SymmetryPoints() {
     symmetryPoints["L"] = SymmetryPoint("L", Vector3D<double>(0.5, 0.5, 0.5));
@@ -69,4 +69,4 @@ std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<s
     return result;
 }
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

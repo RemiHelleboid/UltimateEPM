@@ -5,7 +5,7 @@
 
 #include "Material.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 class Hamiltonian {
  public:
@@ -30,4 +30,4 @@ class Hamiltonian {
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXcd> solver;
 };
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

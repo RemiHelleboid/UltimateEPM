@@ -22,7 +22,7 @@
 #include "Material.h"
 #include "bz_mesh.hpp"
 
-namespace bz_mesh {
+namespace uepm::mesh_bz {
 
 typedef std::complex<double> complex_d;
 
@@ -44,7 +44,7 @@ class DielectricMesh : public MeshBZ {
 
  public:
     DielectricMesh() = default;
-    DielectricMesh(const EmpiricalPseudopotential::Material& material) : MeshBZ(material) {}
+    DielectricMesh(const uepm::pseudopotential::Material& material) : MeshBZ(material) {}
 
     /**
      * @brief Read the dielectric function from a .msf file (created by epsilon.epm).
@@ -75,4 +75,4 @@ class DielectricMesh : public MeshBZ {
     complex_d interpolate_dielectric_function(const vector3& k, double energy) const;
 };
 
-}  // namespace bz_mesh
+}  // namespace uepm::mesh_bz

@@ -18,7 +18,7 @@
 #include "Constants.hpp"
 #include "yaml-cpp/yaml.h"
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 enum class non_local_well_type { square, gaussian, unknown };
 
@@ -129,4 +129,4 @@ struct NonLocalParameters {
         std::cout << "well_type: " << static_cast<int>(m_well_type) << std::endl;
     }
 };
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

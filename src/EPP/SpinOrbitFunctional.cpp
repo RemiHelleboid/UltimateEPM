@@ -15,7 +15,7 @@
 #include <iostream>
 #include <vector>
 
-namespace EmpiricalPseudopotential {
+namespace uepm::pseudopotential {
 
 double SpinOrbitCorrection::compute_B2_cation(const Vector3D<double>& K) const {
     double kappa = K.Length() * (Constants::bohr_radius / m_soc_parameters.m_radial_extent_cation);
@@ -109,4 +109,4 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
     return res_matrix;
 }
 
-}  // namespace EmpiricalPseudopotential
+}  // namespace uepm::pseudopotential

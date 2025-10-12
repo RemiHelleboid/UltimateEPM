@@ -56,7 +56,7 @@ int main(int argc, char const *argv[])
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    EmpiricalPseudopotential::Materials materials;
+    uepm::pseudopotential::Materials materials;
     const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     materials.load_material_parameters(file_material_parameters);
 
@@ -66,10 +66,10 @@ int main(int argc, char const *argv[])
     my_options.nrThreads    = arg_nb_threads.getValue();
     int number_energies     = arg_nb_energies.getValue();
 
-    EmpiricalPseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
+    uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
     const std::string mesh_band_input_file = arg_mesh_file.getValue();
-    bz_mesh::ElectronPhonon   ElectronPhonon{current_material};
+    uepm::mesh_bz::ElectronPhonon   ElectronPhonon{current_material};
     ElectronPhonon.set_nb_threads(my_options.nrThreads);
 
     // const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_michaillat.yaml";
