@@ -1,9 +1,9 @@
 // -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
+#include <tclap/CmdLine.h>
+
 #include <iostream>
 #include <string>
-
-#include <tclap/CmdLine.h>
 
 using namespace TCLAP;
 
@@ -38,13 +38,11 @@ int main() {
         for (unsigned int i = 0; i < s.size(); i++) {
             std::cout << s[i] << "\n";
         }
-        std::cout << "MultiSwtichArg was found " << ArgMultiSwitch.getValue()
-                  << " times.\n";
+        std::cout << "MultiSwtichArg was found " << ArgMultiSwitch.getValue() << " times.\n";
 
     } catch (ArgException &e)  // catch any exceptions
     {
-        std::cerr << "error: " << e.error() << " for arg " << e.argId()
-                  << std::endl;
+        std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl;
     }
 
     std::cout << "done...\n";

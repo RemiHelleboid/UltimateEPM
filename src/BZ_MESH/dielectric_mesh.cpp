@@ -126,10 +126,10 @@ complex_d DielectricMesh::interpolate_dielectric_function(const vector3& k, doub
     }
     std::array<double, 4> barycentric_coordinates = p_tetra->compute_barycentric_coordinates(k_positive);
 
-    std::array<std::size_t, 4>          list_indices_vertices = p_tetra->get_list_indices_vertices();
-    std::pair<std::size_t, double>      closest_energy        = find_closest_energy(energy);
-    std::size_t                         idx_energy            = closest_energy.first;
-    double                              t                     = closest_energy.second;
+    std::array<std::size_t, 4>        list_indices_vertices = p_tetra->get_list_indices_vertices();
+    std::pair<std::size_t, double>    closest_energy        = find_closest_energy(energy);
+    std::size_t                       idx_energy            = closest_energy.first;
+    double                            t                     = closest_energy.second;
     std::vector<std::complex<double>> dielectric_function_low(4);
     std::vector<std::complex<double>> dielectric_function_high(4);
     for (std::size_t idx_vertex = 0; idx_vertex < 4; ++idx_vertex) {

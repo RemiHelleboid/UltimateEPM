@@ -100,7 +100,9 @@ class ElectronPhonon : public BZ_States {
     RateValues compute_hole_phonon_rate(int idx_n1, std::size_t idx_k1);
 
     void set_nb_threads(int nb_threads) {
-        if (nb_threads < 1) throw std::invalid_argument("nb_threads must be >= 1");
+        if (nb_threads < 1) {
+            throw std::invalid_argument("nb_threads must be >= 1");
+        }
         m_nb_threads = nb_threads;
     }
     void set_parallelize_over_k(bool b) noexcept { m_parallelize_over_k = b; }

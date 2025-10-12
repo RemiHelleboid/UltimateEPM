@@ -2,8 +2,8 @@
 
 #include <cmath>
 
-#include "physical_constants.hpp"
 #include "bessel_func.hpp"
+#include "physical_constants.hpp"
 #include "yaml-cpp/yaml.h"
 
 namespace uepm::pseudopotential {
@@ -22,8 +22,7 @@ Material::Material(const std::string& Name,
                    double             V11A)
     : m_name(Name),
       m_lattice_constant(a),
-      m_pseudopotential(V3S, V4S, V8S, V11S, V3A, V4A, V8A, V11A) {
-}
+      m_pseudopotential(V3S, V4S, V8S, V11S, V3A, V4A, V8A, V11A) {}
 
 /**
  * @brief Load material parameters from the passed filename.
@@ -67,7 +66,6 @@ void Materials::load_material_parameters(const std::string& filename) {
             materials[symbol].set_is_spin_orbit_parameters_populated(true);
             std::cout << "Spin-orbit parameters for " << symbol << " are set." << std::endl;
             // materials[symbol].get_spin_orbit_parameters().print_parameters();
-            
         }
     }
 }
@@ -104,7 +102,7 @@ double F_l_function(const Vector3D<double>& K1, const Vector3D<double>& K2, doub
                          generalized_bessel(l - 1, norm_K1 * atomic_radii) * generalized_bessel(l + 1, norm_K1 * atomic_radii);
         return pre_factor * F;
     } else {
-        return (l==0) ? pow(atomic_radii, 3.0) / (3.0) : 0.0;
+        return (l == 0) ? pow(atomic_radii, 3.0) / (3.0) : 0.0;
     }
 }
 

@@ -18,10 +18,10 @@
 #include <system_error>
 #include <vector>
 
-#include "physical_constants.hpp"
 #include "Material.h"
 #include "SpinOrbitParameters.hpp"
 #include "Vector3D.h"
+#include "physical_constants.hpp"
 
 namespace uepm::pseudopotential {
 
@@ -39,8 +39,9 @@ class SpinOrbitCorrection {
 
  public:
     SpinOrbitCorrection() = delete;
-    SpinOrbitCorrection(const Material& material, const SpinOrbitParameters& SpinParams) : m_material(material), m_soc_parameters(SpinParams){
-    };
+    SpinOrbitCorrection(const Material& material, const SpinOrbitParameters& SpinParams)
+        : m_material(material),
+          m_soc_parameters(SpinParams){};
 
     double compute_B2_cation(const Vector3D<double>& K) const;
     double compute_B2_anion(const Vector3D<double>& K) const;

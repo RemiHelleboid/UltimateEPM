@@ -20,7 +20,6 @@ namespace uepm::mesh_bz {
 
 class BZ_States : public MeshBZ {
  protected:
-
     std::vector<Vector3D<int>> m_basisVectors;
 
     std::vector<Eigen::VectorXd> m_eigenvalues_k;

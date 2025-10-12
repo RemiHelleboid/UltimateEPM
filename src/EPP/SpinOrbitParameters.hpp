@@ -68,7 +68,7 @@ struct SpinOrbitParameters {
     SpinOrbitParameters() = default;
 
     // Copy constructor
-    SpinOrbitParameters(const SpinOrbitParameters& other) = default;
+    SpinOrbitParameters(const SpinOrbitParameters& other)            = default;
     SpinOrbitParameters& operator=(const SpinOrbitParameters& other) = default;
     SpinOrbitParameters(SpinOrbitParameters&& other)                 = default;
 

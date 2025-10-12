@@ -46,7 +46,6 @@ int main(int argc, const char** argv) {
     cmd.add(arg_nb_threads);
     cmd.add(plot_with_wedge);
     cmd.add(arg_phonon_file);
-    
 
     cmd.parse(argc, argv);
 
@@ -57,7 +56,7 @@ int main(int argc, const char** argv) {
     int               nb_conduction_bands    = 4;
 
     uepm::pseudopotential::Materials materials;
-    const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
+    const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     materials.load_material_parameters(file_material_parameters);
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 

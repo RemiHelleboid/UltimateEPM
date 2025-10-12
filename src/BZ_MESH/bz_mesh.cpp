@@ -11,14 +11,20 @@
 
 #include "bz_mesh.hpp"
 
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <vector>
 
 #include "gmsh.h"
+#include "integrals.hpp"
 #include "omp.h"
+#include "physical_constants.hpp"
 #include "rapidcsv.h"
+#include "vector.hpp"
+#include "octree_bz.hpp"
 
 #pragma omp declare reduction(merge : std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
@@ -31,7 +37,7 @@ void MeshBZ::shift_bz_center(const vector3& center) {
     }
 }
 
-inline double MeshBZ::si_to_reduced_scale() const {
+inline double MeshBZ::si_to_reduced_scale() const noexcept {
     // reduced k = (a / (2π)) * k_SI
     return m_material.get_lattice_constant_meter() / (2.0 * M_PI);
 }
@@ -99,15 +105,15 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     m_vertex_to_tetrahedra.resize(m_list_vertices.size());
     for (std::size_t index_element = 0; index_element < number_elements; ++index_element) {
         const std::array<Vertex*, 4> array_element_vertices = {&m_list_vertices[elemNodeTags[0][4 * index_element] - 1],
-            &m_list_vertices[elemNodeTags[0][4 * index_element + 1] - 1],
-            &m_list_vertices[elemNodeTags[0][4 * index_element + 2] - 1],
-            &m_list_vertices[elemNodeTags[0][4 * index_element + 3] - 1]};
-            Tetra                        new_tetra(index_element, array_element_vertices);
-            m_list_tetrahedra.push_back(new_tetra);
-            for (std::size_t i = 0; i < 4; ++i) {
-                m_vertex_to_tetrahedra[elemNodeTags[0][4 * index_element + i] - 1].push_back(index_element);
-            }
+                                                               &m_list_vertices[elemNodeTags[0][4 * index_element + 1] - 1],
+                                                               &m_list_vertices[elemNodeTags[0][4 * index_element + 2] - 1],
+                                                               &m_list_vertices[elemNodeTags[0][4 * index_element + 3] - 1]};
+        Tetra                        new_tetra(index_element, array_element_vertices);
+        m_list_tetrahedra.push_back(new_tetra);
+        for (std::size_t i = 0; i < 4; ++i) {
+            m_vertex_to_tetrahedra[elemNodeTags[0][4 * index_element + i] - 1].push_back(index_element);
         }
+    }
     gmsh::finalize();
     m_total_volume = compute_mesh_volume();
     std::cout << "Total mesh volume: " << m_total_volume << std::endl;
@@ -125,7 +131,6 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     constexpr double halfwidth_reduced    = 1.0;
     const double     ssi_to_reduced_scale = si_to_reduced_scale();
     init_reciprocal_basis(b1_SI, b2_SI, b3_SI, halfwidth_reduced, ssi_to_reduced_scale);
-    
 
     // build_search_tree();
 }
@@ -195,7 +200,6 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_b
     int count_band = 0;
 
     for (auto&& tag : viewTags) {
-
         const int   index_view  = gmsh::view::getIndex(tag);
         std::string name_object = "View[" + std::to_string(index_view) + "].Name";
         std::string name_view;
@@ -289,7 +293,9 @@ void MeshBZ::set_energy_gradient_at_vertices_by_averaging_tetras() {
             for (auto t_idx : m_vertex_to_tetrahedra[i]) {
                 const auto&  T  = m_list_tetrahedra[t_idx];
                 const double VT = std::abs(T.get_signed_volume());
-                if (VT <= eps) continue;
+                if (VT <= eps) {
+                    continue;
+                }
                 const vector3 gT = T.get_gradient_energy_at_band(b);  // P1: constant per tet
                 accum += VT * gT;
                 wsum += VT;
@@ -382,15 +388,19 @@ void MeshBZ::recompute_min_max_energies() {
     for (auto&& vtx : m_list_vertices) {
         const auto& energies = vtx.get_band_energies();
         for (int i = 0; i < nb_bands; ++i) {
-            if (energies[i] < m_min_band[i]) m_min_band[i] = energies[i];
-            if (energies[i] > m_max_band[i]) m_max_band[i] = energies[i];
+            if (energies[i] < m_min_band[i]) {
+                m_min_band[i] = energies[i];
+            }
+            if (energies[i] > m_max_band[i]) {
+                m_max_band[i] = energies[i];
+            }
         }
     }
 }
 
 /**
  * @brief Keep only a subset of bands.
- * Must be called after reading the band energies from the .msh file and after shifting/setting valence 
+ * Must be called after reading the band energies from the .msh file and after shifting/setting valence
  * absolute energies and so on.
  * @param required_nb_bands Number of bands to keep (from the top for valence bands, from the bottom for conduction bands).
  */
@@ -410,7 +420,7 @@ void MeshBZ::keep_only_bands(const std::size_t required_nb_bands) {
         }
     }
     std::cout << "Number of bands kept: " << m_nb_bands << std::endl;
-    
+
     // Recompute min/max band energies
     recompute_min_max_energies();
 }
@@ -703,7 +713,9 @@ void MeshBZ::precompute_G_shifts() {
         for (int n1 = -L1; n1 <= L1; ++n1) {
             for (int n2 = -L1; n2 <= L1; ++n2) {
                 for (int n3 = -L1; n3 <= L1; ++n3) {
-                    if (n1 == 0 && n2 == 0 && n3 == 0) continue;
+                    if (n1 == 0 && n2 == 0 && n3 == 0) {
+                        continue;
+                    }
                     if (std::abs(n1) + std::abs(n2) + std::abs(n3) == L1) {
                         m_Gshifts.push_back(n1 * b1 + n2 * b2 + n3 * b3);
                     }
@@ -791,16 +803,19 @@ vector3 MeshBZ::fold_ws_bcc(const vector3& k_SI) const noexcept {
         if ((ax + ay + az) > (sum_lim + eps)) {
             const int    idx    = (ax >= ay && ax >= az) ? 0 : (ay >= az ? 1 : 2);
             const double excess = (ax + ay + az) - sum_lim;
-            if (idx == 0)
+            if (idx == 0) {
                 kr.x() -= (kr.x() > 0 ? 1.0 : -1.0) * excess;
-            else if (idx == 1)
+            } else if (idx == 1) {
                 kr.y() -= (kr.y() > 0 ? 1.0 : -1.0) * excess;
-            else
+            } else {
                 kr.z() -= (kr.z() > 0 ? 1.0 : -1.0) * excess;
+            }
             moved = true;
         }
 
-        if (!moved) break;  // inside WS
+        if (!moved) {
+            break;  // inside WS
+        }
     }
 
     // Back to SI and convert to your vector3
@@ -908,8 +923,9 @@ static inline void bz_write_vtk_scalars(std::ofstream&             out,
     out << "SCALARS " << name << " double 1\n";
     out << "LOOKUP_TABLE default\n";
     out << std::setprecision(17);
-    for (double v : vals)
+    for (double v : vals) {
         out << v << "\n";
+    }
 }
 
 static inline void bz_write_vtk_vectors(std::ofstream&              out,
@@ -937,7 +953,9 @@ void MeshBZ::export_to_vtk(const std::string&        filename,
     const std::size_t n_cells  = m_list_tetrahedra.size();
 
     std::ofstream out(filename);
-    if (!out) throw std::runtime_error("Cannot open VTK file '" + filename + "' for writing.");
+    if (!out) {
+        throw std::runtime_error("Cannot open VTK file '" + filename + "' for writing.");
+    }
 
     // --- VTK legacy header (ASCII, UnstructuredGrid) ---
     out << "# vtk DataFile Version 4.2\n";
@@ -964,8 +982,9 @@ void MeshBZ::export_to_vtk(const std::string&        filename,
 
     // --- CELL_TYPES (tetra = 10) ---
     out << "CELL_TYPES " << n_cells << "\n";
-    for (std::size_t i = 0; i < n_cells; ++i)
+    for (std::size_t i = 0; i < n_cells; ++i) {
         out << "10\n";
+    }
 
     // --- Optional per-vertex data ---
     if (!point_scalars.empty() || !point_vectors.empty()) {

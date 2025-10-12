@@ -1,10 +1,10 @@
 // -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
-#include "tclap/CmdLine.h"
-#include <iterator>
 #include <algorithm>
-
+#include <iterator>
 #include <sstream>
+
+#include "tclap/CmdLine.h"
 
 using namespace TCLAP;
 
@@ -15,8 +15,9 @@ struct Vect3D {
     // operator= will be used to assign to the vector
     Vect3D &operator=(const std::string &str) {
         std::istringstream iss(str);
-        if (!(iss >> v[0] >> v[1] >> v[2]))
+        if (!(iss >> v[0] >> v[1] >> v[2])) {
             throw TCLAP::ArgParseException(str + " is not a 3D vector");
+        }
 
         return *this;
     }
@@ -27,9 +28,7 @@ struct Vect3D {
     }
 };
 
-std::ostream &operator<<(std::ostream &os, const Vect3D &v) {
-    return v.print(os);
-}
+std::ostream &operator<<(std::ostream &os, const Vect3D &v) { return v.print(os); }
 
 // Create an ArgTraits for the 3D vector type that declares it to be
 // of string like type
@@ -38,10 +37,10 @@ template <>
 struct ArgTraits<Vect3D> {
     typedef StringLike ValueCategory;
 };
-}
+}  // namespace TCLAP
 
 int main(int argc, char *argv[]) {
-    CmdLine cmd("Command description message", ' ', "0.9");
+    CmdLine          cmd("Command description message", ' ', "0.9");
     MultiArg<Vect3D> vec("v", "vect", "vector", true, "3D vector", cmd);
 
     try {
@@ -51,8 +50,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    std::copy(vec.begin(), vec.end(),
-              std::ostream_iterator<Vect3D>(std::cout, "\n"));
+    std::copy(vec.begin(), vec.end(), std::ostream_iterator<Vect3D>(std::cout, "\n"));
 
     std::cout << "REVERSED" << std::endl;
 
@@ -60,6 +58,5 @@ int main(int argc, char *argv[]) {
     std::vector<Vect3D> v(vec.getValue());
     std::reverse(v.begin(), v.end());
 
-    std::copy(v.begin(), v.end(),
-              std::ostream_iterator<Vect3D>(std::cout, "\n"));
+    std::copy(v.begin(), v.end(), std::ostream_iterator<Vect3D>(std::cout, "\n"));
 }

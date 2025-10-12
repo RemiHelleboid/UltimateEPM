@@ -1,8 +1,9 @@
 // -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
-#include <string>
-#include <iostream>
 #include <algorithm>
+#include <iostream>
+#include <string>
+
 #include "tclap/CmdLine.h"
 
 using namespace TCLAP;

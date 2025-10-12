@@ -1,10 +1,10 @@
 // -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
-#include "tclap/CmdLine.h"
-#include <iterator>
 #include <algorithm>
-
+#include <iterator>
 #include <sstream>
+
+#include "tclap/CmdLine.h"
 
 namespace TCLAP {
 template <>
@@ -13,8 +13,7 @@ struct ArgTraits<std::vector<double> > {
 };
 
 template <>
-void SetString<std::vector<double> >(std::vector<double> &v,
-                                     const std::string &s) {
+void SetString<std::vector<double> >(std::vector<double> &v, const std::string &s) {
     std::istringstream iss(s);
     while (iss) {
         double tmp;
@@ -22,12 +21,11 @@ void SetString<std::vector<double> >(std::vector<double> &v,
         v.push_back(tmp);
     }
 }
-}
+}  // namespace TCLAP
 
 int main(int argc, char *argv[]) {
-    TCLAP::CmdLine cmd("Command description message", ' ', "0.9");
-    TCLAP::ValueArg<std::vector<double> > vec(
-        "v", "vect", "vector", true, std::vector<double>(), "3D vector", cmd);
+    TCLAP::CmdLine                        cmd("Command description message", ' ', "0.9");
+    TCLAP::ValueArg<std::vector<double> > vec("v", "vect", "vector", true, std::vector<double>(), "3D vector", cmd);
     try {
         cmd.parse(argc, argv);
     } catch (std::exception &e) {
@@ -36,7 +34,6 @@ int main(int argc, char *argv[]) {
     }
 
     const std::vector<double> &v = vec.getValue();
-    std::copy(v.begin(), v.end(),
-              std::ostream_iterator<double>(std::cout, "\n"));
+    std::copy(v.begin(), v.end(), std::ostream_iterator<double>(std::cout, "\n"));
     std::cout << std::endl;
 }

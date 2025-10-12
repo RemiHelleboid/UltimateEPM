@@ -92,7 +92,7 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing, int mp
     Hamiltonian hamiltonian_k(m_material, m_basisVectors);
     Hamiltonian hamiltonian_k_plus_q(m_material, m_basisVectors);
     for (std::size_t index_q = 0; index_q < m_qpoints.size(); ++index_q) {
-        Vector3D<double>              q_vect = m_qpoints[index_q];
+        Vector3D<double> q_vect = m_qpoints[index_q];
         if (q_vect.Length() <= 1e-15) {
             q_vect = Vector3D<double>(1e-15, 1e-15, 1e-15);
         }
@@ -160,9 +160,9 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing, int mp
     }
 }
 
-DielectricFunction DielectricFunction::merge_results(DielectricFunction                                  RootDielectricFunction,
+DielectricFunction DielectricFunction::merge_results(DielectricFunction                                   RootDielectricFunction,
                                                      const std::vector<std::vector<std::vector<double>>>& dielectric_function_results,
-                                                     std::vector<int>                                    nb_kpoints_per_instance) {
+                                                     std::vector<int>                                     nb_kpoints_per_instance) {
     std::vector<std::vector<double>> total_dielectric_function;
     if (dielectric_function_results.size() == 0) {
         throw std::runtime_error("No results to merge");
@@ -190,7 +190,7 @@ DielectricFunction DielectricFunction::merge_results(DielectricFunction         
         }
     }
     // Renormalization
-    double       renormalization = 1.0 / static_cast<double>(total_number_kpoints);
+    double renormalization = 1.0 / static_cast<double>(total_number_kpoints);
     std::cout << "Renormalization: " << renormalization << std::endl;
     for (std::size_t index_q = 0; index_q < total_dielectric_function.size(); ++index_q) {
         Vector3D<double> q_vect    = RootDielectricFunction.m_qpoints[index_q];

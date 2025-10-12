@@ -1,14 +1,15 @@
 /**
  * @file single_part_fbmc.cpp
  * @author your name (you@domain.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2025-09-19
- * 
+ *
  * @copyright Copyright (c) 2025
- * 
+ *
  */
 
+#include "single_part_fbmc.hpp"
 
 #include <algorithm>
 #include <array>
@@ -21,12 +22,11 @@
 #include <vector>
 
 #include "physical_constants.hpp"
-#include "single_part_fbmc.hpp"
 namespace uepm::fbmc {
 
-Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPhonon*     ptr_mesh_bz,
-                                                       const Bulk_environment&      bulk_env,
-                                                       const Simulation_parameters& sim_params)
+Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz,
+                                                       const Bulk_environment&        bulk_env,
+                                                       const Simulation_parameters&   sim_params)
     : m_ptr_mesh_bz(ptr_mesh_bz),
       m_bulk_env(bulk_env),
       m_sim_params(sim_params) {
@@ -103,9 +103,8 @@ void Single_particle_simulation::run_simulation() {
                 std::cout << "GOOD : Particle is outside the Wigner-Seitz cell and the mesh." << std::endl;
             }
 
-            std::cerr << "Particle exited the Brillouin zone mesh ("
-                      << "k = " << m_particle.get_k_vector().x() << " " << m_particle.get_k_vector().y() << " "
-                      << m_particle.get_k_vector().z() << "). Folding back..." << std::endl;
+            std::cerr << "Particle exited the Brillouin zone mesh (" << "k = " << m_particle.get_k_vector().x() << " "
+                      << m_particle.get_k_vector().y() << " " << m_particle.get_k_vector().z() << "). Folding back..." << std::endl;
             // Fold back into the first Brillouin zone
             vector3 folded_k = m_ptr_mesh_bz->fold_ws_bcc(m_particle.get_k_vector());
             m_particle.set_k_vector(folded_k);
@@ -156,7 +155,7 @@ void Single_particle_simulation::run_simulation() {
             continue;
         }
     }
-    // auto indx_final_band_idx_final_tetra = 
+    // auto indx_final_band_idx_final_tetra =
     std::cout << "Simulation finished at time " << m_time << " s" << std::endl;
     std::cout << "Number of foldings: " << nb_foldings << std::endl;
     free_flight_time_file.close();

@@ -1,11 +1,11 @@
 /**
  * @file elph_dispersion.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2025-10-10
- * 
- * 
+ *
+ *
  */
 
 #pragma once
@@ -19,7 +19,6 @@
 #include "elph_common.hpp"
 
 namespace uepm::mesh_bz {
-
 
 struct PhononDispersion {
     PhononMode      mode      = PhononMode::none;
@@ -41,7 +40,9 @@ struct PhononDispersion {
     inline double omega_analytic(double q) const noexcept { return std::fma(c, q * q, std::fma(vs, q, w0)); }
 
     void build_lookup(double q_max, std::size_t n_points) {
-        if (q_max <= 0.0 || n_points < 2) throw std::invalid_argument("bad lookup grid");
+        if (q_max <= 0.0 || n_points < 2) {
+            throw std::invalid_argument("bad lookup grid");
+        }
         q0              = 0.0;
         qmax            = q_max;
         N               = static_cast<uint32_t>(n_points);
@@ -55,19 +56,29 @@ struct PhononDispersion {
     }
 
     inline double omega_lookup(double q) const {
-        if (omega_samples.empty()) throw std::runtime_error("phonon lookup empty");
-        if (q <= q0) return omega_samples.front();
-        if (q >= qmax) return omega_samples.back();
+        if (omega_samples.empty()) {
+            throw std::runtime_error("phonon lookup empty");
+        }
+        if (q <= q0) {
+            return omega_samples.front();
+        }
+        if (q >= qmax) {
+            return omega_samples.back();
+        }
         const double t = (q - q0) * inv_dq;
         uint32_t     i = static_cast<uint32_t>(t);
-        if (i >= N - 1) i = N - 2;
+        if (i >= N - 1) {
+            i = N - 2;
+        }
         const double frac = t - static_cast<double>(i);
         const double a = omega_samples[i], b = omega_samples[i + 1];
         return std::fma(frac, (b - a), a);
     }
 
     inline double max_omega() const {
-        if (omega_samples.empty()) throw std::runtime_error("phonon lookup empty");
+        if (omega_samples.empty()) {
+            throw std::runtime_error("phonon lookup empty");
+        }
         return *std::max_element(omega_samples.begin(), omega_samples.end());
     }
 };

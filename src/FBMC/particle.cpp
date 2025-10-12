@@ -37,8 +37,7 @@ void particle::draw_free_flight_time(double p_gamma) {
  * @param v_electric_field The electric field vector.
  */
 void particle::update_k_vector(const vector3& v_electric_field) {
-    m_k_vector += (get_charge_sign() * uepm::Constants::q_e / uepm::Constants::h_bar) *
-                  v_electric_field * m_current_free_flight_time;
+    m_k_vector += (get_charge_sign() * uepm::Constants::q_e / uepm::Constants::h_bar) * v_electric_field * m_current_free_flight_time;
 }
 
 void particle::update_group_velocity() {

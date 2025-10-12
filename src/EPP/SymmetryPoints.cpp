@@ -56,14 +56,16 @@ std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<s
 
         Vector3D<double> stepVec = dif / difLength * stepSize;
 
-        if (indexHSpoint == 1)
+        if (indexHSpoint == 1) {
             symmetryPointsPositions.push_back(0.0);
-        else
+        } else {
             symmetryPointsPositions.push_back(static_cast<unsigned int>(result.size() + 1));
+        }
 
         // Fill the path segment with k points spaced by stepVec.
-        for (Vector3D<double> pos = startPos; (pos - startPos).Length() < difLength; pos += stepVec)
+        for (Vector3D<double> pos = startPos; (pos - startPos).Length() < difLength; pos += stepVec) {
             result.push_back(pos);
+        }
     }
 
     return result;

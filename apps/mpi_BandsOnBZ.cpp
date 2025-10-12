@@ -63,7 +63,12 @@ int main(int argc, char* argv[]) {
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshfile", "Name to print", true, "bz.msh", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
     TCLAP::ValueArg<std::string> arg_outfile("o", "outfile", "Name of the output file", false, "", "string");
-    TCLAP::ValueArg<std::string> arg_material_parameters("p", "parameters", "Name of the file containing the material parameters", false, "", "string");
+    TCLAP::ValueArg<std::string> arg_material_parameters("p",
+                                                         "parameters",
+                                                         "Name of the file containing the material parameters",
+                                                         false,
+                                                         "",
+                                                         "string");
     TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to compute", false, 12, "int");
     TCLAP::ValueArg<int>         arg_nearest_neighbors("n",
                                                "nearestNeighbors",
@@ -179,8 +184,8 @@ int main(int argc, char* argv[]) {
         Chunk_list_k_points[i] = chunk_vector_of_k[i].to_Vector3D();
     }
 
-    bool                                    enable_nonlocal_correction = arg_enable_nonlocal_correction.getValue();
-    bool                                    enable_soc                 = arg_enable_soc.getValue();
+    bool                                 enable_nonlocal_correction = arg_enable_nonlocal_correction.getValue();
+    bool                                 enable_soc                 = arg_enable_soc.getValue();
     uepm::pseudopotential::BandStructure my_bandstructure;
     my_bandstructure
         .Initialize(mat, my_options.nrLevels, Chunk_list_k_points, my_options.nearestNeighbors, enable_nonlocal_correction, enable_soc);

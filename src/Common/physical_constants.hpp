@@ -4,8 +4,8 @@
  * @brief  Common physical constants used in the project.
  * @version 0.1
  * @date 2025-10-12
- * 
- * 
+ *
+ *
  */
 
 #pragma once

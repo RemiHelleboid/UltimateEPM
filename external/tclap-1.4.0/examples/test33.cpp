@@ -29,7 +29,7 @@ using namespace TCLAP;
 int main() {
     ValueArg<int> arg0("a", "a_int", "first int arg", false, 4711, "int");
     ValueArg<int> arg1("a", "a_int", "second int arg", false, 4711, "int");
-    OneOf input;
+    OneOf         input;
 
     try {
         input.add(arg0).add(arg1);

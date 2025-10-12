@@ -37,18 +37,18 @@ using namespace TCLAP;
 int main(int argc, char **argv) {
     try {
         // "usage: f [-a | -b] [-c [-de] [-n number]]\n"
-        CmdLine cmd("");
-        EitherOf aorb(cmd);
+        CmdLine   cmd("");
+        EitherOf  aorb(cmd);
         SwitchArg a("a", "aopt", "a", aorb);
         SwitchArg b("b", "bopt", "b", aorb);
 
-        AnyOf other(cmd);
-        SwitchArg c("c", "copt", "c", other);
-        SwitchArg d("d", "dopt", "d", other);
-        SwitchArg e("e", "eopt", "e", other);
+        AnyOf         other(cmd);
+        SwitchArg     c("c", "copt", "c", other);
+        SwitchArg     d("d", "dopt", "d", other);
+        SwitchArg     e("e", "eopt", "e", other);
         ValueArg<int> n_arg("n", "narg", "n_arg", false, 4711, "number", other);
 
-        OneOf x(cmd);
+        OneOf     x(cmd);
         SwitchArg f("f", "fopt", "f", x);
         SwitchArg g("", "gopt", "g", x);
 

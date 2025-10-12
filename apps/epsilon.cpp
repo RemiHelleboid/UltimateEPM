@@ -178,7 +178,7 @@ int main(int argc, char** argv) {
     bool use_irreducible_wedge = (bz_sampling == 48) ? true : false;
 
     uepm::pseudopotential::Materials materials;
-    std::string                         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
+    std::string                      file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     if (nonlocal_epm) {
         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
     }
@@ -288,7 +288,9 @@ int main(int argc, char** argv) {
 
     // 1) Gather per-rank sizes to rank 0
     std::vector<int> recvcounts, displs;
-    if (process_rank == 0) recvcounts.resize(number_processes, 0);
+    if (process_rank == 0) {
+        recvcounts.resize(number_processes, 0);
+    }
 
     MPI_Gather(&local_n, 1, MPI_INT, process_rank == 0 ? recvcounts.data() : nullptr, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -296,8 +298,9 @@ int main(int argc, char** argv) {
     std::vector<double> all_flat;
     if (process_rank == 0) {
         displs.resize(number_processes, 0);
-        for (int p = 1; p < number_processes; ++p)
+        for (int p = 1; p < number_processes; ++p) {
             displs[p] = displs[p - 1] + recvcounts[p - 1];
+        }
         const int total = (number_processes > 0) ? (displs.back() + recvcounts.back()) : 0;
         all_flat.resize(static_cast<std::size_t>(total));
     }
@@ -337,8 +340,9 @@ int main(int argc, char** argv) {
                     for (std::size_t q = 0; q < Q; ++q) {
                         const double* src = &all_flat[block + q * E];
                         double*       dst = dielectric_function_results[p][q].data();
-                        for (std::size_t e = 0; e < E; ++e)
+                        for (std::size_t e = 0; e < E; ++e) {
                             dst[e] += src[e];
+                        }
                     }
                 }
                 // If your per-k values are averages instead of sums, divide here by k_loc.
@@ -352,8 +356,8 @@ int main(int argc, char** argv) {
         // 5) Merge and finish
         uepm::pseudopotential::DielectricFunction dielectric_function =
             uepm::pseudopotential::DielectricFunction::merge_results(MyDielectricFunc,
-                                                                        dielectric_function_results,
-                                                                        counts_kpoints_per_process);
+                                                                     dielectric_function_results,
+                                                                     counts_kpoints_per_process);
 
         dielectric_function.apply_kramers_kronig();
         std::filesystem::create_directories(outdir);

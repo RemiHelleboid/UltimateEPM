@@ -14,13 +14,11 @@
 #include <memory>
 #include <vector>
 
+#include "bbox_mesh.hpp"
 #include "mesh_tetra.hpp"
 #include "vector.hpp"
-#include "bbox_mesh.hpp"
 
 namespace uepm::mesh_bz {
-
-
 
 class Octree_mesh {
  protected:
@@ -28,7 +26,7 @@ class Octree_mesh {
      * @brief Maximum number of elements in a leaf node.
      * If the number of elements in a node is greater than this value, the node is split into 8 children.
      */
-    static constexpr int max_number_of_elements_per_node = 32;
+    static constexpr std::size_t max_number_of_elements_per_node = 32;
 
     /**
      * @brief Minimum size of a node.
@@ -58,11 +56,16 @@ class Octree_mesh {
     std::vector<std::unique_ptr<Octree_mesh>> m_list_sub_nodes;
 
     std::vector<Tetra *> find_overlapping_tetras(const std::vector<Tetra *> &list_p_tetras, const bbox_mesh &bounding_box);
-    bool                    is_inside(const vector3 &location) const { return m_node_box.is_inside(location); }
+    bool                 is_inside(const vector3 &location) const { return m_node_box.is_inside(location); }
 
  public:
     Octree_mesh(){};
     Octree_mesh(const std::vector<Tetra *> &list_tetras, const bbox_mesh &bounding_box);
+
+    bool is_leaf() const { return m_is_leaf; }
+    const bbox_mesh &get_bounding_box() const { return m_node_box; }
+    const std::vector<Tetra *> &get_list_tetras() const { return m_list_tetras; }
+    const std::vector<std::unique_ptr<Octree_mesh>> &get_list_sub_nodes() const { return m_list_sub_nodes; }
 
     Tetra *find_tetra_at_location(const vector3 &location) const;
 };

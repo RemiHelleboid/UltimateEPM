@@ -161,23 +161,25 @@ class particle {
     particle& operator=(const particle& other) = default;
     ~particle()                                = default;
 
-    std::size_t     get_index() const { return m_index; }
-    void            set_index(std::size_t index) { m_index = index; }
-    particle_type   get_type() const { return m_type; }
-    double          get_charge_sign() const { return static_cast<double>(m_type); }
-    double          get_time() const { return m_time; }
-    void            set_time(double time) { m_time = time; }
-    const vector3&  get_position() const { return m_position; }
-    void            set_position(const vector3& position) { m_position = position; }
-    const vector3&  get_k_vector() const { return m_k_vector; }
-    void            set_k_vector(const vector3& k_vector) { m_k_vector = k_vector; }
-    const vector3&  get_velocity() const { return m_velocity; }
-    void            set_velocity(const vector3& velocity) { m_velocity = velocity; }
-    double          get_energy() const { return m_energy; }
-    void            set_energy(double energy) { m_energy = energy; }
-    double          get_current_free_flight_time() const { return m_current_free_flight_time; }
+    std::size_t           get_index() const { return m_index; }
+    void                  set_index(std::size_t index) { m_index = index; }
+    particle_type         get_type() const { return m_type; }
+    double                get_charge_sign() const { return static_cast<double>(m_type); }
+    double                get_time() const { return m_time; }
+    void                  set_time(double time) { m_time = time; }
+    const vector3&        get_position() const { return m_position; }
+    void                  set_position(const vector3& position) { m_position = position; }
+    const vector3&        get_k_vector() const { return m_k_vector; }
+    void                  set_k_vector(const vector3& k_vector) { m_k_vector = k_vector; }
+    const vector3&        get_velocity() const { return m_velocity; }
+    void                  set_velocity(const vector3& velocity) { m_velocity = velocity; }
+    double                get_energy() const { return m_energy; }
+    void                  set_energy(double energy) { m_energy = energy; }
+    double                get_current_free_flight_time() const { return m_current_free_flight_time; }
     uepm::mesh_bz::Tetra* get_containing_bz_mesh_tetra() const { return m_containing_bz_mesh_tetra; }
-    void set_containing_bz_mesh_tetra(uepm::mesh_bz::Tetra* containing_bz_mesh_tetra) { m_containing_bz_mesh_tetra = containing_bz_mesh_tetra; }
+    void                  set_containing_bz_mesh_tetra(uepm::mesh_bz::Tetra* containing_bz_mesh_tetra) {
+        m_containing_bz_mesh_tetra = containing_bz_mesh_tetra;
+    }
     void set_random_generator(std::mt19937 random_generator) { m_random_generator = random_generator; }
 
     std::array<double, 8> interpolate_phonon_scattering_rate_at_location(const vector3& location);

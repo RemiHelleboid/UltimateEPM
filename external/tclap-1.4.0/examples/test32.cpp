@@ -27,9 +27,9 @@
 using namespace TCLAP;
 
 int main(int argc, char **argv) {
-    CmdLine cmd("");
-    ValueArg<int> arg0("a", "a_int", "first int arg", false, 4711, "int");
-    ValueArg<int> arg1("b", "b_int", "second int arg", false, 4711, "int");
+    CmdLine               cmd("");
+    ValueArg<int>         arg0("a", "a_int", "first int arg", false, 4711, "int");
+    ValueArg<int>         arg1("b", "b_int", "second int arg", false, 4711, "int");
     ValueArg<std::string> arg2("s", "str", "string arg", false, "foo", "str");
 
     OneOf input;

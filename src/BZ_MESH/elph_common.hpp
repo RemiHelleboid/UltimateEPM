@@ -26,7 +26,9 @@ constexpr int rate_index(PhononMode m, PhononDirection d, PhononEvent e) noexcep
     const int M = (m == PhononMode::acoustic) ? 0 : (m == PhononMode::optical) ? 1 : -1;
     const int D = (d == PhononDirection::longitudinal) ? 0 : (d == PhononDirection::transverse) ? 1 : -1;
     const int E = (e == PhononEvent::absorption) ? 0 : (e == PhononEvent::emission) ? 1 : -1;
-    if ((M | D | E) < 0) return -1;
+    if ((M | D | E) < 0) {
+        return -1;
+    }
     return (E << 2) | (M << 1) | D;  // bit2=E, bit1=M, bit0=D
 }
 
@@ -56,7 +58,9 @@ struct RateValues {
     Rate8 v{};
     void  add(PhononMode m, PhononDirection d, PhononEvent e, double x) noexcept {
         const int idx = rate_index(m, d, e);
-        if (idx >= 0) v[static_cast<size_t>(idx)] += x;
+        if (idx >= 0) {
+            v[static_cast<size_t>(idx)] += x;
+        }
     }
     double&       at(PhononMode m, PhononDirection d, PhononEvent e) { return v[rate_index(m, d, e)]; }
     const double& at(PhononMode m, PhononDirection d, PhononEvent e) const { return v[rate_index(m, d, e)]; }
@@ -75,14 +79,20 @@ struct RateValues {
  * @param w Second vector.
  * @return double Cosine of the angle between v and w, or 0 if either is nearly zero.
  */
-[[nodiscard]] inline double cos_angle_safe(const vector3& v, const vector3& w) noexcept {
+inline double cos_angle_safe(const vector3& v, const vector3& w) noexcept {
     const double nv2 = v.norm_squared();
     const double nw2 = w.norm_squared();
-    if (nv2 <= 0.0 || nw2 <= 0.0) return 0.0;
-    double c = v.dot(w) / std::sqrt(nv2 * nw2);
-    if (c > 1.0) c = 1.0;
-    if (c < -1.0) c = -1.0;
-    return c;
+    if (nv2 <= 0.0 || nw2 <= 0.0) {
+        return 0.0;
+    }
+    double cos = v.dot(w) / std::sqrt(nv2 * nw2);
+    if (cos > 1.0) {
+        cos = 1.0;
+    }
+    if (cos < -1.0) {
+        cos = -1.0;
+    }
+    return cos;
 }
 
 inline double fermi_dirac_distribution(double energy_eV, double fermi_level_eV, double temperature_K) {
@@ -90,8 +100,12 @@ inline double fermi_dirac_distribution(double energy_eV, double fermi_level_eV, 
 
     // Handle T <= 0 K as the T→0 limit (Heaviside step).
     if (!(kT > 0.0)) {
-        if (energy_eV < fermi_level_eV) return 1.0;
-        if (energy_eV > fermi_level_eV) return 0.0;
+        if (energy_eV < fermi_level_eV) {
+            return 1.0;
+        }
+        if (energy_eV > fermi_level_eV) {
+            return 0.0;
+        }
         return 0.5;  // at E = Ef, take the symmetric limit
     }
 
@@ -99,8 +113,12 @@ inline double fermi_dirac_distribution(double energy_eV, double fermi_level_eV, 
 
     // In double precision, |x| >= 40 puts f within ~1e-17 of 0 or 1.
     constexpr double X_CUTOFF = 40.0;
-    if (x >= X_CUTOFF) return 0.0;
-    if (x <= -X_CUTOFF) return 1.0;
+    if (x >= X_CUTOFF) {
+        return 0.0;
+    }
+    if (x <= -X_CUTOFF) {
+        return 1.0;
+    }
 
     // Stable logistic: avoid large exp(x) when x > 0.
     if (x > 0.0) {
@@ -116,12 +134,16 @@ inline double d_de_fermi_dirac_dE(double energy_eV, double fermi_level_eV, doubl
     const double kT = uepm::Constants::k_b_eV * temperature_K;
 
     // T <= 0: derivative is a Dirac delta in theory; return 0 numerically.
-    if (!(kT > 0.0)) return 0.0;
+    if (!(kT > 0.0)) {
+        return 0.0;
+    }
 
     const double x = (energy_eV - fermi_level_eV) / kT;
 
     constexpr double X_CUTOFF = 40.0;
-    if (x >= X_CUTOFF || x <= -X_CUTOFF) return 0.0;
+    if (x >= X_CUTOFF || x <= -X_CUTOFF) {
+        return 0.0;
+    }
 
     // Compute f stably, then use df/dE = -(1/kT) * f * (1 - f).
     double f;
@@ -135,7 +157,7 @@ inline double d_de_fermi_dirac_dE(double energy_eV, double fermi_level_eV, doubl
     return -(f * (1.0 - f)) / kT;
 }
 
-inline double bose_einstein_distribution(double energy_eV, double temperature_K)  {
+inline double bose_einstein_distribution(double energy_eV, double temperature_K) {
     // N0 = 1 / (exp(E / kT) - 1)
     const double x = energy_eV / (uepm::Constants::k_b_eV * temperature_K);
     return 1.0 / std::expm1(x);  // stable for small x
@@ -151,10 +173,16 @@ inline double bose_einstein_distribution(double energy_eV, double temperature_K)
 inline double transport_weight_RTA(const vector3& v0, const vector3& v1) {
     const double norm_v0 = v0.norm_squared();
     const double norm_v1 = v1.norm_squared();
-    if (norm_v0 < 1e-24 || norm_v1 < 1e-24) return 1.0;  // degeneracy/edge guard
+    if (norm_v0 < 1e-24 || norm_v1 < 1e-24) {
+        return 1.0;  // degeneracy/edge guard
+    }
     double cos_theta = v0.dot(v1) / std::sqrt(norm_v0 * norm_v1);
-    if (cos_theta > 1.0) cos_theta = 1.0;
-    if (cos_theta < -1.0) cos_theta = -1.0;
+    if (cos_theta > 1.0) {
+        cos_theta = 1.0;
+    }
+    if (cos_theta < -1.0) {
+        cos_theta = -1.0;
+    }
     return 1.0 - cos_theta;  // = 1 - cos θ
 }
 

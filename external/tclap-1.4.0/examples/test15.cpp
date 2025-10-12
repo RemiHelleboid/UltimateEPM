@@ -1,16 +1,16 @@
 // -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
-#include "tclap/CmdLine.h"
-#include <iterator>
 #include <algorithm>
-
+#include <iterator>
 #include <sstream>
+
+#include "tclap/CmdLine.h"
 
 // Define a simple 3D vector type
 template <typename T, size_t LEN>
 struct Vect {
     typedef TCLAP::StringLike ValueCategory;
-    T v[LEN];
+    T                         v[LEN];
 
     // operator= will be used to assign to the vector
     Vect &operator=(const std::string &str) {
@@ -39,9 +39,8 @@ struct Vect {
 };
 
 int main(int argc, char *argv[]) {
-    TCLAP::CmdLine cmd("Command description message", ' ', "0.9");
-    TCLAP::ValueArg<Vect<double, 3> > vec("v", "vect", "vector", true,
-                                          Vect<double, 3>(), "3D vector", cmd);
+    TCLAP::CmdLine                    cmd("Command description message", ' ', "0.9");
+    TCLAP::ValueArg<Vect<double, 3> > vec("v", "vect", "vector", true, Vect<double, 3>(), "3D vector", cmd);
 
     try {
         cmd.parse(argc, argv);

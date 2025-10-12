@@ -33,8 +33,9 @@ void print_arguments(const std::vector<std::string>& path,
                      unsigned int                    nb_threads,
                      const std::string&              result_dir) {
     std::cout << "Path: ";
-    for (auto& p : path)
+    for (auto& p : path) {
         std::cout << p << " ";
+    }
     std::cout << std::endl;
     std::cout << "Material: " << material << std::endl;
     std::cout << "Number of points: " << nb_points << std::endl;
@@ -45,14 +46,14 @@ void print_arguments(const std::vector<std::string>& path,
 }
 
 int compute_path_mat(const uepm::pseudopotential::Material& material,
-                     const std::vector<std::string>&           path,
-                     unsigned int                              nb_points,
-                     unsigned int                              nb_bands,
-                     unsigned int                              nearestNeighbors,
-                     bool                                      enable_non_local_correction,
-                     bool                                      enable_soc,
-                     const std::string&                        result_dir,
-                     bool                                      call_python_plot) {
+                     const std::vector<std::string>&        path,
+                     unsigned int                           nb_points,
+                     unsigned int                           nb_bands,
+                     unsigned int                           nearestNeighbors,
+                     bool                                   enable_non_local_correction,
+                     bool                                   enable_soc,
+                     const std::string&                     result_dir,
+                     bool                                   call_python_plot) {
     Options my_options;
     my_options.nearestNeighbors = nearestNeighbors;
     my_options.nrPoints         = nb_points;
@@ -81,15 +82,15 @@ int compute_path_mat(const uepm::pseudopotential::Material& material,
 }
 
 int compute_all_mat(uepm::pseudopotential::Materials list_materials,
-                    const std::vector<std::string>&     path,
-                    int                                 nb_bands,
-                    int                                 nearestNeighbors,
-                    int                                 nrPoints,
-                    bool                                enable_non_local_correction,
-                    bool                                enable_soc,
-                    int                                 nb_threads,
-                    const std::string&                  result_dir,
-                    bool                                call_python_plot) {
+                    const std::vector<std::string>&  path,
+                    int                              nb_bands,
+                    int                              nearestNeighbors,
+                    int                              nrPoints,
+                    bool                             enable_non_local_correction,
+                    bool                             enable_soc,
+                    int                              nb_threads,
+                    const std::string&               result_dir,
+                    bool                             call_python_plot) {
     Options my_options;
     my_options.nearestNeighbors = nearestNeighbors;
     my_options.nrPoints         = nrPoints;
@@ -132,14 +133,14 @@ int compute_all_mat(uepm::pseudopotential::Materials list_materials,
 }
 
 int compute_all_path_all_mat(uepm::pseudopotential::Materials list_materials,
-                             int                                 nb_bands,
-                             int                                 nearestNeighbors,
-                             int                                 nrPoints,
-                             bool                                enable_non_local_correction,
-                             bool                                enable_soc,
-                             int                                 nb_threads,
-                             const std::string&                  result_dir,
-                             bool                                call_python_plot) {
+                             int                              nb_bands,
+                             int                              nearestNeighbors,
+                             int                              nrPoints,
+                             bool                             enable_non_local_correction,
+                             bool                             enable_soc,
+                             int                              nb_threads,
+                             const std::string&               result_dir,
+                             bool                             call_python_plot) {
     Options my_options;
     my_options.nearestNeighbors = nearestNeighbors;
     my_options.nrPoints         = nrPoints;
@@ -235,7 +236,7 @@ int main(int argc, char* argv[]) {
     }
 
     uepm::pseudopotential::Materials materials;
-    std::string                         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
+    std::string                      file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     if (!arg_enable_nonlocal_correction.isSet()) {
         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
     }

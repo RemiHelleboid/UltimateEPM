@@ -94,10 +94,10 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
                                                                                         const Vector3D<double>& Gp,
                                                                                         const Vector3D<double>& tau) const {
     using namespace std::complex_literals;
-    Vector3D<double> Kn = (m_material.get_lattice_constant_meter() / (2.0 * M_PI)) * K;
-    Vector3D<double> Knp = (m_material.get_lattice_constant_meter() / (2.0 * M_PI)) * Kp;
-    double lambda_sym     = compute_lambda_sym(Kn, Knp);
-    double lambda_antisym = compute_lambda_antisym(Kn, Knp);
+    Vector3D<double>                          Kn               = (m_material.get_lattice_constant_meter() / (2.0 * M_PI)) * K;
+    Vector3D<double>                          Knp              = (m_material.get_lattice_constant_meter() / (2.0 * M_PI)) * Kp;
+    double                                    lambda_sym       = compute_lambda_sym(Kn, Knp);
+    double                                    lambda_antisym   = compute_lambda_antisym(Kn, Knp);
     Vector3D<double>                          cross_K_Kp       = cross_product(Kn, Knp);
     Eigen::Matrix<std::complex<double>, 2, 2> res_matrix       = compute_pauli_state_dot_product(cross_K_Kp);
     Vector3D<double>                          diff_G           = G - Gp;

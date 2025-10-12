@@ -33,7 +33,6 @@
 //       m_V2_square_well_pref_factor{m_V0_pref_factor},
 //       m_V2_gaussian_well_pref_factor{pow(M_PI, 1.5) * (pow(m_non_local_parameters.m_R2_anion, 3.0) / m_material.get_atomic_volume())} {}
 
-
 // /**
 //  * @brief Compute the so called F_l function, which is used in the non-local pseudopotential correction.
 //  * (See Chelikowsky, J. R. & Cohen, M. L. Nonlocal pseudopotential calculations for the electronic structure of eleven diamond
@@ -118,8 +117,8 @@
 //     // l = 0
 //     const double A_0_anion = m_non_local_parameters.m_alpha_0_anion + diag_factor * m_non_local_parameters.m_beta_0_anion *
 //                                                                           (norm_K1 * norm_K2 - pow(this->get_fermi_momentum(), 2.0));
-//     const double F_0_anion = (m_non_local_parameters.m_R0_anion == 0.0) ? 0.0 : F_l_function(K1, K2, m_non_local_parameters.m_R0_anion, 0);
-//     V_anion += V_pre_factor * A_0_anion * (2 * 0 + 1) * 1.0 * F_0_anion;
+//     const double F_0_anion = (m_non_local_parameters.m_R0_anion == 0.0) ? 0.0 : F_l_function(K1, K2, m_non_local_parameters.m_R0_anion,
+//     0); V_anion += V_pre_factor * A_0_anion * (2 * 0 + 1) * 1.0 * F_0_anion;
 //     // l = 2
 //     double V_anion_2 = 0.0;
 //     if (m_non_local_parameters.m_A2_anion != 0) {
@@ -139,8 +138,8 @@
 //     // Second atomic species: cation
 //     double V_cation = 0;
 //     // l = 0
-//     const double F_0_cation = (m_non_local_parameters.m_R0_cation == 0) ? 0.0 : F_l_function(K1, K2, m_non_local_parameters.m_R0_cation, 0);
-//     const double A_0_cation = m_non_local_parameters.m_alpha_0_cation + m_non_local_parameters.m_beta_0_cation * diag_factor *
+//     const double F_0_cation = (m_non_local_parameters.m_R0_cation == 0) ? 0.0 : F_l_function(K1, K2, m_non_local_parameters.m_R0_cation,
+//     0); const double A_0_cation = m_non_local_parameters.m_alpha_0_cation + m_non_local_parameters.m_beta_0_cation * diag_factor *
 //                                                                             (norm_K1 * norm_K2 - pow(this->get_fermi_momentum(), 2.0));
 //     V_cation += V_pre_factor * A_0_cation * (2 * 0 + 1) * legendre_0 * F_0_cation;
 //     // l = 2
@@ -204,7 +203,8 @@
 // // double NonLocalFunctor::F_0_coupling(double norm_K1, double norm_K2, double atomic_radii) const {
 // //     constexpr int l          = 0;
 // //     const double  pre_factor = pow(atomic_radii, 2.0) / (norm_K1 * norm_K1 - norm_K2 * norm_K2);
-// //     const double  F          = norm_K1 * generalized_bessel(l + 1, norm_K1 * atomic_radii) * generalized_bessel(l, norm_K2 * atomic_radii) -
+// //     const double  F          = norm_K1 * generalized_bessel(l + 1, norm_K1 * atomic_radii) * generalized_bessel(l, norm_K2 *
+// atomic_radii) -
 // //                      norm_K2 * generalized_bessel(l + 1, norm_K2 * atomic_radii) * generalized_bessel(l, norm_K1 * atomic_radii);
 // //     return m_V0_pref_factor * pre_factor * F;
 // // }
@@ -235,7 +235,8 @@
 // // double NonLocalFunctor::F_2_coupling_square_potential(double norm_K1, double norm_K2, double atomic_radii) const {
 // //     constexpr int l          = 2;
 // //     const double  pre_factor = pow(atomic_radii, 2.0) / (norm_K1 * norm_K1 - norm_K2 * norm_K2);
-// //     const double  F          = norm_K1 * generalized_bessel(l + 1, norm_K1 * atomic_radii) * generalized_bessel(l, norm_K2 * atomic_radii) -
+// //     const double  F          = norm_K1 * generalized_bessel(l + 1, norm_K1 * atomic_radii) * generalized_bessel(l, norm_K2 *
+// atomic_radii) -
 // //                      norm_K2 * generalized_bessel(l + 1, norm_K2 * atomic_radii) * generalized_bessel(l, norm_K1 * atomic_radii);
 // //     return m_V2_square_well_pref_factor * pre_factor * F;
 // // }
@@ -265,8 +266,10 @@
 // //     const double norm_K2_normlized = K2_normalized.Length();
 // //     const double norm_K1           = norm_K1_normlized * m_fourrier_factor;
 // //     const double norm_K2           = norm_K2_normlized * m_fourrier_factor;
-// //     const double A_0_anion         = m_non_local_parameters.m_alpha_0_anion + m_cinetic_factor * m_non_local_parameters.m_beta_0_anion *
-// //                                                                           (norm_K1 * norm_K2 - pow(m_material.get_fermi_momentum(), 2.0));
+// //     const double A_0_anion         = m_non_local_parameters.m_alpha_0_anion + m_cinetic_factor * m_non_local_parameters.m_beta_0_anion
+// *
+// //                                                                           (norm_K1 * norm_K2 -
+// pow(m_material.get_fermi_momentum(), 2.0));
 // //     double F_0 = 0.0;
 // //     double F_2 = 0.0;
 // //     if (fabs(norm_K1_normlized - norm_K2_normlized) > m_epsilon) {
@@ -300,8 +303,10 @@
 // //     const double norm_K2_normlized = K2_normalized.Length();
 // //     const double norm_K1           = norm_K1_normlized * m_fourrier_factor;
 // //     const double norm_K2           = norm_K2_normlized * m_fourrier_factor;
-// //     const double A_0_cation        = m_non_local_parameters.m_alpha_0_cation + m_cinetic_factor * m_non_local_parameters.m_beta_0_cation *
-// //                                                                             (norm_K1 * norm_K2 - pow(m_material.get_fermi_momentum(), 2.0));
+// //     const double A_0_cation        = m_non_local_parameters.m_alpha_0_cation + m_cinetic_factor *
+// m_non_local_parameters.m_beta_0_cation *
+// //                                                                             (norm_K1 * norm_K2 -
+// pow(m_material.get_fermi_momentum(), 2.0));
 // //     double F_0 = 0.0;
 // //     double F_2 = 0.0;
 // //     if (fabs(norm_K1_normlized - norm_K2_normlized) > m_epsilon) {

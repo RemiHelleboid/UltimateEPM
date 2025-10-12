@@ -17,9 +17,9 @@
 #include <iomanip>
 #include <vector>
 
-#include "physical_constants.hpp"
 #include "bbox_mesh.hpp"
 #include "iso_triangle.hpp"
+#include "physical_constants.hpp"
 
 namespace uepm::mesh_bz {
 
@@ -353,7 +353,7 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
 }
 
 // Area of triangle (A,B,C) in 3D: 0.5 * || (B-A) × (C-A) ||
-[[nodiscard]] inline double triangle_area(const vector3& A, const vector3& B, const vector3& C) noexcept {
+inline double triangle_area(const vector3& A, const vector3& B, const vector3& C) noexcept {
     const vector3 AB = B - A;
     const vector3 AC = C - A;
     return 0.5 * cross_product(AB, AC).norm();
@@ -361,7 +361,9 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
 
 // Returns vertices ordered cyclically in the plane they lie on
 inline std::vector<vector3> order_cyclic(const std::vector<vector3>& pts) {
-    if (pts.size() < 3) return pts;
+    if (pts.size() < 3) {
+        return pts;
+    }
 
     // Compute centroid
     vector3 centroid = std::accumulate(pts.begin(), pts.end(), vector3{0, 0, 0});
@@ -370,15 +372,18 @@ inline std::vector<vector3> order_cyclic(const std::vector<vector3>& pts) {
     // Compute polygon normal from first 3 distinct points
     vector3 n   = cross_product(pts[1] - pts[0], pts[2] - pts[0]);
     double  len = n.norm();
-    if (len > 0.0) n /= len;  // normalize
+    if (len > 0.0) {
+        n /= len;  // normalize
+    }
 
     // Choose an in-plane axis u
     vector3 u    = pts[0] - centroid;
     double  ulen = u.norm();
-    if (ulen > 0.0)
+    if (ulen > 0.0) {
         u /= ulen;
-    else
+    } else {
         u = vector3{1, 0, 0};  // fallback
+    }
 
     // v = n × u (second in-plane axis)
     vector3 v = cross_product(n, u);
@@ -402,8 +407,9 @@ inline std::vector<vector3> order_cyclic(const std::vector<vector3>& pts) {
 
     std::vector<vector3> ordered;
     ordered.reserve(pts.size());
-    for (auto& wa : with_angles)
+    for (auto& wa : with_angles) {
         ordered.push_back(wa.p);
+    }
 
     return ordered;
 }
@@ -453,7 +459,9 @@ double Tetra::compute_tetra_iso_surface_energy_band2(double energy, std::size_t 
 
 inline double polygon_area(const std::vector<vector3>& pts) {
     auto pts_ordered = order_cyclic(pts);
-    if (pts_ordered.size() < 3) return 0.0;
+    if (pts_ordered.size() < 3) {
+        return 0.0;
+    }
 
     vector3 sum{0, 0, 0};
     for (size_t i = 0; i < pts_ordered.size(); ++i) {
@@ -483,13 +491,14 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
     const double A = polygon_area(compute_band_iso_energy_surface(energy_eV, band_index));  // m^-2
 
     const double grad = m_gradient_energy_per_band[band_index].norm();  // eV·m
-    if (A <= 0.0 || grad <= 0.0) return 0.0;
+    if (A <= 0.0 || grad <= 0.0) {
+        return 0.0;
+    }
 
     constexpr double pref = 1.0 / (8.0 * M_PI * M_PI * M_PI);  // 1/(2π)^3 = 1/(8π^3)
 
     return pref * (A / grad);
 }
-
 
 void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double energy_threshold) {
     m_nb_bands = m_list_vertices[0]->get_number_bands();
@@ -507,7 +516,7 @@ void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double en
         }
 
         // integer number of steps; enforce a small minimum
-        std::size_t nb_steps = static_cast<std::size_t>(std::ceil((Emax - Emin) / energy_step));
+        std::size_t           nb_steps  = static_cast<std::size_t>(std::ceil((Emax - Emin) / energy_step));
         constexpr std::size_t min_steps = 5;
         if (nb_steps < min_steps) {
             nb_steps = min_steps;
@@ -525,7 +534,7 @@ void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double en
         T.D[T.N - 1] = 0.0;
 
         for (std::size_t idx_energy = 1; idx_energy < nb_steps; ++idx_energy) {
-            const double e = Emin + idx_energy * dx;
+            const double e  = Emin + idx_energy * dx;
             T.D[idx_energy] = static_cast<float>(compute_tetra_dos_energy_band(e, b));
             // DEBUG
             // std::cout << e << "," << T.D[idx_energy] / 1e23 << std::endl;

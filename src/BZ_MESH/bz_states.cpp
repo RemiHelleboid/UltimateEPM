@@ -52,11 +52,11 @@ void BZ_States::compute_eigenstates(int nb_threads) {
 }
 
 void BZ_States::compute_shifted_eigenstates(const Vector3D<double>& q_shift, int nb_threads) {
-    m_q_shift                       = q_shift;
-    double     normalization_factor = 2.0 * M_PI / m_material.get_lattice_constant_meter();
-    m_q_shift                      = m_q_shift * normalization_factor;
-    const bool m_nonlocal_epm       = false;
-    const bool keep_eigenvectors    = true;
+    m_q_shift                    = q_shift;
+    double normalization_factor  = 2.0 * M_PI / m_material.get_lattice_constant_meter();
+    m_q_shift                    = m_q_shift * normalization_factor;
+    const bool m_nonlocal_epm    = false;
+    const bool keep_eigenvectors = true;
     m_eigenvalues_k_plus_q.resize(m_list_vertices.size());
     m_eigenvectors_k_plus_q.resize(m_list_vertices.size());
     std::vector<uepm::pseudopotential::Hamiltonian> hamiltonian_per_thread;
@@ -93,8 +93,6 @@ void BZ_States::compute_shifted_eigenstates(const Vector3D<double>& q_shift, int
  * @param nb_threads
  */
 void BZ_States::compute_dielectric_function(const std::vector<double>& list_energies, double eta_smearing, int nb_threads) {
-
-
     m_list_energies                         = list_energies;
     const int   index_first_conduction_band = 4;
     std::size_t nb_tetra                    = m_list_tetrahedra.size();
@@ -103,7 +101,7 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
 
     std::vector<double> dielectric_function_real_at_energies(list_energies.size(), 0.0);
     double              total_volume = 0.0;
-#pragma omp parallel for schedule(dynamic) num_threads(nb_threads) reduction(+:total_volume)
+#pragma omp parallel for schedule(dynamic) num_threads(nb_threads) reduction(+ : total_volume)
     for (std::size_t idx_tetra = 0; idx_tetra < nb_tetra; ++idx_tetra) {
         if (omp_get_thread_num() == 0) {
             std::cout << "\rComputing dielectric function for tetrahedron " << idx_tetra << "/" << nb_tetra << std::flush;
@@ -159,9 +157,8 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
     //                    (uepm::Constants::eps_0 * q_squared) / uepm::Constants::q_e *
     //                    (2.0 / std::pow(2.0 * M_PI, 3));
 
-    double coulomb_prefactor_eV = (uepm::Constants::q_e * uepm::Constants::q_e) /
-                                   (uepm::Constants::eps_0 * q_squared)  // J·m
-                                  / uepm::Constants::q_e;                                                      // → eV·m
+    double coulomb_prefactor_eV = (uepm::Constants::q_e * uepm::Constants::q_e) / (uepm::Constants::eps_0 * q_squared)  // J·m
+                                  / uepm::Constants::q_e;                                                               // → eV·m
     double prefactor = coulomb_prefactor_eV * (2.0 / std::pow(2.0 * M_PI, 3));
 
     for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {

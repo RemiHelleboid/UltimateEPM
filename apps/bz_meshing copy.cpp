@@ -54,8 +54,9 @@ struct VecEq {
 inline Vec3 mul(const Mat3 &M, const Vec3 &p) {
     Vec3 r{0.0, 0.0, 0.0};
     for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 3; ++j)
+        for (int j = 0; j < 3; ++j) {
             r[i] += static_cast<double>(M[i][j]) * p[j];
+        }
     }
     return r;
 }
@@ -66,8 +67,9 @@ std::vector<Mat3> permutation_matrices() {
     std::sort(idx.begin(), idx.end());
     do {
         Mat3 P{{{0, 0, 0}, {0, 0, 0}, {0, 0, 0}}};
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < 3; ++i) {
             P[i][idx[i]] = 1;
+        }
         mats.push_back(P);
     } while (std::next_permutation(idx.begin(), idx.end()));
     return mats;  // 6
@@ -75,10 +77,13 @@ std::vector<Mat3> permutation_matrices() {
 
 std::vector<Mat3> reflection_matrices() {
     std::vector<Mat3> mats;
-    for (int sx : {-1, 1})
-        for (int sy : {-1, 1})
-            for (int sz : {-1, 1})
+    for (int sx : {-1, 1}) {
+        for (int sy : {-1, 1}) {
+            for (int sz : {-1, 1}) {
                 mats.push_back(Mat3{{{sx, 0, 0}, {0, sy, 0}, {0, 0, sz}}});
+            }
+        }
+    }
     return mats;  // 8
 }
 
@@ -90,13 +95,15 @@ std::vector<Mat3> symmetry_ops_full() {
     for (const auto &P : perms) {
         for (const auto &R : refls) {
             Mat3 M{};
-            for (int i = 0; i < 3; ++i)
+            for (int i = 0; i < 3; ++i) {
                 for (int j = 0; j < 3; ++j) {
                     int s = 0;
-                    for (int k = 0; k < 3; ++k)
+                    for (int k = 0; k < 3; ++k) {
                         s += R[i][k] * P[k][j];
+                    }
                     M[i][j] = s;
                 }
+            }
             ops.push_back(M);
         }
     }
@@ -104,14 +111,18 @@ std::vector<Mat3> symmetry_ops_full() {
     auto key = [](const Mat3 &M) {
         std::array<int, 9> flat{};
         int                t = 0;
-        for (int i = 0; i < 3; ++i)
-            for (int j = 0; j < 3; ++j)
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
                 flat[t++] = M[i][j];
+            }
+        }
         return flat;
     };
     std::sort(ops.begin(), ops.end(), [&](const Mat3 &A, const Mat3 &B) { return key(A) < key(B); });
     ops.erase(std::unique(ops.begin(), ops.end(), [&](const Mat3 &A, const Mat3 &B) { return key(A) == key(B); }), ops.end());
-    if (ops.size() != 48) std::cerr << "[warn] symmetry op count = " << ops.size() << " (expected 48)\n";
+    if (ops.size() != 48) {
+        std::cerr << "[warn] symmetry op count = " << ops.size() << " (expected 48)\n";
+    }
     return ops;
 }
 
@@ -128,8 +139,9 @@ std::vector<double> flatten_xyz(const std::vector<Vec3> &pts) {
 
 std::vector<std::size_t> iota_tags(std::size_t n, std::size_t start = 1) {
     std::vector<std::size_t> v(n);
-    for (std::size_t i = 0; i < n; ++i)
+    for (std::size_t i = 0; i < n; ++i) {
         v[i] = start + i;
+    }
     return v;
 }
 
@@ -139,9 +151,15 @@ int main(int argc, char **argv) try {
     int         nb_levels = 0;
     std::string outname   = "delaunay_mesh_refined.msh";
     bool        nogui     = false;
-    if (argc > 1) nb_levels = std::atoi(argv[1]);
-    if (argc > 2) outname = argv[2];
-    if (argc > 3 && std::string_view(argv[3]) == std::string_view{"--nogui"}) nogui = true;
+    if (argc > 1) {
+        nb_levels = std::atoi(argv[1]);
+    }
+    if (argc > 2) {
+        outname = argv[2];
+    }
+    if (argc > 3 && std::string_view(argv[3]) == std::string_view{"--nogui"}) {
+        nogui = true;
+    }
 
     // Initial six points (Gamma, L, X, K, W, U)
     std::vector<Vec3> initPts = {
@@ -170,8 +188,9 @@ int main(int argc, char **argv) try {
     // Element type 4 = 4-node tetrahedron, node connectivity concatenated per element
     gmsh::model::mesh::addElementsByType(volTag, /*type*/ 4, /*elt tags*/ {}, tets0);
 
-    for (int i = 0; i < nb_levels; ++i)
+    for (int i = 0; i < nb_levels; ++i) {
         gmsh::model::mesh::refine();
+    }
 
     // Gather all nodes of the refined mesh
     std::vector<std::size_t> nodeTags;
@@ -183,8 +202,9 @@ int main(int argc, char **argv) try {
     // -------- Stage 2: apply the 48 symmetry ops and unique the points --------
     std::vector<Vec3> nodes;
     nodes.reserve(nodeTags.size());
-    for (size_t i = 0; i + 2 < nodeCoords.size(); i += 3)
+    for (size_t i = 0; i + 2 < nodeCoords.size(); i += 3) {
         nodes.push_back({nodeCoords[i + 0], nodeCoords[i + 1], nodeCoords[i + 2]});
+    }
 
     auto                                     ops = symmetry_ops_full();
     std::unordered_set<Vec3, VecHash, VecEq> uniq;
@@ -199,8 +219,9 @@ int main(int argc, char **argv) try {
 
     std::vector<Vec3> symPts;
     symPts.reserve(uniq.size());
-    for (const auto &p : uniq)
+    for (const auto &p : uniq) {
         symPts.push_back(p);
+    }
 
     // -------- Stage 3: create a new discrete volume from the symmetrized points --------
     gmsh::model::add("delaunay_mesh_refined");

@@ -51,10 +51,10 @@ int main(int argc, char *argv[]) {
 
     cmd.parse(argc, argv);
 
-    bool                                nonlocal_epm = false;
-    bool                                enable_soc   = false;
+    bool                             nonlocal_epm = false;
+    bool                             enable_soc   = false;
     uepm::pseudopotential::Materials materials;
-    std::string                         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-cohen.yaml";
+    std::string                      file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-cohen.yaml";
     if (nonlocal_epm) {
         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
     }

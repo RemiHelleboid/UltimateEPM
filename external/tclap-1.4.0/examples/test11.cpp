@@ -1,9 +1,9 @@
 // -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
-#include "tclap/CmdLine.h"
 #include <iterator>
-
 #include <sstream>
+
+#include "tclap/CmdLine.h"
 
 using namespace TCLAP;
 
@@ -14,8 +14,9 @@ struct Vect3D {
     // operator= will be used to assign to the vector
     Vect3D &operator=(const std::string &str) {
         std::istringstream iss(str);
-        if (!(iss >> v[0] >> v[1] >> v[2]))
+        if (!(iss >> v[0] >> v[1] >> v[2])) {
             throw TCLAP::ArgParseException(str + " is not a 3D vector");
+        }
 
         return *this;
     }
@@ -33,12 +34,11 @@ template <>
 struct ArgTraits<Vect3D> {
     typedef StringLike ValueCategory;
 };
-}
+}  // namespace TCLAP
 
 int main(int argc, char *argv[]) {
-    CmdLine cmd("Command description message", ' ', "0.9");
-    ValueArg<Vect3D> vec("v", "vect", "vector", true, Vect3D(), "3D vector",
-                         cmd);
+    CmdLine          cmd("Command description message", ' ', "0.9");
+    ValueArg<Vect3D> vec("v", "vect", "vector", true, Vect3D(), "3D vector", cmd);
 
     try {
         cmd.parse(argc, argv);

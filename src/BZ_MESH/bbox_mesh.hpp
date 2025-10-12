@@ -13,6 +13,7 @@
 
 #include <memory>
 #include <random>
+#include <array>
 #include <vector>
 
 #include "vector.hpp"
@@ -99,7 +100,7 @@ class bbox_mesh {
      */
     std::array<bbox_mesh, 8> split_3d_box_in_octants() const {
         std::array<bbox_mesh, 8> octants;
-        const vector3         box_center = get_center();
+        const vector3            box_center = get_center();
 
         octants[0] = bbox_mesh(m_x_min, box_center.x(), m_y_min, box_center.y(), m_z_min, box_center.z());
         octants[1] = bbox_mesh(box_center.x(), m_x_max, m_y_min, box_center.y(), m_z_min, box_center.z());
@@ -136,6 +137,9 @@ class bbox_mesh {
                                this->m_z_min > second_box.m_z_max || second_box.m_z_min > this->m_z_max;
         return !noOverlap;
     }
+
+    vector3 min_corner() const { return vector3(m_x_min, m_y_min, m_z_min); }
+    vector3 max_corner() const { return vector3(m_x_max, m_y_max, m_z_max); }
 
     friend std::ostream &operator<<(std::ostream &os, const bbox_mesh &my_box) {
         os << "bbox_mesh: x_min = " << my_box.m_x_min << " x_max = " << my_box.m_x_max << " y_min = " << my_box.m_y_min

@@ -97,10 +97,10 @@ void bz_mesh_points::add_band_on_mesh(const std::string& band_name, const std::v
     gmsh::finalize();
 }
 
-void bz_mesh_points::add_all_bands_on_mesh(const std::string&                             out_filename,
+void bz_mesh_points::add_all_bands_on_mesh(const std::string&                          out_filename,
                                            const uepm::pseudopotential::BandStructure& my_band,
-                                           int                                            nb_valence_bands_to_export,
-                                           int                                            nb_conduction_bands_to_export) {
+                                           int                                         nb_valence_bands_to_export,
+                                           int                                         nb_conduction_bands_to_export) {
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 0);
     gmsh::model::add("bz_mesh");
@@ -127,7 +127,7 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string&                   
     int count = 0;
     if (nb_valence_bands_to_export != 0) {
         for (int index_band = nb_valence_bands - 1; index_band >= nb_valence_bands - nb_valence_bands_to_export; --index_band) {
-            std::string         band_name   = "band_" + std::to_string(count);
+            std::string band_name = "band_" + std::to_string(count);
             count++;
             std::vector<double> band_values = my_band.get_band(index_band);
             int                 data_tag    = gmsh::view::add(band_name);
@@ -148,7 +148,7 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string&                   
 
     if (nb_conduction_bands_to_export != 0) {
         for (int index_band = nb_valence_bands; index_band < nb_valence_bands + nb_conduction_bands_to_export; ++index_band) {
-            std::string         band_name   = "band_" + std::to_string(count);
+            std::string band_name = "band_" + std::to_string(count);
             count++;
             std::vector<double> band_values = my_band.get_band(index_band);
             int                 data_tag    = gmsh::view::add(band_name);

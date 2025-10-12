@@ -1,5 +1,6 @@
-#include "tclap/CmdLine.h"
 #include <iterator>
+
+#include "tclap/CmdLine.h"
 
 using namespace TCLAP;
 
@@ -16,16 +17,16 @@ struct Vect3D {
 // operator>> will be used to assign to the vector since the default
 // is that all types are ValueLike.
 std::istream &operator>>(std::istream &is, Vect3D &v) {
-    if (!(is >> v.v[0] >> v.v[1] >> v.v[2]))
+    if (!(is >> v.v[0] >> v.v[1] >> v.v[2])) {
         throw TCLAP::ArgParseException(" Argument is not a 3D vector");
+    }
 
     return is;
 }
 
 int main(int argc, char *argv[]) {
-    CmdLine cmd("Command description message", ' ', "0.9");
-    ValueArg<Vect3D> vec("v", "vect", "vector", true, Vect3D(), "3D vector",
-                         cmd);
+    CmdLine          cmd("Command description message", ' ', "0.9");
+    ValueArg<Vect3D> vec("v", "vect", "vector", true, Vect3D(), "3D vector", cmd);
 
     try {
         cmd.parse(argc, argv);

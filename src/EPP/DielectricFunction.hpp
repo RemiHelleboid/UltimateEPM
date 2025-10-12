@@ -77,11 +77,10 @@ class DielectricFunction {
  public:
     DielectricFunction(const Material& material, const std::vector<Vector3D<int>>& basisVectors, const int nb_bands);
 
-    DielectricFunction & operator=(const DielectricFunction &) = default;
-    DielectricFunction(const DielectricFunction &) = default;
+    DielectricFunction& operator=(const DielectricFunction&) = default;
+    DielectricFunction(const DielectricFunction&)            = default;
 
-
-    void set_non_local_epm(const bool new_value) {m_nonlocal_epm = new_value;}
+    void set_non_local_epm(const bool new_value) { m_nonlocal_epm = new_value; }
 
     /**
      * @brief Randomly generate a list of k-points in the irreducible wedge of the first Brillouin zone.
@@ -182,9 +181,9 @@ class DielectricFunction {
      * @param nb_kpoints_per_instance
      * @return std::vector<std::vector<double>>
      */
-    static DielectricFunction merge_results(DielectricFunction                                  RootDielectricFunction,
+    static DielectricFunction merge_results(DielectricFunction                                   RootDielectricFunction,
                                             const std::vector<std::vector<std::vector<double>>>& dielectric_function_results,
-                                            std::vector<int>                                    nb_kpoints_per_instance);
+                                            std::vector<int>                                     nb_kpoints_per_instance);
 
     /**
      * @brief Apply Kramer's Kronig relations to the dielectric function to obtain the real part.

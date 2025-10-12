@@ -7,10 +7,10 @@
 #include <iostream>
 #include <vector>
 
-#include "physical_constants.hpp"
 #include "NonLocalFunctional.hpp"
 #include "SpinOrbitFunctional.hpp"
 #include "Vector3D.h"
+#include "physical_constants.hpp"
 
 namespace uepm::pseudopotential {
 

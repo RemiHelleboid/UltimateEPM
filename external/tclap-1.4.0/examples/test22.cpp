@@ -1,6 +1,7 @@
-#include <string>
-#include <iostream>
 #include <algorithm>
+#include <iostream>
+#include <string>
+
 #include "tclap/CmdLine.h"
 
 using namespace TCLAP;
@@ -15,8 +16,7 @@ int main(int argc, char **argv) {
         cmd.ignoreUnmatched(true);
 
         // Define a value argument and add it to the command line.
-        ValueArg<string> nameArg("n", "name", "Name to print", true, "homer",
-                                 "string");
+        ValueArg<string> nameArg("n", "name", "Name to print", true, "homer", "string");
         cmd.add(nameArg);
 
         // Define a switch and add it to the command line.
@@ -27,15 +27,16 @@ int main(int argc, char **argv) {
         cmd.parse(argc, argv);
 
         // Get the value parsed by each arg.
-        string name = nameArg.getValue();
-        bool reverseName = reverseSwitch.getValue();
+        string name        = nameArg.getValue();
+        bool   reverseName = reverseSwitch.getValue();
 
         // Do what you intend too...
         if (reverseName) {
             reverse(name.begin(), name.end());
             cout << "My name (spelled backwards) is: " << name << endl;
-        } else
+        } else {
             cout << "My name is: " << name << endl;
+        }
 
     } catch (ArgException &e)  // catch any exceptions
     {

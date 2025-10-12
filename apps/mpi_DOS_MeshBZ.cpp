@@ -46,8 +46,8 @@
 
 #define MASTER 0
 
-inline void export_multiple_vector_to_csv(const std::string &                     filename,
-                                          const std::vector<std::string> &        header_columns,
+inline void export_multiple_vector_to_csv(const std::string                      &filename,
+                                          const std::vector<std::string>         &header_columns,
                                           const std::vector<std::vector<double>> &value_vector_of_vector) {
     if (value_vector_of_vector.empty()) {
         return;
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
     cmd.parse(argc, argv);
 
     uepm::pseudopotential::Materials materials;
-    const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
+    const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
     materials.load_material_parameters(file_material_parameters);
 
     Options my_options;
@@ -135,8 +135,8 @@ int main(int argc, char *argv[]) {
 
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
-    const std::string mesh_band_input_file = arg_mesh_file.getValue();
-    uepm::mesh_bz::MeshBZ   my_bz_mesh{current_material};
+    const std::string     mesh_band_input_file = arg_mesh_file.getValue();
+    uepm::mesh_bz::MeshBZ my_bz_mesh{current_material};
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file);
     my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file);
 

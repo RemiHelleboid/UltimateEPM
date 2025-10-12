@@ -16,7 +16,7 @@ AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: All
 AllowShortLambdasOnASingleLine: All
-AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakAfterDefinitionReturnType: None
 AlwaysBreakAfterReturnType: None
@@ -135,6 +135,7 @@ RawStringFormats:
       - ParseTextProtoOrDie
     CanonicalDelimiter: ''
     BasedOnStyle:    google
+InsertBraces: true
 ReflowComments:  true
 SortIncludes:    true
 SortUsingDeclarations: true

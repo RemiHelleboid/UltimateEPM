@@ -41,8 +41,12 @@ struct UniformDos {
         int          idx = static_cast<int>(t);  // floor
         // clamp to [0, N-2]
         const int last = static_cast<int>(N) - 2;
-        if (idx < 0) idx = 0;
-        if (idx > last) idx = last;
+        if (idx < 0) {
+            idx = 0;
+        }
+        if (idx > last) {
+            idx = last;
+        }
 
         const float  d0   = D[static_cast<size_t>(idx)];
         const float  d1   = D[static_cast<size_t>(idx + 1)];

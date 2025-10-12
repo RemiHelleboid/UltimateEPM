@@ -25,7 +25,7 @@ using namespace TCLAP;
 
 int main(int argc, char **argv) {
     DocBookOutput output;
-    CmdLine cmd("");
+    CmdLine       cmd("");
     cmd.setOutput(&output);
 
     ValueArg<int> arg0("a", "a_int", "int arg", false, 4711, "int", cmd);

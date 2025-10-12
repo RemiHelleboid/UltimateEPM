@@ -57,7 +57,9 @@ class alignas(32) vector3 {
 
     void re_normalize() {
         const double v_norm = norm();
-        if (v_norm == 0.0) return;  // avoid division by zero
+        if (v_norm == 0.0) {
+            return;  // avoid division by zero
+        }
         m_x /= v_norm;
         m_y /= v_norm;
         m_z /= v_norm;

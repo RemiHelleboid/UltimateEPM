@@ -2,9 +2,10 @@
 
 #define TCLAP_SETBASE_ZERO 1
 
-#include "tclap/CmdLine.h"
 #include <iostream>
 #include <string>
+
+#include "tclap/CmdLine.h"
 
 using namespace TCLAP;
 using namespace std;

@@ -1,8 +1,9 @@
 // -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
-#include <string>
-#include <iostream>
 #include <algorithm>
+#include <iostream>
+#include <string>
+
 #include "tclap/CmdLine.h"
 
 using namespace TCLAP;
@@ -12,8 +13,7 @@ int main(int argc, char **argv) {
     try {
         CmdLine cmd("Command description message", ' ', "0.9", false);
 
-        SwitchArg reverseSwitch("r", "reverse", "REVERSE instead of FORWARDS",
-                                false);
+        SwitchArg reverseSwitch("r", "reverse", "REVERSE instead of FORWARDS", false);
         cmd.add(reverseSwitch);
 
         MultiSwitchArg verbose("V", "verbose", "Level of verbosity");
@@ -22,15 +22,14 @@ int main(int argc, char **argv) {
         MultiSwitchArg noise("N", "noise", "Level of noise", 5);
         cmd.add(noise);
 
-        UnlabeledValueArg<string> word("word", "a random word", false, "string",
-                                       "won't see this", false);
+        UnlabeledValueArg<string> word("word", "a random word", false, "string", "won't see this", false);
         cmd.add(word);
 
         // Uncommenting the next arg will (correctly) cause an exception
         // to be thrown.
 
         //	UnlabeledMultiArg<string> badword("badword","a bad word",
-        //false,"string");
+        // false,"string");
         //
         //	cmd.add( badword );
 
@@ -38,17 +37,23 @@ int main(int argc, char **argv) {
 
         bool reverseName = reverseSwitch.getValue();
 
-        if (reverseName)
+        if (reverseName) {
             cout << "REVERSE" << endl;
-        else
+        } else {
             cout << "FORWARD" << endl;
+        }
 
-        if (verbose.isSet())
+        if (verbose.isSet()) {
             cout << "Verbose level: " << verbose.getValue() << endl;
+        }
 
-        if (noise.isSet()) cout << "Noise level: " << noise.getValue() << endl;
+        if (noise.isSet()) {
+            cout << "Noise level: " << noise.getValue() << endl;
+        }
 
-        if (word.isSet()) cout << "Word: " << word.getValue() << endl;
+        if (word.isSet()) {
+            cout << "Word: " << word.getValue() << endl;
+        }
 
     } catch (ArgException &e)  // catch any exceptions
     {

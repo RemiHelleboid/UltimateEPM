@@ -16,13 +16,13 @@
 #include <fstream>
 
 #include "BandStructure.h"
-#include "physical_constants.hpp"
 #include "Hamiltonian.h"
 #include "Material.h"
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_states.hpp"
 #include "omp.h"
+#include "physical_constants.hpp"
 
 namespace uepm::mesh_bz {
 
@@ -80,13 +80,13 @@ void ImpactIonization::interp_test_dielectric_function(std::string filename) {
 }
 
 void ImpactIonization::compute_eigenstates(int nb_threads) {
-    int                nb_bands_to_use = 16;
+    int                      nb_bands_to_use = 16;
     uepm::mesh_bz::BZ_States my_bz_mesh(m_material);
     my_bz_mesh.set_nb_bands(nb_bands_to_use);
     uepm::pseudopotential::BandStructure band_structure{};
-    int                                     nb_nearest_neighbors = 10;
-    bool                                    nonlocal_epm         = false;
-    bool                                    enable_soc           = false;
+    int                                  nb_nearest_neighbors = 10;
+    bool                                 nonlocal_epm         = false;
+    bool                                 enable_soc           = false;
     band_structure.Initialize(m_material, nb_bands_to_use, {}, nb_nearest_neighbors, nonlocal_epm, enable_soc);
     auto basis = band_structure.get_basis_vectors();
     my_bz_mesh.set_basis_vectors(basis);
@@ -181,7 +181,7 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
                     auto    k1       = m_list_BZ_states[0]->get_vertex_position(idx_k1);
                     auto    k1_prime = m_list_BZ_states[0]->get_vertex_position(idx_k1_prime);
                     // auto    q_a      = k1 - k1_prime + G1 + (-1 * G1_prime);
-                    double  energy_w = m_list_BZ_states[0]->get_energies()[idx_n1] - m_list_BZ_states[0]->get_energies()[n1_prime];
+                    double energy_w = m_list_BZ_states[0]->get_energies()[idx_n1] - m_list_BZ_states[0]->get_energies()[n1_prime];
                     // complex_d epsilon    = m_dielectric_mesh.interpolate_dielectric_function(q_a, energy_w);
                     // complex_d epsilon    = 1.0;
                     // complex_d factor_eps = uepm::Constants::q_e * uepm::Constants::q_e /

@@ -1,17 +1,18 @@
 // -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
-#include "tclap/CmdLine.h"
 #include <iostream>
 #include <string>
+
+#include "tclap/CmdLine.h"
 
 using namespace TCLAP;
 using namespace std;
 
-int _intTest;
+int    _intTest;
 double _floatTest;
-bool _boolTestA;
-bool _boolTestB;
-bool _boolTestC;
+bool   _boolTestA;
+bool   _boolTestB;
+bool   _boolTestC;
 string _stringTest;
 string _utest;
 
@@ -37,35 +38,28 @@ void parseOptions(int argc, char **argv) {
         // Define arguments
         //
 
-        SwitchArg btest("B", "existTestB", "tests for the existence of B",
-                        false);
+        SwitchArg btest("B", "existTestB", "tests for the existence of B", false);
         cmd.add(btest);
 
-        SwitchArg ctest("C", "existTestC", "tests for the existence of C",
-                        false);
+        SwitchArg ctest("C", "existTestC", "tests for the existence of C", false);
         cmd.add(ctest);
 
-        SwitchArg atest("A", "existTestA", "tests for the existence of A",
-                        false);
+        SwitchArg atest("A", "existTestA", "tests for the existence of A", false);
         cmd.add(atest);
 
-        ValueArg<string> stest("s", "stringTest", "string test", true, "homer",
-                               "string");
+        ValueArg<string> stest("s", "stringTest", "string test", true, "homer", "string");
         cmd.add(stest);
 
         ValueArg<int> itest("i", "intTest", "integer test", true, 5, "int");
         cmd.add(itest);
 
-        ValueArg<double> ftest("f", "floatTest", "float test", false, 3.7,
-                               "float");
+        ValueArg<double> ftest("f", "floatTest", "float test", false, 3.7, "float");
         cmd.add(ftest);
 
-        UnlabeledValueArg<string> utest("unTest", "unlabeld test", true,
-                                        "default", "string");
+        UnlabeledValueArg<string> utest("unTest", "unlabeld test", true, "default", "string");
         cmd.add(utest);
 
-        UnlabeledMultiArg<string> mtest("fileName", "file names", false,
-                                        "string");
+        UnlabeledMultiArg<string> mtest("fileName", "file names", false, "string");
         cmd.add(mtest);
 
         //
@@ -76,17 +70,18 @@ void parseOptions(int argc, char **argv) {
         //
         // Set variables
         //
-        _intTest = itest.getValue();
-        _floatTest = ftest.getValue();
+        _intTest    = itest.getValue();
+        _floatTest  = ftest.getValue();
         _stringTest = stest.getValue();
-        _boolTestB = btest.getValue();
-        _boolTestC = ctest.getValue();
-        _boolTestA = atest.getValue();
-        _utest = utest.getValue();
+        _boolTestB  = btest.getValue();
+        _boolTestC  = ctest.getValue();
+        _boolTestA  = atest.getValue();
+        _utest      = utest.getValue();
 
         vector<string> v = mtest.getValue();
-        for (int i = 0; static_cast<unsigned int>(i) < v.size(); i++)
+        for (int i = 0; static_cast<unsigned int>(i) < v.size(); i++) {
             cout << i << "  " << v[i] << endl;
+        }
 
     } catch (ArgException &e) {
         cout << "ERROR: " << e.error() << " " << e.argId() << endl;

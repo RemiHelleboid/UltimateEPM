@@ -46,5 +46,3 @@ void Options::print_options() {
     //     std::cout << std::endl;
     // }
 }
-
-

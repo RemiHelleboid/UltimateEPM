@@ -11,10 +11,8 @@ int main(int argc, char **argv) {
     try {
         CmdLine cmd("this is a message", ' ', "0.99");
 
-        ValueArg<string> atest("a", "aaa", "or test a", true, "homer",
-                               "string");
-        ValueArg<string> btest("b", "bbb", "or test b", false, "homer",
-                               "string");
+        ValueArg<string> atest("a", "aaa", "or test a", true, "homer", "string");
+        ValueArg<string> btest("b", "bbb", "or test b", false, "homer", "string");
         cmd.xorAdd(atest, btest);
 
         cmd.parse(argc, argv);

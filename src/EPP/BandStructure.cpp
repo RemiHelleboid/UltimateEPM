@@ -39,15 +39,18 @@ bool BandStructure::GenerateBasisVectors(unsigned int nearestNeighborsNumber) {
     const int           size = static_cast<int>(ceil(sqrt(static_cast<double>(G2[nearestNeighbors]))));
     const Vector3D<int> b1(-1, 1, 1), b2(1, -1, 1), b3(1, 1, -1);
 
-    for (int i = -size; i <= size; ++i)
-        for (int j = -size; j <= size; ++j)
+    for (int i = -size; i <= size; ++i) {
+        for (int j = -size; j <= size; ++j) {
             for (int k = -size; k <= size; ++k) {
                 const Vector3D<int> vect        = b1 * i + b2 * j + b3 * k;  // reciprocal lattice vector
                 const double        vectSquared = vect * vect;
 
-                if (vectSquared <= G2[nearestNeighbors])  // if it's under the cutoff length, add it
+                if (vectSquared <= G2[nearestNeighbors]) {  // if it's under the cutoff length, add it
                     basisVectors.push_back(vect);
+                }
             }
+        }
+    }
 
     return true;
 }
@@ -106,7 +109,6 @@ void BandStructure::Initialize(const Material&               material,
         m_nb_bands *= 2;
         std::cout << "Spin-orbit coupling enabled. Number of bands doubled to " << m_nb_bands << std::endl;
         m_material.get_spin_orbit_parameters().print_parameters();
-
     }
 
     m_kpoints.clear();
@@ -199,7 +201,9 @@ double BandStructure::AdjustValues(bool minConductionBandToZero) {
 
 bool BandStructure::FindBandGap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction) {
     maxValValence = DBL_MIN;
-    if (results.empty() || results.front().size() < 2) return false;
+    if (results.empty() || results.front().size() < 2) {
+        return false;
+    }
 
     const unsigned int nrLevels       = static_cast<unsigned int>(results.front().size());
     double             fallbackMaxVal = 0;
@@ -216,9 +220,13 @@ bool BandStructure::FindBandGap(const std::vector<std::vector<double>>& results,
             minValConduction = std::min(minValConduction, valHigh);
         }
 
-        if (3 == levelLow) fallbackMaxVal = maxValValence;
+        if (3 == levelLow) {
+            fallbackMaxVal = maxValValence;
+        }
 
-        if (maxValValence + 0.35 < minValConduction) return true;
+        if (maxValValence + 0.35 < minValConduction) {
+            return true;
+        }
     }
 
     maxValValence = fallbackMaxVal;
@@ -237,8 +245,9 @@ std::vector<double> BandStructure::get_band(unsigned int band_index) const {
 
 void BandStructure::print_results() const {
     for (auto& p : m_results) {
-        for (auto& v : p)
+        for (auto& v : p) {
             std::cout << v << " ";
+        }
         std::cout << std::endl;
     }
 }
@@ -307,8 +316,9 @@ void export_vector_bands_result_in_file(const std::string& filename, std::vector
     std::ofstream file(filename);
 
     for (auto& p : results) {
-        for (auto& v : p)
+        for (auto& v : p) {
             file << v << ",";
+        }
         file << std::endl;
     }
 }

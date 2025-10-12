@@ -1,11 +1,11 @@
 /**
  * @file bz_meshing.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2025-10-10
- * 
- * 
+ *
+ *
  */
 
 #include <gmsh.h>
@@ -55,9 +55,11 @@ struct VecEq {
 
 inline Vec3 mul(const Mat3 &M, const Vec3 &p) {
     Vec3 r{0.0, 0.0, 0.0};
-    for (int i = 0; i < 3; ++i)
-        for (int j = 0; j < 3; ++j)
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
             r[i] += static_cast<double>(M[i][j]) * p[j];
+        }
+    }
     return r;
 }
 
@@ -67,8 +69,9 @@ std::vector<Mat3> permutation_matrices() {
     std::sort(idx.begin(), idx.end());
     do {
         Mat3 P{{{0, 0, 0}, {0, 0, 0}, {0, 0, 0}}};
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < 3; ++i) {
             P[i][idx[i]] = 1;
+        }
         mats.push_back(P);
     } while (std::next_permutation(idx.begin(), idx.end()));
     return mats;  // 6
@@ -76,10 +79,13 @@ std::vector<Mat3> permutation_matrices() {
 
 std::vector<Mat3> reflection_matrices() {
     std::vector<Mat3> mats;
-    for (int sx : {-1, 1})
-        for (int sy : {-1, 1})
-            for (int sz : {-1, 1})
+    for (int sx : {-1, 1}) {
+        for (int sy : {-1, 1}) {
+            for (int sz : {-1, 1}) {
                 mats.push_back(Mat3{{{sx, 0, 0}, {0, sy, 0}, {0, 0, sz}}});
+            }
+        }
+    }
     return mats;  // 8
 }
 
@@ -91,13 +97,15 @@ std::vector<Mat3> symmetry_ops_full() {
     for (const auto &P : perms) {
         for (const auto &R : refls) {
             Mat3 M{};
-            for (int i = 0; i < 3; ++i)
+            for (int i = 0; i < 3; ++i) {
                 for (int j = 0; j < 3; ++j) {
                     int s = 0;
-                    for (int k = 0; k < 3; ++k)
+                    for (int k = 0; k < 3; ++k) {
                         s += R[i][k] * P[k][j];
+                    }
                     M[i][j] = s;
                 }
+            }
             ops.push_back(M);
         }
     }
@@ -105,14 +113,18 @@ std::vector<Mat3> symmetry_ops_full() {
     auto key = [](const Mat3 &M) {
         std::array<int, 9> flat{};
         int                t = 0;
-        for (int i = 0; i < 3; ++i)
-            for (int j = 0; j < 3; ++j)
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
                 flat[t++] = M[i][j];
+            }
+        }
         return flat;
     };
     std::sort(ops.begin(), ops.end(), [&](const Mat3 &A, const Mat3 &B) { return key(A) < key(B); });
     ops.erase(std::unique(ops.begin(), ops.end(), [&](const Mat3 &A, const Mat3 &B) { return key(A) == key(B); }), ops.end());
-    if (ops.size() != 48) std::cerr << "[warn] symmetry op count = " << ops.size() << " (expected 48)\n";
+    if (ops.size() != 48) {
+        std::cerr << "[warn] symmetry op count = " << ops.size() << " (expected 48)\n";
+    }
     return ops;
 }
 
@@ -129,8 +141,9 @@ std::vector<double> flatten_xyz(const std::vector<Vec3> &pts) {
 
 std::vector<std::size_t> iota_tags(std::size_t n, std::size_t start = 1) {
     std::vector<std::size_t> v(n);
-    for (std::size_t i = 0; i < n; ++i)
+    for (std::size_t i = 0; i < n; ++i) {
         v[i] = start + i;
+    }
     return v;
 }
 
@@ -259,13 +272,12 @@ int apply_background_fields(const BuildResult &g, const MeshKnobs &k) {
     // Δ cigar via MathEval ellipsoidal distance (normalized)
     int f_ell = add("MathEval");
     {
-        double t0 = k.delta_t0;
-        double ax = std::max(1e-9, k.delta_axial);
-        double rr = std::max(1e-9, k.delta_radial);
+        double             t0 = k.delta_t0;
+        double             ax = std::max(1e-9, k.delta_axial);
+        double             rr = std::max(1e-9, k.delta_radial);
         std::ostringstream oss;
         // r = sqrt(((x-t0)/ax)^2 + (y/rr)^2 + (z/rr)^2)
-        oss << "sqrt(((x-" << std::setprecision(17) << t0 << ")/" << ax << ")^2 + "
-            << "(y/" << rr << ")^2 + (z/" << rr << ")^2)";
+        oss << "sqrt(((x-" << std::setprecision(17) << t0 << ")/" << ax << ")^2 + " << "(y/" << rr << ")^2 + (z/" << rr << ")^2)";
         setString(f_ell, "F", oss.str());
     }
 
@@ -349,11 +361,11 @@ MeshKnobs apply_presets(Mode mode, int level, const MeshKnobs &base, bool no_L =
     };
 
     static const Pack ladder[5] = {
-        {0.1, 0.20, 0.1, 0.0050, 0.08, 0.0060, 0.8, 0.9},    // L0
-        {0.1, 0.2, 0.1, 0.0025, 0.07, 0.0050, 0.7, 0.8},    // L1
-        {0.05, 0.3, 0.2, 0.0025, 0.06, 0.0040, 0.6, 0.7},    // L2
+        {0.1, 0.20, 0.1, 0.0050, 0.08, 0.0060, 0.8, 0.9},      // L0
+        {0.1, 0.2, 0.1, 0.0025, 0.07, 0.0050, 0.7, 0.8},       // L1
+        {0.05, 0.3, 0.2, 0.0025, 0.06, 0.0040, 0.6, 0.7},      // L2
         {0.01, 0.16, 0.025, 0.0022, 0.05, 0.0032, 0.55, 0.6},  // L3
-        {0.005, 0.18, 0.020, 0.0016, 0.04, 0.0026, 0.5, 0.5}    // L4
+        {0.005, 0.18, 0.020, 0.0016, 0.04, 0.0026, 0.5, 0.5}   // L4
     };
     const Pack &p            = ladder[std::clamp(level, 0, 4)];
     k.h                      = p.h;
@@ -364,7 +376,6 @@ MeshKnobs apply_presets(Mode mode, int level, const MeshKnobs &base, bool no_L =
     k.h_L                    = p.hL;
     k.tube_size_min_factor   = p.tubeFac;
     k.L_tube_size_min_factor = p.LtubeFac;
-
 
     // Mode nudges:
     if (mode == Mode::Conduction) {
@@ -387,7 +398,7 @@ MeshKnobs apply_presets(Mode mode, int level, const MeshKnobs &base, bool no_L =
 }
 
 // --------------------------- Kmap file ---------------------------
-void export_kmap(const std::string &filename, const std::vector<std::vector<std::size_t>>& maps_k_iwedge) {
+void export_kmap(const std::string &filename, const std::vector<std::vector<std::size_t>> &maps_k_iwedge) {
     std::ofstream ofs(filename);
     if (!ofs) {
         std::cerr << "[error] could not open " << filename << " for writing\n";
@@ -518,8 +529,9 @@ int main(int argc, char **argv) try {
     // Collect into Vec3 list
     std::vector<Vec3> nodes;
     nodes.reserve(nodeTags.size());
-    for (size_t i = 0; i + 2 < nodeCoords.size(); i += 3)
+    for (size_t i = 0; i + 2 < nodeCoords.size(); i += 3) {
         nodes.push_back({nodeCoords[i], nodeCoords[i + 1], nodeCoords[i + 2]});
+    }
 
     // Symmetry expansion
     std::cout << "Expanding nodes to full BZ using symmetry...\n";
@@ -528,8 +540,9 @@ int main(int argc, char **argv) try {
 
     const std::size_t                     nb_nodes = nodes.size();
     std::vector<std::vector<std::size_t>> sym_map(nb_nodes);
-    for (auto &v : sym_map)
+    for (auto &v : sym_map) {
         v.reserve(ops.size());
+    }
 
     // Index map: point -> stable ID
     std::unordered_map<Vec3, std::size_t, VecHash, VecEq> index;
@@ -541,7 +554,9 @@ int main(int argc, char **argv) try {
 
     auto get_id = [&](const Vec3 &q) -> std::size_t {
         auto it = index.find(q);
-        if (it != index.end()) return it->second;
+        if (it != index.end()) {
+            return it->second;
+        }
         std::size_t id = symPts.size();
         index.emplace(q, id);
         symPts.push_back(q);
@@ -580,10 +595,12 @@ int main(int argc, char **argv) try {
     gmsh::model::mesh::addElementsByType(vol2, 4, std::vector<std::size_t>{}, tets);
 
     // Write additional outputs
-    std::string out  = outArg.getValue();
+    std::string out = outArg.getValue();
     gmsh::write(out);
 
-    if (!noGui.getValue()) gmsh::fltk::run();
+    if (!noGui.getValue()) {
+        gmsh::fltk::run();
+    }
     gmsh::finalize();
     return 0;
 
