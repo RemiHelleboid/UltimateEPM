@@ -201,6 +201,7 @@ include_directories(${GMSH_INC})
 include_directories(${PROJECT_SOURCE_DIR}/external/tclap-1.4.0/include)
 
 # ---------------------------- Subprojects ----------------------------
+add_subdirectory(src/Common)
 add_subdirectory(src/EPP)
 add_subdirectory(src/BZ_MESH)
 add_subdirectory(src/FBMC)

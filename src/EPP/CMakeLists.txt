@@ -32,6 +32,7 @@ add_library(libepp STATIC ${SOURCE_FILES_LIBEPP} ${HEADER_FILES_LIBEPP})
 target_include_directories(libepp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Link with reuired libraries
+target_link_libraries(libepp PUBLIC uepm::common)
 target_link_libraries(libepp PUBLIC Eigen3::Eigen yaml-cpp::yaml-cpp rapidcsv fmt::fmt)
 target_link_libraries(libepp PUBLIC OpenMP::OpenMP_CXX)
 target_include_directories(libepp PUBLIC ${GMSH_INC} ${rapidcsv_SOURCE_DIR})

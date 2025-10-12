@@ -13,7 +13,7 @@
 
 #include <random>
 
-#include "Constants.hpp"
+#include "physical_constants.hpp"
 namespace uepm::fbmc {
 
 particle::particle(std::size_t index, particle_type arg_particle_type, uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz)
@@ -37,13 +37,13 @@ void particle::draw_free_flight_time(double p_gamma) {
  * @param v_electric_field The electric field vector.
  */
 void particle::update_k_vector(const vector3& v_electric_field) {
-    m_k_vector += (get_charge_sign() * uepm::pseudopotential::Constants::q_e / uepm::pseudopotential::Constants::h_bar) *
+    m_k_vector += (get_charge_sign() * uepm::Constants::q_e / uepm::Constants::h_bar) *
                   v_electric_field * m_current_free_flight_time;
 }
 
 void particle::update_group_velocity() {
     m_velocity = m_containing_bz_mesh_tetra->get_gradient_energy_at_band(m_band_index);
-    m_velocity *= (1.0 / uepm::pseudopotential::Constants::h_bar_eV);
+    m_velocity *= (1.0 / uepm::Constants::h_bar_eV);
 }
 
 std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(const vector3& location) {

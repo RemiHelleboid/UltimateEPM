@@ -30,7 +30,7 @@ add_library(lib_bzmesh STATIC ${SOURCE_FILES_LIBBZMESH}
 target_include_directories(lib_bzmesh PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Link with reuired libraries
-target_link_libraries(lib_bzmesh PUBLIC libepp)
+target_link_libraries(lib_bzmesh PUBLIC libepp uepm::common)
 target_link_libraries(lib_bzmesh PUBLIC Eigen3::Eigen rapidcsv fmt::fmt)
 target_include_directories(lib_bzmesh PUBLIC ${GMSH_INC})
 target_link_libraries(lib_bzmesh PUBLIC ${GMSH_LIB})

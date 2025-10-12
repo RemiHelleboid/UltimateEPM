@@ -21,11 +21,12 @@
 #include <tuple>
 #include <vector>
 
-#include "Constants.hpp"
+#include "physical_constants.hpp"
 #include "Vector3D.h"
 #include "bz_states.hpp"
 #include "gmsh.h"
 #include "omp.h"
+#include "physical_constants.hpp"
 #include "yaml-cpp/yaml.h"
 
 namespace uepm::mesh_bz {
@@ -43,7 +44,7 @@ double ElectronPhonon::get_max_phonon_energy() const {
         double max_w = disp.max_omega();  // ω_max [1/s]
         if (max_w > max_energy) max_energy = max_w;
     }
-    return max_energy * uepm::pseudopotential::Constants::h_bar_eV;  // ħω → eV
+    return max_energy * uepm::Constants::h_bar_eV;  // ħω → eV
 }
 
 // --- Pairwise kernel: one (n1,k1) → (n2, bary(t)) transition, returns 8 channels ---
@@ -74,9 +75,9 @@ Rate8 ElectronPhonon::compute_transition_rates_pair(int         idx_n1,
     const double qn = q.norm();
 
     constexpr double SMALL_OMEGA_CUTOFF = 1.0;  // [1/s]
-    const double     pi                 = uepm::pseudopotential::Constants::pi;
-    const double     qe                 = uepm::pseudopotential::Constants::q_e;       // J/eV
-    const double     hbar_eV            = uepm::pseudopotential::Constants::h_bar_eV;  // eV·s
+    const double     pi                 = uepm::Constants::pi;
+    const double     qe                 = uepm::Constants::q_e;       // J/eV
+    const double     hbar_eV            = uepm::Constants::h_bar_eV;  // eV·s
 
     double       inv_mrta_rate          = 0.0;
     vector3      vnk                    = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);   // m/s
@@ -195,19 +196,19 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
                 const double omega = disp.omega_lookup(q_norm);
                 if (omega <= SMALL_OMEGA_CUTOFF) continue;
 
-                const double Eph_eV = uepm::pseudopotential::Constants::h_bar_eV * omega;
+                const double Eph_eV = uepm::Constants::h_bar_eV * omega;
                 const double N0     = bose_einstein_distribution(Eph_eV, m_temperature);
 
                 const DeformationPotential& defpot = (mode == PhononMode::acoustic) ? m_ac_defpot_h : m_op_defpot_h;
-                const double Delta_J = defpot.get_fischetti_deformation_potential(q, idx_n1) * uepm::pseudopotential::Constants::q_e;
+                const double Delta_J = defpot.get_fischetti_deformation_potential(q, idx_n1) * uepm::Constants::q_e;
 
                 // Emission
                 {
                     const double Ef_eV  = Ei_eV - Eph_eV;
                     const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
                     if (dos_eV > 0.0) {
-                        const double dos_per_J = dos_eV / uepm::pseudopotential::Constants::q_e;
-                        double rate_value = (uepm::pseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
+                        const double dos_per_J = dos_eV / uepm::Constants::q_e;
+                        double rate_value = (uepm::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 *
                                             (N0 + 1.0) * dos_per_J;
                         rate_value /= m_reduce_bz_factor;
                         rate_value *= m_spin_degeneracy;
@@ -220,9 +221,9 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
                     const double Ef_eV  = Ei_eV + Eph_eV;
                     const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
                     if (dos_eV > 0.0) {
-                        const double dos_per_J = dos_eV / uepm::pseudopotential::Constants::q_e;
+                        const double dos_per_J = dos_eV / uepm::Constants::q_e;
                         double       rate_value =
-                            (uepm::pseudopotential::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 * (N0)*dos_per_J;
+                            (uepm::Constants::pi / (m_rho * omega)) * (Delta_J * Delta_J) * overlap2 * (N0)*dos_per_J;
                         rate_value /= m_reduce_bz_factor;
                         rate_value *= m_spin_degeneracy;
 
@@ -355,9 +356,9 @@ std::pair<int, std::size_t> ElectronPhonon::select_final_state(std::size_t     i
     std::vector<double> probs_flat(nb_bands * nb_tetra, 0.0);
     auto                P_ref = [&](int n2, size_t t) -> double& { return probs_flat[static_cast<size_t>(n2) * nb_tetra + t]; };
 
-    const double pi      = uepm::pseudopotential::Constants::pi;
-    const double qe      = uepm::pseudopotential::Constants::q_e;
-    const double hbar_eV = uepm::pseudopotential::Constants::h_bar_eV;
+    const double pi      = uepm::Constants::pi;
+    const double qe      = uepm::Constants::q_e;
+    const double hbar_eV = uepm::Constants::h_bar_eV;
 
     const double Eph_max_eV = get_max_phonon_energy();
 
@@ -543,7 +544,7 @@ void ElectronPhonon::plot_phonon_dispersion(const std::string& filename) const {
             auto q = k;
             q /= m_material.get_fourier_factor();
             const auto&  disp = m_phonon_dispersion[md];
-            const double e_ph = disp.omega_lookup(q.norm()) * uepm::pseudopotential::Constants::h_bar_eV;
+            const double e_ph = disp.omega_lookup(q.norm()) * uepm::Constants::h_bar_eV;
             file << e_ph << " ";
         }
         file << '\n';

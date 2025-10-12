@@ -86,7 +86,7 @@ struct RateValues {
 }
 
 inline double fermi_dirac_distribution(double energy_eV, double fermi_level_eV, double temperature_K) {
-    const double kT = uepm::pseudopotential::Constants::k_b_eV * temperature_K;
+    const double kT = uepm::Constants::k_b_eV * temperature_K;
 
     // Handle T <= 0 K as the T→0 limit (Heaviside step).
     if (!(kT > 0.0)) {
@@ -113,7 +113,7 @@ inline double fermi_dirac_distribution(double energy_eV, double fermi_level_eV, 
 }
 
 inline double d_de_fermi_dirac_dE(double energy_eV, double fermi_level_eV, double temperature_K) {
-    const double kT = uepm::pseudopotential::Constants::k_b_eV * temperature_K;
+    const double kT = uepm::Constants::k_b_eV * temperature_K;
 
     // T <= 0: derivative is a Dirac delta in theory; return 0 numerically.
     if (!(kT > 0.0)) return 0.0;
@@ -137,7 +137,7 @@ inline double d_de_fermi_dirac_dE(double energy_eV, double fermi_level_eV, doubl
 
 inline double bose_einstein_distribution(double energy_eV, double temperature_K)  {
     // N0 = 1 / (exp(E / kT) - 1)
-    const double x = energy_eV / (uepm::pseudopotential::Constants::k_b_eV * temperature_K);
+    const double x = energy_eV / (uepm::Constants::k_b_eV * temperature_K);
     return 1.0 / std::expm1(x);  // stable for small x
 }
 

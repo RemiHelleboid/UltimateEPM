@@ -16,7 +16,7 @@
 #include <fstream>
 
 #include "BandStructure.h"
-#include "Constants.hpp"
+#include "physical_constants.hpp"
 #include "Hamiltonian.h"
 #include "Material.h"
 #include "Options.h"
@@ -184,8 +184,8 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
                     double  energy_w = m_list_BZ_states[0]->get_energies()[idx_n1] - m_list_BZ_states[0]->get_energies()[n1_prime];
                     // complex_d epsilon    = m_dielectric_mesh.interpolate_dielectric_function(q_a, energy_w);
                     // complex_d epsilon    = 1.0;
-                    // complex_d factor_eps = uepm::pseudopotential::Constants::q_e * uepm::pseudopotential::Constants::q_e /
-                    //                        (uepm::pseudopotential::Constants::eps_0 * epsilon * q_a.norm() * q_a.norm());
+                    // complex_d factor_eps = uepm::Constants::q_e * uepm::Constants::q_e /
+                    //                        (uepm::Constants::eps_0 * epsilon * q_a.norm() * q_a.norm());
                     // sum += std::conj(A_1_prime(idx_G1_prime, n1_prime)) * A_1(idx_G1, idx_n1) * factor_eps;
                 }
             }

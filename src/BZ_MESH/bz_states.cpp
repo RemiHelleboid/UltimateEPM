@@ -155,13 +155,13 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
     double q_squared = m_q_shift.Length() * m_q_shift.Length();
 
     // // prefactor in SI, with J→eV conversion
-    // double prefactor = (uepm::pseudopotential::Constants::q_e * uepm::pseudopotential::Constants::q_e) /
-    //                    (uepm::pseudopotential::Constants::eps_0 * q_squared) / uepm::pseudopotential::Constants::q_e *
+    // double prefactor = (uepm::Constants::q_e * uepm::Constants::q_e) /
+    //                    (uepm::Constants::eps_0 * q_squared) / uepm::Constants::q_e *
     //                    (2.0 / std::pow(2.0 * M_PI, 3));
 
-    double coulomb_prefactor_eV = (uepm::pseudopotential::Constants::q_e * uepm::pseudopotential::Constants::q_e) /
-                                   (uepm::pseudopotential::Constants::eps_0 * q_squared)  // J·m
-                                  / uepm::pseudopotential::Constants::q_e;                                                      // → eV·m
+    double coulomb_prefactor_eV = (uepm::Constants::q_e * uepm::Constants::q_e) /
+                                   (uepm::Constants::eps_0 * q_squared)  // J·m
+                                  / uepm::Constants::q_e;                                                      // → eV·m
     double prefactor = coulomb_prefactor_eV * (2.0 / std::pow(2.0 * M_PI, 3));
 
     for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {

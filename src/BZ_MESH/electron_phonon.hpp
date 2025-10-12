@@ -25,6 +25,7 @@
 #include "elph_deformation_potential.hpp"
 #include "elph_dispersion.hpp"
 #include "elph_overlap_integral.hpp"
+#include "physical_constants.hpp"
 
 namespace uepm::mesh_bz {
 
