@@ -126,7 +126,7 @@ class MeshBZ {
     void set_bands_in_right_order();
     void recompute_min_max_energies();
 
-    void precompute_dos_tetra(double energy_step = 0.01, double energy_threshold = 100.0);
+    void precompute_dos_tetra(double energy_step = 0.01, double energy_max = 100.0);
     void set_energy_gradient_at_vertices_by_averaging_tetras();
 
     // ---------- queries ----------

@@ -16,15 +16,21 @@
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <map>
+#include <stdexcept>
+#include <string>
 #include <vector>
+#include <array>
 
 #include "gmsh.h"
 #include "integrals.hpp"
+#include "octree_bz.hpp"
 #include "omp.h"
 #include "physical_constants.hpp"
 #include "rapidcsv.h"
 #include "vector.hpp"
-#include "octree_bz.hpp"
 
 #pragma omp declare reduction(merge : std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
@@ -272,12 +278,12 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_b
     }
 }
 
-void MeshBZ::precompute_dos_tetra(double energy_step, double energy_threshold) {
+void MeshBZ::precompute_dos_tetra(double energy_step, double energy_max) {
     std::cout << "Precomputing DOS per tetrahedra with energy step = " << energy_step << " eV ..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 #pragma omp parallel for schedule(dynamic)
     for (std::size_t i = 0; i < m_list_tetrahedra.size(); ++i) {
-        m_list_tetrahedra[i].precompute_dos_on_energy_grid_per_band(energy_step, energy_threshold);
+        m_list_tetrahedra[i].precompute_dos_on_energy_grid_per_band(energy_step, energy_max);
     }
 }
 
@@ -836,11 +842,6 @@ std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const  {
     return idx_min;
 }
 
-#include <fstream>
-#include <iomanip>
-#include <map>
-#include <stdexcept>
-#include <string>
 
 static inline void bz_write_vtk_scalars(std::ofstream&             out,
                                         const std::string&         name,

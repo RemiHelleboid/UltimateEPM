@@ -500,7 +500,7 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
     return pref * (A / grad);
 }
 
-void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double energy_threshold) {
+void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double energy_max) {
     m_nb_bands = m_list_vertices[0]->get_number_bands();
     m_dos_per_band.assign(m_nb_bands, UniformDos{});
 
@@ -510,7 +510,7 @@ void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double en
         const double Emax = m_max_energy_per_band[b];
 
         // keep index alignment; mark invalid instead of skipping
-        if (!(Emax > Emin) || Emin > energy_threshold) {
+        if (Emin > energy_max) {
             T.valid = false;
             continue;
         }
@@ -536,10 +536,7 @@ void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double en
         for (std::size_t idx_energy = 1; idx_energy < nb_steps; ++idx_energy) {
             const double e  = Emin + idx_energy * dx;
             T.D[idx_energy] = static_cast<float>(compute_tetra_dos_energy_band(e, b));
-            // DEBUG
-            // std::cout << e << "," << T.D[idx_energy] / 1e23 << std::endl;
         }
-        // std::cout << std::endl;
     }
 }
 

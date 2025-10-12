@@ -96,7 +96,8 @@ int main(int argc, char *argv[]) {
         nb_bands_to_use = nb_bands;
     }
     constexpr double energy_step_dos = 0.005;  // eV
-    my_bz_mesh.precompute_dos_tetra(energy_step_dos);
+    const double energy_max      = 5.0;   // eV
+    my_bz_mesh.precompute_dos_tetra(energy_step_dos, energy_max);
 
     std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
     double Vcell = std::pow(current_material.get_lattice_constant_meter(), 3) / 4.0;
