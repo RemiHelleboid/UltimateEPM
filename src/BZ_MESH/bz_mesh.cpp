@@ -139,9 +139,9 @@ bbox_mesh MeshBZ::compute_bounding_box() const {
     double x_min = std::numeric_limits<double>::max();
     double y_min = std::numeric_limits<double>::max();
     double z_min = std::numeric_limits<double>::max();
-    double x_max = std::numeric_limits<double>::min();
-    double y_max = std::numeric_limits<double>::min();
-    double z_max = std::numeric_limits<double>::min();
+    double x_max = std::numeric_limits<double>::lowest();
+    double y_max = std::numeric_limits<double>::lowest();
+    double z_max = std::numeric_limits<double>::lowest();
     for (auto&& vtx : m_list_vertices) {
         const vector3& position = vtx.get_position();
         x_min                   = std::min(x_min, position.x());
@@ -159,8 +159,12 @@ bbox_mesh MeshBZ::compute_bounding_box() const {
 void MeshBZ::build_search_tree() {
     bbox_mesh mesh_bbox = compute_bounding_box();
     std::cout << "Mesh bounding box: " << mesh_bbox << std::endl;
-    mesh_bbox.dilate(1.05);
-    // bbox_mesh.translate({0.0, 0.0, 0.0});
+    mesh_bbox.dilate(1.10);
+    // Translate the bounding box by a quite random small vector to avoid degenerate cases...
+    const double translation_unit_factor = 1.876473876e-6;
+    const vector3 translation = translation_unit_factor * (mesh_bbox.max_corner() - mesh_bbox.min_corner());
+    std::cout << "Translate bbox by " << translation << std::endl;
+    mesh_bbox.translate(translation);
     auto start    = std::chrono::high_resolution_clock::now();
     m_search_tree = std::make_unique<Octree_mesh>(get_list_p_tetra(), mesh_bbox);
     auto end      = std::chrono::high_resolution_clock::now();
@@ -309,75 +313,6 @@ void MeshBZ::set_energy_gradient_at_vertices_by_averaging_tetras() {
     std::cout << "Done." << std::endl;
 }
 
-void MeshBZ::assemble_mass_matrix() {
-    std::cout << "Assembling mass matrix ..." << std::endl;
-    auto              start       = std::chrono::high_resolution_clock::now();
-    std::size_t       nb_vertices = m_list_vertices.size();
-    std::size_t       nb_tets     = m_list_tetrahedra.size();
-    std::vector<Trip> trips;
-    trips.reserve(nb_tets * 16);
-
-    for (auto&& tet : m_list_tetrahedra) {
-        double                        V             = tet.get_signed_volume();
-        const std::array<Vertex*, 4>& verts         = tet.get_list_vertices();
-        const double                  diag_value    = 2.0 * V / 20.0;
-        const double                  offdiag_value = V / 20.0;
-        for (std::size_t i = 0; i < 4; ++i) {
-            std::size_t row = verts[i]->get_index();
-            trips.emplace_back(row, row, diag_value);
-            for (std::size_t j = i + 1; j < 4; ++j) {
-                std::size_t col = verts[j]->get_index();
-                trips.emplace_back(row, col, offdiag_value);
-                trips.emplace_back(col, row, offdiag_value);
-            }
-        }
-    }
-    SpMat M(nb_vertices, nb_vertices);
-    M.setFromTriplets(trips.begin(), trips.end());
-    m_mass_matrix = M;
-    auto end      = std::chrono::high_resolution_clock::now();
-    auto total    = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "Mass matrix assembled in " << total / 1000.0 << "s" << std::endl;
-    std::cout << "Mass matrix nnz: " << m_mass_matrix.nonZeros() << std::endl;
-    std::cout << "Decomposing mass matrix ... size: " << m_mass_matrix.rows() << "x" << m_mass_matrix.cols() << std::endl;
-    m_mass_matrix_solver.compute(m_mass_matrix);
-    if (m_mass_matrix_solver.info() != Eigen::Success) {
-        throw std::runtime_error("Mass matrix decomposition failed. Abort.");
-    }
-    std::cout << "Mass matrix decomposition done." << std::endl;
-}
-
-void MeshBZ::compute_energy_gradient_mass_matrix_method() {
-    std::size_t nb_bands = m_list_vertices[0].get_number_bands();
-    std::cout << "Computing energy gradient at vertices using mass matrix method ..." << std::endl;
-
-    for (std::size_t idx_band = 0; idx_band < nb_bands; ++idx_band) {
-        Eigen::VectorXd rhs_x = Eigen::VectorXd::Zero(m_list_vertices.size());
-        Eigen::VectorXd rhs_y = Eigen::VectorXd::Zero(m_list_vertices.size());
-        Eigen::VectorXd rhs_z = Eigen::VectorXd::Zero(m_list_vertices.size());
-
-        for (auto&& tetra : m_list_tetrahedra) {
-            const double               tetra_vol    = std::abs(tetra.get_signed_volume());
-            const double               weight       = tetra_vol / 4.0;
-            const vector3&             grad_tetra   = tetra.get_gradient_energy_at_band(idx_band);
-            std::array<std::size_t, 4> list_vtx_idx = tetra.get_list_indices_vertices();
-            for (std::size_t i = 0; i < 4; ++i) {
-                std::size_t vtx_idx = list_vtx_idx[i];
-                rhs_x(vtx_idx) += weight * grad_tetra.x();
-                rhs_y(vtx_idx) += weight * grad_tetra.y();
-                rhs_z(vtx_idx) += weight * grad_tetra.z();
-            }
-        }
-        Eigen::VectorXd sol_x = m_mass_matrix_solver.solve(rhs_x);
-        Eigen::VectorXd sol_y = m_mass_matrix_solver.solve(rhs_y);
-        Eigen::VectorXd sol_z = m_mass_matrix_solver.solve(rhs_z);
-
-        for (std::size_t i = 0; i < m_list_vertices.size(); ++i) {
-            vector3 grad_vertex(sol_x(i), sol_y(i), sol_z(i));
-            m_list_vertices[i].push_back_energy_gradient_at_band(grad_vertex);
-        }
-    }
-}
 
 void MeshBZ::recompute_min_max_energies() {
     m_min_band.clear();
@@ -864,7 +799,7 @@ bool MeshBZ::is_irreducible_wedge(const vector3& k_SI) const noexcept {
  * @param k_SI
  * @return std::size_t
  */
-std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const noexcept {
+std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const  {
     vector3 k_folded = {std::fabs(k_SI.x()), std::fabs(k_SI.y()), std::fabs(k_SI.z())};
     // Test the 6 permutations of (|kx|, |ky|, |kz|)
     std::array<vector3, 6> permutations = {vector3{k_folded.x(), k_folded.y(), k_folded.z()},
@@ -881,8 +816,6 @@ std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const noexc
             break;
         }
     }
-    std::cout << std::setprecision(6) << std::fixed;
-    // std::cout << k_folded*si_to_reduced_scale() << std::endl;
     if (!found) {
         std::cout << "Could not fold k = " << k_SI << " into the irreducible wedge." << std::endl;
         throw std::runtime_error("Could not fold k into the irreducible wedge.");
@@ -900,8 +833,6 @@ std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const noexc
             }
         }
     }
-    // Scientific notation for very small distances
-    // std::cout << "Min dist in IW: " << std::scientific << std::sqrt(min_dist) * si_to_reduced_scale() << std::endl;
     return idx_min;
 }
 
@@ -1036,6 +967,14 @@ void MeshBZ::export_energies_and_gradients_to_vtk(const std::string& filename) c
         point_vectors[name] = vecs;
     }
     export_to_vtk(filename, point_scalars, point_vectors, {}, {});
+}
+
+void MeshBZ::export_octree_to_vtu(const std::string& filename) const {
+    if (!m_search_tree) {
+        throw std::runtime_error("Octree not initialized. Cannot export.");
+    }
+    bool export_leaves_only = true;
+    write_octree_as_vtu(*m_search_tree, filename, export_leaves_only);
 }
 
 }  // namespace uepm::mesh_bz

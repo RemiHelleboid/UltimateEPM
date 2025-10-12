@@ -23,19 +23,8 @@
 
 namespace uepm::mesh_bz {
 
-// Adapt these accessors to your bbox_mesh API
-struct Vec3 {
-    double x, y, z;
-};
 
-inline Vec3 bb_min(const bbox_mesh& b) {
-    const auto& v = b.min_corner();  // <-- change to your getter
-    return {v.x(), v.y(), v.z()};
-}
-inline Vec3 bb_max(const bbox_mesh& b) {
-    const auto& v = b.max_corner();  // <-- change to your getter
-    return {v.x(), v.y(), v.z()};
-}
+
 
 struct VTUBuffer {
     std::vector<double>        points;   // xyz triples
@@ -49,15 +38,15 @@ struct VTUBuffer {
 };
 
 inline void append_box(VTUBuffer& buf, const bbox_mesh& b, int d, bool leaf, int nleaf) {
-    const auto mn = bb_min(b);
-    const auto mx = bb_max(b);
+    const auto mn = b.min_corner();
+    const auto mx = b.max_corner();
 
     const std::uint32_t base = static_cast<std::uint32_t>(buf.points.size() / 3);
 
     // Push 8 points in VTK hex order (0..7)
-    const double xs[2] = {mn.x, mx.x};
-    const double ys[2] = {mn.y, mx.y};
-    const double zs[2] = {mn.z, mx.z};
+    const double xs[2] = {mn.x(), mx.x()};
+    const double ys[2] = {mn.y(), mx.y()};
+    const double zs[2] = {mn.z(), mx.z()};
 
     auto add = [&](int xi, int yi, int zi) {
         buf.points.push_back(xs[xi]);

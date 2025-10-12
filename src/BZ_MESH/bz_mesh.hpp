@@ -12,7 +12,6 @@
 #pragma once
 
 #include <Eigen/Core>
-#include <Eigen/Sparse>
 #include <cstddef>
 #include <map>
 #include <memory>
@@ -20,21 +19,14 @@
 #include <string>
 #include <vector>
 
-#include "Material.h"     
-#include "mesh_tetra.hpp" 
+#include "Material.h"
+#include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
-#include "vector.hpp"
 #include "octree_bz.hpp"
-
+#include "vector.hpp"
+#include "export_octree_vtu.hpp"
 
 namespace uepm::mesh_bz {
-
-// ----- Public aliases (unchanged) -----
-using EigenIntSparseMatrix = Eigen::SparseMatrix<int, Eigen::RowMajor>;
-using TripletInt           = Eigen::Triplet<int>;
-using SpMat                = Eigen::SparseMatrix<double>;
-using Trip                 = Eigen::Triplet<double>;
-using EigenVec             = Eigen::VectorXd;
 
 using MapStringToDoubles = std::map<std::string, std::vector<double>>;
 using MapStringToVectors = std::map<std::string, std::vector<vector3>>;
@@ -42,6 +34,36 @@ using MapStringToVectors = std::map<std::string, std::vector<vector3>>;
 enum class MeshParticleType { valence, conduction };
 
 class MeshBZ {
+ protected:
+    uepm::pseudopotential::Material m_material;
+
+    vector3 m_center{0.0, 0.0, 0.0};
+
+    std::vector<std::size_t>              m_node_tags;
+    std::vector<Vertex>                   m_list_vertices;
+    std::vector<Tetra>                    m_list_tetrahedra;
+    std::vector<std::vector<std::size_t>> m_vertex_to_tetrahedra;
+
+    double m_reduce_bz_factor = 1.0;
+
+    std::unique_ptr<Octree_mesh> m_search_tree;  // fwd-decl OK; dtor out-of-line
+
+    std::size_t         m_nb_bands      = 0;
+    MeshParticleType    m_particle_type = MeshParticleType::conduction;
+    std::vector<double> m_min_band;
+    std::vector<double> m_max_band;
+
+    double m_total_volume    = 0.0;
+    double m_spin_degeneracy = 2.0;
+
+    std::vector<vector3> m_Gshifts;
+
+    // Wigner–Seitz / BZ folding helpers
+    Eigen::Matrix3d m_recip_B      = Eigen::Matrix3d::Identity();
+    Eigen::Matrix3d m_recip_Bi     = Eigen::Matrix3d::Identity();
+    double          m_si2red       = 1.0;
+    double          m_bz_halfwidth = 1.0;
+
  public:
     // ---------- ctors/dtor ----------
     MeshBZ() = default;
@@ -55,10 +77,10 @@ class MeshBZ {
     // ---------- light getters / basics ----------
     vector3 get_vertex_position(std::size_t idx_vtx) const { return m_list_vertices[idx_vtx].get_position(); }
     vector3 get_center() const noexcept { return m_center; }
-    void                  shift_bz_center(const vector3& shift);
+    void    shift_bz_center(const vector3& shift);
 
     double        get_reduce_bz_factor() const noexcept { return m_reduce_bz_factor; }
-    void                        set_reduce_bz_factor(double factor) noexcept { m_reduce_bz_factor = factor; }
+    void          set_reduce_bz_factor(double factor) noexcept { m_reduce_bz_factor = factor; }
     inline double si_to_reduced_scale() const noexcept;
 
     std::size_t get_number_vertices() const noexcept { return m_list_vertices.size(); }
@@ -68,7 +90,7 @@ class MeshBZ {
 
     // ---------- geometry / search ----------
     bbox_mesh           compute_bounding_box() const;
-    void                              build_search_tree();
+    void                build_search_tree();
     std::vector<Tetra*> get_list_p_tetra() {
         std::vector<Tetra*> ptrs;
         ptrs.reserve(m_list_tetrahedra.size());
@@ -107,14 +129,10 @@ class MeshBZ {
     void precompute_dos_tetra(double energy_step = 0.01, double energy_threshold = 100.0);
     void set_energy_gradient_at_vertices_by_averaging_tetras();
 
-    // Precise energy gradient via mass matrix
-    void assemble_mass_matrix();
-    void compute_energy_gradient_mass_matrix_method();
-
     // ---------- queries ----------
     vector3 interpolate_energy_gradient_at_location(const vector3& location, const std::size_t& idx_band) const;
 
-    void                  precompute_G_shifts();
+    void    precompute_G_shifts();
     bool    is_inside_mesh_geometry(const vector3& k) const;
     vector3 retrieve_k_inside_mesh_geometry(const vector3& k) const;
 
@@ -127,7 +145,7 @@ class MeshBZ {
     vector3                  fold_ws_bcc(const vector3& k_SI) const noexcept;
     bool                     inside_ws_bcc(const vector3& k_SI) const noexcept;
     bool                     is_irreducible_wedge(const vector3& k_SI) const noexcept;
-    std::size_t              get_index_irreducible_wedge(const vector3& k_SI) const noexcept;
+    std::size_t              get_index_irreducible_wedge(const vector3& k_SI) const;
     std::vector<std::size_t> get_all_equivalent_indices_in_bz(const vector3& k_SI) const noexcept;
 
     vector3                         get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
@@ -147,58 +165,21 @@ class MeshBZ {
     double compute_iso_surface(double iso_energy, int band_index) const;
     double compute_dos_at_energy_and_band(double iso_energy, int band_index, bool use_interp = false) const;
 
-    std::size_t draw_random_tetrahedron_index_with_dos_probability(double        energy,
-                                                                                 std::size_t   idx_band,
-                                                                                 std::mt19937& rng) const;
+    std::size_t draw_random_tetrahedron_index_with_dos_probability(double energy, std::size_t idx_band, std::mt19937& rng) const;
 
     vector3 draw_random_k_point_at_energy(double energy, std::size_t idx_band, std::mt19937& rng) const;
 
     std::vector<std::vector<double>> compute_dos_band_at_band(int         band_index,
-                                                                            double      min_energy,
-                                                                            double      max_energy,
-                                                                            int         num_threads,
-                                                                            std::size_t nb_points,
-                                                                            bool        use_interp = false) const;
+                                                              double      min_energy,
+                                                              double      max_energy,
+                                                              int         num_threads,
+                                                              std::size_t nb_points,
+                                                              bool        use_interp = false) const;
 
     std::vector<std::vector<double>> compute_dos_band_at_band_auto(int         band_index,
-                                                                                 std::size_t nb_points,
-                                                                                 int         num_threads,
-                                                                                 bool        use_interp = false) const;
-
- protected:
-    // ---------- data ----------
-    uepm::pseudopotential::Material m_material;  // by value => header includes Material.h
-
-    vector3 m_center{0.0, 0.0, 0.0};
-
-    std::vector<std::size_t>              m_node_tags;
-    std::vector<Vertex>                   m_list_vertices;    // by value => header includes mesh_vertex.hpp
-    std::vector<Tetra>                    m_list_tetrahedra;  // by value => header includes mesh_tetra.hpp
-    std::vector<std::vector<std::size_t>> m_vertex_to_tetrahedra;
-
-    double m_reduce_bz_factor = 1.0;
-
-    std::unique_ptr<Octree_mesh> m_search_tree;  // fwd-decl OK; dtor out-of-line
-
-    std::size_t         m_nb_bands      = 0;
-    MeshParticleType    m_particle_type = MeshParticleType::conduction;
-    std::vector<double> m_min_band;
-    std::vector<double> m_max_band;
-
-    double m_total_volume    = 0.0;
-    double m_spin_degeneracy = 2.0;
-
-    std::vector<vector3> m_Gshifts;
-
-    // Wigner–Seitz / BZ folding helpers
-    Eigen::Matrix3d m_recip_B      = Eigen::Matrix3d::Identity();
-    Eigen::Matrix3d m_recip_Bi     = Eigen::Matrix3d::Identity();
-    double          m_si2red       = 1.0;
-    double          m_bz_halfwidth = 1.0;
-
-    // Precise gradient
-    SpMat                        m_mass_matrix;
-    Eigen::SimplicialLDLT<SpMat> m_mass_matrix_solver;
+                                                                   std::size_t nb_points,
+                                                                   int         num_threads,
+                                                                   bool        use_interp = false) const;
 };
 
 }  // namespace uepm::mesh_bz

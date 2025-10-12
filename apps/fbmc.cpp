@@ -62,6 +62,8 @@ int main(int argc, const char** argv) {
 
     uepm::mesh_bz::ElectronPhonon mesh(current_material);
     mesh.read_mesh_geometry_from_msh_file(file_mesh);
+    mesh.build_search_tree();
+    mesh.export_octree_to_vtu("octree.vtu");
     mesh.read_mesh_bands_from_msh_file(file_mesh, nb_conduction_bands);
     mesh.read_phonon_scattering_rates_from_file(file_phonon_scattering);
 
