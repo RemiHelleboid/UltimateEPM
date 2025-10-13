@@ -96,7 +96,7 @@ class MeshBZ {
 
     double        get_reduce_bz_factor() const noexcept { return m_reduce_bz_factor; }
     void          set_reduce_bz_factor(double factor) noexcept { m_reduce_bz_factor = factor; }
-    inline double si_to_reduced_scale() const noexcept;
+    double si_to_reduced_scale() const noexcept;
 
     std::size_t get_number_vertices() const noexcept { return m_list_vertices.size(); }
     std::size_t get_number_elements() const noexcept { return m_list_tetrahedra.size(); }

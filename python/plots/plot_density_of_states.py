@@ -142,6 +142,8 @@ def plot_dos_sum_bands(
         # Sort by energy for safe interpolation if inputs aren’t strictly increasing
         order = np.argsort(E)
         Es, Gs = np.asarray(E)[order], np.asarray(G)[order]
+        inte = quick_sum_rule_check(Es, Gs, VCELL_SI, g_s=GS_SI)
+        print(f"Band {count+1}: ∫g(E)dE = {inte:.3f} × (g_s/Vcell)")
         gtot += np.interp(eplot, Es, Gs, left=0.0, right=0.0)
         count += 1
 
@@ -156,6 +158,8 @@ def plot_dos_sum_bands(
 def quick_sum_rule_check(e_eV: np.ndarray, g_eV_m3: np.ndarray,
                          Vcell_m3: float, g_s: int = 2) -> float:
     integral = np.trapz(g_eV_m3, e_eV)                 # states/m^3
+    # print(f"Vcell = {Vcell_m3:.3e} m^3")
+    print(f"integral ∫g(E)dE = {integral:.3e} states/m^3")
     target = g_s / Vcell_m3                            # states/m^3
     return integral / target if target != 0 else np.nan
 

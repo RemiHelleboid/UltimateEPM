@@ -20,6 +20,7 @@
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
+#include "integrals.hpp"
 
 inline void export_multiple_vector_to_csv(const std::string                      &filename,
                                           const std::vector<std::string>         &header_columns,
@@ -55,7 +56,7 @@ int main(int argc, char *argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
-    TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
+    TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 1000, "int");
     TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "cbands", "Number of conduction bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "vbands", "Number of valence bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
@@ -91,36 +92,49 @@ int main(int argc, char *argv[]) {
 
     uepm::mesh_bz::MeshBZ my_bz_mesh{current_material};
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file);
+
+    // Load bands: (nb_conduction_bands, nb_valence_bands)
     my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file, nb_conduction_bands, nb_valence_bands);
-    int nb_bands = my_bz_mesh.get_number_bands_total();
+
+    const int nb_bands = static_cast<int>(my_bz_mesh.get_number_bands_total());
     my_bz_mesh.print_band_info();
 
-    constexpr double energy_step_dos = 0.005;  // eV
-    const double energy_max      = 5.0;   // eV
-    // my_bz_mesh.precompute_dos_tetra(energy_step_dos, energy_max);
+    std::cout << std::scientific;
+    const double a     = current_material.get_lattice_constant_meter();
+    const double Vcell = std::pow(a, 3) / 4.0;  // FCC primitive (m^3)
+    const int    g_s   = 2;                     // spin degeneracy (Si)
 
-    std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
-    double Vcell = std::pow(current_material.get_lattice_constant_meter(), 3) / 4.0;
-    std::cout << "Vcell: " << Vcell << std::endl;
-    const double VBZ_theory = std::pow(2.0 * M_PI, 3) / Vcell;   // m^-3
-    const double VBZ_mesh   = my_bz_mesh.compute_mesh_volume();  // sum |tetra.volume| in your k units
-    std::cout << "VBZ_mesh / VBZ_theory = " << (VBZ_mesh / VBZ_theory) << "\n";
-    my_bz_mesh.set_reduce_bz_factor(VBZ_theory / VBZ_mesh);
+    // (Keep symmetry-only factor inside your DOS implementation if using IBZ; do NOT do volume norm here.)
+    std::cout << "Lattice constant a = " << a << " m\n";
+    std::cout << "Mesh volume (mesh units): " << my_bz_mesh.compute_mesh_volume() << "\n";
+    std::cout << "Vcell: " << Vcell << " m^3\n";
 
-    std::vector<std::vector<double>> list_list_dos{};
-    std::vector<std::string>         list_header = {};
+    std::vector<std::vector<double>> list_list_dos;
+    std::vector<std::string>         list_header;
+    list_list_dos.reserve(2 * nb_bands);
+    list_header.reserve(2 * nb_bands);
 
-    std::cout << "Compute DOS on " << nb_valence_bands << " valence bands and " << nb_conduction_bands << " conduction bands." << std::endl;
-    int nb_bands_to_use = my_bz_mesh.get_number_bands_total();
-    for (int band_index = 0; band_index < nb_bands_to_use; ++band_index) {
-        std::vector<std::vector<double>> lists_energies_dos =
-            my_bz_mesh.compute_dos_band_at_band_auto(band_index, arg_nb_energies.getValue(), my_options.nrThreads, use_interp);
+    std::cout << "Compute DOS on " << nb_valence_bands << " valence bands and " << nb_conduction_bands << " conduction bands.\n";
+
+    // Same number of energy samples per band keeps CSV rectangular:
+    const int nE = arg_nb_energies.getValue();
+
+    for (int band_index = 0; band_index < nb_bands; ++band_index) {
+        auto lists_energies_dos = my_bz_mesh.compute_dos_band_at_band_auto(band_index, nE, my_options.nrThreads, use_interp);
+        const auto  &E                  = lists_energies_dos[0];         // eV
+        const auto  &G                  = lists_energies_dos[1];         // states / (m^3·eV)
+        const double I                  = uepm::integrate::trapz(E, G);  // states / m^3
+        const double target             = 2.0 / Vcell;                   // g_s / Vcell  (Si: g_s=2)
+        std::cout << std::scientific << "raw ∫g(E)dE = " << I << "  target = " << target << "  ratio = " << (I / target)
+                  << " × (g_s/Vcell)\n";
+
+        // Append columns for this band (CSV expects pairs E_i, G_i)
         list_list_dos.push_back(lists_energies_dos[0]);
         list_list_dos.push_back(lists_energies_dos[1]);
         list_header.push_back("energy_band_" + std::to_string(band_index));
-        list_header.push_back("dos_band_" + std::to_string(band_index));
+        list_header.push_back("dos_band_" + std::to_string(band_index));        
     }
-
+    
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 

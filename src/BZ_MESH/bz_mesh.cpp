@@ -43,7 +43,7 @@ void MeshBZ::shift_bz_center(const vector3& center) {
     }
 }
 
-inline double MeshBZ::si_to_reduced_scale() const noexcept {
+double MeshBZ::si_to_reduced_scale() const noexcept {
     // reduced k = (a / (2π)) * k_SI
     return m_material.get_lattice_constant_meter() / (2.0 * M_PI);
 }
@@ -595,14 +595,14 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int      
     auto         start         = std::chrono::high_resolution_clock::now();
     double       energy_step   = (max_energy - min_energy) / (nb_points - 1);
 
-    std::vector<double> list_energies{};
-    std::vector<double> list_dos{};
-#pragma omp parallel for schedule(dynamic) num_threads(num_threads) reduction(merge : list_energies) reduction(merge : list_dos)
+    std::vector<double> list_energies(nb_points);
+    std::vector<double> list_dos(nb_points);
+#pragma omp parallel for schedule(dynamic) num_threads(num_threads)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
         double dos    = compute_dos_at_energy_and_band(energy, band_index, use_interp);
-        list_energies.push_back(energy);
-        list_dos.push_back(dos);
+        list_energies[index_energy] = energy;
+        list_dos[index_energy] = dos;
     }
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
