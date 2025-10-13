@@ -1,7 +1,7 @@
 /**
  * @file fermi_level.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief
+ * @brief Fermi level calculation on a BZ mesh.
  * @version 0.1
  * @date 2025-10-13
  *
@@ -20,18 +20,6 @@
 #include <limits>
 #include <numeric>
 #include <stdexcept>
-#pragma once
-/**
- * @file bz_fermi_tool.hpp
- * @brief DOS per band (CSV) + Fermi level solver (charge neutrality).
- *
- * Usage:
- *   #include "bz_fermi_tool.hpp"
- *   using namespace uepm::mesh_bz::fermi;
- *   Options opt; opt.nE = 2000; opt.T_K = 300.0; opt.write_csv = true; opt.csv_path = "DOS_si_mesh.csv";
- *   Result r = solve_fermi_and_export_csv(my_bz_mesh, opt);
- */
-
 #include <optional>
 #include <string>
 #include <vector>
@@ -53,14 +41,11 @@ struct Options {
     std::size_t nE         = 2000;  // energy samples per band
     int         threads    = 8;     // passed to MeshBZ DOS calls
     bool        use_interp = true;  // MeshBZ: use interpolated tetra DOS
-    bool        write_csv  = true;
-    std::string csv_path   = "";     // if empty, a default name is chosen by the caller
     double      T_K        = 300.0;  // temperature (K)
     Dopants     dop;                 // dopant model (leave zeros for intrinsic)
 };
 
 struct Result {
-    // Fermi solution
     double EF_eV    = 0.0;
     double n_m3     = 0.0;
     double p_m3     = 0.0;
@@ -69,22 +54,27 @@ struct Result {
     int    iters    = 0;
     bool   success  = false;
 
-    // DOS arrays used (for plotting or reuse)
-    std::vector<std::vector<double>> energies_per_band;  // eV
-    std::vector<std::vector<double>> dos_per_band;       // states/(m^3·eV)
+    /**
+     * @brief Energy levels for each band (in eV).
+     * 
+     */
+    std::vector<std::vector<double>> energies_per_band;
 
-    // CSV path if a file was written
-    std::optional<std::string> csv_written;
+    /**
+     * @brief DOS for each band (in states / (m^3·eV)).
+     * 
+     */
+    std::vector<std::vector<double>> dos_per_band;
+
 };
 
 /**
- * @brief Compute per-band DOS using MeshBZ, optionally export CSV, and solve EF by charge neutrality.
- *
- * Pre-conditions:
- *   - `mesh` already loaded with geometry + bands.
- *   - `MeshBZ::compute_dos_at_energy_and_band` returns DOS in states/(m^3·eV) with
- *     symmetry normalization and spin degeneracy handled consistently (as in your library).
+ * @brief Solve the Fermi level using charge neutrality.
+ * 
+ * @param mesh 
+ * @param opt 
+ * @return Result 
  */
-Result solve_fermi_and_export_csv(MeshBZ& mesh, const Options& opt, const std::string& csv_path_if_empty = "");
+Result solve_fermi(MeshBZ& mesh, const Options& opt);
 
 }  // namespace uepm::mesh_bz::fermi

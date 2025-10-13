@@ -18,6 +18,7 @@
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <ostream>
 #include <numeric>
 #include <stdexcept>
 
@@ -27,39 +28,16 @@
 
 namespace uepm::mesh_bz::fermi {
 
-// ---------------- CSV helper ----------------
-static void write_csv(const std::string& out_csv, const std::vector<std::string>& headers, const std::vector<std::vector<double>>& cols) {
-    if (headers.size() != cols.size()) {
-        throw std::runtime_error("CSV: headers/cols size mismatch");
-    }
-    std::ofstream out(out_csv);
-    if (!out) {
-        throw std::runtime_error("CSV: cannot open '" + out_csv + "'");
-    }
-    // header
-    for (std::size_t j = 0; j < headers.size(); ++j) {
-        out << headers[j] << (j + 1 < headers.size() ? "," : "\n");
-    }
-    // rows
-    std::size_t rows = 0;
-    for (auto& c : cols) {
-        rows = std::max(rows, c.size());
-    }
-    out << std::setprecision(17);
-    for (std::size_t i = 0; i < rows; ++i) {
-        for (std::size_t j = 0; j < cols.size(); ++j) {
-            if (i < cols[j].size()) {
-                out << cols[j][i];
-            }
-            if (j + 1 < cols.size()) {
-                out << ",";
-            }
-        }
-        out << "\n";
-    }
-}
 
-// -------------- carriers in a band --------------
+/**
+ * @brief Compute the number of electrons in a given band.
+ * 
+ * @param E_eV 
+ * @param G_m3eV 
+ * @param EF_eV 
+ * @param T_K 
+ * @return double 
+ */
 static inline double electrons_in_band(const std::vector<double>& E_eV, const std::vector<double>& G_m3eV, double EF_eV, double T_K) {
     std::vector<double> w;
     w.reserve(E_eV.size());
@@ -69,6 +47,15 @@ static inline double electrons_in_band(const std::vector<double>& E_eV, const st
     return uepm::integrate::trapz(E_eV, w);  // states / m^3
 }
 
+/**
+ * @brief Compute the number of holes in a given band.
+ * 
+ * @param E_eV 
+ * @param G_m3eV 
+ * @param EF_eV 
+ * @param T_K 
+ * @return double 
+ */
 static inline double holes_in_band(const std::vector<double>& E_eV, const std::vector<double>& G_m3eV, double EF_eV, double T_K) {
     std::vector<double> w;
     w.reserve(E_eV.size());
@@ -78,7 +65,15 @@ static inline double holes_in_band(const std::vector<double>& E_eV, const std::v
     return uepm::integrate::trapz(E_eV, w);  // states / m^3
 }
 
-// -------------- dopant ionization --------------
+/**
+ * @brief Compute the number of ionized donors at given EF.
+ * 
+ * @param EF 
+ * @param Ec 
+ * @param d 
+ * @param T 
+ * @return double 
+ */
 static inline double donors_ionized(double EF, double Ec, const Dopants& d, double T) {
     if (d.Nd_cm3 <= 0) {
         return 0.0;
@@ -89,6 +84,15 @@ static inline double donors_ionized(double EF, double Ec, const Dopants& d, doub
     return d.Nd_cm3 * 1e6 * occ;  // cm^-3 -> m^-3
 }
 
+/**
+ * @brief Compute the number of ionized acceptors at given EF.
+ * 
+ * @param EF 
+ * @param Ev 
+ * @param d 
+ * @param T 
+ * @return double 
+ */
 static inline double acceptors_ionized(double EF, double Ev, const Dopants& d, double T) {
     if (d.Na_cm3 <= 0) {
         return 0.0;
@@ -107,20 +111,13 @@ static inline double acceptors_ionized(double EF, double Ev, const Dopants& d, d
  * @param csv_path_if_empty
  * @return Result
  */
-Result solve_fermi_and_export_csv(MeshBZ& mesh, const Options& opt, const std::string& csv_path_if_empty) {
-    Result res;
+Result solve_fermi(MeshBZ& mesh, const Options& opt) {
+    Result results;
 
     // 1) Per-band DOS (ordered, thread-safe inside MeshBZ)
     const int nb_bands = static_cast<int>(mesh.get_number_bands_total());
-    res.energies_per_band.reserve(nb_bands);
-    res.dos_per_band.reserve(nb_bands);
-
-    std::vector<std::vector<double>> csv_cols;
-    std::vector<std::string>         csv_hdr;
-    if (opt.write_csv) {
-        csv_cols.reserve(2 * nb_bands);
-        csv_hdr.reserve(2 * nb_bands);
-    }
+    results.energies_per_band.reserve(nb_bands);
+    results.dos_per_band.reserve(nb_bands);
 
     const auto valence_count    = mesh.get_band_indices(MeshParticleType::valence).size();
     const auto conduction_count = mesh.get_band_indices(MeshParticleType::conduction).size();
@@ -129,45 +126,25 @@ Result solve_fermi_and_export_csv(MeshBZ& mesh, const Options& opt, const std::s
     for (int b = 0; b < nb_bands; ++b) {
         auto lists = mesh.compute_dos_band_at_band_auto(b, static_cast<std::size_t>(opt.nE), opt.threads, opt.use_interp);
 
-        res.energies_per_band.push_back(std::move(lists[0]));
-        res.dos_per_band.push_back(std::move(lists[1]));
+        results.energies_per_band.push_back(std::move(lists[0]));
+        results.dos_per_band.push_back(std::move(lists[1]));
 
-        if (opt.write_csv) {
-            csv_cols.push_back(res.energies_per_band.back());
-            csv_cols.push_back(res.dos_per_band.back());
-            csv_hdr.push_back("energy_band_" + std::to_string(b));
-            csv_hdr.push_back("dos_band_" + std::to_string(b));
-        }
     }
 
-    // 2) CSV export (optional)
-    if (opt.write_csv) {
-        const std::string out_csv =
-            !opt.csv_path.empty() ? opt.csv_path : (!csv_path_if_empty.empty() ? csv_path_if_empty : "DOS_bz_mesh.csv");
-        write_csv(out_csv, csv_hdr, csv_cols);
-        std::cout << "Wrote CSV: " << out_csv << "\n";
-        res.csv_written = out_csv;
-    }
-
-    // 3) Split bands via MeshBZ catalog
-    std::vector<int> idx_val, idx_cond;
-    {
-        auto vidx = mesh.get_band_indices(MeshParticleType::valence);
-        auto cidx = mesh.get_band_indices(MeshParticleType::conduction);
-        idx_val.assign(vidx.begin(), vidx.end());
-        idx_cond.assign(cidx.begin(), cidx.end());
-    }
+    const auto list_idx_val  = mesh.get_band_indices(MeshParticleType::valence);
+    const auto list_idx_cond = mesh.get_band_indices(MeshParticleType::conduction);
 
     // 4) Estimate edges for dopant references
-    double Ev = -1e9, Ec = +1e9;
-    for (int b : idx_val) {
-        const auto& E = res.energies_per_band[b];
+    double Ev = std::numeric_limits<double>::lowest();
+    double Ec = std::numeric_limits<double>::max();
+    for (int idx_band : list_idx_val) {
+        const auto& E = results.energies_per_band[idx_band];
         if (!E.empty()) {
             Ev = std::max(Ev, *std::max_element(E.begin(), E.end()));
         }
     }
-    for (int b : idx_cond) {
-        const auto& E = res.energies_per_band[b];
+    for (int idx_band : list_idx_cond) {
+        const auto& E = results.energies_per_band[idx_band];
         if (!E.empty()) {
             Ec = std::min(Ec, *std::min_element(E.begin(), E.end()));
         }
@@ -176,11 +153,11 @@ Result solve_fermi_and_export_csv(MeshBZ& mesh, const Options& opt, const std::s
     // 5) Neutrality function F(EF) = n - p + Nd+ - Na- (monotone ↑ in EF)
     auto F = [&](double EF) {
         double n = 0.0, p = 0.0;
-        for (int b : idx_cond) {
-            n += electrons_in_band(res.energies_per_band[b], res.dos_per_band[b], EF, opt.T_K);
+        for (int idx_band : list_idx_cond) {
+            n += electrons_in_band(results.energies_per_band[idx_band], results.dos_per_band[idx_band], EF, opt.T_K);
         }
-        for (int b : idx_val) {
-            p += holes_in_band(res.energies_per_band[b], res.dos_per_band[b], EF, opt.T_K);
+        for (int idx_band : list_idx_val) {
+            p += holes_in_band(results.energies_per_band[idx_band], results.dos_per_band[idx_band], EF, opt.T_K);
         }
         const double Nd = donors_ionized(EF, Ec, opt.dop, opt.T_K);
         const double Na = acceptors_ionized(EF, Ev, opt.dop, opt.T_K);
@@ -188,62 +165,66 @@ Result solve_fermi_and_export_csv(MeshBZ& mesh, const Options& opt, const std::s
     };
 
     // 6) Bracket EF and bisection
-    double lo  = std::min(Ev, Ec) - 2.0;
-    double hi  = std::max(Ev, Ec) + 2.0;
-    double Flo = F(lo), Fhi = F(hi);
+    double low  = std::min(Ev, Ec) - 2.0;
+    double high  = std::max(Ev, Ec) + 2.0;
+    double Flo = F(low);
+    double Fhi = F(high);
     int    expand = 0;
-    while (Flo * Fhi > 0.0 && expand < 12) {
-        lo -= 1.0;
-        hi += 1.0;
-        Flo = F(lo);
-        Fhi = F(hi);
+    constexpr std::size_t max_expand = 12;
+    while (Flo * Fhi > 0.0 && expand < max_expand) {
+        low -= 1.0;
+        high += 1.0;
+        Flo = F(low);
+        Fhi = F(high);
         ++expand;
     }
     if (Flo * Fhi > 0.0) {
         throw std::runtime_error("Fermi solve: could not bracket neutrality (same sign at ends).");
     }
 
-    int    it    = 0;
-    int    itMax = 120;
-    double mid = 0.0, Fm = 0.0;
-    while (it < itMax && (hi - lo) > 1e-8) {  // ~1e-8 eV tolerance
-        mid = 0.5 * (lo + hi);
+    std::size_t iter   = 0;
+    constexpr std::size_t itMax = 100;
+    double mid = 0.0;
+    double Fm = 0.0;
+    constexpr double tol = 1e-12;
+    while (iter < itMax && (high - low) > tol) {  // ~1e-12 eV tolerance
+        mid = 0.5 * (low + high);
         Fm  = F(mid);
         if (Fm == 0.0) {
-            lo = hi = mid;
+            low = high = mid;
             break;
         }
         if (Flo * Fm < 0.0) {
-            hi  = mid;
+            high  = mid;
             Fhi = Fm;
         } else {
-            lo  = mid;
+            low  = mid;
             Flo = Fm;
         }
-        ++it;
+        ++iter;
     }
-    res.iters = it;
-    res.EF_eV = 0.5 * (lo + hi);
-    if (it < itMax) {
-        res.success = true;
-        std::cout << "Fermi level found at EF = " << res.EF_eV << " eV after " << it << " iterations.\n";
+    results.iters = iter;
+    results.EF_eV = 0.5 * (low + high);
+    if (iter < itMax) {
+        results.success = true;
+        std::cout << "Fermi level found at EF = " << results.EF_eV << " eV after " << iter << " iterations.\n";
     } else {
-        res.success = false;
-        std::cout << "Fermi level not converged after " << it << " iterations. Last EF = " << res.EF_eV << " eV.\n";
+        results.success = false;
+        std::cout << "Fermi level not converged after " << iter << " iterations. Last EF = " << results.EF_eV << " eV.\n";
     }
 
     // 7) Final carriers
-    res.n_m3 = res.p_m3 = 0.0;
-    for (int b : idx_cond) {
-        res.n_m3 += electrons_in_band(res.energies_per_band[b], res.dos_per_band[b], res.EF_eV, opt.T_K);
+    results.n_m3 = results.p_m3 = 0.0;
+    for (int idx_band : list_idx_cond) {
+        results.n_m3 += electrons_in_band(results.energies_per_band[idx_band], results.dos_per_band[idx_band], results.EF_eV, opt.T_K);
     }
-    for (int b : idx_val) {
-        res.p_m3 += holes_in_band(res.energies_per_band[b], res.dos_per_band[b], res.EF_eV, opt.T_K);
+    for (int idx_band : list_idx_val) {
+        results.p_m3 += holes_in_band(results.energies_per_band[idx_band], results.dos_per_band[idx_band], results.EF_eV, opt.T_K);
     }
-    res.Nd_plus  = donors_ionized(res.EF_eV, Ec, opt.dop, opt.T_K);
-    res.Na_minus = acceptors_ionized(res.EF_eV, Ev, opt.dop, opt.T_K);
+    results.Nd_plus  = donors_ionized(results.EF_eV, Ec, opt.dop, opt.T_K);
+    results.Na_minus = acceptors_ionized(results.EF_eV, Ev, opt.dop, opt.T_K);
 
-    return res;
+    return results;
 }
 
 }  // namespace uepm::mesh_bz::fermi
