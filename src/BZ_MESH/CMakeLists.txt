@@ -13,6 +13,7 @@ set(HEADER_FILES_LIBBZMESH
     elph_common.hpp
     elph_deformation_potential.hpp
     elph_dispersion.hpp
+    fermi_level.hpp
     elph_overlap_integral.hpp)
 
 set(SOURCE_FILES_LIBBZMESH
@@ -21,6 +22,7 @@ set(SOURCE_FILES_LIBBZMESH
     bz_states.cpp
     electron_phonon.cpp
     impact_ionization.cpp
+    fermi_level.cpp 
     dielectric_mesh.cpp
     octree_bz.cpp)
 

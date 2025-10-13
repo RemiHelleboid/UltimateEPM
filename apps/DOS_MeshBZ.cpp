@@ -21,6 +21,7 @@
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
 #include "integrals.hpp"
+#include "fermi_level.hpp"
 
 inline void export_multiple_vector_to_csv(const std::string                      &filename,
                                           const std::vector<std::string>         &header_columns,
@@ -154,6 +155,23 @@ int main(int argc, char *argv[]) {
         if (succes_plot != 0) {
             std::cout << "Error while calling python script to plot DOS.\n";
         }
+    }
+
+    // Solve for Fermi level and export CSV
+    uepm::mesh_bz::fermi::Options fermi_options;
+    fermi_options.nE       = 1000;               // number of energy points for DOS interpolation
+    fermi_options.threads  = my_options.nrThreads;
+    fermi_options.use_interp = use_interp;        // use interpolation when computing DOS at given energy
+    fermi_options.write_csv = true;               // write DOS per band to CSV
+    fermi_options.T_K     = 300.0;             // temperature for Fermi-Dirac
+
+    auto result = uepm::mesh_bz::fermi::solve_fermi_and_export_csv(my_bz_mesh, fermi_options, out_file_bands + "_fermi.csv");
+    if (result.success) {
+        std::cout << "Fermi level found: EF = " << result.EF_eV << " eV\n";
+        std::cout << "  p = " << result.p_m3 * 1e-6 << " cm^-3\n";
+        std::cout << "  n = " << result.n_m3 * 1e-6 << " cm^-3\n";
+    } else {
+        std::cout << "Fermi level not found.\n";
     }
 
     return 0;

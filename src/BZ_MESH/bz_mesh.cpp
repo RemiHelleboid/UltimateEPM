@@ -253,7 +253,7 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_c
         keep_only_bands((nb_valence_bands > 0) ? nb_valence_bands : m_valence_bands.count,
                         (nb_conduction_bands > 0) ? nb_conduction_bands : m_conduction_bands.count);
     }
-    auto_shift_conduction_band_energies();
+    // auto_shift_conduction_band_energies();
     // auto_set_positive_valence_band_energies();
     compute_min_max_energies_at_tetras();
     compute_energy_gradient_at_tetras();
