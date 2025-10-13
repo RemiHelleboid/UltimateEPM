@@ -46,7 +46,7 @@ void BZ_States::compute_eigenstates(int nb_threads) {
         m_eigenvalues_k[idx_k]  = hamiltonian_per_thread[idx_thread].eigenvalues();
         m_eigenvectors_k[idx_k] = hamiltonian_per_thread[idx_thread].get_eigenvectors();
         auto nb_rows            = m_eigenvectors_k[idx_k].rows();
-        m_eigenvectors_k[idx_k].conservativeResize(nb_rows, m_nb_bands);
+        m_eigenvectors_k[idx_k].conservativeResize(nb_rows, m_nb_bands_total);
     }
     std::cout << std::endl;
 }
@@ -79,7 +79,7 @@ void BZ_States::compute_shifted_eigenstates(const Vector3D<double>& q_shift, int
         m_eigenvalues_k_plus_q[idx_k]  = hamiltonian_per_thread[idx_thread].eigenvalues();
         m_eigenvectors_k_plus_q[idx_k] = hamiltonian_per_thread[idx_thread].get_eigenvectors();
         auto nb_rows                   = m_eigenvectors_k[idx_k].rows();
-        m_eigenvectors_k_plus_q[idx_k].conservativeResize(nb_rows, m_nb_bands);
+        m_eigenvectors_k_plus_q[idx_k].conservativeResize(nb_rows, m_nb_bands_total);
     }
     std::cout << std::endl;
 }
@@ -115,7 +115,7 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
         // Loop over the vertices of the tetrahedron
         for (std::size_t idx_vertex = 0; idx_vertex < 4; ++idx_vertex) {
             std::size_t index_k = list_idx_vertices[idx_vertex];
-            for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands; ++idx_conduction_band) {
+            for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands_total; ++idx_conduction_band) {
                 for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
                     double overlap_integral = pow(std::fabs(m_eigenvectors_k_plus_q[index_k]
                                                                 .col(idx_conduction_band)
@@ -151,11 +151,6 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
     std::cout << "Ratio (integrated / expected): " << (total_volume / V_BZ) << "\n";
 
     double q_squared = m_q_shift.Length() * m_q_shift.Length();
-
-    // // prefactor in SI, with J→eV conversion
-    // double prefactor = (uepm::Constants::q_e * uepm::Constants::q_e) /
-    //                    (uepm::Constants::eps_0 * q_squared) / uepm::Constants::q_e *
-    //                    (2.0 / std::pow(2.0 * M_PI, 3));
 
     double coulomb_prefactor_eV = (uepm::Constants::q_e * uepm::Constants::q_e) / (uepm::Constants::eps_0 * q_squared)  // J·m
                                   / uepm::Constants::q_e;                                                               // → eV·m

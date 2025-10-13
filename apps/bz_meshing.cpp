@@ -165,7 +165,7 @@ struct BuildResult {
 BuildResult build_ibz_wedge(double h, double gammaMesh) {
     using namespace gmsh::model::occ;
     // Points
-    int Gamma = addPoint(0.0, 0.0, 0.0, h);
+    int Gamma = addPoint(0.0, 0.0, 0.0, h * gammaMesh);
     int L     = addPoint(0.5, 0.5, 0.5, h * gammaMesh);
     int X     = addPoint(1.0, 0.0, 0.0, h * gammaMesh);
     int K     = addPoint(0.75, 0.75, 0.0, h);
@@ -212,6 +212,26 @@ BuildResult build_ibz_wedge(double h, double gammaMesh) {
 }
 
 // --------------------------- Size fields ---------------------------
+
+// Strictly uniform mesh (single size everywhere)
+void apply_uniform_mesh(double h) {
+    // Disable local sources of size variation
+    gmsh::option::setNumber("Mesh.MeshSizeFromCurvature", 0);
+    gmsh::option::setNumber("Mesh.MeshSizeExtendFromBoundary", 0);
+    gmsh::option::setNumber("Mesh.MeshSizeFromPoints", 0);
+
+    // Clamp global size
+    gmsh::option::setNumber("Mesh.MeshSizeMin", h);
+    gmsh::option::setNumber("Mesh.MeshSizeMax", h);
+
+    // Also set a constant background field (robust across Gmsh versions)
+    using namespace gmsh::model::mesh::field;
+    int                f_const = add("MathEval");
+    std::ostringstream oss;
+    oss << std::setprecision(17) << h;
+    setString(f_const, "F", oss.str());
+    setAsBackgroundMesh(f_const);
+}
 
 void set_distance_to_point_robust(int fieldId, int pointTag) {
     // Prefer binding to geometry vertex list:
@@ -427,6 +447,7 @@ int main(int argc, char **argv) try {
 
     TCLAP::ValueArg<std::string> modeArg("m", "mode", "Band mode: conduction|valence", false, "conduction", "string");
     TCLAP::ValueArg<int>         lvlArg("l", "level", "Preset refinement level [0..4]", false, 2, "int");
+    TCLAP::SwitchArg             uniformOn("", "uniform", "Use strictly uniform mesh (ignore Δ/L fields and point sizes)", cmd, false);
 
     // Global mesh + gamma scaling
     TCLAP::ValueArg<double> hArg("", "mesh", "Global base size h", false, 0.05, "float");
@@ -499,7 +520,14 @@ int main(int argc, char **argv) try {
     base.L_tube_rmin            = LtubeRminArg.getValue();
     base.L_tube_rmax            = LtubeRmaxArg.getValue();
 
-    MeshKnobs k = apply_presets(mode, level, base);
+    MeshKnobs k;
+    if (uniformOn.getValue()) {
+        k = base;
+        std::cout << "Using strictly uniform mesh (ignoring Δ/L fields and point sizes)\n";
+    } else {
+        std::cout << "Using preset mode = " << ((mode == Mode::Conduction) ? "conduction" : "valence") << ", level = " << level << "\n";
+        k = apply_presets(mode, level, base);
+    }
 
     // ----------- Gmsh -----------
     gmsh::initialize();
@@ -507,11 +535,16 @@ int main(int argc, char **argv) try {
     gmsh::option::setNumber("Mesh.Algorithm3D", 1);  // Delaunay 3D
 
     // Build geometry
+    std::cout << "Building IBZ wedge geometry...\n h = " << k.h << ", gamma(Γ) = " << k.meshGamma << "\n";
     auto g = build_ibz_wedge(k.h, k.meshGamma);
     gmsh::model::occ::synchronize();
 
     // Fields
-    apply_background_fields(g, k);
+    if (uniformOn.getValue()) {
+        apply_uniform_mesh(k.h);
+    } else {
+        apply_background_fields(g, k);
+    }
 
     // Physical tagging (optional)
     gmsh::model::addPhysicalGroup(3, std::vector<int>{g.volumeTag}, 1);
@@ -572,16 +605,9 @@ int main(int argc, char **argv) try {
         }
     }
 
-    // ... now 'symPts' is your deduplicated full-BZ point cloud in stable order,
-    // and 'sym_map[i]' lists the IDs of the 48 symmetry images of original node i.
 
     std::cout << "Nodes in full BZ mesh (after symmetry expansion): " << sym_map.size() << "\n";
     export_kmap("kmap_ibz_to_bz.txt", sym_map);
-
-    // std::vector<Vec3> symPts;
-    // symPts.reserve(uniq.size());
-    // for (const auto &p : uniq)
-    //     symPts.push_back(p);
 
     // Build discrete BZ from point cloud
     gmsh::model::add("bz_from_ibz_full_symmetry_cpp");

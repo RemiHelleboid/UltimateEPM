@@ -12,19 +12,21 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <array>
 #include <cstddef>
 #include <map>
 #include <memory>
 #include <random>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Material.h"
+#include "export_octree_vtu.hpp"
 #include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
 #include "octree_bz.hpp"
 #include "vector.hpp"
-#include "export_octree_vtu.hpp"
 
 namespace uepm::mesh_bz {
 
@@ -32,6 +34,16 @@ using MapStringToDoubles = std::map<std::string, std::vector<double>>;
 using MapStringToVectors = std::map<std::string, std::vector<vector3>>;
 
 enum class MeshParticleType { valence, conduction };
+
+struct BandInfo {
+    MeshParticleType type{MeshParticleType::conduction};
+    int              local_index{0};
+};
+
+struct BandRange {
+    int global_start_index{-1};
+    int count{0};
+};
 
 class MeshBZ {
  protected:
@@ -48,8 +60,11 @@ class MeshBZ {
 
     std::unique_ptr<Octree_mesh> m_search_tree;  // fwd-decl OK; dtor out-of-line
 
-    std::size_t         m_nb_bands      = 0;
-    MeshParticleType    m_particle_type = MeshParticleType::conduction;
+    std::size_t           m_nb_bands_total = 0;
+    std::vector<BandInfo> m_band_info;
+    BandRange             m_valence_bands;
+    BandRange             m_conduction_bands;
+
     std::vector<double> m_min_band;
     std::vector<double> m_max_band;
 
@@ -86,7 +101,22 @@ class MeshBZ {
     std::size_t get_number_vertices() const noexcept { return m_list_vertices.size(); }
     std::size_t get_number_elements() const noexcept { return m_list_tetrahedra.size(); }
     double      get_volume() const noexcept { return m_total_volume; }
-    int         get_nb_bands() const noexcept { return m_nb_bands; }
+
+    // Band infos
+    std::size_t get_number_bands_total() const noexcept { return m_nb_bands_total; }
+    std::size_t get_number_valence_bands() const noexcept { return m_valence_bands.count; }
+    std::size_t get_number_conduction_bands() const noexcept { return m_conduction_bands.count; }
+    std::size_t get_number_bands(MeshParticleType type) const noexcept {
+        return (type == MeshParticleType::valence) ? m_valence_bands.count : m_conduction_bands.count;
+    }
+    std::vector<std::size_t> get_band_indices(MeshParticleType type) const;
+    std::pair<int, int> get_start_end_valence_band_idx() const {
+        return {m_valence_bands.global_start_index, m_valence_bands.global_start_index + m_valence_bands.count};
+    }
+    std::pair<int, int> get_start_end_conduction_band_idx() const {
+        return {m_conduction_bands.global_start_index, m_conduction_bands.global_start_index + m_conduction_bands.count};
+    }
+    void print_band_info() const;
 
     // ---------- geometry / search ----------
     bbox_mesh           compute_bounding_box() const;
@@ -113,10 +143,9 @@ class MeshBZ {
 
     // ---------- reading ----------
     void read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor = true);
-    void read_mesh_bands_from_msh_file(const std::string& filename, int nb_bands_to_load = -1);
-    void read_mesh_bands_from_multi_band_files(const std::string& dir_bands, int nb_bands_to_load = 100);
+    void read_mesh_bands_from_msh_file(const std::string& filename, int nb_conduction_bands = -1, int nb_valence_bands = -1);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
-    void keep_only_bands(std::size_t required_nb_bands);
+    void keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduction_bands);
 
     // ---------- analysis / precompute ----------
     void compute_min_max_energies_at_tetras();

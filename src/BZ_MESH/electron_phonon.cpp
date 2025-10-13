@@ -153,7 +153,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(int idx_n1, std::size_t 
 
     std::size_t nnz = 0;
 
-    for (std::size_t idx_n2 = 0; idx_n2 < m_nb_bands; ++idx_n2) {
+    for (auto idx_n2 : get_band_indices(MeshParticleType::conduction)) {
         // Quick reject band window
         if (Ef_min > m_max_band[idx_n2] || Ef_max < m_min_band[idx_n2]) {
             continue;
@@ -188,7 +188,7 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(int idx_n1, std::size_t idx_
 
     constexpr double SMALL_OMEGA_CUTOFF = 1.0;
 
-    for (std::size_t idx_n2 = 0; idx_n2 < m_nb_bands; ++idx_n2) {
+    for (auto idx_n2 : get_band_indices(MeshParticleType::valence)) {
         for (const auto& tetra : list_tetrahedra) {
             const vector3 k2 = tetra.compute_barycenter();
 
@@ -263,7 +263,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     constexpr int            chunk_size = 32;
 
     m_phonon_rates_transport.clear();
-    m_phonon_rates_transport.resize(m_nb_bands);
+    m_phonon_rates_transport.resize(get_number_valence_bands());
     for (auto& vec : m_phonon_rates_transport) {
         vec.resize(m_list_vertices.size(), 0.0);
     }
@@ -277,7 +277,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
         std::mt19937  g(seed);
         std::shuffle(random_indices.begin(), random_indices.end(), g);
     }
-    std::cout << "Nb bands: " << m_nb_bands << ", Nb k-points: " << m_list_vertices.size()
+    std::cout << "Nb bands: " << get_number_bands_total() << ", Nb k-points: " << m_list_vertices.size()
               << (irreducible_wedge_only ? " (irreducible wedge only)" : "") << "\n";
 
 #pragma omp parallel for schedule(dynamic, chunk_size) num_threads(m_nb_threads)
@@ -293,11 +293,10 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
                       << (100.0 * done / m_list_vertices.size()) << "%)" << std::flush;
         }
         // Conduction bands (electrons)
-        for (std::size_t idx_n1 = 0; idx_n1 < m_nb_bands; ++idx_n1) {
+        for (auto idx_n1 : get_band_indices(MeshParticleType::conduction)) {
             if (!to_compute) {
                 continue;
             }
-
             if (m_list_vertices[idx_k1].get_energy_at_band(static_cast<int>(idx_n1)) > energy_max) {
                 std::cout << "\rSkipping rates for band " << idx_n1 << " at k-point " << idx_k1 << ": "
                           << "E = " << m_list_vertices[idx_k1].get_energy_at_band(static_cast<int>(idx_n1)) << " eV > " << energy_max
@@ -325,7 +324,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
             }
             if (!is_irreducible_wedge(m_list_vertices[idx_k1].get_position())) {
                 std::size_t idx_k1_symm = get_index_irreducible_wedge(m_list_vertices[idx_k1].get_position());
-                for (std::size_t idx_n1 = 0; idx_n1 < m_nb_bands; ++idx_n1) {
+                for (auto idx_n1 : get_band_indices(MeshParticleType::conduction)) {
                     auto rates_symm = m_list_vertices[idx_k1_symm].get_electron_phonon_rates(idx_n1);
                     m_list_vertices[idx_k1].add_electron_phonon_rates(rates_symm);
                     m_phonon_rates_transport[idx_n1][idx_k1] = m_phonon_rates_transport[idx_n1][idx_k1_symm];
@@ -632,7 +631,7 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
     gmsh::model::mesh::reclassifyNodes();
     gmsh::model::mesh::getNodes(node_tags, nodeCoords, nodeParams, -1, -1, false, false);
 
-    for (int idx_band = 0; idx_band < m_nb_bands; ++idx_band) {
+    for (int idx_band = 0; idx_band < get_number_bands_total(); ++idx_band) {
         std::vector<double> rates_ac_lo_em(m_list_vertices.size());
         std::vector<double> rates_ac_lo_ab(m_list_vertices.size());
         std::vector<double> rates_ac_tr_em(m_list_vertices.size());

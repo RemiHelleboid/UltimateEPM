@@ -56,14 +56,16 @@ int main(int argc, char *argv[]) {
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
-    TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to consider", false, -1, "int");
+    TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "cbands", "Number of conduction bands to consider", false, -1, "int");
+    TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "vbands", "Number of valence bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     TCLAP::SwitchArg arg_test_interp("t", "test-interp", "Test the interpolation DOS.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
-    cmd.add(arg_nb_bands);
+    cmd.add(arg_nb_conduction_bands);
+    cmd.add(arg_nb_valence_bands);
     cmd.add(arg_nb_energies);
     cmd.add(arg_nb_threads);
     cmd.add(arg_test_interp);
@@ -76,10 +78,10 @@ int main(int argc, char *argv[]) {
 
     Options my_options;
     my_options.materialName = arg_material.getValue();
-    my_options.nrLevels     = arg_nb_bands.getValue();
     my_options.nrThreads    = arg_nb_threads.getValue();
     my_options.print_options();
-    int  nb_bands_to_use = arg_nb_bands.getValue();
+    int  nb_conduction_bands = arg_nb_conduction_bands.getValue();
+    int  nb_valence_bands    = arg_nb_valence_bands.getValue();
     bool use_interp      = arg_test_interp.getValue();
     auto start           = std::chrono::high_resolution_clock::now();
 
@@ -89,15 +91,13 @@ int main(int argc, char *argv[]) {
 
     uepm::mesh_bz::MeshBZ my_bz_mesh{current_material};
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file);
-    my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file, nb_bands_to_use);
-    int nb_bands = my_bz_mesh.get_nb_bands();
-    if (nb_bands < nb_bands_to_use) {
-        std::cout << "Warning: you asked for " << nb_bands_to_use << " bands but the mesh file contains only " << nb_bands << " bands.\n";
-        nb_bands_to_use = nb_bands;
-    }
+    my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file, nb_conduction_bands, nb_valence_bands);
+    int nb_bands = my_bz_mesh.get_number_bands_total();
+    my_bz_mesh.print_band_info();
+
     constexpr double energy_step_dos = 0.005;  // eV
     const double energy_max      = 5.0;   // eV
-    my_bz_mesh.precompute_dos_tetra(energy_step_dos, energy_max);
+    // my_bz_mesh.precompute_dos_tetra(energy_step_dos, energy_max);
 
     std::cout << "Mesh volume: " << my_bz_mesh.compute_mesh_volume() << std::endl;
     double Vcell = std::pow(current_material.get_lattice_constant_meter(), 3) / 4.0;
@@ -110,8 +110,8 @@ int main(int argc, char *argv[]) {
     std::vector<std::vector<double>> list_list_dos{};
     std::vector<std::string>         list_header = {};
 
-    std::cout << "Compute DOS on " << nb_bands_to_use << " bands.\n";
-
+    std::cout << "Compute DOS on " << nb_valence_bands << " valence bands and " << nb_conduction_bands << " conduction bands." << std::endl;
+    int nb_bands_to_use = my_bz_mesh.get_number_bands_total();
     for (int band_index = 0; band_index < nb_bands_to_use; ++band_index) {
         std::vector<std::vector<double>> lists_energies_dos =
             my_bz_mesh.compute_dos_band_at_band_auto(band_index, arg_nb_energies.getValue(), my_options.nrThreads, use_interp);

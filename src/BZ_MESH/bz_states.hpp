@@ -66,7 +66,7 @@ class BZ_States : public MeshBZ {
     BZ_States(const uepm::pseudopotential::Material& material) : MeshBZ(material) {}
     BZ_States(const BZ_States& other) = default;
 
-    void                              set_nb_bands(int nb_bands) { m_nb_bands = nb_bands; }
+    void                              set_nb_bands(int nb_bands) { m_nb_bands_total = nb_bands; }
     void                              set_basis_vectors(const std::vector<Vector3D<int>>& basis_vectors) { m_basisVectors = basis_vectors; }
     const std::vector<Vector3D<int>>& get_basis_vectors() const { return m_basisVectors; }
     void                              compute_eigenstates(int nb_threads = 1);

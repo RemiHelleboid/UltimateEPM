@@ -14,6 +14,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -22,7 +23,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <array>
 
 #include "gmsh.h"
 #include "integrals.hpp"
@@ -167,8 +167,8 @@ void MeshBZ::build_search_tree() {
     std::cout << "Mesh bounding box: " << mesh_bbox << std::endl;
     mesh_bbox.dilate(1.10);
     // Translate the bounding box by a quite random small vector to avoid degenerate cases...
-    const double translation_unit_factor = 1.876473876e-6;
-    const vector3 translation = translation_unit_factor * (mesh_bbox.max_corner() - mesh_bbox.min_corner());
+    const double  translation_unit_factor = 1.876473876e-6;
+    const vector3 translation             = translation_unit_factor * (mesh_bbox.max_corner() - mesh_bbox.min_corner());
     std::cout << "Translate bbox by " << translation << std::endl;
     mesh_bbox.translate(translation);
     auto start    = std::chrono::high_resolution_clock::now();
@@ -198,7 +198,7 @@ std::size_t MeshBZ::get_nearest_k_index(const vector3& k) const {
  *
  * @param filename
  */
-void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_bands_to_load) {
+void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_conduction_bands, int nb_valence_bands) {
     std::cout << "Opening file " << filename << std::endl;
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 0);
@@ -226,23 +226,16 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_b
         std::vector<double>      data_view;
         gmsh::view::getHomogeneousModelData(tag, 0, type, tags, data_view, time, numComp);
         bool is_valence = data_view[0] <= 0.1;
-
-        // For a given mesh, we cannot have both valence and conduction bands.
-        if (count_band == 0) {
-            if (is_valence) {
-                m_particle_type = MeshParticleType::valence;
-            } else {
-                m_particle_type = MeshParticleType::conduction;
-            }
+        if (is_valence) {
+            BandInfo band_info = {MeshParticleType::valence, m_valence_bands.count};
+            m_band_info.push_back(band_info);
+            m_valence_bands.global_start_index = (m_valence_bands.count == 0) ? count_band : m_valence_bands.global_start_index;
+            m_valence_bands.count++;
         } else {
-            if (is_valence && m_particle_type == MeshParticleType::conduction) {
-                std::cerr << "Warning: Found a valence band after conduction bands. Ignoring this band." << std::endl;
-                continue;
-            }
-            if (!is_valence && m_particle_type == MeshParticleType::valence) {
-                std::cerr << "Warning: Found a conduction band after valence bands. Ignoring this band." << std::endl;
-                continue;
-            }
+            BandInfo band_info = {MeshParticleType::conduction, m_conduction_bands.count};
+            m_band_info.push_back(band_info);
+            m_conduction_bands.global_start_index = (m_conduction_bands.count == 0) ? count_band : m_conduction_bands.global_start_index;
+            m_conduction_bands.count++;
         }
         count_band++;
         auto minmax_band = std::minmax_element(data_view.begin(), data_view.end());
@@ -250,31 +243,37 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_b
         m_max_band.push_back(*(minmax_band.second));
         add_new_band_energies_to_vertices(data_view);
     }
-    m_nb_bands = count_band;
+    m_nb_bands_total = count_band;
     gmsh::finalize();
     // PRINT INFO
-    std::cout << "Number of bands loaded: " << m_min_band.size() << std::endl;
-    std::cout << "Particle type: " << ((m_particle_type == MeshParticleType::valence) ? "valence" : "conduction") << std::endl;
-
+    std::cout << "Number of bands loaded: " << get_number_bands_total() << std::endl;
+    print_band_info();
+    set_bands_in_right_order();
+    if (nb_valence_bands > 0 || nb_conduction_bands > 0) {
+        keep_only_bands((nb_valence_bands > 0) ? nb_valence_bands : m_valence_bands.count,
+                        (nb_conduction_bands > 0) ? nb_conduction_bands : m_conduction_bands.count);
+    }
     auto_shift_conduction_band_energies();
-    auto_set_positive_valence_band_energies();
+    // auto_set_positive_valence_band_energies();
     compute_min_max_energies_at_tetras();
-    keep_only_bands(nb_bands_to_load);
-
     compute_energy_gradient_at_tetras();
     set_energy_gradient_at_vertices_by_averaging_tetras();
 
     for (auto&& tetra : m_list_tetrahedra) {
         tetra.pre_compute_sorted_slots_per_band();
     }
+    print_band_info();
+    std::cout << "Done." << std::endl;
+}
 
-    // Print band info
-    std::cout << "Number of bands loaded: " << get_nb_bands() << std::endl;
-    std::cout << "Band index |    Min energy (eV)   |    Max energy (eV)   |   Bandwidth (eV)   " << std::endl;
-    std::cout << "--------------------------------------------------------------------------" << std::endl;
-    for (std::size_t i = 0; i < get_nb_bands(); ++i) {
-        double bandwidth = m_max_band[i] - m_min_band[i];
-        std::cout << "     " << i << "     | " << m_min_band[i] << " | " << m_max_band[i] << " | " << bandwidth << std::endl;
+void MeshBZ::print_band_info() const {
+    std::cout << "Band info:\n";
+    std::cout << "Index\tType\tLocalIdx\tGlobalIdx\tMinE(eV)\tMaxE(eV)\n";
+    for (std::size_t i = 0; i < m_band_info.size(); ++i) {
+        const auto& band     = m_band_info[i];
+        std::string type_str = (band.type == MeshParticleType::valence) ? "Valence   " : "Conduction";
+        std::cout << i << "\t" << type_str << "\t" << band.local_index << "\t\t" << i << "\t\t" << std::fixed << std::setprecision(4)
+                  << m_min_band[i] << "\t" << m_max_band[i] << "\n";
     }
 }
 
@@ -319,7 +318,6 @@ void MeshBZ::set_energy_gradient_at_vertices_by_averaging_tetras() {
     std::cout << "Done." << std::endl;
 }
 
-
 void MeshBZ::recompute_min_max_energies() {
     m_min_band.clear();
     m_max_band.clear();
@@ -339,29 +337,62 @@ void MeshBZ::recompute_min_max_energies() {
     }
 }
 
+std::vector<std::size_t> MeshBZ::get_band_indices(MeshParticleType type) const {
+    std::vector<std::size_t> indices;
+    if (type == MeshParticleType::valence) {
+        indices.resize(m_valence_bands.count);
+        for (std::size_t i = 0; i < m_valence_bands.count; ++i) {
+            indices[i] = m_valence_bands.global_start_index + i;
+        }
+    } else {
+        indices.resize(m_conduction_bands.count);
+        for (std::size_t i = 0; i < m_conduction_bands.count; ++i) {
+            indices[i] = m_conduction_bands.global_start_index + i;
+        }
+    }
+    return indices;
+}
+
 /**
  * @brief Keep only a subset of bands.
  * Must be called after reading the band energies from the .msh file and after shifting/setting valence
  * absolute energies and so on.
  * @param required_nb_bands Number of bands to keep (from the top for valence bands, from the bottom for conduction bands).
  */
-void MeshBZ::keep_only_bands(const std::size_t required_nb_bands) {
-    if (required_nb_bands >= get_nb_bands()) {
+void MeshBZ::keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduction_bands) {
+    if (nb_valence_bands + nb_conduction_bands >= get_number_bands_total()) {
         throw std::runtime_error("Cannot keep more bands than available.");
     }
-    // We assume that the bands are already positive and in ascending order.
-    for (auto&& vtx : m_list_vertices) {
-        vtx.resize_band_energies(required_nb_bands);
-    }
-    m_nb_bands = required_nb_bands;
-    // Check that all vertices have the same number of bands
-    for (auto&& vtx : m_list_vertices) {
-        if (vtx.get_number_bands() != required_nb_bands) {
-            throw std::runtime_error("Inconsistent number of bands after resizing. Abort.");
+    // Valence 
+    std::vector<std::size_t> valence_indices = get_band_indices(MeshParticleType::valence);
+    if (nb_valence_bands < valence_indices.size()) {
+        int nb_valence_to_remove = valence_indices.size() - nb_valence_bands;
+        std::cout << "Removing " << nb_valence_to_remove << " valence bands (keeping " << nb_valence_bands << ")\n";
+        for (int i = 0; i < nb_valence_to_remove; ++i) {
+            std::size_t band_index_to_remove = valence_indices[valence_indices.size() - 1 - i];
+            for (auto&& vtx : m_list_vertices) {
+                vtx.remove_band_energy(band_index_to_remove);
+            }
+            m_band_info.erase(m_band_info.begin() + band_index_to_remove);
+            m_valence_bands.count--;
+            m_conduction_bands.global_start_index--;
         }
     }
-    std::cout << "Number of bands kept: " << m_nb_bands << std::endl;
-
+    // Conduction
+    std::vector<std::size_t> conduction_indices = get_band_indices(MeshParticleType::conduction);
+    if (nb_conduction_bands < conduction_indices.size()) {
+        int nb_conduction_to_remove = conduction_indices.size() - nb_conduction_bands;
+        std::cout << "Removing " << nb_conduction_to_remove << " conduction bands (keeping " << nb_conduction_bands << ")\n";
+        for (int i = 0; i < nb_conduction_to_remove; ++i) {
+            std::size_t band_index_to_remove = conduction_indices[conduction_indices.size() - 1 - i];
+            for (auto&& vtx : m_list_vertices) {
+                vtx.remove_band_energy(band_index_to_remove);
+            }
+            m_band_info.erase(m_band_info.begin() + band_index_to_remove);
+            m_conduction_bands.count--;
+        }
+    }
+    m_nb_bands_total = nb_valence_bands + nb_conduction_bands;
     // Recompute min/max band energies
     recompute_min_max_energies();
 }
@@ -382,11 +413,9 @@ void MeshBZ::compute_min_max_energies_at_tetras() {
 }
 
 void MeshBZ::auto_set_positive_valence_band_energies() {
-    if (m_particle_type != MeshParticleType::valence) {
-        return;
-    }
+    std::vector<std::size_t> valence_band_indices = get_band_indices(MeshParticleType::valence);
     for (auto&& vtx : m_list_vertices) {
-        for (std::size_t idx_band = 0; idx_band < m_list_vertices[0].get_number_bands(); ++idx_band) {
+        for (auto idx_band : valence_band_indices) {
             double energy = vtx.get_energy_at_band(idx_band);
             if (energy < 0.0) {
                 vtx.set_band_energy(idx_band, std::fabs(energy));
@@ -396,12 +425,20 @@ void MeshBZ::auto_set_positive_valence_band_energies() {
 }
 
 void MeshBZ::auto_shift_conduction_band_energies() {
-    if (m_particle_type != MeshParticleType::conduction) {
-        return;
-    }
+
     constexpr double band_reference_eV = 0.0;  // Set the conduction band minimum to 0 eV
     // Find the lowest conduction band minimum
-    const double min_conduction = *std::ranges::min_element(m_min_band);
+    std::vector<std::size_t> conduction_band_indices = get_band_indices(MeshParticleType::conduction);
+    if (conduction_band_indices.empty()) {
+        std::cout << "No conduction bands found. Skipping auto-shift of conduction band energies.\n";
+        return;
+    }
+    double min_conduction = std::numeric_limits<double>::max();
+    for (auto idx_band : conduction_band_indices) {
+        if (m_min_band[idx_band] < min_conduction) {
+            min_conduction = m_min_band[idx_band];
+        }
+    }
     std::cout << "Min conduction band energy: " << min_conduction << " eV\n";
 
     double band_gap = min_conduction - band_reference_eV;
@@ -417,7 +454,7 @@ void MeshBZ::auto_shift_conduction_band_energies() {
     std::cout << "Shifting conduction bands by " << shift_amount << " eV to align CBM with VBM.\n";
 
     for (auto&& vtx : m_list_vertices) {
-        for (std::size_t idx_band = 0; idx_band < m_list_vertices[0].get_number_bands(); ++idx_band) {
+        for (auto idx_band : conduction_band_indices) {
             double old_energy = vtx.get_energy_at_band(idx_band);
             double new_energy = old_energy + shift_amount;
             vtx.set_band_energy(idx_band, new_energy);
@@ -447,12 +484,28 @@ void MeshBZ::auto_shift_conduction_band_energies() {
 }
 
 void MeshBZ::set_bands_in_right_order() {
-    if (m_particle_type == MeshParticleType::valence) {
-        // Reverse the order of valence bands.
-        for (auto&& vtx : m_list_vertices) {
-            vtx.reverse_energies_order();
+
+    // Reverse the order of valence bands only.
+    std::vector<std::size_t> valence_indices = get_band_indices(MeshParticleType::valence);
+    // Check if already in the right order
+    bool already_in_order = true;
+    for (std::size_t i = 1; i < valence_indices.size(); ++i) {
+        if (valence_indices[i] < valence_indices[i - 1]) {
+            already_in_order = false;
+            break;
         }
     }
+    if (already_in_order) {
+        std::cout << "Valence bands already in the right order. No change applied.\n";
+        return;
+    }
+    // void reverse_energies_order(int first_idx, int last_idx) {
+    int global_idx_first = valence_indices.front();
+    int global_idx_last  = valence_indices.back();
+    for (auto&& vtx : m_list_vertices) {
+        vtx.reverse_energies_order(global_idx_first, global_idx_last);
+    }
+
     recompute_min_max_energies();
 }
 
@@ -805,7 +858,7 @@ bool MeshBZ::is_irreducible_wedge(const vector3& k_SI) const noexcept {
  * @param k_SI
  * @return std::size_t
  */
-std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const  {
+std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const {
     vector3 k_folded = {std::fabs(k_SI.x()), std::fabs(k_SI.y()), std::fabs(k_SI.z())};
     // Test the 6 permutations of (|kx|, |ky|, |kz|)
     std::array<vector3, 6> permutations = {vector3{k_folded.x(), k_folded.y(), k_folded.z()},
@@ -841,7 +894,6 @@ std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const  {
     }
     return idx_min;
 }
-
 
 static inline void bz_write_vtk_scalars(std::ofstream&             out,
                                         const std::string&         name,
