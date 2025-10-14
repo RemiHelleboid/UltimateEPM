@@ -20,8 +20,8 @@
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
-#include "integrals.hpp"
 #include "fermi_level.hpp"
+#include "integrals.hpp"
 
 inline void export_multiple_vector_to_csv(const std::string                      &filename,
                                           const std::vector<std::string>         &header_columns,
@@ -84,8 +84,8 @@ int main(int argc, char *argv[]) {
     my_options.print_options();
     int  nb_conduction_bands = arg_nb_conduction_bands.getValue();
     int  nb_valence_bands    = arg_nb_valence_bands.getValue();
-    bool use_interp      = arg_test_interp.getValue();
-    auto start           = std::chrono::high_resolution_clock::now();
+    bool use_interp          = arg_test_interp.getValue();
+    auto start               = std::chrono::high_resolution_clock::now();
 
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
@@ -94,8 +94,15 @@ int main(int argc, char *argv[]) {
     uepm::mesh_bz::MeshBZ my_bz_mesh{current_material};
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file);
 
-    // Load bands: (nb_conduction_bands, nb_valence_bands)
-    my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file, nb_conduction_bands, nb_valence_bands);
+    bool set_positive_valence_band = false;
+    bool shift_conduction_band     = true;
+    my_bz_mesh.read_mesh_bands_from_msh_file(mesh_band_input_file,
+                                             nb_conduction_bands,
+                                             nb_valence_bands,
+                                             shift_conduction_band,
+                                             set_positive_valence_band);
+
+    my_bz_mesh.apply_scissor(1.12);  // eV
 
     const int nb_bands = static_cast<int>(my_bz_mesh.get_number_bands_total());
     my_bz_mesh.print_band_info();
@@ -121,7 +128,7 @@ int main(int argc, char *argv[]) {
     const int nE = arg_nb_energies.getValue();
 
     for (int band_index = 0; band_index < nb_bands; ++band_index) {
-        auto lists_energies_dos = my_bz_mesh.compute_dos_band_at_band_auto(band_index, nE, my_options.nrThreads, use_interp);
+        auto         lists_energies_dos = my_bz_mesh.compute_dos_band_at_band_auto(band_index, nE, my_options.nrThreads, use_interp);
         const auto  &E                  = lists_energies_dos[0];         // eV
         const auto  &G                  = lists_energies_dos[1];         // states / (m^3·eV)
         const double I                  = uepm::integrate::trapz(E, G);  // states / m^3
@@ -133,9 +140,9 @@ int main(int argc, char *argv[]) {
         list_list_dos.push_back(lists_energies_dos[0]);
         list_list_dos.push_back(lists_energies_dos[1]);
         list_header.push_back("energy_band_" + std::to_string(band_index));
-        list_header.push_back("dos_band_" + std::to_string(band_index));        
+        list_header.push_back("dos_band_" + std::to_string(band_index));
     }
-    
+
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
@@ -159,10 +166,10 @@ int main(int argc, char *argv[]) {
 
     // Solve for Fermi level and export CSV
     uepm::mesh_bz::fermi::Options fermi_options;
-    fermi_options.nE       = 1000;           // number of energy points for DOS interpolation
-    fermi_options.threads  = my_options.nrThreads;
-    fermi_options.use_interp = use_interp;        // use interpolation when computing DOS at given energy
-    fermi_options.T_K     = 300.0;             // temperature for Fermi-Dirac
+    fermi_options.nE         = 1000;  // number of energy points for DOS interpolation
+    fermi_options.threads    = my_options.nrThreads;
+    fermi_options.use_interp = use_interp;  // use interpolation when computing DOS at given energy
+    fermi_options.T_K        = 300.0;       // temperature for Fermi-Dirac
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(my_bz_mesh, fermi_options);
     if (result.success) {

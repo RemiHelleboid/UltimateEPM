@@ -172,6 +172,7 @@ class MeshBZ {
     void keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduction_bands);
     
     // ---------- analysis / precompute ----------
+    void apply_scissor(double scissor_value);
     void compute_min_max_energies_at_tetras();
     void compute_energy_gradient_at_tetras();
     void auto_shift_conduction_band_energies();

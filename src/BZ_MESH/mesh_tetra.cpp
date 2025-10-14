@@ -113,6 +113,8 @@ void Tetra::compute_gradient_energy_at_bands() {
  *  *
  */
 void Tetra::compute_min_max_energies_at_bands() {
+    m_min_energy_per_band.clear();
+    m_max_energy_per_band.clear();
     m_nb_bands = m_list_vertices[0]->get_number_bands();
     for (std::size_t idx_band = 0; idx_band < m_nb_bands; ++idx_band) {
         auto energies = get_band_energies_at_vertices(idx_band);
@@ -182,10 +184,10 @@ std::array<double, 4> Tetra::compute_barycentric_coordinates(const vector3& loca
     return {lambda_1, lambda_2, lambda_3, lambda_4};
 }
 
-double Tetra::interpolate_scalar_at_position(const vector3& location, const std::vector<double>& scalar_field) const{
-    const auto                  barycentric_coord = compute_barycentric_coordinates(location);
-    return scalar_field[0] * barycentric_coord[0] + scalar_field[1] * barycentric_coord[1] +
-           scalar_field[2] * barycentric_coord[2] + scalar_field[3] * barycentric_coord[3];
+double Tetra::interpolate_scalar_at_position(const vector3& location, const std::vector<double>& scalar_field) const {
+    const auto barycentric_coord = compute_barycentric_coordinates(location);
+    return scalar_field[0] * barycentric_coord[0] + scalar_field[1] * barycentric_coord[1] + scalar_field[2] * barycentric_coord[2] +
+           scalar_field[3] * barycentric_coord[3];
 }
 
 /**
@@ -314,6 +316,12 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
     double                    e_3                  = energies_at_vertices[indices_sort[3]];
 
     bool check_order = (e_0 <= e_1 && e_1 <= e_2 && e_2 <= e_3);
+    bool check_range = (iso_energy >= e_0 && iso_energy <= e_3);
+    if (!check_range) {
+        std::cout << "DATA OUT : " << iso_energy << " " << e_0 << " " << e_1 << " " << e_2 << " " << e_3 << std::endl;
+        std::cerr << "Error: the iso_energy is out of range of the energies of the tetrahedra" << std::endl;
+        throw std::runtime_error("Error: the iso_energy is out of range of the energies of the tetrahedra");
+    }
     if (!check_order) {
         std::cerr << "Error: the order of the energies is not correct" << std::endl;
         throw std::runtime_error("Error: the order of the energies is not correct");
@@ -503,6 +511,7 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
 }
 
 void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double energy_max) {
+    m_dos_per_band.clear();
     m_nb_bands = m_list_vertices[0]->get_number_bands();
     m_dos_per_band.assign(m_nb_bands, UniformDos{});
 

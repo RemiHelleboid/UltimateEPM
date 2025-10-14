@@ -287,10 +287,31 @@ void MeshBZ::print_band_info() const {
     }
 }
 
+/**
+ * @brief Apply a scissor (energy window) to the band structure.
+ * This operation shifts all conduction band energies by the scissor_value (in eV).
+ * 
+ * @param scissor_value 
+ */
+void MeshBZ::apply_scissor(double scissor_value) {
+    std::cout << "Applying scissor of " << scissor_value << " eV to conduction bands ..." << std::endl;
+    for (auto&& vtx : m_list_vertices) {
+        const std::size_t nb_bands = vtx.get_number_bands();
+        for (std::size_t i = 0; i < nb_bands; ++i) {
+            if (m_band_info[i].type == MeshParticleType::conduction) {
+                double new_energy = vtx.get_energy_at_band(i) + scissor_value;
+                vtx.set_band_energy(i, new_energy);
+            }
+        }
+    }
+    recompute_energies_data_and_sync(true, true, false, 0.01, 100.0);
+    std::cout << "Done." << std::endl;
+}
+
 void MeshBZ::precompute_dos_tetra(double energy_step, double energy_max) {
     std::cout << "Precomputing DOS per tetrahedra with energy step = " << energy_step << " eV ..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
-#pragma omp parallel for schedule(dynamic)
+// #pragma omp parallel for schedule(dynamic)
     for (std::size_t i = 0; i < m_list_tetrahedra.size(); ++i) {
         m_list_tetrahedra[i].precompute_dos_on_energy_grid_per_band(energy_step, energy_max);
     }
@@ -353,6 +374,7 @@ void MeshBZ::recompute_energies_data_and_sync(bool   recompute_min_max,
                                               bool   recompute_dos,
                                               double dos_energy_step,
                                               double dos_energy_max) {
+    compute_min_max_energies_at_tetras();
     if (recompute_min_max) {
         recompute_min_max_energies();
     }
@@ -360,12 +382,12 @@ void MeshBZ::recompute_energies_data_and_sync(bool   recompute_min_max,
         compute_energy_gradient_at_tetras();
         set_energy_gradient_at_vertices_by_averaging_tetras();
     }
-    if (recompute_dos) {
-        precompute_dos_tetra(dos_energy_step, dos_energy_max);
-    }
     // Sync the tetrahedra data
     for (auto&& tetra : m_list_tetrahedra) {
         tetra.pre_compute_sorted_slots_per_band();
+    }
+    if (recompute_dos) {
+        precompute_dos_tetra(dos_energy_step, dos_energy_max);
     }
     // Check that the band info is still correct
     print_band_info();
