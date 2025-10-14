@@ -94,8 +94,8 @@ class MeshBZ {
     vector3 get_center() const noexcept { return m_center; }
     void    shift_bz_center(const vector3& shift);
 
-    double        get_reduce_bz_factor() const noexcept { return m_reduce_bz_factor; }
-    void          set_reduce_bz_factor(double factor) noexcept { m_reduce_bz_factor = factor; }
+    double get_reduce_bz_factor() const noexcept { return m_reduce_bz_factor; }
+    void   set_reduce_bz_factor(double factor) noexcept { m_reduce_bz_factor = factor; }
     double si_to_reduced_scale() const noexcept;
 
     std::size_t get_number_vertices() const noexcept { return m_list_vertices.size(); }
@@ -110,7 +110,7 @@ class MeshBZ {
         return (type == MeshParticleType::valence) ? m_valence_bands.count : m_conduction_bands.count;
     }
     std::vector<std::size_t> get_band_indices(MeshParticleType type) const;
-    std::pair<int, int> get_start_end_valence_band_idx() const {
+    std::pair<int, int>      get_start_end_valence_band_idx() const {
         return {m_valence_bands.global_start_index, m_valence_bands.global_start_index + m_valence_bands.count};
     }
     std::pair<int, int> get_start_end_conduction_band_idx() const {
@@ -143,7 +143,11 @@ class MeshBZ {
 
     // ---------- reading ----------
     void read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor = true);
-    void read_mesh_bands_from_msh_file(const std::string& filename, int nb_conduction_bands = -1, int nb_valence_bands = -1);
+    void read_mesh_bands_from_msh_file(const std::string& filename,
+                                       int                nb_conduction_bands = -1,
+                                       int                nb_valence_bands    = -1,
+                                       bool               auto_shift_conduction_band = false,
+                                       bool               set_positive_valence_band = false);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
     void keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduction_bands);
 

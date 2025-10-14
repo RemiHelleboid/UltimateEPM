@@ -22,10 +22,13 @@ plt.style.use(['science', 'muted', 'grid', 'no-latex'])
 def scatter_plot_rates(filename):
     fig, ax = plt.subplots(figsize=(8, 6))
     data = np.loadtxt(filename, delimiter=",")
-    energy = data[:,0]
+    energy = data[:,1]
+    nb_modes = data.shape[1] - 2
+    colors = cm.viridis(np.linspace(0, 1, nb_modes))
+    # ax.scatter(energy, np.sum(data[:,2:], axis=1), label="Total Rate", s=1, color="black")
     # energy -= np.min(energy)
     for i in range(2, data.shape[1]):
-        ax.scatter(energy, data[:,i], label=f"Mode {i}", s=1)   
+        ax.scatter(energy, data[:,i], label=f"Mode {i}", s=1, color=colors[i-2])  
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Rate (s$^-1$)")
     
@@ -71,10 +74,13 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-f", "--filename", type=str, required=True, help="Filename to plot")
     args = parser.parse_args()
-    # scatter_plot_rates("rates_all.csv")
-
-    # plot_rates("rates_vs_energy.csv", "../examples/JallepalliHRates97.csv")
-    # plt.show()
-    plot_rates("rates_vs_energy.csv", "../examples/RatesSiFischetti1988.csv")
-    plot_rates("rates_vs_energy.csv", "../examples/RatesSiKunikiyo1994.csv")
+    try:
+        scatter_plot_rates("rates_all.csv")
+    except:
+        pass
+    try:
+        plot_rates("rates_vs_energy.csv", "../examples/RatesSiFischetti1988.csv")
+        plot_rates("rates_vs_energy.csv", "../examples/RatesSiKunikiyo1994.csv")
+    except:
+        pass
     plt.show()

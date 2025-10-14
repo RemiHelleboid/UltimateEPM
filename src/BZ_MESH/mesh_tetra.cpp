@@ -186,6 +186,12 @@ std::array<double, 4> Tetra::compute_barycentric_coordinates(const vector3& loca
     return {lambda_1, lambda_2, lambda_3, lambda_4};
 }
 
+double Tetra::interpolate_scalar_at_position(const vector3& location, const std::vector<double>& scalar_field) const{
+    const auto                  barycentric_coord = compute_barycentric_coordinates(location);
+    return scalar_field[0] * barycentric_coord[0] + scalar_field[1] * barycentric_coord[1] +
+           scalar_field[2] * barycentric_coord[2] + scalar_field[3] * barycentric_coord[3];
+}
+
 /**
  * @brief Compute the linear interpolation of the energy of the band band_index at the point location.
  *

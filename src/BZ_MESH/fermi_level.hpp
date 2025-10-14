@@ -19,8 +19,8 @@
 #include <iomanip>
 #include <limits>
 #include <numeric>
-#include <stdexcept>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -38,9 +38,9 @@ struct Dopants {
 };
 
 struct Options {
-    std::size_t nE         = 2000;  // energy samples per band
-    int         threads    = 8;     // passed to MeshBZ DOS calls
-    bool        use_interp = true;  // MeshBZ: use interpolated tetra DOS
+    std::size_t nE         = 2000;   // energy samples per band
+    int         threads    = 8;      // passed to MeshBZ DOS calls
+    bool        use_interp = false;  // MeshBZ: use interpolated tetra DOS
     double      T_K        = 300.0;  // temperature (K)
     Dopants     dop;                 // dopant model (leave zeros for intrinsic)
 };
@@ -56,24 +56,23 @@ struct Result {
 
     /**
      * @brief Energy levels for each band (in eV).
-     * 
+     *
      */
     std::vector<std::vector<double>> energies_per_band;
 
     /**
      * @brief DOS for each band (in states / (m^3·eV)).
-     * 
+     *
      */
     std::vector<std::vector<double>> dos_per_band;
-
 };
 
 /**
  * @brief Solve the Fermi level using charge neutrality.
- * 
- * @param mesh 
- * @param opt 
- * @return Result 
+ *
+ * @param mesh
+ * @param opt
+ * @return Result
  */
 Result solve_fermi(MeshBZ& mesh, const Options& opt);
 

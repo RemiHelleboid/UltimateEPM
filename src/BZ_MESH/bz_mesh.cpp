@@ -198,7 +198,11 @@ std::size_t MeshBZ::get_nearest_k_index(const vector3& k) const {
  *
  * @param filename
  */
-void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_conduction_bands, int nb_valence_bands) {
+void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
+                                           int                nb_conduction_bands,
+                                           int                nb_valence_bands,
+                                           bool               auto_shift_conduction_band,
+                                           bool               set_positive_valence_band) {
     std::cout << "Opening file " << filename << std::endl;
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 0);
@@ -249,12 +253,18 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename, int nb_c
     std::cout << "Number of bands loaded: " << get_number_bands_total() << std::endl;
     print_band_info();
     set_bands_in_right_order();
-    if (nb_valence_bands > 0 || nb_conduction_bands > 0) {
-        keep_only_bands((nb_valence_bands > 0) ? nb_valence_bands : m_valence_bands.count,
-                        (nb_conduction_bands > 0) ? nb_conduction_bands : m_conduction_bands.count);
+    if (nb_valence_bands >= 0 || nb_conduction_bands >= 0) {
+        keep_only_bands((nb_valence_bands >= 0) ? nb_valence_bands : m_valence_bands.count,
+                        (nb_conduction_bands >= 0) ? nb_conduction_bands : m_conduction_bands.count);
     }
-    // auto_shift_conduction_band_energies();
-    // auto_set_positive_valence_band_energies();
+
+    if (auto_shift_conduction_band) {
+        auto_shift_conduction_band_energies();
+    }
+    if (set_positive_valence_band) {
+        auto_set_positive_valence_band_energies();
+    }
+
     compute_min_max_energies_at_tetras();
     compute_energy_gradient_at_tetras();
     set_energy_gradient_at_vertices_by_averaging_tetras();
@@ -363,7 +373,7 @@ void MeshBZ::keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduc
     if (nb_valence_bands + nb_conduction_bands >= get_number_bands_total()) {
         throw std::runtime_error("Cannot keep more bands than available.");
     }
-    // Valence 
+    // Valence
     std::vector<std::size_t> valence_indices = get_band_indices(MeshParticleType::valence);
     if (nb_valence_bands < valence_indices.size()) {
         int nb_valence_to_remove = valence_indices.size() - nb_valence_bands;
@@ -425,7 +435,6 @@ void MeshBZ::auto_set_positive_valence_band_energies() {
 }
 
 void MeshBZ::auto_shift_conduction_band_energies() {
-
     constexpr double band_reference_eV = 0.0;  // Set the conduction band minimum to 0 eV
     // Find the lowest conduction band minimum
     std::vector<std::size_t> conduction_band_indices = get_band_indices(MeshParticleType::conduction);
@@ -484,7 +493,6 @@ void MeshBZ::auto_shift_conduction_band_energies() {
 }
 
 void MeshBZ::set_bands_in_right_order() {
-
     // Reverse the order of valence bands only.
     std::vector<std::size_t> valence_indices = get_band_indices(MeshParticleType::valence);
     // Check if already in the right order
@@ -599,10 +607,10 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int      
     std::vector<double> list_dos(nb_points);
 #pragma omp parallel for schedule(dynamic) num_threads(num_threads)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
-        double energy = min_energy + index_energy * energy_step;
-        double dos    = compute_dos_at_energy_and_band(energy, band_index, use_interp);
+        double energy               = min_energy + index_energy * energy_step;
+        double dos                  = compute_dos_at_energy_and_band(energy, band_index, use_interp);
         list_energies[index_energy] = energy;
-        list_dos[index_energy] = dos;
+        list_dos[index_energy]      = dos;
     }
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();

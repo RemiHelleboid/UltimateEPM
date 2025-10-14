@@ -63,10 +63,14 @@ int main(int argc, char const *argv[]) {
     materials.load_material_parameters(file_material_parameters);
 
     Options my_options;
-    my_options.materialName = arg_material.getValue();
-    my_options.nrLevels     = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
-    my_options.nrThreads    = arg_nb_threads.getValue();
-    int number_energies     = arg_nb_energies.getValue();
+    my_options.materialName          = arg_material.getValue();
+    my_options.nrLevels              = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
+    my_options.nrThreads             = arg_nb_threads.getValue();
+    const int    number_energies     = arg_nb_energies.getValue();
+    const int    nb_conduction_bands = arg_nb_conduction_bands.getValue();
+    const int    nb_valence_bands    = arg_nb_valence_bands.getValue();
+    const double max_energy          = arg_energy_range.getValue();  // eV
+    const double temperature         = arg_temperature.getValue();
 
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
@@ -78,9 +82,18 @@ int main(int argc, char const *argv[]) {
     const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
 
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
-    ElectronPhonon.read_mesh_bands_from_msh_file(mesh_band_input_file, my_options.nrLevels);
+    std::cout << "Keeping " << nb_conduction_bands << " conduction bands and " << nb_valence_bands << " valence bands." << std::endl;
+    const bool shift_conduction_band     = true;
+    const bool set_positive_valence_band = true;
+    ElectronPhonon.read_mesh_bands_from_msh_file(mesh_band_input_file,
+                                                 nb_conduction_bands,
+                                                 nb_valence_bands,
+                                                 shift_conduction_band,
+                                                 set_positive_valence_band);
+
     constexpr double energy_step_dos = 0.005;  // eV
-    ElectronPhonon.precompute_dos_tetra(energy_step_dos);
+    const double     max_energy_dos  = max_energy + 0.5;
+    ElectronPhonon.precompute_dos_tetra(energy_step_dos, max_energy_dos);
 
     unsigned int nb_bands = ElectronPhonon.get_number_bands();
     std::cout << "Number of bands: " << nb_bands << std::endl;
@@ -94,9 +107,6 @@ int main(int argc, char const *argv[]) {
     bool irreducible_wedge_only = plot_with_wedge.getValue();
     bool populate_nk_npkp       = plot_with_knkpnp.getValue();
 
-    // const double max_energy  = 6.0;  // eV
-    const double max_energy  = arg_energy_range.getValue();  // eV
-    const double temperature = arg_temperature.getValue();
     std::cout << "Max energy: " << max_energy << " eV" << std::endl;
     const double energy_step = 0.05;  // eV
     ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
@@ -105,8 +115,7 @@ int main(int argc, char const *argv[]) {
     ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels,
                                                                           max_energy,
                                                                           energy_step,
-                                                                          "rates_vs_energy.csv",
-                                                                          irreducible_wedge_only);
+                                                                          "rates_vs_energy.csv");
 
     // ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
 

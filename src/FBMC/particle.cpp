@@ -54,7 +54,8 @@ void particle::update_energy() { m_energy = m_containing_bz_mesh_tetra->interpol
 std::pair<int, std::size_t> particle::select_final_state_after_phonon_scattering(uepm::mesh_bz::PhononMode      mode,
                                                                                  uepm::mesh_bz::PhononDirection direction,
                                                                                  uepm::mesh_bz::PhononEvent     event) {
-    auto idxBand_idxFinalTetra = m_mesh_bz->select_final_state(m_band_index, m_k_vector, mode, direction, event, m_random_generator);
+    auto idxBand_idxFinalTetra =
+        m_mesh_bz->select_electron_phonon_final_state(m_band_index, m_k_vector, mode, direction, event, m_random_generator);
     return idxBand_idxFinalTetra;
 }
 

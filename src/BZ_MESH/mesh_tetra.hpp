@@ -205,8 +205,7 @@ class Tetra {
 
     std::array<double, 8> get_tetra_electron_phonon_rates(int band_index) const;
 
-    double interpolate_scalar_at_position(const std::array<double, 4>& barycentric_coordinates,
-                                          const std::vector<double>&   scalar_field) const;
+    double interpolate_scalar_at_position(const vector3& location, const std::vector<double>& scalar_field) const;
     double interpolate_energy_at_band(const vector3& location, std::size_t band_index) const;
 
     vector3 interpolate_vector_at_position(const std::array<double, 4>& barycentric_coordinates,
