@@ -49,5 +49,8 @@ constexpr double eV_to_kg        = eV_to_J / (c * c);  // kg/eV (~1.78266192e-36
 constexpr double eV_to_Hartree = 1.0 / Hartree_to_eV;
 constexpr double eV_to_Ryd     = 1.0 / Ryd_to_eV;
 
+// FCC lattice constants
+constexpr double irreducible_wedge_factor_fcc = 48.0;  // Volume of BZ / Volume of IW for FCC lattice
+
 }  // namespace Constants
 }  // namespace uepm

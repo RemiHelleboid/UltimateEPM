@@ -18,8 +18,8 @@
 #include <fstream>
 #include <iomanip>
 #include <limits>
-#include <ostream>
 #include <numeric>
+#include <ostream>
 #include <stdexcept>
 
 #include "integrals.hpp"  // uepm::integrate::trapz
@@ -28,15 +28,14 @@
 
 namespace uepm::mesh_bz::fermi {
 
-
 /**
  * @brief Compute the number of electrons in a given band.
- * 
- * @param E_eV 
- * @param G_m3eV 
- * @param EF_eV 
- * @param T_K 
- * @return double 
+ *
+ * @param E_eV
+ * @param G_m3eV
+ * @param EF_eV
+ * @param T_K
+ * @return double
  */
 static inline double electrons_in_band(const std::vector<double>& E_eV, const std::vector<double>& G_m3eV, double EF_eV, double T_K) {
     std::vector<double> w;
@@ -49,12 +48,12 @@ static inline double electrons_in_band(const std::vector<double>& E_eV, const st
 
 /**
  * @brief Compute the number of holes in a given band.
- * 
- * @param E_eV 
- * @param G_m3eV 
- * @param EF_eV 
- * @param T_K 
- * @return double 
+ *
+ * @param E_eV
+ * @param G_m3eV
+ * @param EF_eV
+ * @param T_K
+ * @return double
  */
 static inline double holes_in_band(const std::vector<double>& E_eV, const std::vector<double>& G_m3eV, double EF_eV, double T_K) {
     std::vector<double> w;
@@ -67,12 +66,12 @@ static inline double holes_in_band(const std::vector<double>& E_eV, const std::v
 
 /**
  * @brief Compute the number of ionized donors at given EF.
- * 
- * @param EF 
- * @param Ec 
- * @param d 
- * @param T 
- * @return double 
+ *
+ * @param EF
+ * @param Ec
+ * @param d
+ * @param T
+ * @return double
  */
 static inline double donors_ionized(double EF, double Ec, const Dopants& d, double T) {
     if (d.Nd_cm3 <= 0) {
@@ -86,12 +85,12 @@ static inline double donors_ionized(double EF, double Ec, const Dopants& d, doub
 
 /**
  * @brief Compute the number of ionized acceptors at given EF.
- * 
- * @param EF 
- * @param Ev 
- * @param d 
- * @param T 
- * @return double 
+ *
+ * @param EF
+ * @param Ev
+ * @param d
+ * @param T
+ * @return double
  */
 static inline double acceptors_ionized(double EF, double Ev, const Dopants& d, double T) {
     if (d.Na_cm3 <= 0) {
@@ -111,7 +110,7 @@ static inline double acceptors_ionized(double EF, double Ev, const Dopants& d, d
  * @param csv_path_if_empty
  * @return Result
  */
-Result solve_fermi(MeshBZ& mesh, const Options& opt) {
+Result solve_fermi(MeshBZ& mesh, const Options& opt, bool use_iw) {
     Result results;
 
     // 1) Per-band DOS (ordered, thread-safe inside MeshBZ)
@@ -124,11 +123,10 @@ Result solve_fermi(MeshBZ& mesh, const Options& opt) {
     std::cout << "Compute DOS on " << valence_count << " valence bands and " << conduction_count << " conduction bands.\n";
 
     for (int b = 0; b < nb_bands; ++b) {
-        auto lists = mesh.compute_dos_band_at_band_auto(b, static_cast<std::size_t>(opt.nE), opt.threads, opt.use_interp);
+        auto lists = mesh.compute_dos_band_at_band_auto(b, static_cast<std::size_t>(opt.nE), opt.threads, opt.use_interp, use_iw);
 
         results.energies_per_band.push_back(std::move(lists[0]));
         results.dos_per_band.push_back(std::move(lists[1]));
-
     }
 
     const auto list_idx_val  = mesh.get_band_indices(MeshParticleType::valence);
@@ -165,11 +163,11 @@ Result solve_fermi(MeshBZ& mesh, const Options& opt) {
     };
 
     // 6) Bracket EF and bisection
-    double low  = std::min(Ev, Ec) - 2.0;
-    double high  = std::max(Ev, Ec) + 2.0;
-    double Flo = F(low);
-    double Fhi = F(high);
-    int    expand = 0;
+    double                low        = std::min(Ev, Ec) - 2.0;
+    double                high       = std::max(Ev, Ec) + 2.0;
+    double                Flo        = F(low);
+    double                Fhi        = F(high);
+    int                   expand     = 0;
     constexpr std::size_t max_expand = 12;
     while (Flo * Fhi > 0.0 && expand < max_expand) {
         low -= 1.0;
@@ -182,11 +180,11 @@ Result solve_fermi(MeshBZ& mesh, const Options& opt) {
         throw std::runtime_error("Fermi solve: could not bracket neutrality (same sign at ends).");
     }
 
-    std::size_t iter   = 0;
+    std::size_t           iter  = 0;
     constexpr std::size_t itMax = 100;
-    double mid = 0.0;
-    double Fm = 0.0;
-    constexpr double tol = 1e-12;
+    double                mid   = 0.0;
+    double                Fm    = 0.0;
+    constexpr double      tol   = 1e-12;
     while (iter < itMax && (high - low) > tol) {  // ~1e-12 eV tolerance
         mid = 0.5 * (low + high);
         Fm  = F(mid);
@@ -195,10 +193,10 @@ Result solve_fermi(MeshBZ& mesh, const Options& opt) {
             break;
         }
         if (Flo * Fm < 0.0) {
-            high  = mid;
-            Fhi = Fm;
+            high = mid;
+            Fhi  = Fm;
         } else {
-            low  = mid;
+            low = mid;
             Flo = Fm;
         }
         ++iter;

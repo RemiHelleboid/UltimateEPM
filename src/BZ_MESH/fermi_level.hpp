@@ -70,10 +70,11 @@ struct Result {
 /**
  * @brief Solve the Fermi level using charge neutrality.
  *
- * @param mesh
- * @param opt
+ * @param mesh The BZ mesh with bands and DOS capabilities.
+ * @param opt Options for the solver.
+ * @param use_iw Whether to compute the DOS using only the irreducible wedge of the BZ.
  * @return Result
  */
-Result solve_fermi(MeshBZ& mesh, const Options& opt);
+Result solve_fermi(MeshBZ& mesh, const Options& opt, bool use_iw = false);
 
 }  // namespace uepm::mesh_bz::fermi

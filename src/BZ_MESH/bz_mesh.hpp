@@ -221,7 +221,7 @@ class MeshBZ {
     // ---------- metrics / DOS ----------
     double compute_mesh_volume() const;
     double compute_iso_surface(double iso_energy, int band_index) const;
-    double compute_dos_at_energy_and_band(double iso_energy, int band_index, bool use_interp = false) const;
+    double compute_dos_at_energy_and_band(double iso_energy, int band_index, bool use_interp = false, bool use_iw = false) const;
 
     std::size_t draw_random_tetrahedron_index_with_dos_probability(double energy, std::size_t idx_band, std::mt19937& rng) const;
 
@@ -232,12 +232,14 @@ class MeshBZ {
                                                               double      max_energy,
                                                               int         num_threads,
                                                               std::size_t nb_points,
-                                                              bool        use_interp = false) const;
+                                                              bool        use_interp = false,
+                                                                bool        use_iw     = false) const;
 
     std::vector<std::vector<double>> compute_dos_band_at_band_auto(int         band_index,
                                                                    std::size_t nb_points,
                                                                    int         num_threads,
-                                                                   bool        use_interp = false) const;
+                                                                   bool        use_interp = false,
+                                                                   bool        use_iw     = false) const;
 };
 
 }  // namespace uepm::mesh_bz

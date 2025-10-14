@@ -65,6 +65,12 @@ class Tetra {
     std::size_t m_index;
 
     /**
+     * @brief True if the tetrahedra lies in the irreducible wedge of the BZ.
+     *
+     */
+    bool m_lies_in_iwedge{false};
+
+    /**
      * @brief The 4 vertices of the tetrahedra are stored as an array of pointers on Vertices object.
      *
      */
@@ -156,8 +162,11 @@ class Tetra {
 
     const bbox_mesh& get_bounding_box() const;
     bbox_mesh        compute_bounding_box() const;
-    void             compute_min_max_energies_at_bands();
-    vector3          get_barycenter() const { return m_barycenter; }
+    bool             lies_in_irreducible_wedge() const { return m_lies_in_iwedge; }
+    void             set_lies_in_irreducible_wedge(bool value) { m_lies_in_iwedge = value; }
+
+    void    compute_min_max_energies_at_bands();
+    vector3 get_barycenter() const { return m_barycenter; }
 
     std::size_t                   get_index() const { return m_index; }
     const std::array<Vertex*, 4>& get_list_vertices() const { return m_list_vertices; }

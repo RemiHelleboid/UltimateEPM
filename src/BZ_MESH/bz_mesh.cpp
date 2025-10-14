@@ -84,14 +84,15 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     // const double fourier_factor       = 1;
     double normalization_factor = normalize_by_fourier_factor ? fourier_factor : 1.0;
     for (std::size_t index_vertex = 0; index_vertex < size_nodes_tags; ++index_vertex) {
-        m_list_vertices.push_back(Vertex(index_vertex,
-                                         normalization_factor * nodeCoords[3 * index_vertex],
-                                         normalization_factor * nodeCoords[3 * index_vertex + 1],
-                                         normalization_factor * nodeCoords[3 * index_vertex + 2]));
+        m_list_vertices.emplace_back(Vertex(index_vertex,
+                                            normalization_factor * nodeCoords[3 * index_vertex],
+                                            normalization_factor * nodeCoords[3 * index_vertex + 1],
+                                            normalization_factor * nodeCoords[3 * index_vertex + 2]));
     }
     std::cout << "Number of k-points vertices: " << m_list_vertices.size() << std::endl;
 
     // Get the mesh elements for the entity (dim, tag):
+    std::cout << "Reading elements ..." << std::endl;
     const int                             dim = 3;
     const int                             tag = -1;
     std::vector<int>                      elemTypes;
@@ -115,7 +116,12 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
                                                                &m_list_vertices[elemNodeTags[0][4 * index_element + 2] - 1],
                                                                &m_list_vertices[elemNodeTags[0][4 * index_element + 3] - 1]};
         Tetra                        new_tetra(index_element, array_element_vertices);
-        m_list_tetrahedra.push_back(new_tetra);
+        bool                         in_iwedge = is_irreducible_wedge(new_tetra.get_barycenter());
+        new_tetra.set_lies_in_irreducible_wedge(in_iwedge);
+        m_list_tetrahedra.emplace_back(new_tetra);
+        // if (in_iwedge) {
+        //     std::cout << "Tetra " << index_element << " in IW\n";
+        // }
         for (std::size_t i = 0; i < 4; ++i) {
             m_vertex_to_tetrahedra[elemNodeTags[0][4 * index_element + i] - 1].push_back(index_element);
         }
@@ -290,8 +296,8 @@ void MeshBZ::print_band_info() const {
 /**
  * @brief Apply a scissor (energy window) to the band structure.
  * This operation shifts all conduction band energies by the scissor_value (in eV).
- * 
- * @param scissor_value 
+ *
+ * @param scissor_value
  */
 void MeshBZ::apply_scissor(double scissor_value) {
     std::cout << "Applying scissor of " << scissor_value << " eV to conduction bands ..." << std::endl;
@@ -311,7 +317,7 @@ void MeshBZ::apply_scissor(double scissor_value) {
 void MeshBZ::precompute_dos_tetra(double energy_step, double energy_max) {
     std::cout << "Precomputing DOS per tetrahedra with energy step = " << energy_step << " eV ..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
-// #pragma omp parallel for schedule(dynamic)
+    // #pragma omp parallel for schedule(dynamic)
     for (std::size_t i = 0; i < m_list_tetrahedra.size(); ++i) {
         m_list_tetrahedra[i].precompute_dos_on_energy_grid_per_band(energy_step, energy_max);
     }
@@ -606,9 +612,12 @@ double MeshBZ::compute_iso_surface(double iso_energy, int band_index) const {
     return total_dos;
 }
 
-double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index, bool use_interp) const {
+double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index, bool use_interp, bool use_iw) const {
     double total_dos = 0.0;
     for (auto&& tetra : m_list_tetrahedra) {
+        if (use_iw && !tetra.lies_in_irreducible_wedge()) {
+            continue;
+        }
         if (use_interp) {
             total_dos += tetra.interpolate_dos_at_energy_per_band(iso_energy, band_index);
         } else {
@@ -617,6 +626,9 @@ double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index,
     }
     total_dos *= get_reduce_bz_factor();
     total_dos *= m_spin_degeneracy;
+    if (use_iw) {
+        total_dos *= uepm::Constants::irreducible_wedge_factor_fcc;
+    }
     return total_dos;
 }
 
@@ -625,7 +637,8 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
                                                                   double      max_energy,
                                                                   int         num_threads,
                                                                   std::size_t nb_points,
-                                                                  bool        use_interp) const {
+                                                                  bool        use_interp,
+                                                                  bool        use_iw) const {
     auto   start       = std::chrono::high_resolution_clock::now();
     double energy_step = (max_energy - min_energy) / (nb_points - 1);
 
@@ -648,7 +661,8 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
 std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int         band_index,
                                                                        std::size_t nb_points,
                                                                        int         num_threads,
-                                                                       bool        use_interp) const {
+                                                                       bool        use_interp,
+                                                                       bool        use_iw) const {
     if (band_index < 0 || band_index >= static_cast<int>(m_min_band.size())) {
         throw std::out_of_range("Band index out of range in compute_dos_band_at_band_auto.");
     }
@@ -664,7 +678,7 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int      
 #pragma omp parallel for schedule(dynamic) num_threads(num_threads)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy               = min_energy + index_energy * energy_step;
-        double dos                  = compute_dos_at_energy_and_band(energy, band_index, use_interp);
+        double dos                  = compute_dos_at_energy_and_band(energy, band_index, use_interp, use_iw);
         list_energies[index_energy] = energy;
         list_dos[index_energy]      = dos;
     }

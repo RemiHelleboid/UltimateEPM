@@ -366,9 +366,9 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
             if (!is_irreducible_wedge(m_list_vertices[idx_k1].get_position())) {
                 std::size_t idx_k1_symm = get_index_irreducible_wedge(m_list_vertices[idx_k1].get_position());
                 for (auto idx_n1 : get_band_indices(MeshParticleType::conduction)) {
-                    auto rates_symm = m_list_vertices[idx_k1_symm].get_electron_phonon_rates(idx_n1);
-                    m_list_vertices[idx_k1].add_electron_phonon_rates(rates_symm);
                     std::size_t local_idx_n1                       = get_local_band_index(idx_n1);
+                    auto rates_symm = m_list_vertices[idx_k1_symm].get_electron_phonon_rates(local_idx_n1);
+                    m_list_vertices[idx_k1].add_electron_phonon_rates(rates_symm);
                     m_phonon_rates_transport[local_idx_n1][idx_k1] = m_phonon_rates_transport[local_idx_n1][idx_k1_symm];
                 }
             }

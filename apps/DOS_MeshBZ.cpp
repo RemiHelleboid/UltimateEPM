@@ -63,6 +63,7 @@ int main(int argc, char *argv[]) {
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     TCLAP::SwitchArg arg_test_interp("t", "test-interp", "Test the interpolation DOS.", false);
+    TCLAP::SwitchArg arg_use_iw("", "iw", "Use the irreducible wedge only.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -71,6 +72,7 @@ int main(int argc, char *argv[]) {
     cmd.add(arg_nb_energies);
     cmd.add(arg_nb_threads);
     cmd.add(arg_test_interp);
+    cmd.add(arg_use_iw);
 
     cmd.parse(argc, argv);
 
@@ -85,6 +87,7 @@ int main(int argc, char *argv[]) {
     int  nb_conduction_bands = arg_nb_conduction_bands.getValue();
     int  nb_valence_bands    = arg_nb_valence_bands.getValue();
     bool use_interp          = arg_test_interp.getValue();
+    bool use_iw              = arg_use_iw.getValue();
     auto start               = std::chrono::high_resolution_clock::now();
 
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
@@ -123,12 +126,23 @@ int main(int argc, char *argv[]) {
     list_header.reserve(2 * nb_bands);
 
     std::cout << "Compute DOS on " << nb_valence_bands << " valence bands and " << nb_conduction_bands << " conduction bands.\n";
+    std::cout << "Using " << my_options.nrThreads << " threads.\n";
+    if (use_interp) {
+        std::cout << "Using interpolation when computing DOS.\n";
+    } else {
+        std::cout << "NOT using interpolation when computing DOS.\n";
+    }
+    if (use_iw) {
+        std::cout << "Using irreducible wedge only when computing DOS.\n";
+    } else {
+        std::cout << "NOT using irreducible wedge only when computing DOS.\n";
+    }
 
     // Same number of energy samples per band keeps CSV rectangular:
     const int nE = arg_nb_energies.getValue();
 
     for (int band_index = 0; band_index < nb_bands; ++band_index) {
-        auto         lists_energies_dos = my_bz_mesh.compute_dos_band_at_band_auto(band_index, nE, my_options.nrThreads, use_interp);
+        auto lists_energies_dos = my_bz_mesh.compute_dos_band_at_band_auto(band_index, nE, my_options.nrThreads, use_interp, use_iw);
         const auto  &E                  = lists_energies_dos[0];         // eV
         const auto  &G                  = lists_energies_dos[1];         // states / (m^3·eV)
         const double I                  = uepm::integrate::trapz(E, G);  // states / m^3
@@ -171,7 +185,7 @@ int main(int argc, char *argv[]) {
     fermi_options.use_interp = use_interp;  // use interpolation when computing DOS at given energy
     fermi_options.T_K        = 300.0;       // temperature for Fermi-Dirac
 
-    auto result = uepm::mesh_bz::fermi::solve_fermi(my_bz_mesh, fermi_options);
+    auto result = uepm::mesh_bz::fermi::solve_fermi(my_bz_mesh, fermi_options, use_iw);
     if (result.success) {
         std::cout << "Fermi level found: EF = " << result.EF_eV << " eV\n";
         std::cout << "  p = " << result.p_m3 * 1e-6 << " cm^-3\n";

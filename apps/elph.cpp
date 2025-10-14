@@ -112,12 +112,14 @@ int main(int argc, char const *argv[]) {
                                                                           energy_step,
                                                                           "rates_vs_energy.csv");
 
+    ElectronPhonon.apply_scissor(1.12);  // eV
+    std::cout << std::scientific;
     // Solve for Fermi level and export CSV
     uepm::mesh_bz::fermi::Options fermi_options;
     fermi_options.nE         = 1000;  // number of energy points for DOS interpolation
     fermi_options.threads    = my_options.nrThreads;
-    fermi_options.use_interp = true;  // use interpolation when computing DOS at given energy
-    fermi_options.T_K        = 300.0;       // temperature for Fermi-Dirac
+    fermi_options.use_interp = true;   // use interpolation when computing DOS at given energy
+    fermi_options.T_K        = 300.0;  // temperature for Fermi-Dirac
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options);
     if (result.success) {
@@ -128,8 +130,8 @@ int main(int argc, char const *argv[]) {
         std::cout << "Fermi level not found.\n";
     }
 
-    // const double Ef        = result.EF_eV;
-    // const double T         = 300.0;
+    const double Ef        = result.EF_eV;
+    const double T         = 300.0;
     // const auto   mu_tensor = ElectronPhonon.compute_electron_MRTA_mobility_tensor(Ef, T);
     // const double mu_iso    = ElectronPhonon.compute_electron_MRTA_mobility_isotropic(Ef, T);
     // std::cout << "μ_iso = " << mu_iso << " m^2/(V·s)\n";
@@ -138,8 +140,7 @@ int main(int argc, char const *argv[]) {
     // // ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
 
     auto stop = std::chrono::high_resolution_clock::now();
-    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n\n\n" <<
-    std::endl;
+    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n\n\n" << std::endl;
 
     if (plot_with_python.getValue()) {
         std::string command = "python3 " + std::string(PROJECT_SRC_DIR) + "/python/plots/plot_phonon_rate.py -f rates_vs_energy.csv";
