@@ -317,7 +317,7 @@ void MeshBZ::apply_scissor(double scissor_value) {
 void MeshBZ::precompute_dos_tetra(double energy_step, double energy_max) {
     std::cout << "Precomputing DOS per tetrahedra with energy step = " << energy_step << " eV ..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
-    // #pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for schedule(dynamic)
     for (std::size_t i = 0; i < m_list_tetrahedra.size(); ++i) {
         m_list_tetrahedra[i].precompute_dos_on_energy_grid_per_band(energy_step, energy_max);
     }
