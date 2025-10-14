@@ -22,36 +22,8 @@
 #include "bz_meshfile.hpp"
 #include "fermi_level.hpp"
 #include "integrals.hpp"
+#include "csv_utils.hpp"
 
-inline void export_multiple_vector_to_csv(const std::string                      &filename,
-                                          const std::vector<std::string>         &header_columns,
-                                          const std::vector<std::vector<double>> &value_vector_of_vector) {
-    if (value_vector_of_vector.empty()) {
-        return;
-    }
-    const std::size_t reference_vector_size = value_vector_of_vector[0].size();
-    for (auto &&vector : value_vector_of_vector) {
-        if (vector.size() != reference_vector_size) {
-            std::cout << "ERROR WHEN EXPORTING VECTORS TO : " << filename << ", mismatch between vector sizes : " << reference_vector_size
-                      << " != " << vector.size() << std::endl;
-            return;
-        }
-    }
-    const std::string DumbColumnName = "DumbColumn\n";
-    const double      dumb_value     = 0.0;
-    std::ofstream     csv_file(filename);
-    for (auto &&col_name : header_columns) {
-        csv_file << col_name << ",";
-    }
-    csv_file << DumbColumnName;
-    for (std::size_t index_value = 0; index_value < value_vector_of_vector[0].size(); ++index_value) {
-        for (std::size_t index_vector = 0; index_vector < value_vector_of_vector.size(); ++index_vector) {
-            csv_file << value_vector_of_vector[index_vector][index_value] << ",";
-        }
-        csv_file << dumb_value << "\n";
-    }
-    csv_file.close();
-}
 
 int main(int argc, char *argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
@@ -165,7 +137,7 @@ int main(int argc, char *argv[]) {
     std::filesystem::path in_path(mesh_band_input_file);
     std::string           out_file_bands = "DOS_" + in_path.stem().replace_extension("").string();
 
-    export_multiple_vector_to_csv(out_file_bands + ".csv", list_header, list_list_dos);
+    uepm::utils::export_multiple_vector_to_csv(out_file_bands + ".csv", list_header, list_list_dos);
 
     const std::string python_plot_dos  = std::string(PROJECT_SRC_DIR) + "/python/plots/plot_density_of_states.py";
     bool              call_python_plot = plot_with_python.isSet();

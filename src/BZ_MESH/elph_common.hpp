@@ -95,37 +95,19 @@ inline double cos_angle_safe(const vector3& v, const vector3& w) noexcept {
     return cos;
 }
 
-inline double fermi_dirac_distribution(double energy_eV, double fermi_level_eV, double temperature_K) {
-    const double kT = uepm::Constants::k_b_eV * temperature_K;
-
-    // Handle T <= 0 K as the T→0 limit (Heaviside step).
+inline double fermi_dirac_distribution(double E, double Ef, double T) {
+    const double kT = uepm::Constants::k_b_eV * T;
     if (!(kT > 0.0)) {
-        if (energy_eV < fermi_level_eV) {
-            return 1.0;
-        }
-        if (energy_eV > fermi_level_eV) {
-            return 0.0;
-        }
-        return 0.5;  // at E = Ef, take the symmetric limit
+        return (E < Ef) ? 1.0 : (E > Ef ? 0.0 : 0.5);
     }
 
-    const double x = (energy_eV - fermi_level_eV) / kT;
+    const double x = (E - Ef) / kT;
 
-    // In double precision, |x| >= 40 puts f within ~1e-17 of 0 or 1.
-    constexpr double X_CUTOFF = 40.0;
-    if (x >= X_CUTOFF) {
-        return 0.0;
-    }
-    if (x <= -X_CUTOFF) {
-        return 1.0;
-    }
-
-    // Stable logistic: avoid large exp(x) when x > 0.
     if (x > 0.0) {
-        const double emx = std::exp(-x);
+        const double emx = std::exp(-x);  // safe until x ~ 745
         return emx / (1.0 + emx);
     } else {
-        const double ex = std::exp(x);
+        const double ex = std::exp(x);  // safe until x ~ -745
         return 1.0 / (1.0 + ex);
     }
 }

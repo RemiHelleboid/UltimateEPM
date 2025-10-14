@@ -90,10 +90,6 @@ int main(int argc, char* argv[]) {
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-    // std::ofstream f_time("OpenMP_Bands_times.csv", std::ios::app);
-    // f_time << my_options.nrThreads << "," << total_time_count / double(1000) << std::endl;
-    // f_time.close();
-
     std::cout << "Total computation time: " << total_time_count / double(1000) << std::endl;
 
     std::filesystem::path in_path(mesh_filename);

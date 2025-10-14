@@ -94,31 +94,13 @@ int main(int argc, char const *argv[]) {
 
     ElectronPhonon.set_nb_bands_elph(nb_conduction_bands);
 
-    constexpr double energy_step_dos = 0.005;  // eV
-    const double     max_energy_dos  = max_energy + 0.5;
-    ElectronPhonon.precompute_dos_tetra(energy_step_dos, max_energy_dos);
-
-    ElectronPhonon.load_phonon_parameters(phonon_file);
-    bool irreducible_wedge_only = plot_with_wedge.getValue();
-    bool populate_nk_npkp       = plot_with_knkpnp.getValue();
-
-    std::cout << "Max energy: " << max_energy << " eV" << std::endl;
-    const double energy_step = 0.05;  // eV
-    ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
-    ElectronPhonon.export_rate_values("rates_all.csv");
-
-    ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels,
-                                                                          max_energy,
-                                                                          energy_step,
-                                                                          "rates_vs_energy.csv");
-
     ElectronPhonon.apply_scissor(1.12);  // eV
     std::cout << std::scientific;
     // Solve for Fermi level and export CSV
     uepm::mesh_bz::fermi::Options fermi_options;
     fermi_options.nE         = 1000;  // number of energy points for DOS interpolation
     fermi_options.threads    = my_options.nrThreads;
-    fermi_options.use_interp = true;   // use interpolation when computing DOS at given energy
+    fermi_options.use_interp = false;   // use interpolation when computing DOS at given energy
     fermi_options.T_K        = 300.0;  // temperature for Fermi-Dirac
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options);
@@ -129,16 +111,37 @@ int main(int argc, char const *argv[]) {
     } else {
         std::cout << "Fermi level not found.\n";
     }
-
     const double Ef        = result.EF_eV;
     const double T         = 300.0;
-    // const auto   mu_tensor = ElectronPhonon.compute_electron_MRTA_mobility_tensor(Ef, T);
-    // const double mu_iso    = ElectronPhonon.compute_electron_MRTA_mobility_isotropic(Ef, T);
-    // std::cout << "μ_iso = " << mu_iso << " m^2/(V·s)\n";
-    // std::cout << "μ tensor:\n" << mu_tensor << std::endl;
+
+    ElectronPhonon.apply_scissor(-1.12);  // eV
+
+    constexpr double energy_step_dos = 0.002;  // eV
+    const double     max_energy_dos  = max_energy + 0.1;
+    ElectronPhonon.precompute_dos_tetra(energy_step_dos, max_energy_dos);
+
+    ElectronPhonon.load_phonon_parameters(phonon_file);
+    bool irreducible_wedge_only = plot_with_wedge.getValue();
+    bool populate_nk_npkp       = plot_with_knkpnp.getValue();
+
+    std::cout << "Max energy: " << max_energy << " eV" << std::endl;
+    const double energy_step = 0.001;  // eV
+    ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
+    ElectronPhonon.export_rate_values("rates_all.csv");
+
+    ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels,
+                                                                          max_energy,
+                                                                          energy_step,
+                                                                          "rates_vs_energy.csv");
+
+
+    const auto   mu_tensor = ElectronPhonon.compute_electron_MRTA_mobility_tensor(Ef, T);
+    const double mu_iso    = ElectronPhonon.compute_electron_MRTA_mobility_isotropic(Ef, T);
+    std::cout << "μ_iso = " << mu_iso << " m^2/(V·s)\n";
+    std::cout << "μ tensor:\n" << mu_tensor << std::endl;
 
     // // ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
-
+    // ElectronPhonon.apply_scissor(-1.12);  // eV
     auto stop = std::chrono::high_resolution_clock::now();
     std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n\n\n" << std::endl;
 

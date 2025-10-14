@@ -945,8 +945,7 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
             "MRTA: m_phonon_rates_transport is empty. "
             "Run compute_electron_phonon_rates_over_mesh() first.");
     }
-    const std::size_t nbands_mesh = m_list_vertices.front().get_number_bands();
-    if (m_phonon_rates_transport.size() != nbands_mesh) {
+    if (m_phonon_rates_transport.size() != m_nb_bands_elph) {
         throw std::runtime_error("MRTA: m_phonon_rates_transport size mismatch vs number of bands.");
     }
     for (const auto& v : m_phonon_rates_transport) {
@@ -958,6 +957,7 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
     // 1) Build per-vertex k-space integration weights (k-volume share per vertex),
     //    then scale by reduce-BZ factor and spin degeneracy so that
     //    Σ_k w_k (per band) ≈ g_s / V_cell (your DOS sum rule).
+    const double inv_2pi3 = 1.0 / std::pow(2.0 * M_PI, 3);
     if (m_count_weight_tetra_per_vertex.size() != m_list_vertices.size()) {
         m_count_weight_tetra_per_vertex.assign(m_list_vertices.size(), 0.0);
         for (const auto& T : m_list_tetrahedra) {
@@ -966,7 +966,7 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
             // equal share to vertices (simple, robust). For higher accuracy you could
             // use barycentric-volume partitioning, but this is already good on fine meshes.
             for (int i = 0; i < 4; ++i) {
-                m_count_weight_tetra_per_vertex[ids[i]] += Vt * 0.25;
+                m_count_weight_tetra_per_vertex[ids[i]] += Vt * 0.25 * inv_2pi3;  // in m^-3
             }
         }
         // Convert mesh-volume units to physical states per m^3 using the same factors as DOS:
@@ -997,7 +997,8 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
 
     // Loop states
     for (auto b : bands_to_use) {
-        const auto& inv_tau_at_k = m_phonon_rates_transport[b];  // 1/τ_tr at each vertex
+        std::size_t idx_band_local = get_local_band_index(b);  // map to local index in m_phonon_rates_transport
+        const auto& inv_tau_at_k   = m_phonon_rates_transport[idx_band_local];  // 1/τ_tr at each vertex
         for (std::size_t k = 0; k < m_list_vertices.size(); ++k) {
             const double wk = m_count_weight_tetra_per_vertex[k];
             if (wk <= 0.0) {
@@ -1005,6 +1006,11 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
             }
 
             const double E    = m_list_vertices[k].get_energy_at_band(b);  // eV
+            // if (E > fermi_level_eV + 0.20) {
+            //     // Skip very high states (negligible occupation)
+            //     continue;
+            // }
+
             const double f0   = fermi_dirac_distribution(E, fermi_level_eV, temperature_K);
             const double dfdE = -d_de_fermi_dirac_dE(E, fermi_level_eV, temperature_K);  // positive around EF
 
@@ -1025,6 +1031,8 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
             // with 1/eV matched because g(E) (hidden in weights) was normalized using your factors.
             // Result is S/m as desired.
             sigma.noalias() += (q * q) * (wk * tau * dfdE) * (v * v.transpose());
+            // DEBUGGING:
+            std::cout << "k=" << k << " E=" << E << " f0=" << f0 << " dfdE=" << dfdE << " tau=" << tau << " v=[" << v.transpose() << "]\n";
 
             // Electron density (only conduction bands counted)
             n_e += wk * f0;
