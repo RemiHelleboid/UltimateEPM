@@ -135,13 +135,13 @@ int main(int argc, char const *argv[]) {
                                                                           "rates_vs_energy.csv");
 
 
+    ElectronPhonon.apply_scissor(1.12);  // eV
     const auto   mu_tensor = ElectronPhonon.compute_electron_MRTA_mobility_tensor(Ef, T);
     const double mu_iso    = ElectronPhonon.compute_electron_MRTA_mobility_isotropic(Ef, T);
     std::cout << "μ_iso = " << mu_iso << " m^2/(V·s)\n";
     std::cout << "μ tensor:\n" << mu_tensor << std::endl;
 
     // // ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
-    // ElectronPhonon.apply_scissor(-1.12);  // eV
     auto stop = std::chrono::high_resolution_clock::now();
     std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n\n\n" << std::endl;
 
