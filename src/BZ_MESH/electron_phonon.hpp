@@ -66,6 +66,9 @@ class ElectronPhonon : public BZ_States {
     double m_rho_kg_m3             = 2.329e3;
     double m_radius_wigner_seitz_m = 0.0;
 
+    MeshParticleType m_elph_particle_type = MeshParticleType::conduction;
+    std::size_t      m_nb_bands_elph      = 0;
+
     int  m_nb_threads         = 1;
     bool m_parallelize_over_k = true;
 
@@ -100,6 +103,11 @@ class ElectronPhonon : public BZ_States {
     void set_temperature(double T) noexcept { m_temperature_K = T; }
     void set_density(double rho) noexcept { m_rho_kg_m3 = rho; }
 
+    void             set_particle_type(MeshParticleType type) noexcept { m_elph_particle_type = type; }
+    MeshParticleType get_particle_type() const noexcept { return m_elph_particle_type; }
+    void             set_nb_bands_elph(std::size_t nb) noexcept { m_nb_bands_elph = nb; }
+    std::size_t      get_nb_bands_elph() const noexcept { return m_nb_bands_elph; }
+
     Rate8      compute_electron_phonon_transition_rates_pair(std::size_t idx_n1,
                                                              std::size_t idx_k1,
                                                              std::size_t idx_n2,
@@ -115,11 +123,11 @@ class ElectronPhonon : public BZ_States {
     void compute_electron_phonon_rates_over_mesh_nk_npkp(bool irreducible_wedge_only = false);
 
     std::pair<int, std::size_t> select_electron_phonon_final_state(std::size_t     idx_band_initial,
-                                                   const vector3&  k_initial,
-                                                   PhononMode      mode,
-                                                   PhononDirection direction,
-                                                   PhononEvent     event,
-                                                   std::mt19937&   rng) const;
+                                                                   const vector3&  k_initial,
+                                                                   PhononMode      mode,
+                                                                   PhononDirection direction,
+                                                                   PhononEvent     event,
+                                                                   std::mt19937&   rng) const;
 
     void export_rate_values(const std::string& filename) const;
     void compute_plot_electron_phonon_rates_vs_energy_over_mesh(int                nb_bands,
@@ -132,7 +140,8 @@ class ElectronPhonon : public BZ_States {
     inline double sum_modes(const Rate8& r) const noexcept;
     double        compute_P_Gamma() const;
 
-    void compute_electron_MRTA_mobility();
+    Eigen::Matrix3d compute_electron_MRTA_mobility_tensor(double fermi_level_eV, double temperature_K, bool conduction_only = true);
+    double          compute_electron_MRTA_mobility_isotropic(double fermi_level_eV, double temperature_K, bool conduction_only = true);
 };
 
 }  // namespace uepm::mesh_bz

@@ -104,10 +104,6 @@ void Tetra::compute_gradient_energy_at_bands() {
     m_gradient_energy_per_band.reserve(m_nb_bands);
     for (std::size_t band_index = 0; band_index < m_nb_bands; band_index++) {
         const std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
-        // const array4d              values_at_vertices   = {energies_at_vertices[0],
-        //                                                    energies_at_vertices[1],
-        //                                                    energies_at_vertices[2],
-        //                                                    energies_at_vertices[3]};
         m_gradient_energy_per_band.push_back(compute_gradient_at_tetra(energies_at_vertices));
     }
 }

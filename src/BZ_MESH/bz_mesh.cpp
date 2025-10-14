@@ -301,27 +301,28 @@ void MeshBZ::set_energy_gradient_at_vertices_by_averaging_tetras() {
 
     constexpr double eps = 1e-18;
 
-    for (std::size_t i = 0; i < m_list_vertices.size(); ++i) {
-        const std::size_t nb_bands = m_list_vertices[i].get_number_bands();
+    for (std::size_t idx_vtx = 0; idx_vtx < m_list_vertices.size(); ++idx_vtx) {
+        const std::size_t nb_bands = m_list_vertices[idx_vtx].get_number_bands();
+        // m_list_vertices[idx_vtx].clear_energy_gradient_at_bands();
 
-        for (std::size_t b = 0; b < nb_bands; ++b) {
+        for (std::size_t idx_band = 0; idx_band < nb_bands; ++idx_band) {
             vector3 accum(0.0, 0.0, 0.0);
             double  wsum = 0.0;
 
             // Loop over incident tetrahedra
-            for (auto t_idx : m_vertex_to_tetrahedra[i]) {
+            for (auto t_idx : m_vertex_to_tetrahedra[idx_vtx]) {
                 const auto&  T  = m_list_tetrahedra[t_idx];
                 const double VT = std::abs(T.get_signed_volume());
                 if (VT <= eps) {
                     continue;
                 }
-                const vector3 gT = T.get_gradient_energy_at_band(b);  // P1: constant per tet
+                const vector3 gT = T.get_gradient_energy_at_band(idx_band);  // P1: constant per tet
                 accum += VT * gT;
                 wsum += VT;
             }
 
             const vector3 g_i = (wsum > 0.0) ? (accum / wsum) : vector3(0.0, 0.0, 0.0);
-            m_list_vertices[i].push_back_energy_gradient_at_band(g_i);
+            m_list_vertices[idx_vtx].push_back_energy_gradient_at_band(g_i);
         }
     }
 
@@ -344,6 +345,39 @@ void MeshBZ::recompute_min_max_energies() {
                 m_max_band[i] = energies[i];
             }
         }
+    }
+}
+
+void MeshBZ::recompute_energies_data_and_sync(bool   recompute_min_max,
+                                              bool   recompute_grad,
+                                              bool   recompute_dos,
+                                              double dos_energy_step,
+                                              double dos_energy_max) {
+    if (recompute_min_max) {
+        recompute_min_max_energies();
+    }
+    if (recompute_grad) {
+        compute_energy_gradient_at_tetras();
+        set_energy_gradient_at_vertices_by_averaging_tetras();
+    }
+    if (recompute_dos) {
+        precompute_dos_tetra(dos_energy_step, dos_energy_max);
+    }
+    // Sync the tetrahedra data
+    for (auto&& tetra : m_list_tetrahedra) {
+        tetra.pre_compute_sorted_slots_per_band();
+    }
+    // Check that the band info is still correct
+    print_band_info();
+    std::size_t nb_band_vtx = m_list_vertices[0].get_number_bands();
+    if (nb_band_vtx != m_band_info.size()) {
+        throw std::runtime_error("The number of bands in the vertices does not match the band info. Abort.");
+    }
+    if (nb_band_vtx != m_min_band.size() || nb_band_vtx != m_max_band.size()) {
+        throw std::runtime_error("The number of bands in the vertices does not match the min/max band info. Abort.");
+    }
+    if (nb_band_vtx != get_number_bands_total()) {
+        throw std::runtime_error("The number of bands in the vertices does not match the total number of bands. Abort.");
     }
 }
 

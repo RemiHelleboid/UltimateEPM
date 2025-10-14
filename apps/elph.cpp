@@ -23,6 +23,7 @@
 #include "bz_meshfile.hpp"
 #include "bz_states.hpp"
 #include "electron_phonon.hpp"
+#include "fermi_level.hpp"
 
 int main(int argc, char const *argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
@@ -84,24 +85,18 @@ int main(int argc, char const *argv[]) {
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
     std::cout << "Keeping " << nb_conduction_bands << " conduction bands and " << nb_valence_bands << " valence bands." << std::endl;
     const bool shift_conduction_band     = true;
-    const bool set_positive_valence_band = true;
+    const bool set_positive_valence_band = false;
     ElectronPhonon.read_mesh_bands_from_msh_file(mesh_band_input_file,
                                                  nb_conduction_bands,
                                                  nb_valence_bands,
                                                  shift_conduction_band,
                                                  set_positive_valence_band);
 
+    ElectronPhonon.set_nb_bands_elph(nb_conduction_bands);
+
     constexpr double energy_step_dos = 0.005;  // eV
     const double     max_energy_dos  = max_energy + 0.5;
     ElectronPhonon.precompute_dos_tetra(energy_step_dos, max_energy_dos);
-
-    unsigned int nb_bands = ElectronPhonon.get_number_bands();
-    std::cout << "Number of bands: " << nb_bands << std::endl;
-    if (my_options.nrLevels > nb_bands) {
-        std::cout << "Number of bands requested is greater than the number of bands in the mesh file. Resetting to " << nb_bands
-                  << std::endl;
-        my_options.nrLevels = nb_bands;
-    }
 
     ElectronPhonon.load_phonon_parameters(phonon_file);
     bool irreducible_wedge_only = plot_with_wedge.getValue();
@@ -117,10 +112,34 @@ int main(int argc, char const *argv[]) {
                                                                           energy_step,
                                                                           "rates_vs_energy.csv");
 
-    // ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
+    // Solve for Fermi level and export CSV
+    // uepm::mesh_bz::fermi::Options fermi_options;
+    // fermi_options.nE         = 1000;  // number of energy points for DOS interpolation
+    // fermi_options.threads    = my_options.nrThreads;
+    // fermi_options.use_interp = true;  // use interpolation when computing DOS at given energy
+    // fermi_options.T_K        = 300.0;       // temperature for Fermi-Dirac
 
-    auto stop = std::chrono::high_resolution_clock::now();
-    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n\n\n" << std::endl;
+    // auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options);
+    // if (result.success) {
+    //     std::cout << "Fermi level found: EF = " << result.EF_eV << " eV\n";
+    //     std::cout << "  p = " << result.p_m3 * 1e-6 << " cm^-3\n";
+    //     std::cout << "  n = " << result.n_m3 * 1e-6 << " cm^-3\n";
+    // } else {
+    //     std::cout << "Fermi level not found.\n";
+    // }
+
+    // const double Ef        = result.EF_eV;
+    // const double T         = 300.0;
+    // const auto   mu_tensor = ElectronPhonon.compute_electron_MRTA_mobility_tensor(Ef, T);
+    // const double mu_iso    = ElectronPhonon.compute_electron_MRTA_mobility_isotropic(Ef, T);
+    // std::cout << "μ_iso = " << mu_iso << " m^2/(V·s)\n";
+    // std::cout << "μ tensor:\n" << mu_tensor << std::endl;
+
+    // // ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
+
+    // auto stop = std::chrono::high_resolution_clock::now();
+    // std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n\n\n" <<
+    // std::endl;
 
     if (plot_with_python.getValue()) {
         std::string command = "python3 " + std::string(PROJECT_SRC_DIR) + "/python/plots/plot_phonon_rate.py -f rates_vs_energy.csv";

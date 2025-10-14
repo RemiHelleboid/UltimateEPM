@@ -196,6 +196,8 @@ class Vertex {
         m_energy_gradient_at_bands[band_index] = gradient;
     }
     void resize_band_energies(std::size_t new_size) { m_band_energies.resize(new_size); }
+    void clear_band_energies() { m_band_energies.clear(); }
+    void clear_energy_gradient_at_bands() { m_energy_gradient_at_bands.clear(); }
     void resize_energy_gradient_at_bands(std::size_t new_size) { m_energy_gradient_at_bands.resize(new_size); }
     void shrink_energy_gradient_at_bands() { m_energy_gradient_at_bands.shrink_to_fit(); }
     void push_back_energy_gradient_at_band(const vector3& gradient) { m_energy_gradient_at_bands.push_back(gradient); }

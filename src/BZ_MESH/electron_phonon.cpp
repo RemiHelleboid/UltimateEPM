@@ -26,6 +26,7 @@
 #include "gmsh.h"
 #include "omp.h"
 #include "physical_constants.hpp"
+#include "physical_functions.hpp"
 #include "vector.hpp"
 #include "yaml-cpp/yaml.h"
 
@@ -119,11 +120,12 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
         {
             const double Ef_eV = Ei_eV - Eph_eV;
             if (tetra.is_energy_inside_band(Ef_eV, idx_n2)) {
-                const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
+                const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, idx_n2);
+                // const double dos_eV = tetra.compute_tetra_dos_energy_band(Ef_eV, idx_n2);
                 if (dos_eV > 0.0) {
-                    const double val = pref * (N0 + 1.0) * (dos_eV / qe);
-                    const int    b   = rate_index(mode, dir, PhononEvent::emission);
-                    out[static_cast<std::size_t>(b)] += val;
+                    const double val      = pref * (N0 + 1.0) * (dos_eV / qe);
+                    const int    mode_idx = rate_index(mode, dir, PhononEvent::emission);
+                    out[mode_idx] += val;
                     inv_mrta_rate += val * transport_weight_value;  // for 1/τ_tr
                 }
             }
@@ -132,17 +134,19 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
         {
             const double Ef_eV = Ei_eV + Eph_eV;
             if (tetra.is_energy_inside_band(Ef_eV, idx_n2)) {
-                const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
+                const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, idx_n2);
+                // const double dos_eV = tetra.compute_tetra_dos_energy_band(Ef_eV, idx_n2);
                 if (dos_eV > 0.0) {
-                    const double val = pref * (N0) * (dos_eV / qe);
-                    const int    b   = rate_index(mode, dir, PhononEvent::absorption);
-                    out[static_cast<std::size_t>(b)] += val;
+                    const double val      = pref * (N0) * (dos_eV / qe);
+                    const int    mode_idx = rate_index(mode, dir, PhononEvent::absorption);
+                    out[mode_idx] += val;
                     inv_mrta_rate += val * transport_weight_value;  // for 1/τ_tr
                 }
             }
         }
     }
-    m_phonon_rates_transport[idx_n1][idx_k1] += inv_mrta_rate;  // accumulate 1/τ_tr(E) on uniform grid
+    std::size_t local_n1 = get_local_band_index(static_cast<int>(idx_n1));
+    m_phonon_rates_transport[local_n1][idx_k1] += inv_mrta_rate;  // accumulate 1/τ_tr(E) on uniform grid
     return out;
 }
 
@@ -155,7 +159,7 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
  * @return RateValues The computed out-scattering rates.
  */
 RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std::size_t idx_k1, bool populate_nk_npkp) {
-    RateValues acc;
+    RateValues acc{};
 
     const double Ei_eV   = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
     const double Eph_max = get_max_phonon_energy();
@@ -163,7 +167,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
     const double Ef_max  = Ei_eV + Eph_max;
 
     std::size_t nnz = 0;
-    
+
     for (auto idx_n2 : get_band_indices(MeshParticleType::conduction)) {
         // Quick reject band window
         if (Ef_min > m_max_band[idx_n2] || Ef_max < m_min_band[idx_n2]) {
@@ -180,6 +184,9 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
             nnz += (r != Rate8{});  // count non-zero contributions
             for (int i = 0; i < 8; ++i) {
                 acc.v[i] += r[i];
+                if (r[i] > 1e12) {
+                    std::cout << std::scientific << std::setprecision(3) << r[i] << std::endl;
+                }
             }
         }
     }
@@ -284,7 +291,9 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     constexpr int            chunk_size = 32;
 
     m_phonon_rates_transport.clear();
-    m_phonon_rates_transport.resize(get_number_bands_total());
+    m_phonon_rates_transport.resize(get_number_bands(MeshParticleType::conduction));
+    std::cout << "Allocating transport rates for " << m_phonon_rates_transport.size() << " conduction bands and " << m_list_vertices.size()
+              << " k-points.\n";
     for (auto& vec : m_phonon_rates_transport) {
         vec.resize(m_list_vertices.size(), 0.0);
     }
@@ -300,7 +309,14 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     }
     std::cout << "Nb bands: " << get_number_bands_total() << ", Nb k-points: " << m_list_vertices.size()
               << (irreducible_wedge_only ? " (irreducible wedge only)" : "") << "\n";
-    std::size_t skipped = 0;
+
+    auto list_bands = get_band_indices(MeshParticleType::conduction);
+    std::cout << "Computing electron-phonon rates for conduction bands: ";
+    for (auto b : list_bands) {
+        std::cout << b << " ";
+    }
+    std::cout << "\n";
+    std::size_t skipped      = 0;
     std::size_t total_states = 0;
 #pragma omp parallel for schedule(dynamic, chunk_size) num_threads(m_nb_threads) reduction(+ : skipped, total_states)
     for (std::size_t idx = 0; idx < m_list_vertices.size(); ++idx) {
@@ -326,7 +342,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
                 //           << "E = " << m_list_vertices[idx_k1].get_energy_at_band(static_cast<int>(idx_n1)) << " eV > " << energy_max
                 //           << " eV\n"
                 //           << std::flush;
-                m_list_vertices[idx_k1].add_electron_phonon_rates(std::array<double, 8>{});
+                m_list_vertices[idx_k1].add_electron_phonon_rates(std::array<double, 8>{0, 0, 0, 0, 0, 0, 0, 0});
                 continue;
             } else {
                 auto rate = compute_electron_phonon_rate(idx_n1, idx_k1);
@@ -352,7 +368,8 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
                 for (auto idx_n1 : get_band_indices(MeshParticleType::conduction)) {
                     auto rates_symm = m_list_vertices[idx_k1_symm].get_electron_phonon_rates(idx_n1);
                     m_list_vertices[idx_k1].add_electron_phonon_rates(rates_symm);
-                    m_phonon_rates_transport[idx_n1][idx_k1] = m_phonon_rates_transport[idx_n1][idx_k1_symm];
+                    std::size_t local_idx_n1                       = get_local_band_index(idx_n1);
+                    m_phonon_rates_transport[local_idx_n1][idx_k1] = m_phonon_rates_transport[local_idx_n1][idx_k1_symm];
                 }
             }
         }
@@ -486,6 +503,39 @@ std::pair<int, std::size_t> ElectronPhonon::select_electron_phonon_final_state(s
 }
 
 /**
+ * @brief Export the computed electron-phonon rates to a CSV file.
+ *
+ * @param filename The output CSV filename.
+ */
+void ElectronPhonon::export_rate_values(const std::string& filename) const {
+    std::ofstream file(filename);
+    if (!file) {
+        throw std::runtime_error("export_rate_values: cannot open '" + filename + "' for writing");
+    }
+    file.setf(std::ios::scientific);
+    file.precision(8);
+
+    const std::size_t nb_elph = get_nb_bands_elph();
+    for (const auto& vertex : m_list_vertices) {
+        const auto all_rates = vertex.get_electron_phonon_rates_all_bands();
+        if (all_rates.size() != nb_elph) {
+            throw std::runtime_error("export_rate_values: size mismatch in rates");
+        }
+
+        for (std::size_t local = 0; local < nb_elph; ++local) {
+            const std::size_t g = get_global_band_index(local, m_elph_particle_type);  // map to global
+            const double      E = vertex.get_energy_at_band(g);
+            file << g << ',' << E;
+            const auto& r = all_rates[local];
+            for (double v : r) {
+                file << ',' << v;
+            }
+            file << '\n';
+        }
+    }
+}
+
+/**
  * @brief Compute and plot the electron-phonon rates as a function of energy over the mesh.
  *
  * @param nb_bands The number of bands to consider.
@@ -507,15 +557,6 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
     if (m_list_vertices.empty()) {
         throw std::runtime_error("No vertices in mesh.");
     }
-    const int total_bands = static_cast<int>(m_list_vertices.front().get_number_bands());
-    if (total_bands <= 0) {
-        throw std::runtime_error("Mesh reports zero bands.");
-    }
-
-    nb_bands = std::clamp(nb_bands, 0, total_bands);
-    if (nb_bands == 0) {
-        throw std::runtime_error("nb_bands clamped to 0; nothing to process.");
-    }
 
     std::ofstream out(filename);
     if (!out) {
@@ -523,11 +564,11 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
     }
 
     static constexpr std::array<const char*, 8>
-        kLabels{"ac_L_ab", "ac_T_ab", "op_L_ab", "op_T_ab", "ac_L_em", "ac_T_em", "op_L_em", "op_T_em"};
+        mode_phonons{"ac_L_ab", "ac_T_ab", "op_L_ab", "op_T_ab", "ac_L_em", "ac_T_em", "op_L_em", "op_T_em"};
 
-    out << "# E[eV],DOS(E)";
-    for (auto* s : kLabels) {
-        out << ',' << s;
+    out << "energy(eV),dos(ev^-1m^-3)";
+    for (auto* mode : mode_phonons) {
+        out << ',' << mode;
     }
     out << '\n';
 
@@ -540,12 +581,13 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
         double                dos_sum = 0.0;
         std::array<double, 8> num{};  // accumulators
         num.fill(0.0);
-
+        const std::size_t nb_bands_elph = get_nb_bands_elph();
         for (const auto& tetra : m_list_tetrahedra) {
-            for (int b = 0; b < nb_bands; ++b) {
-                const double dos_t = tetra.compute_tetra_dos_energy_band(E, static_cast<std::size_t>(b));
+            for (std::size_t idx_band = 0; idx_band < nb_bands_elph; ++idx_band) {
+                std::size_t  idx_global_band = get_global_band_index(idx_band, m_elph_particle_type);
+                const double dos_t           = tetra.compute_tetra_dos_energy_band(E, idx_global_band);
                 if (!std::isfinite(dos_t)) {
-                    throw std::runtime_error("DOS is NaN/Inf at E=" + std::to_string(E) + " band=" + std::to_string(b));
+                    throw std::runtime_error("DOS is NaN/Inf at E=" + std::to_string(E) + " band=" + std::to_string(idx_global_band));
                 }
                 if (dos_t <= 0.0) {
                     continue;
@@ -553,7 +595,7 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
 
                 dos_sum += dos_t;
 
-                const std::array<double, 8> rates = tetra.get_tetra_electron_phonon_rates(static_cast<std::size_t>(b));
+                const std::array<double, 8> rates = tetra.get_tetra_electron_phonon_rates(idx_band);
                 for (int i = 0; i < 8; ++i) {
                     num[i] += rates[i] * dos_t;
                 }
@@ -805,28 +847,6 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
 }
 
 /**
- * @brief Export the computed electron-phonon rates to a CSV file.
- *
- * @param filename The output CSV filename.
- */
-void ElectronPhonon::export_rate_values(const std::string& filename) const {
-    std::ofstream file(filename);
-    for (auto&& vertex : m_list_vertices) {
-        std::vector<std::array<double, 8>> all_rates = vertex.get_electron_phonon_rates_all_bands();
-        for (std::size_t idx_band = 0; idx_band < all_rates.size(); ++idx_band) {
-            double energy = vertex.get_energy_at_band(idx_band);
-            file << idx_band << "," << energy << ",";
-            for (std::size_t idx_rate = 0; idx_rate < all_rates[idx_band].size(); ++idx_rate) {
-                double rate = all_rates[idx_band][idx_rate];
-                file << rate << ((idx_rate + 1 < all_rates[idx_band].size()) ? "," : "");
-            }
-            file << '\n';
-        }
-    }
-    file.close();
-}
-
-/**
  * @brief Read phonon scattering rates from a CSV file and populate the internal data structure.
  *
  * The CSV file is expected to have the following format:
@@ -910,9 +930,122 @@ double ElectronPhonon::compute_P_Gamma() const {
 }
 
 // -------------------- TRANSPORT ---------------------
+// elelectron_phonon.cpp  (add near the bottom, before namespace close)
+#include "physical_functions.hpp"  // for fermi_dirac_distribution, d_de_fermi_dirac_dE
 
-void ElectronPhonon::compute_electron_MRTA_mobility() {
-    // Compute the electron mobility using the MRTA approach
+Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fermi_level_eV, double temperature_K, bool conduction_only) {
+    using namespace uepm::physics;
+
+    // Sanity checks
+    if (m_list_vertices.empty() || m_list_tetrahedra.empty()) {
+        throw std::runtime_error("MRTA: mesh is empty.");
+    }
+    if (m_phonon_rates_transport.empty()) {
+        throw std::runtime_error(
+            "MRTA: m_phonon_rates_transport is empty. "
+            "Run compute_electron_phonon_rates_over_mesh() first.");
+    }
+    const std::size_t nbands_mesh = m_list_vertices.front().get_number_bands();
+    if (m_phonon_rates_transport.size() != nbands_mesh) {
+        throw std::runtime_error("MRTA: m_phonon_rates_transport size mismatch vs number of bands.");
+    }
+    for (const auto& v : m_phonon_rates_transport) {
+        if (v.size() != m_list_vertices.size()) {
+            throw std::runtime_error("MRTA: m_phonon_rates_transport[*] size mismatch vs number of k-points.");
+        }
+    }
+
+    // 1) Build per-vertex k-space integration weights (k-volume share per vertex),
+    //    then scale by reduce-BZ factor and spin degeneracy so that
+    //    Σ_k w_k (per band) ≈ g_s / V_cell (your DOS sum rule).
+    if (m_count_weight_tetra_per_vertex.size() != m_list_vertices.size()) {
+        m_count_weight_tetra_per_vertex.assign(m_list_vertices.size(), 0.0);
+        for (const auto& T : m_list_tetrahedra) {
+            const double Vt  = std::fabs(T.get_signed_volume());
+            const auto   ids = T.get_list_indices_vertices();  // 4 vertex indices
+            // equal share to vertices (simple, robust). For higher accuracy you could
+            // use barycentric-volume partitioning, but this is already good on fine meshes.
+            for (int i = 0; i < 4; ++i) {
+                m_count_weight_tetra_per_vertex[ids[i]] += Vt * 0.25;
+            }
+        }
+        // Convert mesh-volume units to physical states per m^3 using the same factors as DOS:
+        const double scale = get_reduce_bz_factor() * m_spin_degeneracy;
+        for (double& w : m_count_weight_tetra_per_vertex) {
+            w *= scale;
+        }
+    }
+
+    // 2) Conductivity tensor σ = q^2 ∑_{n,k} w_k τ_tr(n,k) (-df0/dE) v(n,k) v(n,k)^T
+    //    where v = (1/ħ) ∇_k E (you already store gradients).
+    //    Carrier density n = ∑_{n∈cond, k} w_k f0(E).
+    const double q  = uepm::Constants::q_e;       // C
+    const double hE = uepm::Constants::h_bar_eV;  // eV·s
+
+    Eigen::Matrix3d sigma = Eigen::Matrix3d::Zero();
+    double          n_e   = 0.0;
+
+    auto                     band_indices = [&](MeshParticleType t) { return this->get_band_indices(t); };
+    std::vector<std::size_t> bands_to_use;
+    if (conduction_only) {
+        bands_to_use = band_indices(MeshParticleType::conduction);
+    } else {
+        // If you ever want electrons+holes in one call, you could sum both and
+        // return σ_e + σ_h, n = n_e + n_h etc. For now, keep electrons only by default.
+        bands_to_use = band_indices(MeshParticleType::conduction);
+    }
+
+    // Loop states
+    for (auto b : bands_to_use) {
+        const auto& inv_tau_at_k = m_phonon_rates_transport[b];  // 1/τ_tr at each vertex
+        for (std::size_t k = 0; k < m_list_vertices.size(); ++k) {
+            const double wk = m_count_weight_tetra_per_vertex[k];
+            if (wk <= 0.0) {
+                continue;
+            }
+
+            const double E    = m_list_vertices[k].get_energy_at_band(b);  // eV
+            const double f0   = fermi_dirac_distribution(E, fermi_level_eV, temperature_K);
+            const double dfdE = -d_de_fermi_dirac_dE(E, fermi_level_eV, temperature_K);  // positive around EF
+
+            // Skip states with no scattering data
+            const double inv_tau = inv_tau_at_k[k];
+            if (!(inv_tau > 0.0) || !std::isfinite(inv_tau)) {
+                continue;
+            }
+            const double tau = 1.0 / inv_tau;
+
+            // Group velocity (m/s)
+            const vector3   gE = m_list_vertices[k].get_energy_gradient_at_band(b);  // eV/m
+            Eigen::Vector3d v;
+            v << (gE.x() / hE), (gE.y() / hE), (gE.z() / hE);
+
+            // Accumulate σ
+            // Units check: q^2 [C^2] * wk [1/m^3] * tau [s] * dfdE [1/eV] * v v^T [(m/s)^2]
+            // with 1/eV matched because g(E) (hidden in weights) was normalized using your factors.
+            // Result is S/m as desired.
+            sigma.noalias() += (q * q) * (wk * tau * dfdE) * (v * v.transpose());
+
+            // Electron density (only conduction bands counted)
+            n_e += wk * f0;
+        }
+    }
+
+    if (!(n_e > 0.0) || !std::isfinite(n_e)) {
+        throw std::runtime_error(
+            "MRTA: computed carrier density n_e is zero/invalid. "
+            "Check EF, T, and that rates were computed for conduction bands.");
+    }
+
+    // 3) μ tensor = σ / (n q)
+    const double    denom = n_e * q;
+    Eigen::Matrix3d mu    = sigma / denom;  // m^2/(V·s)
+    return mu;
+}
+
+double ElectronPhonon::compute_electron_MRTA_mobility_isotropic(double fermi_level_eV, double temperature_K, bool conduction_only) {
+    Eigen::Matrix3d mu = compute_electron_MRTA_mobility_tensor(fermi_level_eV, temperature_K, conduction_only);
+    return (mu.trace() / 3.0);  // simple isotropic average
 }
 
 }  // namespace uepm::mesh_bz

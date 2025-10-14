@@ -116,6 +116,26 @@ class MeshBZ {
     std::pair<int, int> get_start_end_conduction_band_idx() const {
         return {m_conduction_bands.global_start_index, m_conduction_bands.global_start_index + m_conduction_bands.count};
     }
+    std::size_t get_local_band_index(int global_band_index) const {
+        if (global_band_index < 0 || global_band_index >= static_cast<int>(m_nb_bands_total)) {
+            throw std::out_of_range("Global band index out of range.");
+        }
+        return m_band_info[global_band_index].local_index;
+    }
+    std::size_t get_global_band_index(std::size_t local_band_index, MeshParticleType type) const {
+        if (type == MeshParticleType::valence) {
+            if (local_band_index >= m_valence_bands.count) {
+                throw std::out_of_range("Local valence band index out of range.");
+            }
+            return m_valence_bands.global_start_index + local_band_index;
+        } else {
+            if (local_band_index >= m_conduction_bands.count) {
+                throw std::out_of_range("Local conduction band index out of range.");
+            }
+            return m_conduction_bands.global_start_index + local_band_index;
+        }
+    }
+    
     void print_band_info() const;
 
     // ---------- geometry / search ----------
@@ -150,7 +170,7 @@ class MeshBZ {
                                        bool               set_positive_valence_band = false);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
     void keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduction_bands);
-
+    
     // ---------- analysis / precompute ----------
     void compute_min_max_energies_at_tetras();
     void compute_energy_gradient_at_tetras();
@@ -158,10 +178,15 @@ class MeshBZ {
     void auto_set_positive_valence_band_energies();
     void set_bands_in_right_order();
     void recompute_min_max_energies();
-
+    
     void precompute_dos_tetra(double energy_step = 0.01, double energy_max = 100.0);
     void set_energy_gradient_at_vertices_by_averaging_tetras();
-
+    
+    void recompute_energies_data_and_sync(bool recompute_min_max = true,
+                                          bool recompute_grad  = true,
+                                          bool recompute_dos   = true,
+                                          double dos_energy_step = 0.01,
+                                          double dos_energy_max  = 100.0);
     // ---------- queries ----------
     vector3 interpolate_energy_gradient_at_location(const vector3& location, const std::size_t& idx_band) const;
 
@@ -185,7 +210,6 @@ class MeshBZ {
     std::size_t                     get_nearest_k_index(const vector3& k) const;
     const std::vector<std::size_t>& get_tetrahedra_of_vertex(std::size_t vi) const { return m_vertex_to_tetrahedra[vi]; }
 
-    std::size_t               get_number_bands() const noexcept { return m_min_band.size(); }
     std::pair<double, double> get_min_max_energy_at_band(const int& band_index) const {
         return {m_min_band[band_index], m_max_band[band_index]};
     }
