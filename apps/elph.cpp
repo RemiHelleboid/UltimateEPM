@@ -100,7 +100,7 @@ int main(int argc, char const *argv[]) {
     uepm::mesh_bz::fermi::Options fermi_options;
     fermi_options.nE         = 1000;  // number of energy points for DOS interpolation
     fermi_options.threads    = my_options.nrThreads;
-    fermi_options.use_interp = false;   // use interpolation when computing DOS at given energy
+    fermi_options.use_interp = false;  // use interpolation when computing DOS at given energy
     fermi_options.T_K        = 300.0;  // temperature for Fermi-Dirac
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options);
@@ -111,8 +111,8 @@ int main(int argc, char const *argv[]) {
     } else {
         std::cout << "Fermi level not found.\n";
     }
-    const double Ef        = result.EF_eV;
-    const double T         = 300.0;
+    const double Ef = result.EF_eV;
+    const double T  = 300.0;
 
     ElectronPhonon.apply_scissor(-1.12);  // eV
 
@@ -134,8 +134,8 @@ int main(int argc, char const *argv[]) {
                                                                           energy_step,
                                                                           "rates_vs_energy.csv");
 
-
     ElectronPhonon.apply_scissor(1.12);  // eV
+    std::cout << std::scientific;
     const auto   mu_tensor = ElectronPhonon.compute_electron_MRTA_mobility_tensor(Ef, T);
     const double mu_iso    = ElectronPhonon.compute_electron_MRTA_mobility_isotropic(Ef, T);
     std::cout << "μ_iso = " << mu_iso << " m^2/(V·s)\n";
