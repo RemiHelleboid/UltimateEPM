@@ -1030,7 +1030,7 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
             // Units check: q^2 [C^2] * wk [1/m^3] * tau [s] * dfdE [1/eV] * v v^T [(m/s)^2]
             // with 1/eV matched because g(E) (hidden in weights) was normalized using your factors.
             // Result is S/m as desired.
-            sigma.noalias() += (q * q) * (wk * tau * dfdE) * (v * v.transpose());
+            sigma.noalias() += (wk * tau * dfdE) * (v * v.transpose());
             // DEBUGGING:
             std::cout << "k=" << k << " E=" << E << " f0=" << f0 << " dfdE=" << dfdE << " tau=" << tau << " v=[" << v.transpose() << "]\n";
 
