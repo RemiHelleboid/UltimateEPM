@@ -102,7 +102,7 @@ int main(int argc, char const *argv[]) {
     fermi_options.nE         = 1000;  // number of energy points for DOS interpolation
     fermi_options.threads    = my_options.nrThreads;
     fermi_options.use_interp = false;  // use interpolation when computing DOS at given energy
-    fermi_options.T_K        = 300.0;  // temperature for Fermi-Dirac
+    fermi_options.T_K        = temperature;  // temperature for Fermi-Dirac
     const bool use_iw        = true;   // use only irreducible wedge for DOS and Fermi level
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options, use_iw);
@@ -114,7 +114,7 @@ int main(int argc, char const *argv[]) {
         std::cout << "Fermi level not found.\n";
     }
     const double Ef = result.EF_eV;
-    const double T  = 300.0;
+    const double T  = temperature;
 
     ElectronPhonon.apply_scissor(-1.12);  // eV
 
