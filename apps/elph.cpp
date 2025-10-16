@@ -157,7 +157,6 @@ int main(int argc, char const *argv[]) {
         file << "# Number of conduction bands : " << nb_conduction_bands << "\n";
         file << "# Number of valence bands : " << nb_valence_bands << "\n";
         file << "# Material : " << my_options.materialName << "\n";
-        file << "# Band gap (after scissor) in eV : " << ElectronPhonon.get_band_gap() << "\n";
         file << "# Energy range in eV : " << max_energy << "\n";
         file << "# Temperature in Kelvin : " << temperature << "\n";
         file << "# Fermi level in eV : " << Ef << "\n";
