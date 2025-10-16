@@ -6,7 +6,7 @@ from typing import Optional, Tuple, List
 import numpy as np
 import matplotlib.pyplot as plt
 import scienceplots
-plt.style.use(['science', 'no-latex', 'grid'])
+plt.style.use(['science', 'grid'])
 
 NUM = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 
@@ -65,8 +65,8 @@ def parse_mobility_file(path: Path):
                 if len(row) >= 3:
                     mu_tensor.append(row[:3])
             i += 1
-        if len(mu_tensor) == 3:
-            out["mu_tensor_cm2"] = np.array(mu_tensor, dtype=float)
+        # if len(mu_tensor) == 3:
+            # out["mu_tensor_cm2"] = np.array(mu_tensor, dtype=float)
     except StopIteration:
         pass
 
@@ -77,9 +77,12 @@ def parse_mobility_file(path: Path):
         for j in range(idx_iso+1, len(lines)):
             s = lines[j].strip()
             if s and not s.startswith("#"):
+                print(s)
                 m = re.search(NUM, s)
+                print(m)
                 if m:
-                    out["mu_iso_cm2"] = float(m.group(1))
+                    print(m.group(0))
+                    out["mu_iso_cm2"] = float(m.group(0))
                 break
     except StopIteration:
         pass
@@ -108,6 +111,31 @@ def main():
         return
 
     rows: List[dict] = [parse_mobility_file(f) for f in files]
+
+    keys = rows[0].keys()
+    print(f"Parsed keys: {keys}")
+    data_keys = [k for k in keys if k not in ("label", "file", "mu_tensor_cm2")]
+    print(f"Data keys: {data_keys}")
+    data = np.array([[r[k] if r[k] is not None else np.nan for k in data_keys] for r in rows])
+    print(f"Data shape: {data.shape}")
+    print(f"Data (first 5 rows):\n{data[:5]}")
+    data_T = data.T
+    print(f"Data transposed shape: {data_T}")
+    key_plot = ""
+    for idx, k in enumerate(data_keys):
+        row = data_T[idx]
+        nb_unique = len(np.unique(np.array(row)))
+        print(f"Key '{k}' has {nb_unique} unique values")
+        if nb_unique > 1 and k != "mu_iso_cm2":
+            key_plot = k
+            break
+    if key_plot:
+        print(f"Will plot μ_iso vs {key_plot}")
+    else:
+        print("No varying key found to plot against μ_iso")
+
+
+    print(f"Parsed ", rows)
     # write CSV
     csv_path = folder / args.csv
     with csv_path.open("w", newline="") as g:
@@ -115,15 +143,11 @@ def main():
         w.writerow([
             "label","file","x_guess",
             "mu_iso_cm2Vs",
-            "T_K","Ef_eV","nb_vtx","nb_cb","nb_vb","material","band_gap_eV","energy_range_eV",
-            "mu_tensor_00","mu_tensor_01","mu_tensor_02",
-            "mu_tensor_10","mu_tensor_11","mu_tensor_12",
-            "mu_tensor_20","mu_tensor_21","mu_tensor_22",
+            "T_K","Ef_eV","nb_vtx","nb_cb","nb_vb","material","band_gap_eV","energy_range_eV"
         ])
         for r in rows:
             x_guess = guess_numeric_x_from_label(r["label"])
-            mt = r["mu_tensor_cm2"]
-            mt_vals = (mt.flatten().tolist() if isinstance(mt, np.ndarray) else [None]*9)
+
             w.writerow([
                 r["label"], r["file"], "" if x_guess is None else x_guess,
                 "" if r["mu_iso_cm2"] is None else r["mu_iso_cm2"],
@@ -134,50 +158,38 @@ def main():
                 "" if r["nb_vb"] is None else r["nb_vb"],
                 "" if r["material"] is None else r["material"],
                 "" if r["band_gap_eV"] is None else r["band_gap_eV"],
-                "" if r["energy_range_eV"] is None else r["energy_range_eV"],
-                *mt_vals
+                "" if r["energy_range_eV"] is None else r["energy_range_eV"]
             ])
     print(f"Wrote {csv_path}")
-
-    # Plot μ_iso vs x_guess if numbers exist, else bar by label
-    pairs = []
+    if not key_plot:
+        print("No plot generated.")
+        return
+    # plot
+    fig, ax = plt.subplots(figsize=(6,4))
+    x = []
+    y = []
     for r in rows:
-        mu = r["mu_iso_cm2"]
-        if mu is None: continue
-        x = guess_numeric_x_from_label(r["label"])
-        pairs.append((x, mu, r["label"]))
-
-    out_path = folder / args.out
-    if pairs and all(p[0] is not None for p in pairs):
-        pairs.sort(key=lambda t: t[0])
-        xs = [p[0] for p in pairs]
-        ys = [p[1] for p in pairs]
-        plt.figure(figsize=(7,5))
-        plt.plot(xs, ys, marker="o")
-        plt.xlabel("x (guessed from filename)")
-        plt.ylabel("μ_iso (cm²/V·s)")
-        plt.title("Isotropic mobility vs x")
-        plt.tight_layout()
-        plt.savefig(out_path, dpi=150)
-        plt.close()
-    else:
-        # bar chart by label
-        labels = [p[2] for p in pairs]
-        ys = [p[1] for p in pairs]
-        if not ys:
-            print("No μ_iso values found to plot.")
-            return
-        plt.figure(figsize=(max(6, 0.7*len(labels)), 5))
-        pos = np.arange(len(labels))
-        plt.bar(pos, ys)
-        plt.xticks(pos, labels, rotation=45, ha="right")
-        plt.ylabel("μ_iso (cm²/V·s)")
-        plt.title("Isotropic mobility by file")
-        plt.tight_layout()
-        plt.savefig(out_path, dpi=150)
-        plt.close()
-
-    print(f"Saved plot to {out_path}")
+        if r["mu_iso_cm2"] is not None and r[key_plot] is not None:
+            x_val = r[key_plot]
+            if key_plot == "T_K":
+                x_val = float(x_val)
+            x.append(x_val)
+            y.append(r["mu_iso_cm2"])
+    x = np.array(x)
+    y = np.array(y)
+    print(f"Plotting {len(x)} points")
+    # sort by x
+    idx_sort = np.argsort(x)
+    x = x[idx_sort]
+    y = y[idx_sort]
+    ax.plot(x, y, marker='o', linestyle='-')
+    ax.set_xlabel(key_plot.replace("_", " "))
+    ax.set_ylabel(r"Isotropic mobility $\mu_{iso}$ (cm$^2$/V·s)")
+    ax.set_title(f"Isotropic mobility vs {key_plot}")
+    plt.tight_layout()
+    plt.savefig(args.out, dpi=300)
+    print(f"Wrote plot to {args.out}")
+    plt.show()
 
 if __name__ == "__main__":
     main()
