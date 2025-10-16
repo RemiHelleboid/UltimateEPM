@@ -146,12 +146,19 @@ int main(int argc, char const *argv[]) {
     std::cout << "μ_iso = " << mu_iso * mu_to_cm2Vs << " cm^2/(V·s)\n";
     std::cout << "μ_tensor = \n" << mu_tensor * mu_to_cm2Vs << " cm^2/(V·s)\n";
 
+    std::size_t nb_vtx = ElectronPhonon.get_number_vertices();
     std::filesystem::path name_path(mesh_band_input_file);
     std::string           name_stem = name_path.stem().string();
     std::string           output_mobility = name_stem + "_mobility.txt";
     std::ofstream         file(output_mobility);
     if (file) {
         file << "# Mobility tensor computed with EPP\n";
+        file << "# Number of vertices : " << nb_vtx << "\n";
+        file << "# Number of conduction bands : " << nb_conduction_bands << "\n";
+        file << "# Number of valence bands : " << nb_valence_bands << "\n";
+        file << "# Material : " << my_options.materialName << "\n";
+        file << "# Band gap (after scissor) in eV : " << ElectronPhonon.get_band_gap() << "\n";
+        file << "# Energy range in eV : " << max_energy << "\n";
         file << "# Temperature in Kelvin : " << temperature << "\n";
         file << "# Fermi level in eV : " << Ef << "\n";
         file << "# Mobility tensor in cm^2/(V·s)\n";
