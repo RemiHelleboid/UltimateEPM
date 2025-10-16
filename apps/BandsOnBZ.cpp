@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
     const std::string mesh_filename = arg_mesh_file.getValue();
     bz_mesh_points    my_mesh(mesh_filename);
     my_mesh.read_mesh();
-    std::vector<Vector3D<double>>& mesh_kpoints = my_mesh.get_kpoints();
+    const std::vector<Vector3D<double>>& mesh_kpoints = my_mesh.get_kpoints();
 
     auto start = std::chrono::high_resolution_clock::now();
 

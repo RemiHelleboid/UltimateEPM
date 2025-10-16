@@ -11,7 +11,7 @@ namespace uepm::pseudopotential {
 
 class BandStructure {
  public:
-    BandStructure() : m_nb_points(0), m_nb_bands(10), m_nearestNeighborsNumber(10), m_computation_time_s(-1.0){};
+    BandStructure() : m_nb_points(0), m_nb_bands(10), m_nearestNeighborsNumber(10), m_computation_time_s(-1.0) {};
 
     /**
      * @brief Initialize the band structure with the given material and the given symmetry points that form a path
@@ -44,12 +44,12 @@ class BandStructure {
      * @param enable_non_local_correction
      * @param enable_soc
      */
-    void Initialize(const Material&               material,
-                    std::size_t                   nb_bands,
-                    std::vector<Vector3D<double>> list_k_points,
-                    unsigned int                  nearestNeighborsNumber,
-                    bool                          enable_non_local_correction,
-                    bool                          enable_soc);
+    void Initialize(const Material&                      material,
+                    std::size_t                          nb_bands,
+                    const std::vector<Vector3D<double>>& list_k_points,
+                    unsigned int                         nearestNeighborsNumber,
+                    bool                                 enable_non_local_correction,
+                    bool                                 enable_soc);
 
     const std::vector<std::string>& GetPath() const { return m_path; }
     std::string                     get_path_as_string() const;
@@ -68,12 +68,12 @@ class BandStructure {
     std::vector<double> get_band(unsigned int band_index) const;
     double              get_energy_at_k_band(unsigned int band_index, unsigned int index_k) const { return m_results[index_k][band_index]; }
 
-    std::vector<Vector3D<int>>&      get_basis_vectors() { return basisVectors; }
-    std::vector<Vector3D<double>>    get_kpoints() const { return m_kpoints; }
-    std::vector<std::vector<double>> get_band_energies() const { return m_results; }
+    const std::vector<Vector3D<int>>&       get_basis_vectors() const { return basisVectors; }
+    const std::vector<Vector3D<double>>&    get_kpoints() const { return m_kpoints; }
+    const std::vector<std::vector<double>>& get_band_energies() const { return m_results; }
 
     double get_computation_time_s() const { return m_computation_time_s; }
-    bool  is_soc_enabled() const { return m_enable_spin_orbit_coupling; }
+    bool   is_soc_enabled() const { return m_enable_spin_orbit_coupling; }
 
  private:
     Materials materials;

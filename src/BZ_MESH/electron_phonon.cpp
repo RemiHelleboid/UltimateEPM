@@ -65,9 +65,9 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
     const auto& vtx1  = m_list_vertices[idx_k1];
     const auto& tetra = m_list_tetrahedra[idx_tetra_final];
 
-    const double  Ei_eV = vtx1.get_energy_at_band(idx_n1);
-    const vector3 k1    = vtx1.get_position();
-    const vector3 k2    = tetra.compute_barycenter();
+    const double   Ei_eV = vtx1.get_energy_at_band(idx_n1);
+    const vector3& k1    = vtx1.get_position();
+    const vector3& k2    = tetra.compute_barycenter();
 
     // Overlap once
     const double I  = electron_overlap_integral(k1, k2, m_radius_wigner_seitz_m);
@@ -89,9 +89,9 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
     const double     qe                 = uepm::Constants::q_e;
     const double     hbar_eV            = uepm::Constants::h_bar_eV;
 
-    double       inv_mrta_rate          = 0.0;
-    vector3      vnk                    = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);   // m/s
-    vector3      v_npkp                 = tetra.get_gradient_energy_at_band(idx_n2) * (1.0 / hbar_eV);  // m/s
+    double inv_mrta_rate                = 0.0;
+    const vector3 vnk                        = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);   // m/s
+    const vector3 v_npkp                     = tetra.get_gradient_energy_at_band(idx_n2) * (1.0 / hbar_eV);  // m/s
     const double transport_weight_value = transport_weight_RTA(vnk, v_npkp);
 
     // Loop 4 branches: md=0..3 → (ac/op)×(L/T)
@@ -161,12 +161,11 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
 RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std::size_t idx_k1, bool populate_nk_npkp) {
     RateValues acc{};
 
-    const double Ei_eV   = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
-    const double Eph_max = get_max_phonon_energy();
-    const double Ef_min  = Ei_eV - Eph_max;
-    const double Ef_max  = Ei_eV + Eph_max;
-
-    std::size_t nnz = 0;
+    const double     Ei_eV      = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
+    const double     Eph_max    = get_max_phonon_energy();
+    constexpr double eps_energy = 1e-5;
+    const double     Ef_min     = Ei_eV - Eph_max - eps_energy;
+    const double     Ef_max     = Ei_eV + Eph_max + eps_energy;
 
     for (auto idx_n2 : get_band_indices(MeshParticleType::conduction)) {
         // Quick reject band window
@@ -181,7 +180,6 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
             }
 
             const Rate8 r = compute_electron_phonon_transition_rates_pair(idx_n1, idx_k1, idx_n2, t, populate_nk_npkp);
-            nnz += (r != Rate8{});  // count non-zero contributions
             for (int i = 0; i < 8; ++i) {
                 acc.v[i] += r[i];
                 if (r[i] > 1e12) {
@@ -190,7 +188,6 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
             }
         }
     }
-    // std::cout << " (found " << nnz << " non-zero transitions)";
 
     return acc;
 }

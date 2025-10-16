@@ -94,7 +94,7 @@ void BandStructure::Initialize(const Material&                 material,
 
 void BandStructure::Initialize(const Material&               material,
                                std::size_t                   nb_bands,
-                               std::vector<Vector3D<double>> list_k_points,
+                               const std::vector<Vector3D<double>>& list_k_points,
                                unsigned int                  nearestNeighborsNumber,
                                bool                          enable_non_local_correction,
                                bool                          enable_soc) {
@@ -147,17 +147,20 @@ void BandStructure::Compute() {
 }
 
 void BandStructure::Compute_parallel(int nb_threads) {
+    std::cout << "Computing band structure with " << nb_threads << " threads..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
+    std::cout << "Reserving space for " << m_nb_points << " k-points and " << m_nb_bands << " bands." << std::endl;
     m_results.clear();
     m_results.resize(m_nb_points);
     for (auto& row : m_results) {
         row.resize(m_nb_bands);
-    };
+    }
 
     std::vector<Hamiltonian> hamiltonian_per_thread;
     for (int i = 0; i < nb_threads; i++) {
         hamiltonian_per_thread.push_back(Hamiltonian(m_material, basisVectors));
     }
+    std::cout << "Starting parallel computation..." << std::endl;
 
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (unsigned int index_k = 0; index_k < m_nb_points; ++index_k) {
@@ -172,6 +175,7 @@ void BandStructure::Compute_parallel(int nb_threads) {
     }
     auto end             = std::chrono::high_resolution_clock::now();
     m_computation_time_s = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+    std::cout << "Parallel computation finished." << std::endl;
 }
 
 double BandStructure::AdjustValues(bool minConductionBandToZero) {

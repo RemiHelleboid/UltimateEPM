@@ -64,7 +64,7 @@ void Materials::load_material_parameters(const std::string& filename) {
         if (node_spin_orbit_parameters) {
             materials[symbol].populate_spin_orbit_parameters(node_spin_orbit_parameters);
             materials[symbol].set_is_spin_orbit_parameters_populated(true);
-            std::cout << "Spin-orbit parameters for " << symbol << " are set." << std::endl;
+            // std::cout << "Spin-orbit parameters for " << symbol << " exists." << std::endl;
             // materials[symbol].get_spin_orbit_parameters().print_parameters();
         }
     }
