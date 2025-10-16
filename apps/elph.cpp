@@ -84,8 +84,7 @@ int main(int argc, char const *argv[]) {
 
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
     ElectronPhonon.load_kstar_ibz_to_bz();
-    std::cout << "Keeping " << nb_conduction_bands << " conduction bands and " << nb_valence_bands
-                                                  << " valence bands." << std::endl;
+    std::cout << "Keeping " << nb_conduction_bands << " conduction bands and " << nb_valence_bands << " valence bands." << std::endl;
     const bool shift_conduction_band     = true;
     const bool set_positive_valence_band = false;
     ElectronPhonon.read_mesh_bands_from_msh_file(mesh_band_input_file,
@@ -104,7 +103,7 @@ int main(int argc, char const *argv[]) {
     fermi_options.threads    = my_options.nrThreads;
     fermi_options.use_interp = false;  // use interpolation when computing DOS at given energy
     fermi_options.T_K        = 300.0;  // temperature for Fermi-Dirac
-    const bool use_iw     = true;  // use only irreducible wedge for DOS and Fermi level
+    const bool use_iw        = true;   // use only irreducible wedge for DOS and Fermi level
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options, use_iw);
     if (result.success) {
@@ -136,14 +135,18 @@ int main(int argc, char const *argv[]) {
                                                                           max_energy,
                                                                           energy_step,
                                                                           "rates_vs_energy.csv");
-
     ElectronPhonon.apply_scissor(1.12);  // eV
     std::cout << std::scientific;
-    const auto   mu_tensor = ElectronPhonon.compute_electron_MRTA_mobility_tensor(Ef, T);
-    const double mu_iso    = ElectronPhonon.compute_electron_MRTA_mobility_isotropic(Ef, T);
-    std::cout << "μ_iso = " << mu_iso << " m^2/(V·s)\n";
-    std::cout << "μ tensor:\n" << mu_tensor << std::endl;
+    const auto       mu_tensor   = ElectronPhonon.compute_electron_MRTA_mobility_tensor(Ef, T);
+    const double     mu_iso      = ElectronPhonon.compute_electron_MRTA_mobility_isotropic(Ef, T);
+    constexpr double mu_to_cm2Vs = 1e4;  // m^2/(V·s) to cm^2/(V·s)
+    std::cout << std::fixed;
+    std::cout.precision(2);
+    std::cout << "At T = " << temperature << " K and EF = " << Ef << " eV:\n";
+    std::cout << "μ_iso = " << mu_iso * mu_to_cm2Vs << " cm^2/(V·s)\n";
+    std::cout << "μ_tensor = \n" << mu_tensor * mu_to_cm2Vs << " cm^2/(V·s)\n";
 
+    std::cout << "Should be compared to experimental values of about 1350 cm^2/(V·s) at 300K and low doping.\n";
     // // ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
     auto stop = std::chrono::high_resolution_clock::now();
     std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n\n\n" << std::endl;

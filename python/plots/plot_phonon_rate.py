@@ -25,10 +25,10 @@ def scatter_plot_rates(filename):
     energy = data[:,1]
     nb_modes = data.shape[1] - 2
     colors = cm.viridis(np.linspace(0, 1, nb_modes))
-    # ax.scatter(energy, np.sum(data[:,2:], axis=1), label="Total Rate", s=1, color="black")
+    ax.scatter(energy, np.sum(data[:,2:], axis=1), label="Total Rate", s=1, color="black")
     # energy -= np.min(energy)
     for i in range(2, data.shape[1]):
-        ax.scatter(energy, data[:,i], label=f"Mode {i}", s=1, color=colors[i-2])  
+        ax.scatter(energy, data[:,i], label=f"Mode {i-2}", s=1, color=colors[i-2], marker=".")
     ax.set_xlabel("Energy (eV)")
     ax.set_ylabel("Rate (s$^-1$)")
     

@@ -114,14 +114,14 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
         const double                Delta_J = defpot.get_fischetti_deformation_potential(q, idx_n1) * qe;
 
         // Common prefactor
-        const double pref = (pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) * I2 / m_reduce_bz_factor * m_spin_degeneracy;
+        const double pref = m_spin_degeneracy * (pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) * I2 / m_reduce_bz_factor;
 
         // --- Emission (Ef = Ei - ħω), bose = N0 + 1 ---
         {
             const double Ef_eV = Ei_eV - Eph_eV;
             if (tetra.is_energy_inside_band(Ef_eV, idx_n2)) {
-                const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, idx_n2);
-                // const double dos_eV = tetra.compute_tetra_dos_energy_band(Ef_eV, idx_n2);
+                // const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, idx_n2);
+                const double dos_eV = tetra.compute_tetra_dos_energy_band(Ef_eV, idx_n2);
                 if (dos_eV > 0.0) {
                     const double val      = pref * (N0 + 1.0) * (dos_eV / qe);
                     const int    mode_idx = rate_index(mode, dir, PhononEvent::emission);
@@ -134,8 +134,8 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
         {
             const double Ef_eV = Ei_eV + Eph_eV;
             if (tetra.is_energy_inside_band(Ef_eV, idx_n2)) {
-                const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, idx_n2);
-                // const double dos_eV = tetra.compute_tetra_dos_energy_band(Ef_eV, idx_n2);
+                // const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, idx_n2);
+                const double dos_eV = tetra.compute_tetra_dos_energy_band(Ef_eV, idx_n2);
                 if (dos_eV > 0.0) {
                     const double val      = pref * (N0) * (dos_eV / qe);
                     const int    mode_idx = rate_index(mode, dir, PhononEvent::absorption);
@@ -145,7 +145,7 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
             }
         }
     }
-    std::size_t local_n1 = get_local_band_index(static_cast<int>(idx_n1));
+    std::size_t local_n1 = get_local_band_index(idx_n1);
     m_phonon_rates_transport[local_n1][idx_k1] += inv_mrta_rate;  // accumulate 1/τ_tr(E) on uniform grid
     return out;
 }
