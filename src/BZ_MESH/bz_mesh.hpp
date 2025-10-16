@@ -58,6 +58,19 @@ class MeshBZ {
 
     double m_reduce_bz_factor = 1.0;
 
+    /**
+     * @brief List of indices of vertices that lie in the irreducible wedge of the BZ.
+     *
+     */
+    std::vector<std::size_t> m_list_vtx_in_iwedge;
+
+    /**
+     * @brief Mapping from k-points in the irreducible Brillouin zone to the full Brillouin zone.
+     * m_kstar_ibz_to_bz[i] is the list of indices in the full BZ equivalent to the i-th k-point in the IBZ.
+     *
+     */
+    std::vector<std::vector<std::size_t>> m_kstar_ibz_to_bz;
+
     std::unique_ptr<Octree_mesh> m_search_tree;  // fwd-decl OK; dtor out-of-line
 
     std::size_t           m_nb_bands_total = 0;
@@ -90,9 +103,9 @@ class MeshBZ {
     // ~MeshBZ();  // out-of-line (needed for unique_ptr<Octree_mesh> with fwd-decl)
 
     // ---------- light getters / basics ----------
-    vector3 get_vertex_position(std::size_t idx_vtx) const { return m_list_vertices[idx_vtx].get_position(); }
-    vector3 get_center() const noexcept { return m_center; }
-    void    shift_bz_center(const vector3& shift);
+    const vector3& get_vertex_position(std::size_t idx_vtx) const { return m_list_vertices[idx_vtx].get_position(); }
+    const vector3& get_center() const noexcept { return m_center; }
+    void           shift_bz_center(const vector3& shift);
 
     double get_reduce_bz_factor() const noexcept { return m_reduce_bz_factor; }
     void   set_reduce_bz_factor(double factor) noexcept { m_reduce_bz_factor = factor; }
@@ -135,7 +148,7 @@ class MeshBZ {
             return m_conduction_bands.global_start_index + local_band_index;
         }
     }
-    
+
     void print_band_info() const;
 
     // ---------- geometry / search ----------
@@ -143,10 +156,7 @@ class MeshBZ {
     void                build_search_tree();
     std::vector<Tetra*> get_list_p_tetra() {
         std::vector<Tetra*> ptrs;
-        ptrs.reserve(m_list_tetrahedra.size());
-        for (auto& t : m_list_tetrahedra) {
-            ptrs.push_back(&t);
-        }
+        std::transform(m_list_tetrahedra.begin(), m_list_tetrahedra.end(), std::back_inserter(ptrs), [](Tetra& t) { return &t; });
         return ptrs;
     }
     Tetra* find_tetra_at_location(const vector3& location) const;
@@ -164,13 +174,14 @@ class MeshBZ {
     // ---------- reading ----------
     void read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor = true);
     void read_mesh_bands_from_msh_file(const std::string& filename,
-                                       int                nb_conduction_bands = -1,
-                                       int                nb_valence_bands    = -1,
+                                       int                nb_conduction_bands        = -1,
+                                       int                nb_valence_bands           = -1,
                                        bool               auto_shift_conduction_band = false,
-                                       bool               set_positive_valence_band = false);
+                                       bool               set_positive_valence_band  = false);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
     void keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduction_bands);
-    
+    void load_kstar_ibz_to_bz(const std::string& filename = "kstar_ibz_to_bz.txt");
+
     // ---------- analysis / precompute ----------
     void apply_scissor(double scissor_value);
     void compute_min_max_energies_at_tetras();
@@ -179,15 +190,15 @@ class MeshBZ {
     void auto_set_positive_valence_band_energies();
     void set_bands_in_right_order();
     void recompute_min_max_energies();
-    
+
     void precompute_dos_tetra(double energy_step = 0.01, double energy_max = 100.0);
     void set_energy_gradient_at_vertices_by_averaging_tetras();
-    
-    void recompute_energies_data_and_sync(bool recompute_min_max = true,
-                                          bool recompute_grad  = true,
-                                          bool recompute_dos   = true,
-                                          double dos_energy_step = 0.01,
-                                          double dos_energy_max  = 100.0);
+
+    void recompute_energies_data_and_sync(bool   recompute_min_max = true,
+                                          bool   recompute_grad    = true,
+                                          bool   recompute_dos     = true,
+                                          double dos_energy_step   = 0.01,
+                                          double dos_energy_max    = 100.0);
     // ---------- queries ----------
     vector3 interpolate_energy_gradient_at_location(const vector3& location, const std::size_t& idx_band) const;
 
@@ -201,12 +212,13 @@ class MeshBZ {
                                double                 halfwidth_reduced,
                                double                 si_to_reduced);
 
-    vector3                  fold_ws_bcc(const vector3& k_SI) const noexcept;
-    bool                     inside_ws_bcc(const vector3& k_SI) const noexcept;
-    bool                     is_irreducible_wedge(const vector3& k_SI) const noexcept;
-    std::size_t              get_index_irreducible_wedge(const vector3& k_SI) const;
-    std::vector<std::size_t> get_all_equivalent_indices_in_bz(const vector3& k_SI) const noexcept;
-
+    vector3                         fold_ws_bcc(const vector3& k_SI) const noexcept;
+    bool                            inside_ws_bcc(const vector3& k_SI) const noexcept;
+    bool                            is_irreducible_wedge(const vector3& k_SI) const noexcept;
+    std::size_t                     get_index_irreducible_wedge(const vector3& k_SI) const;
+    const std::vector<std::size_t>& get_all_equivalent_indices_in_bz(const vector3& k_SI) const noexcept {
+        return m_kstar_ibz_to_bz[get_index_irreducible_wedge(k_SI)];
+    }
     vector3                         get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
     std::size_t                     get_nearest_k_index(const vector3& k) const;
     const std::vector<std::size_t>& get_tetrahedra_of_vertex(std::size_t vi) const { return m_vertex_to_tetrahedra[vi]; }
@@ -233,7 +245,7 @@ class MeshBZ {
                                                               int         num_threads,
                                                               std::size_t nb_points,
                                                               bool        use_interp = false,
-                                                                bool        use_iw     = false) const;
+                                                              bool        use_iw     = false) const;
 
     std::vector<std::vector<double>> compute_dos_band_at_band_auto(int         band_index,
                                                                    std::size_t nb_points,

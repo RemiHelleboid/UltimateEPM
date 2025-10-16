@@ -59,7 +59,7 @@ double MeshBZ::si_to_reduced_scale() const noexcept {
 void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor) {
     std::cout << "Opening file " << filename << std::endl;
     gmsh::initialize();
-    gmsh::option::setNumber("General.Verbosity", 1000);
+    gmsh::option::setNumber("General.Verbosity", 0);
     gmsh::open(filename);
     std::vector<std::size_t> nodeTags;
     std::vector<double>      nodeCoords;
@@ -119,9 +119,7 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
         bool                         in_iwedge = is_irreducible_wedge(new_tetra.get_barycenter());
         new_tetra.set_lies_in_irreducible_wedge(in_iwedge);
         m_list_tetrahedra.emplace_back(new_tetra);
-        // if (in_iwedge) {
-        //     std::cout << "Tetra " << index_element << " in IW\n";
-        // }
+
         for (std::size_t i = 0; i < 4; ++i) {
             m_vertex_to_tetrahedra[elemNodeTags[0][4 * index_element + i] - 1].push_back(index_element);
         }
@@ -145,6 +143,79 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     init_reciprocal_basis(b1_SI, b2_SI, b3_SI, halfwidth_reduced, ssi_to_reduced_scale);
 
     // build_search_tree();
+}
+
+/**
+ * @brief Load the mapping from k-points in the irreducible Brillouin zone to the full Brillouin zone.
+ *
+ * @param filename
+ */
+void MeshBZ::load_kstar_ibz_to_bz(const std::string& filename) {
+    m_kstar_ibz_to_bz.clear();
+    m_kstar_ibz_to_bz.reserve(m_list_vertices.size());
+
+    std::ifstream in(filename);
+    if (!in) {
+        throw std::runtime_error("load_kstar_file: can't open " + filename);
+    }
+    std::string line;
+    std::size_t max_iw = 0;
+    struct Row {
+        std::size_t              iw;
+        std::vector<std::size_t> ids;
+    };
+    std::vector<Row> tmp;
+    std::size_t count_vtx = 0;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+        std::istringstream iss(line);
+        std::size_t        iw, m;
+        if (!(iss >> iw >> m)) {
+            continue;
+        }
+        std::vector<std::size_t> ids(m);
+        for (std::size_t k = 0; k < m; ++k) {
+            iss >> ids[k];
+        }
+        max_iw = std::max(max_iw, iw);
+        tmp.push_back({iw, std::move(ids)});
+    }
+    std::cout << "load_kstar_file: read " << tmp.size() << " rows, max iw = " << max_iw << std::endl;
+    std::cout << "Nb of vertices in the mesh: " << m_list_vertices.size() << std::endl;
+
+    m_kstar_ibz_to_bz.assign(max_iw + 1, {});
+    for (auto& r : tmp) {
+        std::size_t idx_iw = r.iw;
+        m_kstar_ibz_to_bz[idx_iw] = std::move(r.ids);
+        const Vertex& vtx         = m_list_vertices[idx_iw];
+        if (!is_irreducible_wedge(vtx.get_position())) {
+            std::cout << "load_kstar_file: vertex " << idx_iw << " at " << vtx.get_position() << " does not lie in the irreducible wedge, but it should"
+                      << std::endl;
+            throw std::runtime_error("load_kstar_file: vertex " + std::to_string(idx_iw) +
+                                     " does not lie in the irreducible wedge, but it should");
+        }
+        m_list_vtx_in_iwedge.push_back(idx_iw);
+        count_vtx += m_kstar_ibz_to_bz[idx_iw].size();
+    }
+
+    if (count_vtx != m_list_vertices.size()) {
+        throw std::runtime_error("load_kstar_file: number of k-points in IBZ (" + std::to_string(count_vtx) +
+                                 ") does not match number of vertices in mesh (" + std::to_string(m_list_vertices.size()) +
+                                 ")");
+    }
+
+    for (std::size_t i = 0; i < m_kstar_ibz_to_bz.size(); ++i) {
+        for (auto& id : m_kstar_ibz_to_bz[i]) {
+            if (id >= m_list_vertices.size()) {
+                throw std::runtime_error("load_kstar_file: index " + std::to_string(id) + " out of range");
+            }
+        }
+    }
+    for (auto idx : m_list_vtx_in_iwedge) {
+        m_list_vertices[idx].set_lies_in_irreducible_wedge(true);
+    }
 }
 
 bbox_mesh MeshBZ::compute_bounding_box() const {
@@ -291,6 +362,7 @@ void MeshBZ::print_band_info() const {
         std::cout << i << "\t" << type_str << "\t" << band.local_index << "\t\t" << i << "\t\t" << std::fixed << std::setprecision(4)
                   << m_min_band[i] << "\t" << m_max_band[i] << "\n";
     }
+    std::cout << std::defaultfloat;
 }
 
 /**
@@ -908,24 +980,13 @@ bool MeshBZ::inside_ws_bcc(const vector3& k_SI) const noexcept {
     return (ax <= hw + eps) & (ay <= hw + eps) & (az <= hw + eps) & ((ax + ay + az) <= (1.5 * hw + eps));
 }
 
-// bool is_in_first_BZ(const Vector3D<double>& k, bool one_eighth = false) {
-//     bool cond_1      = fabs(k.X) <= 1.0 && fabs(k.Y) <= 1.0 && fabs(k.Z) <= 1.0;
-//     bool cond_2      = fabs(k.X) + fabs(k.Y) + fabs(k.Z) <= 3.0 / 2.0;
-//     bool cond_eighth = (k.X >= 0.0 && k.Y >= 0.0 && k.Z >= 0.0);
-//     return cond_1 && cond_2 && (one_eighth ? cond_eighth : true);
-// }
-
-// def IsInIrreducibleWedge(k):
-//     return (k[2] >= 0.0 and k[2] <= k[1] and k[1] <= k[0] and k[0] <= 1.0) and \
-//         (np.sum(k) <= 3.0/2.0)
-
 bool MeshBZ::is_irreducible_wedge(const vector3& k_SI) const noexcept {
     const double x = k_SI.x() * si_to_reduced_scale();
     const double y = k_SI.y() * si_to_reduced_scale();
     const double z = k_SI.z() * si_to_reduced_scale();
     // std::cout << "Checking irreducible wedge for k = (" << x << ", " << y << ", " << z << ")" << std::endl;
     constexpr double eps = 1e-12;
-    return (x >= -eps) && (y >= -eps) && (z >= -eps) && (x <= y + eps) && (y <= z + eps) && (z <= 1.0 + eps) && ((x + y + z) <= 1.5 + eps);
+    return (z >= -eps) && (z <= y + eps) && (y <= x + eps) && (x <= 1.0 + eps) && ((x + y + z) <= 1.5 + eps);
 }
 
 /**
@@ -984,7 +1045,7 @@ static inline void bz_write_vtk_scalars(std::ofstream&             out,
     }
     out << "SCALARS " << name << " double 1\n";
     out << "LOOKUP_TABLE default\n";
-    out << std::setprecision(17);
+    out << std::setprecision(8);
     for (double v : vals) {
         out << v << "\n";
     }
@@ -1000,7 +1061,7 @@ static inline void bz_write_vtk_vectors(std::ofstream&              out,
                                  std::to_string(expected_count));
     }
     out << "VECTORS " << name << " double\n";
-    out << std::setprecision(17);
+    out << std::setprecision(8);
     for (const auto& v : vecs) {
         out << v.x() << " " << v.y() << " " << v.z() << "\n";
     }
@@ -1027,7 +1088,7 @@ void MeshBZ::export_to_vtk(const std::string&        filename,
 
     // --- POINTS ---
     out << "POINTS " << n_points << " double\n";
-    out << std::setprecision(17);
+    out << std::setprecision(8);
     for (const auto& v : m_list_vertices) {
         const auto& p = v.get_position();
         out << p.x() << " " << p.y() << " " << p.z() << "\n";

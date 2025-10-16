@@ -36,6 +36,12 @@ class Vertex {
     vector3 m_position;
 
     /**
+     * @brief True if the vertex lies in the irreducible wedge of the BZ.
+     *
+     */
+    bool m_lies_in_iwedge{false};
+
+    /**
      * @brief The energy of the band with index b_idx at this vertex
      * is stored as m_band_energies[b_idx].
      * For example, m_band_energies[3] is the energy of the band 3 at the k-point with position m_position.
@@ -90,6 +96,23 @@ class Vertex {
      * @param z
      */
     Vertex(std::size_t index, double x, double y, double z) : m_index(index), m_position{x, y, z} {}
+
+
+    
+    /**
+     * @brief Set whether the vertex lies in the irreducible wedge of the BZ.
+     *
+     * @param value
+     */
+    void set_lies_in_irreducible_wedge(bool value) { m_lies_in_iwedge = value; }
+
+    /**
+     * @brief Check if the vertex lies in the irreducible wedge of the BZ.
+     *
+     * @return true
+     * @return false
+     */
+    bool lies_in_irreducible_wedge() const { return m_lies_in_iwedge; }
 
     /**
      * @brief Get the index of the vertex.

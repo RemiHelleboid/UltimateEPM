@@ -125,6 +125,16 @@ std::vector<Mat3> symmetry_ops_full() {
     if (ops.size() != 48) {
         std::cerr << "[warn] symmetry op count = " << ops.size() << " (expected 48)\n";
     }
+    std::cout << "Found " << ops.size() << " symmetry operations.\n";
+    std::cout << "Last one : ";
+    for (const auto &row : ops.back()) {
+        std::cout << "[";
+        for (const auto &v : row) {
+            std::cout << std::setw(2) << v << " ";
+        }
+        std::cout << "] ";
+    }
+    std::reverse(ops.begin(), ops.end());  // put identity first
     return ops;
 }
 
@@ -569,23 +579,23 @@ int main(int argc, char **argv) try {
     // Symmetry expansion
     std::cout << "Expanding nodes to full BZ using symmetry...\n";
     std::cout << "Expanding nodes to full BZ using symmetry...\n";
-    auto ops = symmetry_ops_full();
+    auto             ops      = symmetry_ops_full();  // MUST contain identity
+    const std::size_t nb_nodes = nodes.size();
 
-    const std::size_t                     nb_nodes = nodes.size();
-    std::vector<std::vector<std::size_t>> sym_map(nb_nodes);
-    for (auto &v : sym_map) {
-        v.reserve(ops.size());
-    }
-
-    // Index map: point -> stable ID
     std::unordered_map<Vec3, std::size_t, VecHash, VecEq> index;
     index.reserve(nb_nodes * ops.size());
 
-    // Output point cloud (stable order)
     std::vector<Vec3> symPts;
     symPts.reserve(nb_nodes * ops.size());
 
-    auto get_id = [&](const Vec3 &q) -> std::size_t {
+    auto canonical = [&](Vec3 q) {
+        // Make sure this is exactly the same folding used everywhere else:
+        // q = retrieve_k_inside_mesh_geometry(q);  // or fold_to_first_BZ(q)
+        return q;
+    };
+
+    auto get_id = [&](const Vec3 &q_raw) -> std::size_t {
+        Vec3 q  = canonical(q_raw);
         auto it = index.find(q);
         if (it != index.end()) {
             return it->second;
@@ -596,18 +606,44 @@ int main(int argc, char **argv) try {
         return id;
     };
 
+    // 1) Pre-register each IW node to ensure it has an "own" ID
+    std::vector<std::size_t> own_id(nb_nodes);
     for (std::size_t i = 0; i < nb_nodes; ++i) {
-        const auto &p = nodes[i];
-        for (const auto &M : ops) {
-            Vec3        q  = mul(M, p);
-            std::size_t id = get_id(q);
-            sym_map[i].push_back(id);
-        }
+        own_id[i] = get_id(nodes[i]);
     }
 
+    // 2) Build unique orbit IDs per IW node
+    std::vector<std::vector<std::size_t>> orbit_ids(nb_nodes);
+    for (std::size_t i = 0; i < nb_nodes; ++i) {
+        std::unordered_set<std::size_t> seen;
+        seen.reserve(ops.size());
 
-    std::cout << "Nodes in full BZ mesh (after symmetry expansion): " << sym_map.size() << "\n";
-    export_kmap("kmap_ibz_to_bz.txt", sym_map);
+        for (const auto &M : ops) {
+            std::size_t id = get_id(mul(M, nodes[i]));
+            if (seen.insert(id).second) {
+                orbit_ids[i].push_back(id);
+            }
+        }
+
+        // Optional: ensure own_id is present (it will be if identity is in ops)
+        // if (!seen.count(own_id[i])) orbit_ids[i].insert(orbit_ids[i].begin(), own_id[i]);
+    }
+
+    std::ofstream out_kstar("kstar_ibz_to_bz.txt");
+    out_kstar << "# ops=" << ops.size() << " symPts=" << symPts.size() << "\n";
+    for (std::size_t i = 0; i < orbit_ids.size(); ++i) {
+        const auto &row = orbit_ids[i];
+        out_kstar << i << ' ' << row.size();
+        for (auto id : row) {
+            out_kstar << ' ' << id;
+        }
+        out_kstar << '\n';
+    }
+    out_kstar.close();
+    std::cout << "[info] wrote k-star data to kstar_ibz_to_bz.txt\n";
+
+    // std::cout << "Nodes in full BZ mesh (after symmetry expansion): " << sym_map.size() << "\n";
+    // export_kmap("kmap_ibz_to_bz.txt", sym_map);
 
     // Build discrete BZ from point cloud
     gmsh::model::add("bz_from_ibz_full_symmetry_cpp");

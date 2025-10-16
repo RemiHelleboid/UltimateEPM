@@ -83,7 +83,9 @@ int main(int argc, char const *argv[]) {
     const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
 
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
-    std::cout << "Keeping " << nb_conduction_bands << " conduction bands and " << nb_valence_bands << " valence bands." << std::endl;
+    ElectronPhonon.load_kstar_ibz_to_bz();
+    std::cout << "Keeping " << nb_conduction_bands << " conduction bands and " << nb_valence_bands
+                                                  << " valence bands." << std::endl;
     const bool shift_conduction_band     = true;
     const bool set_positive_valence_band = false;
     ElectronPhonon.read_mesh_bands_from_msh_file(mesh_band_input_file,
@@ -102,8 +104,9 @@ int main(int argc, char const *argv[]) {
     fermi_options.threads    = my_options.nrThreads;
     fermi_options.use_interp = false;  // use interpolation when computing DOS at given energy
     fermi_options.T_K        = 300.0;  // temperature for Fermi-Dirac
+    const bool use_iw     = true;  // use only irreducible wedge for DOS and Fermi level
 
-    auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options);
+    auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options, use_iw);
     if (result.success) {
         std::cout << "Fermi level found: EF = " << result.EF_eV << " eV\n";
         std::cout << "  p = " << result.p_m3 * 1e-6 << " cm^-3\n";
