@@ -118,23 +118,23 @@ int main(int argc, char const *argv[]) {
 
     ElectronPhonon.apply_scissor(-1.12);  // eV
 
-    constexpr double energy_step_dos = 0.002;  // eV
-    const double     max_energy_dos  = max_energy + 0.1;
-    ElectronPhonon.precompute_dos_tetra(energy_step_dos, max_energy_dos);
+    // constexpr double energy_step_dos = 0.002;  // eV
+    // const double     max_energy_dos  = max_energy + 0.1;
+    // ElectronPhonon.precompute_dos_tetra(energy_step_dos, max_energy_dos);
 
     ElectronPhonon.load_phonon_parameters(phonon_file);
     bool irreducible_wedge_only = plot_with_wedge.getValue();
-    bool populate_nk_npkp       = plot_with_knkpnp.getValue();
-
+    bool populate_nk_npkp       = false;
     std::cout << "Max energy: " << max_energy << " eV" << std::endl;
-    const double energy_step = 0.001;  // eV
-    ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
-    ElectronPhonon.export_rate_values("rates_all.csv");
 
-    ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels,
-                                                                          max_energy,
-                                                                          energy_step,
-                                                                          "rates_vs_energy.csv");
+    ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
+    
+    // ElectronPhonon.export_rate_values("rates_all.csv");
+    const double energy_step = 0.001;  // eV
+    // ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels,
+    //                                                                       max_energy,
+    //                                                                       energy_step,
+    //                                                                       "rates_vs_energy.csv");
     ElectronPhonon.apply_scissor(1.12);  // eV
     std::cout << std::scientific;
     const auto       mu_tensor   = ElectronPhonon.compute_electron_MRTA_mobility_tensor(Ef, T);
@@ -145,6 +145,24 @@ int main(int argc, char const *argv[]) {
     std::cout << "At T = " << temperature << " K and EF = " << Ef << " eV:\n";
     std::cout << "μ_iso = " << mu_iso * mu_to_cm2Vs << " cm^2/(V·s)\n";
     std::cout << "μ_tensor = \n" << mu_tensor * mu_to_cm2Vs << " cm^2/(V·s)\n";
+
+    std::filesystem::path name_path(mesh_band_input_file);
+    std::string           name_stem = name_path.stem().string();
+    std::string           output_mobility = name_stem + "_mobility.txt";
+    std::ofstream         file(output_mobility);
+    if (file) {
+        file << "# Mobility tensor computed with EPP\n";
+        file << "# Temperature in Kelvin : " << temperature << "\n";
+        file << "# Fermi level in eV : " << Ef << "\n";
+        file << "# Mobility tensor in cm^2/(V·s)\n";
+        file << mu_tensor * mu_to_cm2Vs << "\n";
+        file << "# Isotropic mobility in cm^2/(V·s)\n";
+        file << mu_iso * mu_to_cm2Vs << "\n";
+        file.close();
+        std::cout << "Mobility tensor written to " << output_mobility << "\n";
+    } else {
+        std::cerr << "Error: could not write to file " << output_mobility << "\n";
+    }
 
     std::cout << "Should be compared to experimental values of about 1350 cm^2/(V·s) at 300K and low doping.\n";
     // // ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
