@@ -932,10 +932,9 @@ double ElectronPhonon::compute_P_Gamma() const {
     }
     return pgamma_max;
 }
-
 // -------------------- TRANSPORT ---------------------
-// elelectron_phonon.cpp  (add near the bottom, before namespace close)
-#include "physical_functions.hpp"  // for fermi_dirac_distribution, d_de_fermi_dirac_dE
+// elelectron_phonon.cpp  (near the bottom, before namespace close)
+#include "physical_functions.hpp"  // fermi_dirac_distribution, d_de_fermi_dirac_dE
 
 Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fermi_level_eV, double temperature_K, bool conduction_only) {
     using namespace uepm::physics;
@@ -958,87 +957,69 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
         }
     }
 
-    // 1) Build per-vertex k-space integration weights (k-volume share per vertex),
-    //    then scale by reduce-BZ factor and spin degeneracy so that
-    //    Σ_k w_k (per band) ≈ g_s / V_cell (your DOS sum rule).
-    const double inv_2pi3 = 1.0 / std::pow(2.0 * M_PI, 3);
+    // 1) Per-vertex k-space weights (share of k-volume per vertex), scaled so that
+    //    Σ_k w_k (per band) ≈ g_s / V_cell (as in your DOS normalization).
+    const double inv_2pi3 = 1.0 / std::pow(2.0 * uepm::Constants::pi, 3);  // avoid M_PI
     if (m_count_weight_tetra_per_vertex.size() != m_list_vertices.size()) {
         m_count_weight_tetra_per_vertex.assign(m_list_vertices.size(), 0.0);
         for (const auto& T : m_list_tetrahedra) {
             const double Vt  = std::fabs(T.get_signed_volume());
             const auto   ids = T.get_list_indices_vertices();  // 4 vertex indices
-            // equal share to vertices (simple, robust). For higher accuracy you could
-            // use barycentric-volume partitioning, but this is already good on fine meshes.
+            // Equal-share to vertices (robust on fine meshes).
             for (int i = 0; i < 4; ++i) {
-                m_count_weight_tetra_per_vertex[ids[i]] += Vt * 0.25 * inv_2pi3;  // in m^-3
+                m_count_weight_tetra_per_vertex[ids[i]] += Vt * 0.25 * inv_2pi3;  // [m^-3]
             }
         }
-        // Convert mesh-volume units to physical states per m^3 using the same factors as DOS:
+        // Scale by reduce-BZ factor and spin degeneracy
         const double scale = get_reduce_bz_factor() * m_spin_degeneracy;
         for (double& w : m_count_weight_tetra_per_vertex) {
             w *= scale;
         }
     }
 
-    // 2) Conductivity tensor σ = q^2 ∑_{n,k} w_k τ_tr(n,k) (-df0/dE) v(n,k) v(n,k)^T
-    //    where v = (1/ħ) ∇_k E (you already store gradients).
-    //    Carrier density n = ∑_{n∈cond, k} w_k f0(E).
-    const double q  = uepm::Constants::q_e;       // C
+    // 2) σ = q^2 ∑_{n,k} w_k τ_tr(n,k) (-df0/dE) v v^T  with  v=(1/ħ)∇_k E
+    //    n = ∑_{n∈cond,k} w_k f0(E)
+    const double q  = uepm::Constants::q_e;       // Coulomb
     const double hE = uepm::Constants::h_bar_eV;  // eV·s
 
-    Eigen::Matrix3d sigma = Eigen::Matrix3d::Zero();
-    double          n_e   = 0.0;
+    Eigen::Matrix3d sigma = Eigen::Matrix3d::Zero();  // S/m
+    double          n_e   = 0.0;                      // m^-3
 
-    auto                     band_indices = [&](MeshParticleType t) { return this->get_band_indices(t); };
-    std::vector<std::size_t> bands_to_use;
-    if (conduction_only) {
-        bands_to_use = band_indices(MeshParticleType::conduction);
-    } else {
-        // If you ever want electrons+holes in one call, you could sum both and
-        // return σ_e + σ_h, n = n_e + n_h etc. For now, keep electrons only by default.
-        bands_to_use = band_indices(MeshParticleType::conduction);
+    auto bands = get_band_indices(MeshParticleType::conduction);
+    if (!conduction_only) {
+        // Extend here if you later want to add holes (σ_h) too.
+        // For now, keep electrons only.
     }
 
-    // Loop states
-    for (auto b : bands_to_use) {
-        std::size_t idx_band_local = get_local_band_index(b);                   // map to local index in m_phonon_rates_transport
-        const auto& inv_tau_at_k   = m_phonon_rates_transport[idx_band_local];  // 1/τ_tr at each vertex
+    for (auto b : bands) {
+        const std::size_t idx_band_local = get_local_band_index(b);
+        const auto&       inv_tau_at_k   = m_phonon_rates_transport[idx_band_local];  // [1/s] per vertex
+
         for (std::size_t k = 0; k < m_list_vertices.size(); ++k) {
             const double wk = m_count_weight_tetra_per_vertex[k];
             if (wk <= 0.0) {
                 continue;
             }
 
-            const double E = m_list_vertices[k].get_energy_at_band(b);  // eV
-            // if (E > fermi_level_eV + 0.20) {
-            //     // Skip very high states (negligible occupation)
-            //     continue;
-            // }
-
+            const double E    = m_list_vertices[k].get_energy_at_band(b);  // eV
             const double f0   = fermi_dirac_distribution(E, fermi_level_eV, temperature_K);
-            const double dfdE = -d_de_fermi_dirac_dE(E, fermi_level_eV, temperature_K);  // positive around EF
+            const double dfdE = -d_de_fermi_dirac_dE(E, fermi_level_eV, temperature_K) / uepm::Constants::q_e;  // [1/J]
 
-            // Skip states with no scattering data
             const double inv_tau = inv_tau_at_k[k];
             if (!(inv_tau > 0.0) || !std::isfinite(inv_tau)) {
                 continue;
             }
-            const double tau = 1.0 / inv_tau;
+            const double tau = 1.0 / inv_tau;  // s
 
-            // Group velocity (m/s)
+            // v = (1/ħ) ∇_k E
             const vector3   gE = m_list_vertices[k].get_energy_gradient_at_band(b);  // eV/m
             Eigen::Vector3d v;
-            v << (gE.x() / hE), (gE.y() / hE), (gE.z() / hE);
+            v << (gE.x() / hE), (gE.y() / hE), (gE.z() / hE);  // m/s
 
-            // Accumulate σ
-            // Units check: q^2 [C^2] * wk [1/m^3] * tau [s] * dfdE [1/eV] * v v^T [(m/s)^2]
-            // with 1/eV matched because g(E) (hidden in weights) was normalized using your factors.
-            // Result is S/m as desired.
-            sigma.noalias() += (wk * tau * dfdE) * (v * v.transpose());
-            // DEBUGGING:
-            std::cout << "k=" << k << " E=" << E << " f0=" << f0 << " dfdE=" << dfdE << " tau=" << tau << " v=[" << v.transpose() << "]\n";
+            // **Include q^2** to get σ in S/m
+            sigma.noalias() += (q * q) * (wk * tau * dfdE) * (v * v.transpose());
 
-            // Electron density (only conduction bands counted)
+            // electron density
             n_e += wk * f0;
         }
     }
@@ -1049,15 +1030,15 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
             "Check EF, T, and that rates were computed for conduction bands.");
     }
 
-    // 3) μ tensor = σ / (n q)
+    // 3) μ = σ / (n q)  (returns m^2/(V·s))
     const double    denom = n_e * q;
-    Eigen::Matrix3d mu    = sigma / denom;  // m^2/(V·s)
+    Eigen::Matrix3d mu    = sigma / denom;
     return mu;
 }
 
 double ElectronPhonon::compute_electron_MRTA_mobility_isotropic(double fermi_level_eV, double temperature_K, bool conduction_only) {
-    Eigen::Matrix3d mu = compute_electron_MRTA_mobility_tensor(fermi_level_eV, temperature_K, conduction_only);
-    return (mu.trace() / 3.0);  // simple isotropic average
+    const Eigen::Matrix3d mu = compute_electron_MRTA_mobility_tensor(fermi_level_eV, temperature_K, conduction_only);
+    return mu.trace() / 3.0;  // isotropic average, m^2/(V·s)
 }
 
 }  // namespace uepm::mesh_bz
