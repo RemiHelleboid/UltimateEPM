@@ -542,6 +542,7 @@ int main(int argc, char **argv) try {
     // ----------- Gmsh -----------
     gmsh::initialize();
     gmsh::model::add("BZ_from_IBZ_cpp");
+    // gmsh::option::setNumber("Mesh.Binary", 1);
     gmsh::option::setNumber("Mesh.Algorithm3D", 1);  // Delaunay 3D
 
     // Build geometry
