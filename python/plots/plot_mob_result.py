@@ -6,7 +6,7 @@ from typing import Optional, Tuple, List
 import numpy as np
 import matplotlib.pyplot as plt
 import scienceplots
-plt.style.use(['science', 'grid'])
+plt.style.use(['science', 'grid', 'no-latex'])
 
 NUM = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 
