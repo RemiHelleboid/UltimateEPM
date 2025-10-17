@@ -11,6 +11,12 @@
 
 #include "bz_mesh.hpp"
 
+#include <fmt/chrono.h>
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fmt/ostream.h>
+#include <fmt/ranges.h>
+
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <algorithm>
@@ -58,6 +64,7 @@ double MeshBZ::si_to_reduced_scale() const noexcept {
  * @param lattice_constant
  */
 void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor) {
+    m_filename_mesh = filename;
     std::cout << "Opening file " << filename << std::endl;
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 0);
@@ -159,9 +166,18 @@ void MeshBZ::load_kstar_ibz_to_bz(const std::string& filename) {
     m_kstar_ibz_to_bz.clear();
     m_kstar_ibz_to_bz.reserve(m_list_vertices.size());
 
-    std::ifstream in(filename);
+    // Check if file exists
+    std::string stem           = std::filesystem::path(m_filename_mesh).stem().string();
+    std::string kstar_filename = fmt::format("{}_kstar_ibz_to_bz.txt", stem);
+    std::cout << "Loading kstar_ibz_to_bz from file : " << kstar_filename << std::endl;
+    bool file_exists = std::filesystem::exists(kstar_filename);
+    if (!file_exists) {
+        throw std::runtime_error("load_kstar_file: can't find kstar_ibz_to_bz file");
+    }
+
+    std::ifstream in(kstar_filename);
     if (!in) {
-        throw std::runtime_error("load_kstar_file: can't open " + filename);
+        throw std::runtime_error("load_kstar_file: can't open " + kstar_filename);
     }
     std::string line;
     std::size_t max_iw = 0;
@@ -284,6 +300,7 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
                                            int                nb_valence_bands,
                                            bool               auto_shift_conduction_band,
                                            bool               set_positive_valence_band) {
+    m_filename_mesh = filename;
     std::cout << "Opening file " << filename << std::endl;
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 0);
@@ -568,7 +585,7 @@ void MeshBZ::add_new_band_energies_to_vertices(const std::vector<double>& energi
     }
 }
 
-void MeshBZ::compute_min_max_energies_at_tetras() {
+void        MeshBZ::compute_min_max_energies_at_tetras() {
 #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (auto&& tetra : m_list_tetrahedra) {
         tetra.compute_min_max_energies_at_bands();
@@ -672,7 +689,7 @@ void MeshBZ::set_bands_in_right_order() {
     recompute_min_max_energies();
 }
 
-void MeshBZ::compute_energy_gradient_at_tetras() {
+void        MeshBZ::compute_energy_gradient_at_tetras() {
 #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (auto&& tetra : m_list_tetrahedra) {
         tetra.compute_gradient_energy_at_bands();
@@ -689,7 +706,7 @@ vector3 MeshBZ::interpolate_energy_gradient_at_location(const vector3& location,
 
 double MeshBZ::compute_mesh_volume() const {
     double total_volume = 0.0;
-    #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops) reduction(+:total_volume)
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops) reduction(+ : total_volume)
     for (auto&& tetra : m_list_tetrahedra) {
         total_volume += std::fabs(tetra.get_signed_volume());
     }
@@ -1087,9 +1104,9 @@ void MeshBZ::compute_band_structure_over_mesh(uepm::pseudopotential::BandStructu
     }
 
     recompute_min_max_energies();
-    m_nb_bands_total       = m_min_band.size();
-    constexpr double eps   = 1e-6;
-    std::size_t     count_band = 0;
+    m_nb_bands_total            = m_min_band.size();
+    constexpr double eps        = 1e-6;
+    std::size_t      count_band = 0;
     for (std::size_t b = 0; b < m_nb_bands_total; ++b) {
         bool is_valence = (m_min_band[b] < eps);
         if (is_valence) {
@@ -1183,8 +1200,11 @@ void MeshBZ::export_selected_bands_to_gmsh(const std::string& out_filename,
     gmsh::model::getCurrent(model_file_name);
     gmsh::option::setNumber("Mesh.Binary", 1);
 
-    bool        first_view = true;
-    std::size_t out_idx    = 0;
+    bool write_mesh = true;
+    if (std::filesystem::exists(out_filename)) {
+        write_mesh = false;
+    }
+    std::size_t out_idx = 0;
 
     auto write_one_view = [&](const std::string& name, const std::vector<double>& vals) {
         const int data_tag = gmsh::view::add(name);
@@ -1192,9 +1212,9 @@ void MeshBZ::export_selected_bands_to_gmsh(const std::string& out_filename,
 
         const int index_view = gmsh::view::getIndex(data_tag);
         gmsh::option::setNumber("View[" + std::to_string(index_view) + "].Visible", 0);
-        gmsh::option::setNumber("PostProcessing.SaveMesh", first_view ? 1 : 0);
+        gmsh::option::setNumber("PostProcessing.SaveMesh", write_mesh ? 1 : 0);
         gmsh::view::write(data_tag, out_filename, /*append=*/true);
-        first_view = false;
+        write_mesh = false;
     };
 
     // Valence

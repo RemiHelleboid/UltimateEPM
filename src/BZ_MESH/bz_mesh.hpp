@@ -48,6 +48,9 @@ struct BandRange {
 
 class MeshBZ {
  protected:
+
+    std::string m_filename_mesh;
+
     int m_nb_threads_mesh_ops = 1;
 
     uepm::pseudopotential::Material m_material;

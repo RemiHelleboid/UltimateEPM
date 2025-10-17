@@ -8,6 +8,11 @@
  *
  */
 
+#include <fmt/chrono.h>
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fmt/ostream.h>
+#include <fmt/ranges.h>
 #include <gmsh.h>
 #include <tclap/CmdLine.h>
 
@@ -19,6 +24,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <filesystem>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -578,8 +584,7 @@ int main(int argc, char **argv) try {
     }
 
     // Symmetry expansion
-    std::cout << "Expanding nodes to full BZ using symmetry...\n";
-    std::cout << "Expanding nodes to full BZ using symmetry...\n";
+    fmt::print("Expanding nodes to full BZ using symmetry...\n");
     auto             ops      = symmetry_ops_full();  // MUST contain identity
     const std::size_t nb_nodes = nodes.size();
 
@@ -630,18 +635,26 @@ int main(int argc, char **argv) try {
         // if (!seen.count(own_id[i])) orbit_ids[i].insert(orbit_ids[i].begin(), own_id[i]);
     }
 
-    std::ofstream out_kstar("kstar_ibz_to_bz.txt");
-    out_kstar << "# ops=" << ops.size() << " symPts=" << symPts.size() << "\n";
-    for (std::size_t i = 0; i < orbit_ids.size(); ++i) {
-        const auto &row = orbit_ids[i];
-        out_kstar << i << ' ' << row.size();
-        for (auto id : row) {
-            out_kstar << ' ' << id;
+    std::string stem = std::filesystem::path(outArg.getValue()).stem().string();
+    std::string kstar_filename = fmt::format("{}_kstar_ibz_to_bz.txt", stem);
+    std::ofstream out_kstar(kstar_filename);
+    if (!out_kstar) {
+        std::cerr << "[error] could not open " << kstar_filename << " for writing\n";
+    } else {
+        fmt::print(out_kstar, "# ops={} symPts={}\n", ops.size(), symPts.size());
+        for (std::size_t i = 0; i < orbit_ids.size(); ++i) {
+            const auto &row = orbit_ids[i];
+            fmt::print(out_kstar, "{} {}", i, row.size());
+            for (auto id : row) {
+                fmt::print(out_kstar, " {}", id);
+            }
+            fmt::print(out_kstar, "\n");
         }
-        out_kstar << '\n';
+        out_kstar.close();
+        std::cout << "[info] wrote k-star data to " << kstar_filename << "\n";
     }
-    out_kstar.close();
-    std::cout << "[info] wrote k-star data to kstar_ibz_to_bz.txt\n";
+
+    // std::cout << "[info] wrote k-star data to kstar_ibz_to_bz.txt\n";
 
     // std::cout << "Nodes in full BZ mesh (after symmetry expansion): " << sym_map.size() << "\n";
     // export_kmap("kmap_ibz_to_bz.txt", sym_map);
@@ -659,6 +672,10 @@ int main(int argc, char **argv) try {
 
     // Write additional outputs
     std::string out = outArg.getValue();
+    if (std::filesystem::exists(out)) {
+        std::cout << "[warn] output file " << out << " exists and will be overwritten.\n";
+        std::filesystem::remove(out);
+    }
     gmsh::write(out);
 
     if (!noGui.getValue()) {

@@ -1001,6 +1001,7 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
         const auto&       inv_tau_at_k   = m_phonon_rates_transport[idx_band_local];  // [1/s] per vertex
 
         for (std::size_t k = 0; k < m_list_vertices.size(); ++k) {
+           
             const double wk = m_count_weight_tetra_per_vertex[k];
             if (wk <= 0.0) {
                 continue;

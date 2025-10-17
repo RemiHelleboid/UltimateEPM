@@ -118,6 +118,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Exporting " << arg_nb_valence_bands.getValue() << " valence bands and " << arg_nb_conduction_bands.getValue()
               << " conduction bands to file: " << out_file_bands << std::endl;
     bool highest_valence_as_band0 = true;
+
     my_bz_mesh.export_selected_bands_to_gmsh(out_file_bands,
                                              arg_nb_valence_bands.getValue(),
                                              arg_nb_conduction_bands.getValue(),
