@@ -52,6 +52,7 @@ int main(int argc, const char** argv) {
     const std::string file_mesh              = arg_mesh_file.getValue();
     const std::string material_symbol        = arg_material.getValue();
     const std::string file_phonon_scattering = arg_phonon_file.getValue();
+    int nb_threads                          = arg_nb_threads.getValue();
     int               nb_valence_bands       = 0;
     int               nb_conduction_bands    = 4;
 
@@ -61,6 +62,7 @@ int main(int argc, const char** argv) {
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
     uepm::mesh_bz::ElectronPhonon mesh(current_material);
+    mesh.set_nb_threads(nb_threads);
     mesh.read_mesh_geometry_from_msh_file(file_mesh);
     mesh.build_search_tree();
     mesh.export_octree_to_vtu("octree.vtu");

@@ -393,7 +393,7 @@ void MeshBZ::apply_scissor(double scissor_value) {
 void MeshBZ::precompute_dos_tetra(double energy_step, double energy_max) {
     std::cout << "Precomputing DOS per tetrahedra with energy step = " << energy_step << " eV ..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t i = 0; i < m_list_tetrahedra.size(); ++i) {
         m_list_tetrahedra[i].precompute_dos_on_energy_grid_per_band(energy_step, energy_max);
     }
@@ -720,7 +720,7 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
 
     std::vector<double> list_energies{};
     std::vector<double> list_dos{};
-#pragma omp parallel for schedule(dynamic) num_threads(num_threads) reduction(merge : list_energies) reduction(merge : list_dos)
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops) reduction(merge : list_energies) reduction(merge : list_dos)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
         double dos    = compute_dos_at_energy_and_band(energy, band_index);
@@ -751,7 +751,7 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int      
 
     std::vector<double> list_energies(nb_points);
     std::vector<double> list_dos(nb_points);
-#pragma omp parallel for schedule(dynamic) num_threads(num_threads)
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy               = min_energy + index_energy * energy_step;
         double dos                  = compute_dos_at_energy_and_band(energy, band_index, use_interp, use_iw);
@@ -1052,8 +1052,7 @@ void MeshBZ::compute_band_structure_over_mesh(uepm::pseudopotential::BandStructu
     }
     std::cout << "Number of k-points in the irreducible BZ: " << mesh_kpoints.size() << std::endl;
     band_structure.set_kpoints(mesh_kpoints);
-    int nb_threads = 4;  // adjust as needed
-    band_structure.Compute_parallel(nb_threads);
+    band_structure.Compute_parallel(m_num_threads_mesh_ops);
     bool set_cond_band_zero = false;
     band_structure.AdjustValues(set_cond_band_zero);
 
@@ -1101,7 +1100,7 @@ void MeshBZ::distribute_energies_from_iw_wedge_to_full_bz() {
     if (nb_bands == 0) {
         throw std::runtime_error("No band energies found in the irreducible wedge vertex. Cannot distribute energies to full BZ.");
     }
-
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (const auto& idx_vtx : m_list_vtx_in_iwedge) {
         const auto& vtx_iw        = m_list_vertices[idx_vtx];
         const auto& list_energies = vtx_iw.get_band_energies();

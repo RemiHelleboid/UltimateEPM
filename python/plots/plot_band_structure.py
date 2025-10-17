@@ -9,7 +9,7 @@ from scipy.interpolate import CubicSpline
 
 
 try:
-    plt.style.use(['science', 'high-vis'])
+    plt.style.use(['science', 'high-vis', 'no-latex'])
 except Exception:
     None
 # plt.style.use(['seaborn-paper'])
