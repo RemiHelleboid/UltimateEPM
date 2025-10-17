@@ -350,6 +350,7 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
     compute_energy_gradient_at_tetras();
     set_energy_gradient_at_vertices_by_averaging_tetras();
 
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (auto&& tetra : m_list_tetrahedra) {
         tetra.pre_compute_sorted_slots_per_band();
     }
@@ -377,6 +378,7 @@ void MeshBZ::print_band_info() const {
  */
 void MeshBZ::apply_scissor(double scissor_value) {
     std::cout << "Applying scissor of " << scissor_value << " eV to conduction bands ..." << std::endl;
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (auto&& vtx : m_list_vertices) {
         const std::size_t nb_bands = vtx.get_number_bands();
         for (std::size_t i = 0; i < nb_bands; ++i) {
@@ -398,34 +400,42 @@ void MeshBZ::precompute_dos_tetra(double energy_step, double energy_max) {
         m_list_tetrahedra[i].precompute_dos_on_energy_grid_per_band(energy_step, energy_max);
     }
 }
-
 void MeshBZ::set_energy_gradient_at_vertices_by_averaging_tetras() {
     std::cout << "Setting energy gradient at vertices by volume-weighted averaging ..." << std::endl;
 
-    constexpr double eps = 1e-18;
+    constexpr double  eps = 1e-18;
+    const std::size_t nv  = m_list_vertices.size();
 
-    for (std::size_t idx_vtx = 0; idx_vtx < m_list_vertices.size(); ++idx_vtx) {
+    // (Optional but recommended) pre-size per-vertex gradient storage
+    for (std::size_t v = 0; v < nv; ++v) {
+        const auto nb_bands = m_list_vertices[v].get_number_bands();
+        m_list_vertices[v].resize_energy_gradient_at_bands(nb_bands);  // add this API
+    }
+
+#pragma omp parallel for schedule(dynamic, 64) num_threads(m_nb_threads_mesh_ops)
+    for (std::size_t idx_vtx = 0; idx_vtx < nv; ++idx_vtx) {
         const std::size_t nb_bands = m_list_vertices[idx_vtx].get_number_bands();
-        // m_list_vertices[idx_vtx].clear_energy_gradient_at_bands();
 
         for (std::size_t idx_band = 0; idx_band < nb_bands; ++idx_band) {
             vector3 accum(0.0, 0.0, 0.0);
             double  wsum = 0.0;
 
-            // Loop over incident tetrahedra
+            // incident tetrahedra of this vertex (read-only)
             for (auto t_idx : m_vertex_to_tetrahedra[idx_vtx]) {
                 const auto&  T  = m_list_tetrahedra[t_idx];
                 const double VT = std::abs(T.get_signed_volume());
                 if (VT <= eps) {
                     continue;
                 }
-                const vector3 gT = T.get_gradient_energy_at_band(idx_band);  // P1: constant per tet
+
+                const vector3 gT = T.get_gradient_energy_at_band(idx_band);  // P1 constant per tet
                 accum += VT * gT;
                 wsum += VT;
             }
 
             const vector3 g_i = (wsum > 0.0) ? (accum / wsum) : vector3(0.0, 0.0, 0.0);
-            m_list_vertices[idx_vtx].push_back_energy_gradient_at_band(g_i);
+            // Prefer indexed setter to avoid push_back reallocations
+            m_list_vertices[idx_vtx].set_energy_gradient_at_band(idx_band, g_i);
         }
     }
 
@@ -465,6 +475,7 @@ void MeshBZ::recompute_energies_data_and_sync(bool   recompute_min_max,
         set_energy_gradient_at_vertices_by_averaging_tetras();
     }
     // Sync the tetrahedra data
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (auto&& tetra : m_list_tetrahedra) {
         tetra.pre_compute_sorted_slots_per_band();
     }
@@ -518,6 +529,7 @@ void MeshBZ::keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduc
         std::cout << "Removing " << nb_valence_to_remove << " valence bands (keeping " << nb_valence_bands << ")\n";
         for (int i = 0; i < nb_valence_to_remove; ++i) {
             std::size_t band_index_to_remove = valence_indices[valence_indices.size() - 1 - i];
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
             for (auto&& vtx : m_list_vertices) {
                 vtx.remove_band_energy(band_index_to_remove);
             }
@@ -533,6 +545,7 @@ void MeshBZ::keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduc
         std::cout << "Removing " << nb_conduction_to_remove << " conduction bands (keeping " << nb_conduction_bands << ")\n";
         for (int i = 0; i < nb_conduction_to_remove; ++i) {
             std::size_t band_index_to_remove = conduction_indices[conduction_indices.size() - 1 - i];
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
             for (auto&& vtx : m_list_vertices) {
                 vtx.remove_band_energy(band_index_to_remove);
             }
@@ -549,12 +562,14 @@ void MeshBZ::add_new_band_energies_to_vertices(const std::vector<double>& energi
     if (energies_at_vertices.size() != m_list_vertices.size()) {
         throw std::invalid_argument("The number of energy values does not match the number of vertices. Abort.");
     }
+#pragma omp parallel for schedule(static) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t index_vtx = 0; index_vtx < m_list_vertices.size(); ++index_vtx) {
         m_list_vertices[index_vtx].add_band_energy_value(energies_at_vertices[index_vtx]);
     }
 }
 
 void MeshBZ::compute_min_max_energies_at_tetras() {
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (auto&& tetra : m_list_tetrahedra) {
         tetra.compute_min_max_energies_at_bands();
     }
@@ -562,6 +577,7 @@ void MeshBZ::compute_min_max_energies_at_tetras() {
 
 void MeshBZ::auto_set_positive_valence_band_energies() {
     std::vector<std::size_t> valence_band_indices = get_band_indices(MeshParticleType::valence);
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (auto&& vtx : m_list_vertices) {
         for (auto idx_band : valence_band_indices) {
             double energy = vtx.get_energy_at_band(idx_band);
@@ -599,7 +615,7 @@ void MeshBZ::auto_shift_conduction_band_energies() {
     // Shift all conduction bands so that the conduction band minimum aligns with the valence band maximum
     double shift_amount = -band_gap;
     std::cout << "Shifting conduction bands by " << shift_amount << " eV to align CBM with VBM.\n";
-
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (auto&& vtx : m_list_vertices) {
         for (auto idx_band : conduction_band_indices) {
             double old_energy = vtx.get_energy_at_band(idx_band);
@@ -648,6 +664,7 @@ void MeshBZ::set_bands_in_right_order() {
     // void reverse_energies_order(int first_idx, int last_idx) {
     int global_idx_first = valence_indices.front();
     int global_idx_last  = valence_indices.back();
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (auto&& vtx : m_list_vertices) {
         vtx.reverse_energies_order(global_idx_first, global_idx_last);
     }
@@ -656,6 +673,7 @@ void MeshBZ::set_bands_in_right_order() {
 }
 
 void MeshBZ::compute_energy_gradient_at_tetras() {
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (auto&& tetra : m_list_tetrahedra) {
         tetra.compute_gradient_energy_at_bands();
     }
@@ -671,11 +689,10 @@ vector3 MeshBZ::interpolate_energy_gradient_at_location(const vector3& location,
 
 double MeshBZ::compute_mesh_volume() const {
     double total_volume = 0.0;
+    #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops) reduction(+:total_volume)
     for (auto&& tetra : m_list_tetrahedra) {
         total_volume += std::fabs(tetra.get_signed_volume());
-        // std::cout << "Tetra " << tetra.get_index() << " volume: " << tetra.get_signed_volume() << std::endl;
     }
-    // total_volume *= (1.0 / pow(2.0 * M_PI, 3.0));
     return total_volume;
 }
 
@@ -751,8 +768,9 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int      
 
     std::vector<double> list_energies(nb_points);
     std::vector<double> list_dos(nb_points);
-#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
+#pragma omp parallel for schedule(dynamic) num_threads(num_threads)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
+        std::cout << "Energy index: " << index_energy << "/" << nb_points << std::endl;
         double energy               = min_energy + index_energy * energy_step;
         double dos                  = compute_dos_at_energy_and_band(energy, band_index, use_interp, use_iw);
         list_energies[index_energy] = energy;
@@ -1045,6 +1063,7 @@ void MeshBZ::compute_band_structure_over_mesh(uepm::pseudopotential::BandStructu
     std::vector<Vector3D<double>> mesh_kpoints(nb_irreducible_vertices);
     const double                  si_to_red = si_to_reduced_scale();
     std::cout << "Total number of vertices in the BZ mesh: " << m_list_vertices.size() << std::endl;
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t i = 0; i < nb_irreducible_vertices; ++i) {
         const auto& vtx = full_list_vertices[list_idx_irreducible_vertices[i]];
         mesh_kpoints[i] =
@@ -1052,11 +1071,12 @@ void MeshBZ::compute_band_structure_over_mesh(uepm::pseudopotential::BandStructu
     }
     std::cout << "Number of k-points in the irreducible BZ: " << mesh_kpoints.size() << std::endl;
     band_structure.set_kpoints(mesh_kpoints);
-    band_structure.Compute_parallel(m_num_threads_mesh_ops);
+    band_structure.Compute_parallel(m_nb_threads_mesh_ops);
     bool set_cond_band_zero = false;
     band_structure.AdjustValues(set_cond_band_zero);
 
     // Now distribute the computed energies to the mesh vertices
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t i = 0; i < nb_irreducible_vertices; ++i) {
         const auto& vtx             = full_list_vertices[list_idx_irreducible_vertices[i]];
         const auto& energies_at_vtx = band_structure.get_band_energies().at(i);

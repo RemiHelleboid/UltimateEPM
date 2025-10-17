@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
     const std::string mesh_band_input_file = arg_mesh_file.getValue();
 
     uepm::mesh_bz::MeshBZ my_bz_mesh{current_material};
-    my_bz_mesh.set_nb_threads(my_options.nrThreads);
+    my_bz_mesh.set_number_threads_mesh_ops(my_options.nrThreads);
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file);
     my_bz_mesh.load_kstar_ibz_to_bz();
 

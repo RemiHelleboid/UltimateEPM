@@ -121,6 +121,7 @@ Result solve_fermi(MeshBZ& mesh, const Options& opt, bool use_iw) {
     const auto valence_count    = mesh.get_band_indices(MeshParticleType::valence).size();
     const auto conduction_count = mesh.get_band_indices(MeshParticleType::conduction).size();
     std::cout << "Compute DOS on " << valence_count << " valence bands and " << conduction_count << " conduction bands.\n";
+    std::cout << "Using " << opt.threads << " threads for DOS computation.\n";
 
     for (int b = 0; b < nb_bands; ++b) {
         auto lists = mesh.compute_dos_band_at_band_auto(b, static_cast<std::size_t>(opt.nE), opt.threads, opt.use_interp, use_iw);
