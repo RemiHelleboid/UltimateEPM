@@ -92,12 +92,12 @@ void BandStructure::Initialize(const Material&                 material,
     }
 }
 
-void BandStructure::Initialize(const Material&               material,
-                               std::size_t                   nb_bands,
+void BandStructure::Initialize(const Material&                      material,
+                               std::size_t                          nb_bands,
                                const std::vector<Vector3D<double>>& list_k_points,
-                               unsigned int                  nearestNeighborsNumber,
-                               bool                          enable_non_local_correction,
-                               bool                          enable_soc) {
+                               unsigned int                         nearestNeighborsNumber,
+                               bool                                 enable_non_local_correction,
+                               bool                                 enable_soc) {
     m_material                    = material;
     m_nb_bands                    = nb_bands;
     m_nb_points                   = list_k_points.size();
@@ -148,7 +148,8 @@ void BandStructure::Compute() {
 
 void BandStructure::Compute_parallel(int nb_threads) {
     std::cout << "Computing band structure with " << nb_threads << " threads..." << std::endl;
-    auto start = std::chrono::high_resolution_clock::now();
+    auto start  = std::chrono::high_resolution_clock::now();
+    m_nb_points = m_kpoints.size();
     std::cout << "Reserving space for " << m_nb_points << " k-points and " << m_nb_bands << " bands." << std::endl;
     m_results.clear();
     m_results.resize(m_nb_points);
@@ -194,6 +195,7 @@ double BandStructure::AdjustValues(bool minConductionBandToZero) {
     if (FindBandGap(m_results, maxValValence, minValConduction)) {
         band_gap = minValConduction - maxValValence;
     }
+    std::cout << "Band gap found: " << band_gap << " eV" << std::endl;
 
     for (std::size_t idx_k = 0; idx_k < m_results.size(); ++idx_k) {
         for (std::size_t idx_band = 0; idx_band < m_results[idx_k].size(); ++idx_band) {

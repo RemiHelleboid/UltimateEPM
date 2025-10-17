@@ -10,6 +10,9 @@
 
 #pragma once
 
+#include <cmath>
+
+#include "vector.hpp"
 #include "elph_common.hpp"
 
 namespace uepm::mesh_bz {
@@ -30,7 +33,7 @@ struct DeformationPotential {
 
     double get_fischetti_deformation_potential(const vector3& q, int idx_band) const {
         constexpr double cm_to_m = 1e2;
-        const double     boost   = 1.4;
+        const double     boost   = 1.5;
         if (mode == PhononMode::acoustic) {
             return (idx_band == 0 ? boost * 1.2 : boost * 1.0 * 1.7) * q.norm();
         } else {

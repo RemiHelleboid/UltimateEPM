@@ -220,6 +220,7 @@ class Vertex {
     }
     void resize_band_energies(std::size_t new_size) { m_band_energies.resize(new_size); }
     void clear_band_energies() { m_band_energies.clear(); }
+    void set_all_band_energies(const std::vector<double>& energies) { m_band_energies = energies; }
     void clear_energy_gradient_at_bands() { m_energy_gradient_at_bands.clear(); }
     void resize_energy_gradient_at_bands(std::size_t new_size) { m_energy_gradient_at_bands.resize(new_size); }
     void shrink_energy_gradient_at_bands() { m_energy_gradient_at_bands.shrink_to_fit(); }

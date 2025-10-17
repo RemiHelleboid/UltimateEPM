@@ -1,4 +1,5 @@
 set(HEADER_FILES_LIBBZMESH
+    gmsh_guard.hpp
     mesh_tetra.hpp
     mesh_vertex.hpp
     bz_mesh.hpp

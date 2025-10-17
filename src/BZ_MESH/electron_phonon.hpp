@@ -121,6 +121,7 @@ class ElectronPhonon : public BZ_States {
                                                  bool   populate_nk_npkp       = false);
     void add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename);
     void compute_electron_phonon_rates_over_mesh_nk_npkp(bool irreducible_wedge_only = false);
+    void clean_all_elph_data();
 
     std::pair<int, std::size_t> select_electron_phonon_final_state(std::size_t     idx_band_initial,
                                                                    const vector3&  k_initial,

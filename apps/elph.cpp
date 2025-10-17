@@ -25,6 +25,41 @@
 #include "electron_phonon.hpp"
 #include "fermi_level.hpp"
 
+int export_result_mobility(const std::string     &filename,
+                           const Eigen::Matrix3d &mu_tensor,
+                           double                 mu_iso,
+                           double                 Ef,
+                           const Options         &my_options,
+                           double                 max_energy,
+                           double                 temperature,
+                           std::size_t            nb_vtx,
+                           std::size_t            nb_conduction_bands,
+                           std::size_t            nb_valence_bands) {
+    std::ofstream file(filename);
+    constexpr double mu_to_cm2Vs = 1e4;  // m^2/(V·s) to cm^2/(V·s)
+
+    if (file) {
+        file << "# Mobility tensor computed with EPP\n";
+        file << "# Number of vertices : " << nb_vtx << "\n";
+        file << "# Number of conduction bands : " << nb_conduction_bands << "\n";
+        file << "# Number of valence bands : " << nb_valence_bands << "\n";
+        file << "# Material : " << my_options.materialName << "\n";
+        file << "# Energy range in eV : " << max_energy << "\n";
+        file << "# Temperature in Kelvin : " << temperature << "\n";
+        file << "# Fermi level in eV : " << Ef << "\n";
+        file << "# Mobility tensor in cm^2/(V·s)\n";
+        file << mu_tensor * mu_to_cm2Vs << "\n";
+        file << "# Isotropic mobility in cm^2/(V·s)\n";
+        file << mu_iso * mu_to_cm2Vs << "\n";
+        file.close();
+        std::cout << "Mobility tensor written to " << filename << "\n";
+    } else {
+        std::cerr << "Error: could not write to file " << filename << "\n";
+        return 1;
+    }
+    return 0;
+}
+
 int main(int argc, char const *argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
@@ -101,9 +136,9 @@ int main(int argc, char const *argv[]) {
     uepm::mesh_bz::fermi::Options fermi_options;
     fermi_options.nE         = 1000;  // number of energy points for DOS interpolation
     fermi_options.threads    = my_options.nrThreads;
-    fermi_options.use_interp = false;  // use interpolation when computing DOS at given energy
+    fermi_options.use_interp = false;        // use interpolation when computing DOS at given energy
     fermi_options.T_K        = temperature;  // temperature for Fermi-Dirac
-    const bool use_iw        = true;   // use only irreducible wedge for DOS and Fermi level
+    const bool use_iw        = true;         // use only irreducible wedge for DOS and Fermi level
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options, use_iw);
     if (result.success) {
@@ -116,21 +151,16 @@ int main(int argc, char const *argv[]) {
     const double Ef = result.EF_eV;
     const double T  = temperature;
 
-    ElectronPhonon.apply_scissor(-1.12);  // eV
-
-    // constexpr double energy_step_dos = 0.002;  // eV
-    // const double     max_energy_dos  = max_energy + 0.1;
-    // ElectronPhonon.precompute_dos_tetra(energy_step_dos, max_energy_dos);
-
+    ElectronPhonon.apply_scissor(-1.12);
     ElectronPhonon.load_phonon_parameters(phonon_file);
     bool irreducible_wedge_only = plot_with_wedge.getValue();
     bool populate_nk_npkp       = false;
     std::cout << "Max energy: " << max_energy << " eV" << std::endl;
 
     ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
-    
+
     // ElectronPhonon.export_rate_values("rates_all.csv");
-    const double energy_step = 0.001;  // eV
+    // const double energy_step = 0.001;  // eV
     // ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels,
     //                                                                       max_energy,
     //                                                                       energy_step,
@@ -145,40 +175,33 @@ int main(int argc, char const *argv[]) {
     std::cout << "At T = " << temperature << " K and EF = " << Ef << " eV:\n";
     std::cout << "μ_iso = " << mu_iso * mu_to_cm2Vs << " cm^2/(V·s)\n";
     std::cout << "μ_tensor = \n" << mu_tensor * mu_to_cm2Vs << " cm^2/(V·s)\n";
-
-    std::size_t nb_vtx = ElectronPhonon.get_number_vertices();
-    std::filesystem::path name_path(mesh_band_input_file);
-    std::string           name_stem = name_path.stem().string();
-    std::string           output_mobility = name_stem + "_mobility.txt";
-    std::ofstream         file(output_mobility);
-    if (file) {
-        file << "# Mobility tensor computed with EPP\n";
-        file << "# Number of vertices : " << nb_vtx << "\n";
-        file << "# Number of conduction bands : " << nb_conduction_bands << "\n";
-        file << "# Number of valence bands : " << nb_valence_bands << "\n";
-        file << "# Material : " << my_options.materialName << "\n";
-        file << "# Energy range in eV : " << max_energy << "\n";
-        file << "# Temperature in Kelvin : " << temperature << "\n";
-        file << "# Fermi level in eV : " << Ef << "\n";
-        file << "# Mobility tensor in cm^2/(V·s)\n";
-        file << mu_tensor * mu_to_cm2Vs << "\n";
-        file << "# Isotropic mobility in cm^2/(V·s)\n";
-        file << mu_iso * mu_to_cm2Vs << "\n";
-        file.close();
-        std::cout << "Mobility tensor written to " << output_mobility << "\n";
-    } else {
-        std::cerr << "Error: could not write to file " << output_mobility << "\n";
-    }
-
     std::cout << "Should be compared to experimental values of about 1350 cm^2/(V·s) at 300K and low doping.\n";
-    // // ElectronPhonon.add_electron_phonon_rates_to_mesh(mesh_band_input_file, "rates.msh");
+
+    std::size_t           nb_vtx = ElectronPhonon.get_number_vertices();
+    std::filesystem::path name_path(mesh_band_input_file);
+    std::string           name_stem       = name_path.stem().string();
+    std::string           output_mobility = name_stem + "_mobility.txt";
+    export_result_mobility(output_mobility,
+                           mu_tensor,
+                           mu_iso,
+                           Ef,
+                           my_options,
+                           max_energy,
+                           temperature,
+                           nb_vtx,
+                           nb_conduction_bands,
+                           nb_valence_bands);
+
     auto stop = std::chrono::high_resolution_clock::now();
     std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n\n\n" << std::endl;
 
     if (plot_with_python.getValue()) {
         std::string command = "python3 " + std::string(PROJECT_SRC_DIR) + "/python/plots/plot_phonon_rate.py -f rates_vs_energy.csv";
         std::cout << "Running command: " << command << std::endl;
-        std::system(command.c_str());
+        int pyRes = std::system(command.c_str());
+        if (pyRes != 0) {
+            std::cerr << "Error: Python script returned non-zero exit code " << pyRes << "\n";
+        }
     }
 
     return 0;

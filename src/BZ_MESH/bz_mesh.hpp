@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "BandStructure.h"
 #include "Material.h"
 #include "export_octree_vtu.hpp"
 #include "mesh_tetra.hpp"
@@ -37,16 +38,18 @@ enum class MeshParticleType { valence, conduction };
 
 struct BandInfo {
     MeshParticleType type{MeshParticleType::conduction};
-    int              local_index{0};
+    std::size_t      local_index{0};
 };
 
 struct BandRange {
     int global_start_index{-1};
-    int count{0};
+    std::size_t count{0};
 };
 
 class MeshBZ {
  protected:
+    int m_nb_threads_mesh_ops = 1;
+
     uepm::pseudopotential::Material m_material;
 
     vector3 m_center{0.0, 0.0, 0.0};
@@ -103,6 +106,9 @@ class MeshBZ {
     // ~MeshBZ();  // out-of-line (needed for unique_ptr<Octree_mesh> with fwd-decl)
 
     // ---------- light getters / basics ----------
+    int get_number_threads_mesh_ops() const noexcept { return m_nb_threads_mesh_ops; }
+    void set_number_threads_mesh_ops(int nb_threads) noexcept { m_nb_threads_mesh_ops = nb_threads; }
+
     const vector3& get_vertex_position(std::size_t idx_vtx) const { return m_list_vertices[idx_vtx].get_position(); }
     const vector3& get_center() const noexcept { return m_center; }
     void           shift_bz_center(const vector3& shift);
@@ -114,6 +120,12 @@ class MeshBZ {
     std::size_t get_number_vertices() const noexcept { return m_list_vertices.size(); }
     std::size_t get_number_elements() const noexcept { return m_list_tetrahedra.size(); }
     double      get_volume() const noexcept { return m_total_volume; }
+
+    const std::vector<Vertex>&      get_list_vertices() const noexcept { return m_list_vertices; }
+    const std::vector<Tetra>&       get_list_tetrahedra() const noexcept { return m_list_tetrahedra; }
+    const std::vector<std::size_t>& get_list_vertex_indices_in_irreducible_wedge() const noexcept { return m_list_vtx_in_iwedge; }
+    std::size_t                     get_number_vertices_in_irreducible_wedge() const noexcept { return m_list_vtx_in_iwedge.size(); }
+    const std::vector<std::vector<std::size_t>>& get_kstar_ibz_to_bz() const noexcept { return m_kstar_ibz_to_bz; }
 
     // Band infos
     std::size_t get_number_bands_total() const noexcept { return m_nb_bands_total; }
@@ -169,7 +181,12 @@ class MeshBZ {
                        const MapStringToDoubles& cell_scalars  = {},
                        const MapStringToVectors& cell_vectors  = {}) const;
     void export_energies_and_gradients_to_vtk(const std::string& filename) const;
-    void export_octree_to_vtu(const std::string& filename) const;  // defined in .cpp
+    void export_octree_to_vtu(const std::string& filename) const;
+    void export_selected_bands_to_gmsh(const std::string& out_filename,
+                                       std::size_t        nb_valence_to_export,
+                                       std::size_t        nb_conduction_to_export,
+                                       bool               highest_valence_as_band0,
+                                       const std::string& model_name_or_msh_path) const;
 
     // ---------- reading ----------
     void read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor = true);
@@ -181,6 +198,10 @@ class MeshBZ {
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
     void keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduction_bands);
     void load_kstar_ibz_to_bz(const std::string& filename = "kstar_ibz_to_bz.txt");
+
+    // ---------- Band structure ----------
+    void compute_band_structure_over_mesh(uepm::pseudopotential::BandStructure& band_structure, bool use_iwedge = true);
+    void distribute_energies_from_iw_wedge_to_full_bz();
 
     // ---------- analysis / precompute ----------
     void apply_scissor(double scissor_value);
@@ -226,9 +247,6 @@ class MeshBZ {
     std::pair<double, double> get_min_max_energy_at_band(const int& band_index) const {
         return {m_min_band[band_index], m_max_band[band_index]};
     }
-
-    const std::vector<Vertex>& get_list_vertices() const noexcept { return m_list_vertices; }
-    const std::vector<Tetra>&  get_list_elements() const noexcept { return m_list_tetrahedra; }
 
     // ---------- metrics / DOS ----------
     double compute_mesh_volume() const;

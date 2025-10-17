@@ -156,7 +156,11 @@ class Tetra {
      * @brief There is not default constructor for Tetra class.
      *
      */
-    Tetra() = delete;
+    Tetra() = default;
+    Tetra(const Tetra &)            = default;
+    Tetra &operator=(const Tetra &) = default;
+    Tetra(Tetra &&)                 = default;
+    Tetra &operator=(Tetra &&)      = default;
 
     Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices);
 
@@ -176,8 +180,8 @@ class Tetra {
                    m_list_vertices[2]->get_index(),
                    m_list_vertices[3]->get_index()};
     }
-    std::array<vector3, 6> get_list_edges() const { return m_list_edges; }
-    std::size_t            get_nb_bands() const { return m_nb_bands; }
+    const std::array<vector3, 6>& get_list_edges() const { return m_list_edges; }
+    std::size_t                   get_nb_bands() const { return m_nb_bands; }
 
     std::array<double, 4> get_band_energies_at_vertices(std::size_t index_band) const;
 

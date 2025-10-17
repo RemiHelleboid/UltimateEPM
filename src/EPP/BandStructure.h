@@ -72,6 +72,9 @@ class BandStructure {
     const std::vector<Vector3D<double>>&    get_kpoints() const { return m_kpoints; }
     const std::vector<std::vector<double>>& get_band_energies() const { return m_results; }
 
+    void set_kpoints(const std::vector<Vector3D<double>>& kpoints) { m_kpoints = kpoints; }
+    
+
     double get_computation_time_s() const { return m_computation_time_s; }
     bool   is_soc_enabled() const { return m_enable_spin_orbit_coupling; }
 

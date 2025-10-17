@@ -255,7 +255,7 @@ void set_distance_to_point_robust(int fieldId, int pointTag) {
         gmsh::model::mesh::getNodes(nodeTags, nodeCoords, dummy, 0, pointTag);
         if (nodeTags.empty()) {
             try {
-                gmsh::model::mesh::embed(0, {(double)pointTag}, 3, 1);
+                gmsh::model::mesh::embed(0, {pointTag}, 3, 1);
             } catch (...) {
             }
             gmsh::model::mesh::getNodes(nodeTags, nodeCoords, dummy, 0, pointTag);

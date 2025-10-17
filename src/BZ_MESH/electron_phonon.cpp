@@ -32,6 +32,14 @@
 
 namespace uepm::mesh_bz {
 
+void ElectronPhonon::clean_all_elph_data() {
+    m_phonon_rates_transport.clear();
+    m_rates_nk_npkp.clear();
+    m_list_phonon_scattering_rates.clear();
+    m_count_weight_tetra_per_vertex.clear();
+}
+
+
 double ElectronPhonon::get_max_phonon_energy() const {
     double max_energy = std::numeric_limits<double>::lowest();
     for (const auto& disp : m_phonon_dispersion) {
@@ -89,10 +97,10 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
     const double     qe                 = uepm::Constants::q_e;
     const double     hbar_eV            = uepm::Constants::h_bar_eV;
 
-    double inv_mrta_rate                = 0.0;
-    const vector3 vnk                        = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);   // m/s
-    const vector3 v_npkp                     = tetra.get_gradient_energy_at_band(idx_n2) * (1.0 / hbar_eV);  // m/s
-    const double transport_weight_value = transport_weight_RTA(vnk, v_npkp);
+    double        inv_mrta_rate          = 0.0;
+    const vector3 vnk                    = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);   // m/s
+    const vector3 v_npkp                 = tetra.get_gradient_energy_at_band(idx_n2) * (1.0 / hbar_eV);  // m/s
+    const double  transport_weight_value = transport_weight_RTA(vnk, v_npkp);
 
     // Loop 4 branches: md=0..3 → (ac/op)×(L/T)
     for (int md = 0; md < 4; ++md) {
