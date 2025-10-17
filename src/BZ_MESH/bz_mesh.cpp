@@ -770,7 +770,7 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int      
     std::vector<double> list_dos(nb_points);
 #pragma omp parallel for schedule(dynamic) num_threads(num_threads)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
-        std::cout << "Energy index: " << index_energy << "/" << nb_points << std::endl;
+        // std::cout << "Energy index: " << index_energy << "/" << nb_points << std::endl;
         double energy               = min_energy + index_energy * energy_step;
         double dos                  = compute_dos_at_energy_and_band(energy, band_index, use_interp, use_iw);
         list_energies[index_energy] = energy;
