@@ -177,6 +177,9 @@ def main():
             y.append(r["mu_iso_cm2"])
     x = np.array(x)
     y = np.array(y)
+    if (key_plot == "nb_vtx"):
+        x = 1.0 / x
+    key_plot = "1 / nb_vtx"
     print(f"Plotting {len(x)} points")
     # sort by x
     idx_sort = np.argsort(x)

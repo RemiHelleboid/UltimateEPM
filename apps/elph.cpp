@@ -46,10 +46,10 @@ int export_result_mobility(const std::string     &filename,
 
     if (file) {
         file << "# Mobility tensor computed with EPP\n";
+        file << "# Material : " << my_options.materialName << "\n";
         file << "# Number of vertices : " << nb_vtx << "\n";
         file << "# Number of conduction bands : " << nb_conduction_bands << "\n";
         file << "# Number of valence bands : " << nb_valence_bands << "\n";
-        file << "# Material : " << my_options.materialName << "\n";
         file << "# Energy range in eV : " << max_energy << "\n";
         file << "# Temperature in Kelvin : " << temperature << "\n";
         file << "# Fermi level in eV : " << Ef << "\n";
