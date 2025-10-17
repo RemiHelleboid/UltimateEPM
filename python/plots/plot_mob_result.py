@@ -178,7 +178,8 @@ def main():
     x = np.array(x)
     y = np.array(y)
     if (key_plot == "nb_vtx"):
-        x = 1.0 / x
+        # Cubic  root scale for number of k-points
+        x = 1.0 / np.cbrt(x)
     key_plot = "1 / nb_vtx"
     print(f"Plotting {len(x)} points")
     # sort by x
