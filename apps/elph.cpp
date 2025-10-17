@@ -9,12 +9,15 @@
  *
  */
 
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 #include <tclap/CmdLine.h>
 
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 #include "BandStructure.h"
 #include "Material.h"
@@ -24,6 +27,9 @@
 #include "bz_states.hpp"
 #include "electron_phonon.hpp"
 #include "fermi_level.hpp"
+
+template <typename Derived>
+struct fmt::formatter<Eigen::DenseBase<Derived>> : fmt::ostream_formatter {};
 
 int export_result_mobility(const std::string     &filename,
                            const Eigen::Matrix3d &mu_tensor,
@@ -35,7 +41,7 @@ int export_result_mobility(const std::string     &filename,
                            std::size_t            nb_vtx,
                            std::size_t            nb_conduction_bands,
                            std::size_t            nb_valence_bands) {
-    std::ofstream file(filename);
+    std::ofstream    file(filename);
     constexpr double mu_to_cm2Vs = 1e4;  // m^2/(V·s) to cm^2/(V·s)
 
     if (file) {
@@ -170,27 +176,20 @@ int main(int argc, char const *argv[]) {
     const auto       mu_tensor   = ElectronPhonon.compute_electron_MRTA_mobility_tensor(Ef, T);
     const double     mu_iso      = ElectronPhonon.compute_electron_MRTA_mobility_isotropic(Ef, T);
     constexpr double mu_to_cm2Vs = 1e4;  // m^2/(V·s) to cm^2/(V·s)
-    std::cout << std::fixed;
-    std::cout.precision(2);
-    std::cout << "At T = " << temperature << " K and EF = " << Ef << " eV:\n";
-    std::cout << "μ_iso = " << mu_iso * mu_to_cm2Vs << " cm^2/(V·s)\n";
-    std::cout << "μ_tensor = \n" << mu_tensor * mu_to_cm2Vs << " cm^2/(V·s)\n";
-    std::cout << "Should be compared to experimental values of about 1350 cm^2/(V·s) at 300K and low doping.\n";
+    Eigen::Matrix3d  M           = mu_tensor * mu_to_cm2Vs;
+    fmt::print("At T = {:.1f} K and EF = {:.3f} eV:\n", temperature, Ef);
+    fmt::print("μ_iso = {:.2f} cm^2/(V·s)\n", mu_iso * mu_to_cm2Vs);
+    fmt::print("tensor = \n{} cm^2/(V*s)\n", fmt::streamed(M));
+    fmt::print("Should be compared to experimental values of about 1350 cm^2/(V·s) at 300K and low doping.\n");
 
     std::size_t           nb_vtx = ElectronPhonon.get_number_vertices();
     std::filesystem::path name_path(mesh_band_input_file);
     std::string           name_stem       = name_path.stem().string();
     std::string           output_mobility = name_stem + "_mobility.txt";
-    export_result_mobility(output_mobility,
-                           mu_tensor,
-                           mu_iso,
-                           Ef,
-                           my_options,
-                           max_energy,
-                           temperature,
-                           nb_vtx,
-                           nb_conduction_bands,
-                           nb_valence_bands);
+    auto stamp_params = fmt::format("_T{}K_Ef{:.3f}_C{}V{}_N{}", temperature, Ef, nb_conduction_bands, nb_valence_bands, nb_vtx);
+    auto out          = name_stem + stamp_params + "_mobility.txt";
+
+    export_result_mobility(out, mu_tensor, mu_iso, Ef, my_options, max_energy, temperature, nb_vtx, nb_conduction_bands, nb_valence_bands);
 
     auto stop = std::chrono::high_resolution_clock::now();
     std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n\n\n" << std::endl;
