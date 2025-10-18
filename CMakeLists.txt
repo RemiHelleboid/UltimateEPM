@@ -45,10 +45,22 @@ endif()
 
 # ---------------------------- CPU/Vectorization flags ----------------------------
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    add_compile_options(-march=native -O3 -fno-trapping-math -fno-math-errno
-                         -fomit-frame-pointer -fstrict-aliasing -fopenmp-simd
-                        -ftree-vectorize)
+  if(ENABLE_MARCH_NATIVE)
+    if(MSVC)
+      message(STATUS "Enabling /arch:AVX2")
+      add_compile_options(/arch:AVX2)
+    else()
+      message(STATUS "Enabling -march=native -O3 -ffast-math")
+      add_compile_options(-march=native -O3 -ffast-math)
+    endif()
+  else()
+    if(MSVC)
+      message(STATUS "Enabling /O2")
+      add_compile_options(/O2)
+    else()
+      message(STATUS "Enabling -O3 -ffast-math")
+      add_compile_options(-O3 -ffast-math)
+    endif()
   endif()
 endif()
 
