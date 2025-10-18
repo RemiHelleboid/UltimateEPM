@@ -763,6 +763,12 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
 
     std::vector<double> list_energies(nb_points);
     std::vector<double> list_dos(nb_points);
+    fmt::print("Computing DOS for band {} from {:.3f} eV to {:.3f} eV with {} points over {} threads...\n",
+               band_index,
+               min_energy,
+               max_energy,
+               nb_points,
+               m_nb_threads_mesh_ops);
 #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;

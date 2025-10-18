@@ -76,6 +76,6 @@ struct Result {
  * @param use_iw Whether to compute the DOS using only the irreducible wedge of the BZ.
  * @return Result
  */
-Result solve_fermi(MeshBZ& mesh, const Options& opt, bool use_iw = false);
+Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw = false);
 
 }  // namespace uepm::mesh_bz::fermi

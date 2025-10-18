@@ -112,7 +112,7 @@ static inline double acceptors_ionized(double EF, double Ev, const Dopants& d, d
  * @param csv_path_if_empty
  * @return Result
  */
-Result solve_fermi(MeshBZ& mesh, const Options& opt, bool use_iw) {
+Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
     fmt::print("Solving for Fermi level at T = {} K with Dopants: Nd = {} cm^-3, Na = {} cm^-3\n",
                opt.T_K,
                opt.dop.Nd_cm3,

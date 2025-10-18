@@ -62,7 +62,7 @@ int main(int argc, const char** argv) {
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
     uepm::mesh_bz::ElectronPhonon mesh(current_material);
-    mesh.set_nb_threads(nb_threads);
+    mesh.set_number_threads_mesh_ops(nb_threads);
     mesh.read_mesh_geometry_from_msh_file(file_mesh);
     mesh.build_search_tree();
     mesh.export_octree_to_vtu("octree.vtu");

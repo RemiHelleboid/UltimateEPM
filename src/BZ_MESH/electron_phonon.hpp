@@ -69,7 +69,6 @@ class ElectronPhonon : public BZ_States {
     MeshParticleType m_elph_particle_type = MeshParticleType::conduction;
     std::size_t      m_nb_bands_elph      = 0;
 
-    int  m_nb_threads         = 1;
     bool m_parallelize_over_k = true;
 
     HoleOverlapIntParams m_hole_overlap_int_params;
@@ -98,7 +97,6 @@ class ElectronPhonon : public BZ_States {
     void   plot_phonon_dispersion(const std::string& filename) const;
     double get_max_phonon_energy() const;
 
-    void set_nb_threads(int nb_threads) { m_nb_threads = nb_threads; }
     void set_parallelize_over_k(bool b) noexcept { m_parallelize_over_k = b; }
     void set_temperature(double T) noexcept { m_temperature_K = T; }
     void set_density(double rho) noexcept { m_rho_kg_m3 = rho; }

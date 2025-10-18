@@ -118,7 +118,7 @@ int main(int argc, char const *argv[]) {
 
     const std::string             mesh_band_input_file = arg_mesh_file.getValue();
     uepm::mesh_bz::ElectronPhonon ElectronPhonon{current_material};
-    ElectronPhonon.set_nb_threads(my_options.nrThreads);
+    ElectronPhonon.set_number_threads_mesh_ops(my_options.nrThreads);
 
     // const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_michaillat.yaml";
     const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
@@ -136,7 +136,6 @@ int main(int argc, char const *argv[]) {
     ElectronPhonon.set_nb_bands_elph(nb_conduction_bands);
 
     ElectronPhonon.apply_scissor(1.12);  // eV
-    std::cout << std::scientific;
     // Solve for Fermi level and export CSV
     uepm::mesh_bz::fermi::Options fermi_options;
     fermi_options.nE         = 1000;  // number of energy points for DOS interpolation
@@ -147,9 +146,9 @@ int main(int argc, char const *argv[]) {
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options, use_iw);
     if (result.success) {
-        std::cout << "Fermi level found: EF = " << result.EF_eV << " eV\n";
-        std::cout << "  p = " << result.p_m3 * 1e-6 << " cm^-3\n";
-        std::cout << "  n = " << result.n_m3 * 1e-6 << " cm^-3\n";
+        fmt::print("Fermi level found: EF = {:.6f} eV\n", result.EF_eV);
+        fmt::print("  p = {:.6e} cm^-3\n", result.p_m3 * 1e-6);
+        fmt::print("  n = {:.6e} cm^-3\n", result.n_m3 * 1e-6);
     } else {
         std::cout << "Fermi level not found.\n";
     }
@@ -160,7 +159,6 @@ int main(int argc, char const *argv[]) {
     ElectronPhonon.load_phonon_parameters(phonon_file);
     bool irreducible_wedge_only = plot_with_wedge.getValue();
     bool populate_nk_npkp       = false;
-    std::cout << "Max energy: " << max_energy << " eV" << std::endl;
 
     ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
 
@@ -171,7 +169,6 @@ int main(int argc, char const *argv[]) {
     //                                                                       energy_step,
     //                                                                       "rates_vs_energy.csv");
     ElectronPhonon.apply_scissor(1.12);  // eV
-    std::cout << std::scientific;
     const auto       mu_tensor   = ElectronPhonon.compute_electron_MRTA_mobility_tensor(Ef, T);
     const double     mu_iso      = ElectronPhonon.compute_electron_MRTA_mobility_isotropic(Ef, T);
     constexpr double mu_to_cm2Vs = 1e4;  // m^2/(V·s) to cm^2/(V·s)

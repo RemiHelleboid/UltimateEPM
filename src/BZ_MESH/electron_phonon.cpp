@@ -6,6 +6,11 @@
 
 #include "electron_phonon.hpp"
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fmt/ostream.h>
+#include <fmt/ranges.h>
+
 #include <Eigen/Dense>
 #include <array>
 #include <atomic>
@@ -38,7 +43,6 @@ void ElectronPhonon::clean_all_elph_data() {
     m_list_phonon_scattering_rates.clear();
     m_count_weight_tetra_per_vertex.clear();
 }
-
 
 double ElectronPhonon::get_max_phonon_energy() const {
     double max_energy = std::numeric_limits<double>::lowest();
@@ -290,14 +294,18 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(std::size_t idx_n1, std::siz
  * @param populate_nk_npkp Whether to populate the (n,k) → (n',k') transition rates.
  */
 void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, bool irreducible_wedge_only, bool populate_nk_npkp) {
-    std::cout << "Progress: 0%";
+    fmt::print("Computing electron-phonon rates over mesh...\n");
+    fmt::print("  Energy max: {:.2f} eV\n", energy_max);
+    fmt::print("  Irreducible wedge only: {}\n", irreducible_wedge_only);
+    fmt::print("  Populate (n,k) -> (n',k') rates: {}\n", populate_nk_npkp);
+
+    fmt::print("Progress: 0%");
     std::atomic<std::size_t> counter{0};
     constexpr int            chunk_size = 32;
 
     m_phonon_rates_transport.clear();
     m_phonon_rates_transport.resize(get_number_bands(MeshParticleType::conduction));
-    std::cout << "Allocating transport rates for " << m_phonon_rates_transport.size() << " conduction bands and " << m_list_vertices.size()
-              << " k-points.\n";
+    fmt::print("Allocating transport rates for {} conduction bands and {} k-points.\n", m_phonon_rates_transport.size(), m_list_vertices.size());
     for (auto& vec : m_phonon_rates_transport) {
         vec.resize(m_list_vertices.size(), 0.0);
     }
@@ -308,22 +316,22 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     }
 
     std::size_t nb_vertices_to_compute = irreducible_wedge_only ? m_list_vtx_in_iwedge.size() : m_list_vertices.size();
-    std::cout << "Computing electron-phonon rates for " << nb_vertices_to_compute << " k-points"
-              << (irreducible_wedge_only ? " (irreducible wedge only)" : "") << ".\n";
-    std::cout << "Using " << m_nb_threads << " threads.\n";
+    fmt::print("Computing electron-phonon rates for {} k-points{}\n", nb_vertices_to_compute,
+               irreducible_wedge_only ? " (irreducible wedge only)" : "");
+    fmt::print("Using {} threads.\n", m_nb_threads_mesh_ops);
 
     auto list_bands = get_band_indices(MeshParticleType::conduction);
-    std::cout << "Computing electron-phonon rates for conduction bands: ";
+    fmt::print("Computing electron-phonon rates for conduction bands: ");
     for (auto b : list_bands) {
-        std::cout << b << " ";
+        fmt::print("{} ", b);
     }
-    std::cout << "\n";
+    fmt::print("\n");
     std::size_t              skipped_bc_energy = 0;
     std::atomic<std::size_t> done{0};
     std::size_t              total = nb_vertices_to_compute;
     std::size_t              step  = std::max<std::size_t>(1, total / 100);  // ~1% steps
 
-#pragma omp parallel for schedule(dynamic, chunk_size) num_threads(m_nb_threads) reduction(+ : skipped_bc_energy)
+#pragma omp parallel for schedule(dynamic, chunk_size) num_threads(m_nb_threads_mesh_ops) reduction(+ : skipped_bc_energy)
     for (std::size_t idx = 0; idx < nb_vertices_to_compute; ++idx) {
         const std::size_t idx_k1 = irreducible_wedge_only ? m_list_vtx_in_iwedge[idx] : idx;
         Vertex&           k1     = m_list_vertices[idx_k1];
@@ -341,23 +349,22 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
         if (d % step == 0 || d == total) {
 #pragma omp critical(cout)
             {
-                std::cout << "\rDone " << d << "/" << total << " (" << std::fixed << std::setprecision(1)
-                          << (100.0 * double(d) / double(total)) << "%)" << std::flush;
+                fmt::print("\rDone {}/{} ({:.1f}%)", d, total, 100.0 * double(d) / double(total));
             }
         }
     }
-    std::cout << std::defaultfloat;
+    fmt::print("\n");
 
     const std::size_t total_states = nb_vertices_to_compute * list_bands.size();
-    std::cout << "Skipped " << skipped_bc_energy << " k-points above " << energy_max << " eV : "
-              << "(" << std::fixed << std::setprecision(1) << (100.0 * skipped_bc_energy / total_states) << "% of total states)\n";
+    fmt::print("Skipped {} k-points above {} eV : ({:.1f}% of total states)\n",
+               skipped_bc_energy, energy_max, 100.0 * skipped_bc_energy / total_states);
 
     if (irreducible_wedge_only) {
         done  = 0;
         total = m_list_vtx_in_iwedge.size();
         step  = std::max<std::size_t>(1, total / 100);
-        std::cout << "Set electron-phonon rates for all mesh vertices.\n";
-#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads)
+        fmt::print("Set electron-phonon rates for all mesh vertices.\n");
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
         for (std::size_t idx_iw : m_list_vtx_in_iwedge) {
             const auto& vtx           = m_list_vertices[idx_iw];
             const auto& equiv_indices = get_all_equivalent_indices_in_bz(vtx.get_position());
@@ -376,12 +383,11 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
             if (d % step == 0 || d == total) {
 #pragma omp critical(cout)
                 {
-                    std::cout << "\rDone " << d << "/" << total << " (" << std::fixed << std::setprecision(1)
-                              << (100.0 * double(d) / double(total)) << "%)" << std::flush;
+                    fmt::print("\rDone {}/{} ({:.1f}%)", d, total, 100.0 * double(d) / double(total));
                 }
             }
         }
-        std::cout << "\nSet rates for all k-points." << std::endl;
+        fmt::print("\nSet rates for all k-points.");
     }
 }
 
@@ -1000,7 +1006,6 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
         const auto&       inv_tau_at_k   = m_phonon_rates_transport[idx_band_local];  // [1/s] per vertex
 
         for (std::size_t k = 0; k < m_list_vertices.size(); ++k) {
-           
             const double wk = m_count_weight_tetra_per_vertex[k];
             if (wk <= 0.0) {
                 continue;
