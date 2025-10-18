@@ -367,15 +367,17 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
     }
 
     compute_min_max_energies_at_tetras();
-    compute_energy_gradient_at_tetras();
-    set_energy_gradient_at_vertices_by_averaging_tetras();
 
 #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (auto&& tetra : m_list_tetrahedra) {
         tetra.pre_compute_sorted_slots_per_band();
     }
+
+    compute_energy_gradient_at_tetras();
+    set_energy_gradient_at_vertices_by_averaging_tetras();
+
     print_band_info();
-    std::cout << "Done." << std::endl;
+    fmt::print("Done reading band energies from mesh file.\n");
 }
 
 void MeshBZ::print_band_info() const {
@@ -412,11 +414,11 @@ void MeshBZ::apply_scissor(double scissor_value) {
     const bool recompute_grad    = false;
     const bool recompute_dos     = false;
     recompute_energies_data_and_sync(recompute_min_max, recompute_grad, recompute_dos, 0.0, 0.0);
-    std::cout << "Done." << std::endl;
+    fmt::print("Done applying scissor.\n");
 }
 
 void MeshBZ::precompute_dos_tetra(double energy_step, double energy_max) {
-    std::cout << "Precomputing DOS per tetrahedra with energy step = " << energy_step << " eV ..." << std::endl;
+    fmt::print("Precomputing DOS per tetrahedra with energy step = {:.3f} eV ...\n", energy_step);
     auto start = std::chrono::high_resolution_clock::now();
 #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t i = 0; i < m_list_tetrahedra.size(); ++i) {
@@ -424,7 +426,7 @@ void MeshBZ::precompute_dos_tetra(double energy_step, double energy_max) {
     }
 }
 void MeshBZ::set_energy_gradient_at_vertices_by_averaging_tetras() {
-    std::cout << "Setting energy gradient at vertices by volume-weighted averaging ..." << std::endl;
+    fmt::print("Setting energy gradient at vertices by averaging tetrahedra gradients...\n");
 
     constexpr double  eps = 1e-18;
     const std::size_t nv  = m_list_vertices.size();
@@ -462,7 +464,7 @@ void MeshBZ::set_energy_gradient_at_vertices_by_averaging_tetras() {
         }
     }
 
-    std::cout << "Done." << std::endl;
+    fmt::print("Done setting energy gradient at vertices.\n");
 }
 
 void MeshBZ::recompute_min_max_energies() {
