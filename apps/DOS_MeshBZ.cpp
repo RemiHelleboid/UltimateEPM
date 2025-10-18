@@ -20,10 +20,9 @@
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
+#include "csv_utils.hpp"
 #include "fermi_level.hpp"
 #include "integrals.hpp"
-#include "csv_utils.hpp"
-
 
 int main(int argc, char *argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
@@ -69,7 +68,6 @@ int main(int argc, char *argv[]) {
     uepm::mesh_bz::MeshBZ my_bz_mesh{current_material};
     my_bz_mesh.set_number_threads_mesh_ops(my_options.nrThreads);
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file);
-    my_bz_mesh.load_kstar_ibz_to_bz();
 
     bool set_positive_valence_band = false;
     bool shift_conduction_band     = true;
@@ -116,7 +114,7 @@ int main(int argc, char *argv[]) {
     const int nE = arg_nb_energies.getValue();
 
     for (int band_index = 0; band_index < nb_bands; ++band_index) {
-        auto lists_energies_dos = my_bz_mesh.compute_dos_band_at_band_auto(band_index, nE, my_options.nrThreads, use_interp, use_iw);
+        auto         lists_energies_dos = my_bz_mesh.compute_dos_band_at_band_auto(band_index, nE, use_interp, use_iw);
         const auto  &E                  = lists_energies_dos[0];         // eV
         const auto  &G                  = lists_energies_dos[1];         // states / (m^3·eV)
         const double I                  = uepm::integrate::trapz(E, G);  // states / m^3
@@ -154,10 +152,11 @@ int main(int argc, char *argv[]) {
 
     // Solve for Fermi level and export CSV
     uepm::mesh_bz::fermi::Options fermi_options;
-    fermi_options.nE         = 1000;  // number of energy points for DOS interpolation
-    fermi_options.threads    = my_options.nrThreads;
-    fermi_options.use_interp = use_interp;  // use interpolation when computing DOS at given energy
-    fermi_options.T_K        = 300.0;       // temperature for Fermi-Dirac
+    fermi_options.nE                = 250;  // number of energy points for DOS interpolation
+    fermi_options.threads           = my_options.nrThreads;
+    fermi_options.use_interp        = use_interp;  // use interpolation when computing DOS at given energy
+    fermi_options.T_K               = 300.0;       // temperature for Fermi-Dirac
+    fermi_options.abs_max_energy_eV = 1.0;         // absolute max energy to consider (both conduction and valence)
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(my_bz_mesh, fermi_options, use_iw);
     if (result.success) {

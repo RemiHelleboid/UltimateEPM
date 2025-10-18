@@ -1,5 +1,6 @@
 set(HEADER_FILES_LIBBZMESH
     gmsh_guard.hpp
+    fermi_level.hpp
     mesh_tetra.hpp
     mesh_vertex.hpp
     bz_mesh.hpp
@@ -14,7 +15,6 @@ set(HEADER_FILES_LIBBZMESH
     elph_common.hpp
     elph_deformation_potential.hpp
     elph_dispersion.hpp
-    fermi_level.hpp
     elph_overlap_integral.hpp)
 
 set(SOURCE_FILES_LIBBZMESH

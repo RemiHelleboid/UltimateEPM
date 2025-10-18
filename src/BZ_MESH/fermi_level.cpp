@@ -21,6 +21,8 @@
 #include <numeric>
 #include <ostream>
 #include <stdexcept>
+#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include "integrals.hpp"  // uepm::integrate::trapz
 #include "physical_constants.hpp"
@@ -111,6 +113,10 @@ static inline double acceptors_ionized(double EF, double Ev, const Dopants& d, d
  * @return Result
  */
 Result solve_fermi(MeshBZ& mesh, const Options& opt, bool use_iw) {
+    fmt::print("Solving for Fermi level at T = {} K with Dopants: Nd = {} cm^-3, Na = {} cm^-3\n",
+               opt.T_K,
+               opt.dop.Nd_cm3,
+               opt.dop.Na_cm3);
     Result results;
 
     // 1) Per-band DOS (ordered, thread-safe inside MeshBZ)
@@ -124,7 +130,20 @@ Result solve_fermi(MeshBZ& mesh, const Options& opt, bool use_iw) {
     std::cout << "Using " << opt.threads << " threads for DOS computation.\n";
 
     for (int b = 0; b < nb_bands; ++b) {
-        auto lists = mesh.compute_dos_band_at_band_auto(b, static_cast<std::size_t>(opt.nE), opt.threads, opt.use_interp, use_iw);
+        const auto mini_max_energy = mesh.get_min_max_energy_at_band(b);
+        constexpr double eps = 1e-12;
+        double min_e = mini_max_energy.first;
+        double max_e = mini_max_energy.second;
+        if (min_e < eps){
+            // Valence band
+            min_e  = std::max(min_e, -opt.abs_max_energy_eV);
+        } else {
+            // Conduction band
+            max_e = std::min(mini_max_energy.first + opt.abs_max_energy_eV, max_e);
+        }
+        fmt::print("  Band {}/{}: min = {:.6f} eV, max = {:.6f} eV\n", b + 1, nb_bands, min_e, max_e);
+        
+        auto lists = mesh.compute_dos_band_at_band(b, min_e, max_e, opt.nE, opt.use_interp, use_iw);
 
         results.energies_per_band.push_back(std::move(lists[0]));
         results.dos_per_band.push_back(std::move(lists[1]));

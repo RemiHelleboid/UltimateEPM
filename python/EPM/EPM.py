@@ -16,7 +16,7 @@ try:
     plt.style.use(['science', 'high-vis', 'grid'])
 except Exception:
     None
-plt.style.use(['seaborn-paper'])
+# plt.style.use(['seaborn-paper'])
 
 mpl.rcParams['figure.figsize'] = [3.5, 2.8]
 
@@ -57,6 +57,7 @@ def generate_basis_vector(N_basis: int) -> np.ndarray:
     basis_G = np.array(basis_G)
     basis_Gnorm = np.array(basis_Gnorm)
     basis_G = basis_G[np.argsort(basis_Gnorm)]
+    print(f"Number of basis vectors: {len(basis_G)}")
     return basis_G
 
 
@@ -96,7 +97,7 @@ def PseudoPotential(G: np.ndarray, mat_params: pMat.MaterialParameterEPM) -> flo
         return 0.0
 
 
-def non_diag_hamiltonian(mat_params: pMat.MaterialParameterEPM, basis_G: np.ndarray) -> np.ndarray:
+def non_diag_hamiltonian(mat_params: pMat.MaterialParameterEPM, basis_G: n  p.ndarray) -> np.ndarray:
     """Generate the Hamiltonian matrix.
 
     Args:
@@ -189,7 +190,7 @@ def band_structure(mat_params: pMat.MaterialParameterEPM, path):
         print(f"\r{idx} values over {len(np.vstack(path))}", end="")
         E, _ = eigen_states(mat_params, k, EPM_BASIS)
         # picks out the lowest eigt eigenvalues
-        bands.append(E[:16])
+        bands.append(E[:8])
 
     
     return np.stack(bands, axis=-1)
@@ -495,7 +496,7 @@ if __name__ == "__main__":
     # plot_eigen_states(k_gamma)
     # plot_wave_function_real_space(MyMaterial, k_gamma, rmin, rmax, Nxyz)
 
-    Nxyz = 20
-    main_epsilon(MyMaterial, Nxyz, q_vect, n_valence, n_conduction)
+    # Nxyz = 20
+    # main_epsilon(MyMaterial, Nxyz, q_vect, n_valence, n_conduction)
     
     

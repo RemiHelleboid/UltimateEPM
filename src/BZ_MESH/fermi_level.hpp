@@ -29,20 +29,21 @@
 namespace uepm::mesh_bz::fermi {
 
 struct Dopants {
-    double Nd_cm3 = 0.0;    // donors [cm^-3]
-    double Na_cm3 = 0.0;    // acceptors [cm^-3]
-    double Ed_eV  = 0.045;  // donor depth below CBM (E_C - E_D)
-    double Ea_eV  = 0.045;  // acceptor height above VBM (E_A - E_V)
-    double gd     = 0.5;    // donor degeneracy
-    double ga     = 4.0;    // acceptor degeneracy
+    double Nd_cm3 = 1.0e10;  // donors [cm^-3]
+    double Na_cm3 = 1.0e10;  // acceptors [cm^-3]
+    double Ed_eV  = 0.045;   // donor depth below CBM (E_C - E_D)
+    double Ea_eV  = 0.045;   // acceptor height above VBM (E_A - E_V)
+    double gd     = 0.5;     // donor degeneracy
+    double ga     = 4.0;     // acceptor degeneracy
 };
 
 struct Options {
-    std::size_t nE         = 2000;   // energy samples per band
-    int         threads    = 8;      // passed to MeshBZ DOS calls
-    bool        use_interp = false;  // MeshBZ: use interpolated tetra DOS
-    double      T_K        = 300.0;  // temperature (K)
-    Dopants     dop;                 // dopant model (leave zeros for intrinsic)
+    std::size_t nE                = 1000;   // energy samples per band
+    double      abs_max_energy_eV = 10.0;   // absolute max energy to consider (both conduction and valence)
+    int         threads           = 8;      // passed to MeshBZ DOS calls
+    bool        use_interp        = false;  // MeshBZ: use interpolated tetra DOS
+    double      T_K               = 300.0;  // temperature (K)
+    Dopants     dop;                        // dopant model (leave zeros for intrinsic)
 };
 
 struct Result {

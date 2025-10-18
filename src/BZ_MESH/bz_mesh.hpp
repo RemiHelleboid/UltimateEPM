@@ -263,14 +263,12 @@ class MeshBZ {
     std::vector<std::vector<double>> compute_dos_band_at_band(int         band_index,
                                                               double      min_energy,
                                                               double      max_energy,
-                                                              int         num_threads,
                                                               std::size_t nb_points,
                                                               bool        use_interp = false,
                                                               bool        use_iw     = false) const;
 
     std::vector<std::vector<double>> compute_dos_band_at_band_auto(int         band_index,
                                                                    std::size_t nb_points,
-                                                                   int         num_threads,
                                                                    bool        use_interp = false,
                                                                    bool        use_iw     = false) const;
 };

@@ -408,7 +408,10 @@ void MeshBZ::apply_scissor(double scissor_value) {
             }
         }
     }
-    recompute_energies_data_and_sync(true, true, false, 0.01, 100.0);
+    const bool recompute_min_max = true;
+    const bool recompute_grad    = false;
+    const bool recompute_dos     = false;
+    recompute_energies_data_and_sync(recompute_min_max, recompute_grad, recompute_dos, 0.0, 0.0);
     std::cout << "Done." << std::endl;
 }
 
@@ -539,7 +542,11 @@ std::vector<std::size_t> MeshBZ::get_band_indices(MeshParticleType type) const {
  * @param required_nb_bands Number of bands to keep (from the top for valence bands, from the bottom for conduction bands).
  */
 void MeshBZ::keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduction_bands) {
-    if (nb_valence_bands + nb_conduction_bands >= get_number_bands_total()) {
+    if (nb_valence_bands + nb_conduction_bands > get_number_bands_total()) {
+        fmt::print("Requested to keep {} valence bands and {} conduction bands, which is more than the total number of bands ({}). Abort.\n",
+                   nb_valence_bands,
+                   nb_conduction_bands,
+                   get_number_bands_total());
         throw std::runtime_error("Cannot keep more bands than available.");
     }
     // Valence
@@ -748,32 +755,29 @@ double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index,
 std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         band_index,
                                                                   double      min_energy,
                                                                   double      max_energy,
-                                                                  int         num_threads,
                                                                   std::size_t nb_points,
                                                                   bool        use_interp,
                                                                   bool        use_iw) const {
     auto   start       = std::chrono::high_resolution_clock::now();
     double energy_step = (max_energy - min_energy) / (nb_points - 1);
 
-    std::vector<double> list_energies{};
-    std::vector<double> list_dos{};
-#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops) reduction(merge : list_energies) reduction(merge : list_dos)
+    std::vector<double> list_energies(nb_points);
+    std::vector<double> list_dos(nb_points);
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy = min_energy + index_energy * energy_step;
         double dos    = compute_dos_at_energy_and_band(energy, band_index);
-        list_energies.push_back(energy);
-        list_dos.push_back(dos);
-        //         std::cout << "\rComputing density of state at energy " << index_energy << "/" << nb_points << std::flush;
+        list_energies[index_energy] = energy;
+        list_dos[index_energy]      = dos;
     }
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "\nDOS for 1 band computed in  " << total_time_count / 1000.0 << "s" << std::endl;
+    fmt::print("DOS for band {} computed in {:.3f}s\n", band_index, total_time_count / 1000.0);
     return {list_energies, list_dos};
 }
 
 std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int         band_index,
                                                                        std::size_t nb_points,
-                                                                       int         num_threads,
                                                                        bool        use_interp,
                                                                        bool        use_iw) const {
     if (band_index < 0 || band_index >= static_cast<int>(m_min_band.size())) {
@@ -788,9 +792,8 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int      
 
     std::vector<double> list_energies(nb_points);
     std::vector<double> list_dos(nb_points);
-#pragma omp parallel for schedule(dynamic) num_threads(num_threads)
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
-        // std::cout << "Energy index: " << index_energy << "/" << nb_points << std::endl;
         double energy               = min_energy + index_energy * energy_step;
         double dos                  = compute_dos_at_energy_and_band(energy, band_index, use_interp, use_iw);
         list_energies[index_energy] = energy;
@@ -798,7 +801,7 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int      
     }
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "\nDOS for 1 band computed in  " << total_time_count / 1000.0 << "s" << std::endl;
+    fmt::print("DOS for band {} computed in {:.3f}s\n", band_index, total_time_count / 1000.0);
     return {list_energies, list_dos};
 }
 
