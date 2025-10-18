@@ -140,9 +140,7 @@ Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
         } else {
             // Conduction band
             max_e = std::min(mini_max_energy.first + opt.abs_max_energy_eV, max_e);
-        }
-        fmt::print("  Band {}/{}: min = {:.6f} eV, max = {:.6f} eV\n", b + 1, nb_bands, min_e, max_e);
-        
+        }        
         auto lists = mesh.compute_dos_band_at_band(b, min_e, max_e, opt.nE, opt.use_interp, use_iw);
 
         results.energies_per_band.push_back(std::move(lists[0]));

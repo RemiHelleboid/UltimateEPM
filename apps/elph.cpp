@@ -82,7 +82,7 @@ int main(int argc, char const *argv[]) {
                                              0.3,
                                              "double");
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
-    TCLAP::SwitchArg plot_with_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
+    TCLAP::SwitchArg use_irr_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
     TCLAP::SwitchArg plot_with_knkpnp("K", "knkpnp", "Compute and store the full (n,k) -> (n',k') transition rate matrices.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
@@ -91,7 +91,7 @@ int main(int argc, char const *argv[]) {
     cmd.add(arg_nb_valence_bands);
     cmd.add(arg_nb_energies);
     cmd.add(arg_nb_threads);
-    cmd.add(plot_with_wedge);
+    cmd.add(use_irr_wedge);
     cmd.add(plot_with_knkpnp);
     cmd.add(arg_temperature);
     cmd.add(arg_energy_range);
@@ -105,44 +105,46 @@ int main(int argc, char const *argv[]) {
     materials.load_material_parameters(file_material_parameters);
 
     Options my_options;
-    my_options.materialName          = arg_material.getValue();
-    my_options.nrLevels              = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
-    my_options.nrThreads             = arg_nb_threads.getValue();
-    const int    number_energies     = arg_nb_energies.getValue();
-    const int    nb_conduction_bands = arg_nb_conduction_bands.getValue();
-    const int    nb_valence_bands    = arg_nb_valence_bands.getValue();
-    const double max_energy          = arg_energy_range.getValue();  // eV
-    const double temperature         = arg_temperature.getValue();
+    my_options.materialName                     = arg_material.getValue();
+    my_options.nrLevels                         = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
+    my_options.nrThreads                        = arg_nb_threads.getValue();
+    const int         number_energies           = arg_nb_energies.getValue();
+    const int         nb_conduction_bands       = arg_nb_conduction_bands.getValue();
+    const int         nb_valence_bands          = arg_nb_valence_bands.getValue();
+    const double      max_energy                = arg_energy_range.getValue();  // eV
+    const double      temperature               = arg_temperature.getValue();
+    bool              irreducible_wedge_only    = use_irr_wedge.getValue();
+    const std::string mesh_band_input_file      = arg_mesh_file.getValue();
+    const std::string phonon_file               = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
+    bool              populate_nk_npkp          = false;
+    const bool        shift_conduction_band     = true;
+    const bool        set_positive_valence_band = false;
 
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
-    const std::string             mesh_band_input_file = arg_mesh_file.getValue();
     uepm::mesh_bz::ElectronPhonon ElectronPhonon{current_material};
     ElectronPhonon.set_number_threads_mesh_ops(my_options.nrThreads);
 
-    // const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_michaillat.yaml";
-    const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
-
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
-    std::cout << "Keeping " << nb_conduction_bands << " conduction bands and " << nb_valence_bands << " valence bands." << std::endl;
-    const bool shift_conduction_band     = true;
-    const bool set_positive_valence_band = false;
     ElectronPhonon.read_mesh_bands_from_msh_file(mesh_band_input_file,
                                                  nb_conduction_bands,
                                                  nb_valence_bands,
                                                  shift_conduction_band,
                                                  set_positive_valence_band);
-
+    ElectronPhonon.load_phonon_parameters(phonon_file);
     ElectronPhonon.set_nb_bands_elph(nb_conduction_bands);
+
+    ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
 
     ElectronPhonon.apply_scissor(1.12);  // eV
     // Solve for Fermi level and export CSV
     uepm::mesh_bz::fermi::Options fermi_options;
-    fermi_options.nE         = 1000;  // number of energy points for DOS interpolation
-    fermi_options.threads    = my_options.nrThreads;
-    fermi_options.use_interp = false;        // use interpolation when computing DOS at given energy
-    fermi_options.T_K        = temperature;  // temperature for Fermi-Dirac
-    const bool use_iw        = true;         // use only irreducible wedge for DOS and Fermi level
+    fermi_options.nE                = 250;  // number of energy points for DOS interpolation
+    fermi_options.threads           = my_options.nrThreads;
+    fermi_options.use_interp        = false;        // use interpolation when computing DOS at given energy
+    fermi_options.T_K               = temperature;  // temperature for Fermi-Dirac
+    const bool use_iw               = true;         // use only irreducible wedge for DOS and Fermi level
+    fermi_options.abs_max_energy_eV = 2.0;          // absolute max energy to consider (both conduction and valence)
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options, use_iw);
     if (result.success) {
@@ -155,20 +157,6 @@ int main(int argc, char const *argv[]) {
     const double Ef = result.EF_eV;
     const double T  = temperature;
 
-    ElectronPhonon.apply_scissor(-1.12);
-    ElectronPhonon.load_phonon_parameters(phonon_file);
-    bool irreducible_wedge_only = plot_with_wedge.getValue();
-    bool populate_nk_npkp       = false;
-
-    ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
-
-    // ElectronPhonon.export_rate_values("rates_all.csv");
-    // const double energy_step = 0.001;  // eV
-    // ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(my_options.nrLevels,
-    //                                                                       max_energy,
-    //                                                                       energy_step,
-    //                                                                       "rates_vs_energy.csv");
-    ElectronPhonon.apply_scissor(1.12);  // eV
     const auto       mu_tensor   = ElectronPhonon.compute_electron_MRTA_mobility_tensor(Ef, T);
     const double     mu_iso      = ElectronPhonon.compute_electron_MRTA_mobility_isotropic(Ef, T);
     constexpr double mu_to_cm2Vs = 1e4;  // m^2/(V·s) to cm^2/(V·s)

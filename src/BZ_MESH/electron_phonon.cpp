@@ -193,9 +193,8 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
             const Rate8 r = compute_electron_phonon_transition_rates_pair(idx_n1, idx_k1, idx_n2, t, populate_nk_npkp);
             for (int i = 0; i < 8; ++i) {
                 acc.v[i] += r[i];
-                if (r[i] > 1e12) {
-                    std::cout << std::scientific << std::setprecision(3) << r[i] << std::defaultfloat << std::endl;
-                }
+                // if (r[i] > 1e12) {
+                // }
             }
         }
     }
@@ -309,11 +308,6 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     for (auto& vec : m_phonon_rates_transport) {
         vec.resize(m_list_vertices.size(), 0.0);
     }
-    // Create a shuffled list of indices to balance load when using irreducible wedge only
-    std::vector<std::size_t> random_indices(m_list_vertices.size());
-    for (std::size_t i = 0; i < m_list_vertices.size(); ++i) {
-        random_indices[i] = i;
-    }
 
     std::size_t nb_vertices_to_compute = irreducible_wedge_only ? m_list_vtx_in_iwedge.size() : m_list_vertices.size();
     fmt::print("Computing electron-phonon rates for {} k-points{}\n", nb_vertices_to_compute,
@@ -329,7 +323,8 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     std::size_t              skipped_bc_energy = 0;
     std::atomic<std::size_t> done{0};
     std::size_t              total = nb_vertices_to_compute;
-    std::size_t              step  = std::max<std::size_t>(1, total / 100);  // ~1% steps
+    std::size_t              step  = std::max<std::size_t>(1, total / 1000);  // ~1% steps
+    fmt::print("Starting computation...\n");
 
 #pragma omp parallel for schedule(dynamic, chunk_size) num_threads(m_nb_threads_mesh_ops) reduction(+ : skipped_bc_energy)
     for (std::size_t idx = 0; idx < nb_vertices_to_compute; ++idx) {
@@ -347,7 +342,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
         }
         std::size_t d = ++done;
         if (d % step == 0 || d == total) {
-#pragma omp critical(cout)
+#pragma omp critical
             {
                 fmt::print("\rDone {}/{} ({:.1f}%)", d, total, 100.0 * double(d) / double(total));
             }
@@ -362,7 +357,6 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     if (irreducible_wedge_only) {
         done  = 0;
         total = m_list_vtx_in_iwedge.size();
-        step  = std::max<std::size_t>(1, total / 100);
         fmt::print("Set electron-phonon rates for all mesh vertices.\n");
 #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
         for (std::size_t idx_iw : m_list_vtx_in_iwedge) {
@@ -381,7 +375,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
             }
             std::size_t d = ++done;
             if (d % step == 0 || d == total) {
-#pragma omp critical(cout)
+#pragma omp critical
                 {
                     fmt::print("\rDone {}/{} ({:.1f}%)", d, total, 100.0 * double(d) / double(total));
                 }
@@ -783,12 +777,12 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
  * @param filename The path to the YAML configuration file.
  */
 void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
+    fmt::print("Loading phonon parameters from file {} ...\n", filename);
+
     YAML::Node config = YAML::LoadFile(filename);
     if (config.IsNull()) {
         throw std::runtime_error("File " + filename + " is empty");
     }
-
-    // std::cout << "File " << filename << " contains:\n" << config << std::endl;
 
     auto               list_materials = config["materials"];
     const std::string& my_material    = m_material.get_name();
@@ -858,6 +852,7 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
             }
         }
     }
+    fmt::print("Finished loading phonon parameters for material {}.\n", my_material);
 }
 
 /**
