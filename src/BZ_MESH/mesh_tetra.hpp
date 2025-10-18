@@ -85,13 +85,6 @@ class Tetra {
     std::array<vector3, 6> m_list_edges{};
 
     /**
-     * @brief Midpoints of the edges of the tetrahedra.
-     * Constructed and stored uniquely if P2 elements are used, e.g. for precise DOS calculation.
-     *
-     */
-    std::array<Vertex, 6> m_edge_midpoints{};  // midpoints of edges, for caching
-
-    /**
      * @brief Bounding box of the tetrahedra.
      *
      */
@@ -149,7 +142,7 @@ class Tetra {
      * @brief Precomputed DOS on a uniform energy grid for each band.
      *
      */
-    std::vector<UniformDos> m_dos_per_band;
+    // std::vector<UniformDos> m_dos_per_band;
 
  public:
     /**

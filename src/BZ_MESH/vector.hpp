@@ -21,7 +21,7 @@ namespace uepm::mesh_bz {
 
 enum class permutaion_type { XY, XZ, YZ, XYZ, YZX, ZXY };
 
-class alignas(32) vector3 {
+class vector3 {
  private:
     double m_x;
     double m_y;

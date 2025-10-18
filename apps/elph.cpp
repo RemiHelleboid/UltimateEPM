@@ -124,7 +124,6 @@ int main(int argc, char const *argv[]) {
     const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
 
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
-    ElectronPhonon.load_kstar_ibz_to_bz();
     std::cout << "Keeping " << nb_conduction_bands << " conduction bands and " << nb_valence_bands << " valence bands." << std::endl;
     const bool shift_conduction_band     = true;
     const bool set_positive_valence_band = false;

@@ -550,6 +550,7 @@ int main(int argc, char **argv) try {
     gmsh::model::add("BZ_from_IBZ_cpp");
     gmsh::option::setNumber("Mesh.Binary", 1);
     gmsh::option::setNumber("Mesh.Algorithm3D", 1);  // Delaunay 3D
+    gmsh::option::setNumber("General.Verbosity", 10);
 
     // Build geometry
     std::cout << "Building IBZ wedge geometry...\n h = " << k.h << ", gamma(Γ) = " << k.meshGamma << "\n";
@@ -594,14 +595,9 @@ int main(int argc, char **argv) try {
     std::vector<Vec3> symPts;
     symPts.reserve(nb_nodes * ops.size());
 
-    auto canonical = [&](Vec3 q) {
-        // Make sure this is exactly the same folding used everywhere else:
-        // q = retrieve_k_inside_mesh_geometry(q);  // or fold_to_first_BZ(q)
-        return q;
-    };
 
     auto get_id = [&](const Vec3 &q_raw) -> std::size_t {
-        Vec3 q  = canonical(q_raw);
+        Vec3 q  = q_raw;
         auto it = index.find(q);
         if (it != index.end()) {
             return it->second;
@@ -630,9 +626,6 @@ int main(int argc, char **argv) try {
                 orbit_ids[i].push_back(id);
             }
         }
-
-        // Optional: ensure own_id is present (it will be if identity is in ops)
-        // if (!seen.count(own_id[i])) orbit_ids[i].insert(orbit_ids[i].begin(), own_id[i]);
     }
 
     std::string stem = std::filesystem::path(outArg.getValue()).stem().string();

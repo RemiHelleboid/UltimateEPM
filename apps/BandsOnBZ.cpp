@@ -77,33 +77,15 @@ int main(int argc, char* argv[]) {
     my_bz_mesh.set_number_threads_mesh_ops(my_options.nrThreads);
 
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_filename);
-    my_bz_mesh.load_kstar_ibz_to_bz();
-    // const auto& nb_irreducible_vertices = my_bz_mesh.get_number_vertices_in_irreducible_wedge();
-    // const auto & list_idx_irreducible_vertices = my_bz_mesh.get_list_vertex_indices_in_irreducible_wedge();
-    // const auto&                         full_list_vertices            = my_bz_mesh.get_list_vertices();
-    // std::vector<Vector3D<double>> mesh_kpoints(nb_irreducible_vertices);
-    // std::cout << "Total number of vertices in the BZ mesh: " << my_bz_mesh.get_number_vertices() << std::endl;
-    // for (std::size_t i = 0; i < nb_irreducible_vertices; ++i) {
-    //     const auto& vtx = full_list_vertices[list_idx_irreducible_vertices[i]];
-    //     mesh_kpoints[i] = Vector3D<double>(vtx.get_position().x(), vtx.get_position().y(), vtx.get_position().z());
-    // }
-    // std::cout << "Number of k-points in the irreducible BZ: " << mesh_kpoints.size() << std::endl;
 
     auto start = std::chrono::high_resolution_clock::now();
-
     std::vector<Vector3D<double>>        mesh_kpoints{};
     uepm::pseudopotential::BandStructure my_bandstructure;
     my_bandstructure
         .Initialize(mat, my_options.nrLevels, mesh_kpoints, my_options.nearestNeighbors, enable_nonlocal_correction, arg_enable_soc);
     bool use_iwedge = true;
     my_bz_mesh.compute_band_structure_over_mesh(my_bandstructure, use_iwedge);
-    // if (my_options.nrThreads > 1) {
-    //     my_bandstructure.Compute_parallel(my_options.nrThreads);
-    // } else {
-    //     my_bandstructure.Compute();
-    // }
-    // my_bandstructure.AdjustValues(arg_cond_band_zero.getValue());
-    my_bz_mesh.export_energies_and_gradients_to_vtk("bands_on_bz_mesh.vtk");
+
     auto end              = std::chrono::high_resolution_clock::now();
     auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
@@ -125,8 +107,6 @@ int main(int argc, char* argv[]) {
                                              highest_valence_as_band0,
                                              mesh_filename);
 
-    // my_mesh.add_all_bands_on_mesh(out_file_bands, my_bandstructure, arg_nb_valence_bands.getValue(),
-    // arg_nb_conduction_bands.getValue());
 
     return 0;
 }

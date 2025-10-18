@@ -77,11 +77,11 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
     const vector3& k1    = vtx1.get_position();
     const vector3& k2    = tetra.compute_barycenter();
 
-    // Overlap once
+    // Overlap integral |I|^2
     const double I  = electron_overlap_integral(k1, k2, m_radius_wigner_seitz_m);
     const double I2 = I * I;
 
-    // q = k2 - k1, fold to 1st BZ if needed (normal processes only)
+    // q = k2 - k1
     vector3 q = k2 - k1;
     if (!is_inside_mesh_geometry(q)) {
         q = retrieve_k_inside_mesh_geometry(q);
@@ -121,7 +121,6 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
         const DeformationPotential& defpot  = (mode == PhononMode::acoustic) ? m_ac_defpot_e : m_op_defpot_e;
         const double                Delta_J = defpot.get_fischetti_deformation_potential(q, idx_n1) * qe;
 
-        // Common prefactor
         const double pref = m_spin_degeneracy * (pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) * I2 / m_reduce_bz_factor;
 
         // --- Emission (Ef = Ei - ħω), bose = N0 + 1 ---

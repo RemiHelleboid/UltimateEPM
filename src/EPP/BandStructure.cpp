@@ -173,7 +173,7 @@ void BandStructure::Compute_parallel(int nb_threads) {
         for (unsigned int level = 0; level < m_nb_bands && level < eigenvals.rows(); ++level) {
             m_results[index_k][level] = eigenvals(level);
         }
-        if (index_k % 1000 == 0) {
+        if ((index_k+1) % 1000 == 0) {
 #pragma omp critical
             {
                 std::cout << "\rComputing band structure at point " << index_k + 1 << "/" << m_nb_points << " = "
@@ -183,7 +183,7 @@ void BandStructure::Compute_parallel(int nb_threads) {
     }
     auto end             = std::chrono::high_resolution_clock::now();
     m_computation_time_s = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
-    std::cout << "Parallel computation finished." << std::endl;
+    std::cout << "\nParallel computation finished." << std::endl;
 }
 
 double BandStructure::AdjustValues(bool minConductionBandToZero) {

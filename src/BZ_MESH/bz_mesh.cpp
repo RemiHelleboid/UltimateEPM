@@ -78,6 +78,9 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     std::size_t size_nodes_tags        = nodeTags.size();
     std::size_t size_nodes_coordinates = nodeCoords.size();
     m_node_tags                        = nodeTags;
+
+    std::cerr << "sizeof(vector3)=" << sizeof(vector3) << " sizeof(bbox_mesh)=" << sizeof(bbox_mesh)
+              << " sizeof(UniformDos)=" << sizeof(UniformDos) << " sizeof(Tetra)=" << sizeof(Tetra) << "\n";
     std::cout << "Number of nodes: " << size_nodes_tags << std::endl;
 
     if (size_nodes_coordinates != 3 * size_nodes_tags) {
@@ -154,7 +157,7 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     const double     ssi_to_reduced_scale = si_to_reduced_scale();
     init_reciprocal_basis(b1_SI, b2_SI, b3_SI, halfwidth_reduced, ssi_to_reduced_scale);
 
-    // build_search_tree();
+    load_kstar_ibz_to_bz();
 }
 
 /**
@@ -1144,7 +1147,7 @@ void MeshBZ::distribute_energies_from_iw_wedge_to_full_bz() {
         if (list_energies.size() != nb_bands) {
             throw std::runtime_error("Inconsistent number of bands in IW vertex. Cannot distribute energies to full BZ.");
         }
-        // Generate the 48 symmetry-equivalent k-points
+        // Get the 48 symmetry-equivalent k-points
         std::vector<std::size_t> sym_eq_indices = m_kstar_ibz_to_bz[idx_vtx];
         for (const auto& idx_sym : sym_eq_indices) {
             if (idx_sym == idx_vtx) {
@@ -1156,7 +1159,6 @@ void MeshBZ::distribute_energies_from_iw_wedge_to_full_bz() {
     }
 }
 
-// --- in MeshBZ (bz_mesh.cpp)
 void MeshBZ::export_selected_bands_to_gmsh(const std::string& out_filename,
                                            std::size_t        nb_valence_to_export,
                                            std::size_t        nb_conduction_to_export,
@@ -1167,11 +1169,6 @@ void MeshBZ::export_selected_bands_to_gmsh(const std::string& out_filename,
         throw std::runtime_error("Mesh vertices/tags not initialized or inconsistent.");
     }
 
-    // Clamp
-    // nb_valence_to_export    = std::min(nb_valence_to_export, m_valence_bands.count);
-    // nb_conduction_to_export = std::min(nb_conduction_to_export, m_conduction_bands.count);
-
-    // Build per-band arrays on demand
     auto gather_band = [&](int global_band_index) -> std::vector<double> {
         std::vector<double> v(nv);
         for (std::size_t i = 0; i < nv; ++i) {
@@ -1187,7 +1184,6 @@ void MeshBZ::export_selected_bands_to_gmsh(const std::string& out_filename,
     const int   verbose_level = 1;
     GmshSession guard(verbose_level);
 
-    // Either open an existing .msh or just make a named model
     if (!model_name_or_msh_path.empty() && model_name_or_msh_path.size() > 4 &&
         (model_name_or_msh_path.ends_with(".msh") || model_name_or_msh_path.ends_with(".msh2") ||
          model_name_or_msh_path.ends_with(".msh4"))) {
@@ -1213,7 +1209,7 @@ void MeshBZ::export_selected_bands_to_gmsh(const std::string& out_filename,
         const int index_view = gmsh::view::getIndex(data_tag);
         gmsh::option::setNumber("View[" + std::to_string(index_view) + "].Visible", 0);
         gmsh::option::setNumber("PostProcessing.SaveMesh", write_mesh ? 1 : 0);
-        gmsh::view::write(data_tag, out_filename, /*append=*/true);
+        gmsh::view::write(data_tag, out_filename, true);
         write_mesh = false;
     };
 

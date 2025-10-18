@@ -511,44 +511,44 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
 }
 
 void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double energy_max) {
-    m_dos_per_band.clear();
-    m_nb_bands = m_list_vertices[0]->get_number_bands();
-    m_dos_per_band.assign(m_nb_bands, UniformDos{});
+    // m_dos_per_band.clear();
+    // m_nb_bands = m_list_vertices[0]->get_number_bands();
+    // m_dos_per_band.assign(m_nb_bands, UniformDos{});
 
-    for (std::size_t b = 0; b < m_nb_bands; ++b) {
-        auto&        T    = m_dos_per_band[b];
-        const double Emin = m_min_energy_per_band[b];
-        const double Emax = m_max_energy_per_band[b];
+    // for (std::size_t b = 0; b < m_nb_bands; ++b) {
+    //     auto&        T    = m_dos_per_band[b];
+    //     const double Emin = m_min_energy_per_band[b];
+    //     const double Emax = m_max_energy_per_band[b];
 
-        // keep index alignment; mark invalid instead of skipping
-        if (Emin > energy_max) {
-            T.valid = false;
-            continue;
-        }
+    //     // keep index alignment; mark invalid instead of skipping
+    //     if (Emin > energy_max) {
+    //         T.valid = false;
+    //         continue;
+    //     }
 
-        // integer number of steps; enforce a small minimum
-        std::size_t           nb_steps  = static_cast<std::size_t>(std::ceil((Emax - Emin) / energy_step));
-        constexpr std::size_t min_steps = 5;
-        if (nb_steps < min_steps) {
-            nb_steps = min_steps;
-        }
-        const double dx = (Emax - Emin) / static_cast<double>(nb_steps);
+    //     // integer number of steps; enforce a small minimum
+    //     std::size_t           nb_steps  = static_cast<std::size_t>(std::ceil((Emax - Emin) / energy_step));
+    //     constexpr std::size_t min_steps = 5;
+    //     if (nb_steps < min_steps) {
+    //         nb_steps = min_steps;
+    //     }
+    //     const double dx = (Emax - Emin) / static_cast<double>(nb_steps);
 
-        T.valid  = true;
-        T.E0     = Emin;
-        T.Emax   = Emax;
-        T.inv_dx = 1.0 / dx;
-        T.N      = static_cast<uint32_t>(nb_steps + 1);
+    //     T.valid  = true;
+    //     T.E0     = Emin;
+    //     T.Emax   = Emax;
+    //     T.inv_dx = 1.0 / dx;
+    //     T.N      = static_cast<uint32_t>(nb_steps + 1);
 
-        T.D.resize(T.N);
-        T.D[0]       = 0.0;
-        T.D[T.N - 1] = 0.0;
+    //     T.D.resize(T.N);
+    //     T.D[0]       = 0.0;
+    //     T.D[T.N - 1] = 0.0;
 
-        for (std::size_t idx_energy = 1; idx_energy < nb_steps; ++idx_energy) {
-            const double e  = Emin + idx_energy * dx;
-            T.D[idx_energy] = static_cast<float>(compute_tetra_dos_energy_band(e, b));
-        }
-    }
+    //     for (std::size_t idx_energy = 1; idx_energy < nb_steps; ++idx_energy) {
+    //         const double e  = Emin + idx_energy * dx;
+    //         T.D[idx_energy] = static_cast<float>(compute_tetra_dos_energy_band(e, b));
+    //     }
+    // }
 }
 
 /**
@@ -562,7 +562,8 @@ void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double en
  * @return double
  */
 double Tetra::interpolate_dos_at_energy_per_band(double energy, std::size_t band_index) const noexcept {
-    return (band_index < m_dos_per_band.size()) ? m_dos_per_band[band_index].sample_or_zero(energy) : 0.0;
+    // return (band_index < m_dos_per_band.size()) ? m_dos_per_band[band_index].sample_or_zero(energy) : 0.0;
+    return 0.0;
 }
 
 /**
