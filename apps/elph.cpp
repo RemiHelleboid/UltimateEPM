@@ -123,6 +123,7 @@ int main(int argc, char const *argv[]) {
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
     uepm::mesh_bz::ElectronPhonon ElectronPhonon{current_material};
+    ElectronPhonon.set_temperature(temperature);
     ElectronPhonon.set_number_threads_mesh_ops(my_options.nrThreads);
 
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
