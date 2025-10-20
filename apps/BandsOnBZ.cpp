@@ -69,16 +69,13 @@ int main(int argc, char* argv[]) {
 
     uepm::pseudopotential::Material mat = materials.materials.at(my_options.materialName);
 
-    // bz_mesh my_mesh("mesh.msh");
-    const std::string mesh_filename = arg_mesh_file.getValue();
-    // bz_mesh_points    my_mesh(mesh_filename);
-    // my_mesh.read_mesh();
+    const std::string     mesh_filename = arg_mesh_file.getValue();
     uepm::mesh_bz::MeshBZ my_bz_mesh{mat};
     my_bz_mesh.set_number_threads_mesh_ops(my_options.nrThreads);
 
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_filename);
 
-    auto start = std::chrono::high_resolution_clock::now();
+    auto                                 start = std::chrono::high_resolution_clock::now();
     std::vector<Vector3D<double>>        mesh_kpoints{};
     uepm::pseudopotential::BandStructure my_bandstructure;
     my_bandstructure
@@ -106,7 +103,6 @@ int main(int argc, char* argv[]) {
                                              arg_nb_conduction_bands.getValue(),
                                              highest_valence_as_band0,
                                              mesh_filename);
-
 
     return 0;
 }

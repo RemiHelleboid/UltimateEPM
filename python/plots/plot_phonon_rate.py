@@ -72,15 +72,16 @@ def plo_dos(filename):
     
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-f", "--filename", type=str, required=True, help="Filename to plot")
+    parser.add_argument("-f", "--filename_prefix", type=str, required=True, help="Filename to plot")
     args = parser.parse_args()
+    namefile_rates_vs_energy = f"{args.filename_prefix}_rates_vs_energy.csv"
     try:
         scatter_plot_rates("rates_all.csv")
     except:
         pass
     try:
-        plot_rates("rates_vs_energy.csv", "../examples/RatesSiFischetti1988.csv")
-        plot_rates("rates_vs_energy.csv", "../examples/RatesSiKunikiyo1994.csv")
+        plot_rates(namefile_rates_vs_energy, "../examples/RatesSiFischetti1988.csv")
+        plot_rates(namefile_rates_vs_energy, "../examples/RatesSiKunikiyo1994.csv")
     except:
         pass
     plt.show()

@@ -381,15 +381,20 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
 }
 
 void MeshBZ::print_band_info() const {
-    std::cout << "Band info:\n";
-    std::cout << "Index\tType\tLocalIdx\tGlobalIdx\tMinE(eV)\tMaxE(eV)\n";
+    fmt::print("\nBand info:\n");
+    fmt::print("{:<6} {:<11} {:<10} {:<12} {:<10} {:<10}\n", "Index", "Type", "LocalIdx", "GlobalIdx", "MinE(eV)", "MaxE(eV)");
     for (std::size_t i = 0; i < m_band_info.size(); ++i) {
         const auto& band     = m_band_info[i];
-        std::string type_str = (band.type == MeshParticleType::valence) ? "Valence   " : "Conduction";
-        std::cout << i << "\t" << type_str << "\t" << band.local_index << "\t\t" << i << "\t\t" << std::fixed << std::setprecision(4)
-                  << m_min_band[i] << "\t" << m_max_band[i] << "\n";
+        std::string type_str = (band.type == MeshParticleType::valence) ? "Valence" : "Conduction";
+        fmt::print("{:<6} {:<11} {:<10} {:<12} {:<10.4f} {:<10.4f}\n",
+                   i,
+                   type_str,
+                   band.local_index,
+                   i,
+                   m_min_band[i],
+                   m_max_band[i]);
     }
-    std::cout << std::defaultfloat;
+    fmt::print("\n");
 }
 
 /**

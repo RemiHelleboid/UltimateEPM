@@ -291,21 +291,21 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     fmt::print("Computing electron-phonon rates over mesh...\n");
     fmt::print("  Energy max: {:.2f} eV\n", energy_max);
     fmt::print("  Irreducible wedge only: {}\n", irreducible_wedge_only);
-    fmt::print("  Populate (n,k) -> (n',k') rates: {}\n", populate_nk_npkp);
-
-    fmt::print("Progress: 0%");
-    std::atomic<std::size_t> counter{0};
-    constexpr int            chunk_size = 32;
+    fmt::print("  Populate (n,k) -> (n',k') rates: {}\n\n", populate_nk_npkp);
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     m_phonon_rates_transport.clear();
     m_phonon_rates_transport.resize(get_number_bands(MeshParticleType::conduction));
-    fmt::print("Allocating transport rates for {} conduction bands and {} k-points.\n", m_phonon_rates_transport.size(), m_list_vertices.size());
+    fmt::print("Allocating transport rates for {} conduction bands and {} k-points.\n",
+               m_phonon_rates_transport.size(),
+               m_list_vertices.size());
     for (auto& vec : m_phonon_rates_transport) {
         vec.resize(m_list_vertices.size(), 0.0);
     }
 
     std::size_t nb_vertices_to_compute = irreducible_wedge_only ? m_list_vtx_in_iwedge.size() : m_list_vertices.size();
-    fmt::print("Computing electron-phonon rates for {} k-points{}\n", nb_vertices_to_compute,
+    fmt::print("Computing electron-phonon rates for {} k-points{}\n",
+               nb_vertices_to_compute,
                irreducible_wedge_only ? " (irreducible wedge only)" : "");
     fmt::print("Using {} threads.\n", m_nb_threads_mesh_ops);
 
@@ -321,7 +321,8 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     std::size_t              step  = std::max<std::size_t>(1, total / 1000);  // ~1% steps
     fmt::print("Starting computation...\n");
 
-#pragma omp parallel for schedule(dynamic, chunk_size) num_threads(m_nb_threads_mesh_ops) reduction(+ : skipped_bc_energy)
+    const std::size_t chunk_size = 32;
+#pragma omp parallel for schedule(static, chunk_size) num_threads(m_nb_threads_mesh_ops) reduction(+ : skipped_bc_energy)
     for (std::size_t idx = 0; idx < nb_vertices_to_compute; ++idx) {
         const std::size_t idx_k1 = irreducible_wedge_only ? m_list_vtx_in_iwedge[idx] : idx;
         Vertex&           k1     = m_list_vertices[idx_k1];
@@ -347,13 +348,15 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
 
     const std::size_t total_states = nb_vertices_to_compute * list_bands.size();
     fmt::print("Skipped {} k-points above {} eV : ({:.1f}% of total states)\n",
-               skipped_bc_energy, energy_max, 100.0 * skipped_bc_energy / total_states);
+               skipped_bc_energy,
+               energy_max,
+               100.0 * skipped_bc_energy / total_states);
 
     if (irreducible_wedge_only) {
         done  = 0;
         total = m_list_vtx_in_iwedge.size();
         fmt::print("Set electron-phonon rates for all mesh vertices.\n");
-#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
+#pragma omp parallel for schedule(static, chunk_size) num_threads(m_nb_threads_mesh_ops)
         for (std::size_t idx_iw : m_list_vtx_in_iwedge) {
             const auto& vtx           = m_list_vertices[idx_iw];
             const auto& equiv_indices = get_all_equivalent_indices_in_bz(vtx.get_position());
@@ -376,8 +379,11 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
                 }
             }
         }
-        fmt::print("\nSet rates for all k-points.");
+        fmt::print("\nSet rates for all k-points.\n\n");
     }
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = end_time - start_time;
+    fmt::print("Completed electron-phonon rates computation in {:.2f} seconds.\n\n", std::chrono::duration<double>(duration).count());
 }
 
 /**
@@ -516,24 +522,31 @@ void ElectronPhonon::export_rate_values(const std::string& filename) const {
         throw std::runtime_error("export_rate_values: cannot open '" + filename + "' for writing");
     }
     file.setf(std::ios::scientific);
-    file.precision(8);
-
-    const std::size_t nb_elph = get_nb_bands_elph();
+    file.precision(6);
+    // Header
+    file << "vertex_index,local_band_index,energy_eV";
+    file << ",rate_ac_L_ab,rate_ac_T_ab,rate_op_L_ab,rate_op_T_ab";
+    file << ",rate_ac_L_em,rate_ac_T_em,rate_op_L_em,rate_op_T_em\n";
+    const std::size_t nb_band_elph = get_nb_bands_elph();
     for (const auto& vertex : m_list_vertices) {
         const auto all_rates = vertex.get_electron_phonon_rates_all_bands();
-        if (all_rates.size() != nb_elph) {
+        if (all_rates.size() != nb_band_elph) {
             throw std::runtime_error("export_rate_values: size mismatch in rates");
         }
 
-        for (std::size_t local = 0; local < nb_elph; ++local) {
-            const std::size_t g = get_global_band_index(local, m_elph_particle_type);  // map to global
-            const double      E = vertex.get_energy_at_band(g);
-            file << g << ',' << E;
-            const auto& r = all_rates[local];
-            for (double v : r) {
-                file << ',' << v;
+        for (std::size_t local = 0; local < nb_band_elph; ++local) {
+            const std::size_t idx_vtx = vertex.get_index();
+            const double      E       = vertex.get_energy_at_band(local);
+            const auto&       r       = all_rates[local];
+            // Only export if at least one rate is above threshold
+            constexpr double  rates_threshold = 1e-12; // s^-1
+            if (std::find_if(r.begin(), r.end(), [rates_threshold](double v) { return v > rates_threshold; }) != r.end()) {
+                file << idx_vtx << ',' << local << ',' << E;
+                for (double v : r) {
+                    file << ',' << v;
+                }
+                file << '\n';
             }
-            file << '\n';
         }
     }
 }
@@ -546,8 +559,7 @@ void ElectronPhonon::export_rate_values(const std::string& filename) const {
  * @param energy_step The energy step size.
  * @param filename The output filename for the plot.
  */
-void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int                nb_bands,
-                                                                            double             max_energy,
+void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(double             max_energy,
                                                                             double             energy_step,
                                                                             const std::string& filename) {
     if (energy_step <= 0.0) {
@@ -561,30 +573,33 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
         throw std::runtime_error("No vertices in mesh.");
     }
 
-    std::ofstream out(filename);
-    if (!out) {
-        throw std::runtime_error("Cannot open " + filename + " for writing.");
-    }
-
     static constexpr std::array<const char*, 8>
         mode_phonons{"ac_L_ab", "ac_T_ab", "op_L_ab", "op_T_ab", "ac_L_em", "ac_T_em", "op_L_em", "op_T_em"};
 
-    out << "energy(eV),dos(ev^-1m^-3)";
-    for (auto* mode : mode_phonons) {
-        out << ',' << mode;
+    // out << "energy(eV),dos(ev^-1m^-3)";
+
+    const std::size_t nb_bands_elph = get_nb_bands_elph();
+    // Get the energy minimum of the el-ph bands
+    double energy_min = std::numeric_limits<double>::max();
+    for (std::size_t idx_band = 0; idx_band < nb_bands_elph; ++idx_band) {
+        std::size_t gband = get_global_band_index(idx_band, m_elph_particle_type);
+        if (m_min_band[gband] < energy_min) {
+            energy_min = m_min_band[gband];
+        }
     }
-    out << '\n';
+    max_energy += energy_min;  // shift to min energy of el-ph bands
 
-    const std::size_t n_steps = static_cast<std::size_t>(std::floor(max_energy / energy_step)) + 1;
-    std::cout << std::setprecision(8) << "Computing electron-phonon rates vs energy over mesh..." << std::endl;
+    const std::size_t n_steps = static_cast<std::size_t>(std::floor((max_energy - energy_min) / energy_step)) + 1;
+    fmt::print("Computing electron-phonon rates vs energy over mesh...\n");
+    std::vector<double>                energies(n_steps);
+    std::vector<double>                dos_values(n_steps, 0.0);
+    std::vector<std::array<double, 8>> rate_values(n_steps, std::array<double, 8>{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
     for (std::size_t istep = 0; istep < n_steps; ++istep) {
-        const double E = std::min(max_energy, istep * energy_step);
-        std::cout << "\rEnergy: " << E << " / " << max_energy << std::flush;
-
+        const double E                = energy_step * static_cast<double>(istep) + energy_min;
+        energies[istep]               = energy_step * static_cast<double>(istep);
         double                dos_sum = 0.0;
-        std::array<double, 8> num{};  // accumulators
+        std::array<double, 8> num{};
         num.fill(0.0);
-        const std::size_t nb_bands_elph = get_nb_bands_elph();
         for (const auto& tetra : m_list_tetrahedra) {
             for (std::size_t idx_band = 0; idx_band < nb_bands_elph; ++idx_band) {
                 std::size_t  idx_global_band = get_global_band_index(idx_band, m_elph_particle_type);
@@ -604,6 +619,8 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
                 }
             }
         }
+        fmt::print("\rEnergy: {:.3f} / {:.3f} eV -> DOS: {:.2e} ev^-1m^-3", E, max_energy, dos_sum);
+        dos_values[istep] = dos_sum;
 
         std::array<double, 8> mean{};
         if (dos_sum > 0.0) {
@@ -614,12 +631,27 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(int 
         } else {
             mean.fill(0.0);
         }
+        rate_values[istep] = mean;
+    }
 
-        out << std::scientific << std::setprecision(10) << E << ',' << dos_sum;
-        for (double v : mean) {
-            out << ',' << v;
+    fmt::print("\nWriting data to {}...\n", filename);
+
+    std::ofstream out(filename);
+    if (!out) {
+        throw std::runtime_error("Cannot open " + filename + " for writing.");
+    }
+
+    fmt::print(out, "energy(eV),dos(ev^-1m^-3)");
+    for (auto* mode : mode_phonons) {
+        fmt::print(out, ",rate_{}", mode);
+    }
+    fmt::print(out, "\n");
+    for (std::size_t istep = 0; istep < n_steps; ++istep) {
+        fmt::print(out, "{:.6e},{:.6e}", energies[istep], dos_values[istep]);
+        for (int i = 0; i < 8; ++i) {
+            fmt::print(out, ",{:.6e}", rate_values[istep][i]);
         }
-        out << '\n';
+        fmt::print(out, "\n");
     }
 
     std::cout << std::endl;

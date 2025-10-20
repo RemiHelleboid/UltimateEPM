@@ -9,6 +9,7 @@
  *
  */
 
+#include <fmt/chrono.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 #include <tclap/CmdLine.h>
@@ -22,9 +23,6 @@
 #include "BandStructure.h"
 #include "Material.h"
 #include "Options.h"
-#include "bz_mesh.hpp"
-#include "bz_meshfile.hpp"
-#include "bz_states.hpp"
 #include "electron_phonon.hpp"
 #include "fermi_level.hpp"
 
@@ -58,15 +56,18 @@ int export_result_mobility(const std::string     &filename,
         file << "# Isotropic mobility in cm^2/(V·s)\n";
         file << mu_iso * mu_to_cm2Vs << "\n";
         file.close();
-        std::cout << "Mobility tensor written to " << filename << "\n";
+        fmt::print("Mobility tensor written to {}\n", filename);
+        return 0;
     } else {
-        std::cerr << "Error: could not write to file " << filename << "\n";
+        fmt::print(std::cerr, "Error: could not write to file {}\n", filename);
         return 1;
     }
     return 0;
 }
 
 int main(int argc, char const *argv[]) {
+    fmt::print("Starting UltimateEPM Electron-Phonon Calculations ... \n\n");
+
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
@@ -81,6 +82,7 @@ int main(int argc, char const *argv[]) {
                                              false,
                                              0.3,
                                              "double");
+    TCLAP::SwitchArg             arg_export_rates("X", "export-rates", "Export electron-phonon rates in k.", false);
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
     TCLAP::SwitchArg use_irr_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
     TCLAP::SwitchArg plot_with_knkpnp("K", "knkpnp", "Compute and store the full (n,k) -> (n',k') transition rate matrices.", false);
@@ -95,6 +97,7 @@ int main(int argc, char const *argv[]) {
     cmd.add(plot_with_knkpnp);
     cmd.add(arg_temperature);
     cmd.add(arg_energy_range);
+    cmd.add(arg_export_rates);
 
     cmd.parse(argc, argv);
 
@@ -119,6 +122,7 @@ int main(int argc, char const *argv[]) {
     bool              populate_nk_npkp          = false;
     const bool        shift_conduction_band     = true;
     const bool        set_positive_valence_band = false;
+    const bool        export_rates              = arg_export_rates.getValue();
 
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
@@ -135,6 +139,12 @@ int main(int argc, char const *argv[]) {
     ElectronPhonon.load_phonon_parameters(phonon_file);
     ElectronPhonon.set_nb_bands_elph(nb_conduction_bands);
 
+    std::size_t           nb_vtx = ElectronPhonon.get_number_vertices();
+    std::filesystem::path name_path(mesh_band_input_file);
+    std::string           name_stem     = name_path.stem().string();
+    auto                  stamp_params  = fmt::format("_T{}K_C{}V{}_N{}", temperature, nb_conduction_bands, nb_valence_bands, nb_vtx);
+    std::string           prefix_export = name_stem + stamp_params;
+
     const double energy_windows_guard = 10.0 * uepm::constants::k_b_eV * temperature;
     if (max_energy < energy_windows_guard) {
         fmt::print("Warning: energy window {:.3f} eV is small compared to thermal energy scale {:.3f} eV at T = {:.1f} K.\n",
@@ -143,6 +153,11 @@ int main(int argc, char const *argv[]) {
                    temperature);
     }
     ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
+
+    if (export_rates) {
+        const std::string rates_file = prefix_export + "_eph_rates.msh";
+        ElectronPhonon.export_rate_values(rates_file);
+    }
 
     ElectronPhonon.apply_scissor(1.12);  // eV
     // Solve for Fermi level and export CSV
@@ -160,7 +175,8 @@ int main(int argc, char const *argv[]) {
         fmt::print("  p = {:.6e} cm^-3\n", result.p_m3 * 1e-6);
         fmt::print("  n = {:.6e} cm^-3\n", result.n_m3 * 1e-6);
     } else {
-        std::cout << "Fermi level not found.\n";
+        fmt::print(std::cerr, "Fermi level not found.\n");
+        return 1;
     }
     const double Ef = result.EF_eV;
     const double T  = temperature;
@@ -169,29 +185,39 @@ int main(int argc, char const *argv[]) {
     const double     mu_iso      = ElectronPhonon.compute_electron_MRTA_mobility_isotropic(Ef, T);
     constexpr double mu_to_cm2Vs = 1e4;  // m^2/(V·s) to cm^2/(V·s)
     Eigen::Matrix3d  M           = mu_tensor * mu_to_cm2Vs;
-    fmt::print("At T = {:.1f} K and EF = {:.3f} eV:\n", temperature, Ef);
-    fmt::print("μ_iso = {:.2f} cm^2/(V·s)\n", mu_iso * mu_to_cm2Vs);
-    fmt::print("tensor = \n{} cm^2/(V*s)\n", fmt::streamed(M));
-    fmt::print("Should be compared to experimental values of about 1350 cm^2/(V·s) at 300K and low doping.\n");
+    fmt::print("\n\nAt T = {:.1f} K and EF = {:.6f} eV:\n\n", temperature, Ef);
+    fmt::print("μ_iso = {:.2f} cm^2/(V·s)\n\n", mu_iso * mu_to_cm2Vs);
+    fmt::print("tensor = \n{} cm^2/(V*s)\n\n\n", fmt::streamed(M));
 
-    std::size_t           nb_vtx = ElectronPhonon.get_number_vertices();
-    std::filesystem::path name_path(mesh_band_input_file);
-    std::string           name_stem       = name_path.stem().string();
-    std::string           output_mobility = name_stem + "_mobility.txt";
-    auto stamp_params = fmt::format("_T{}K_Ef{:.3f}_C{}V{}_N{}", temperature, Ef, nb_conduction_bands, nb_valence_bands, nb_vtx);
-    auto out          = name_stem + stamp_params + "_mobility.txt";
+    std::string output_mobility = name_stem + "_mobility.txt";
+    auto        out             = name_stem + stamp_params + "_mobility.txt";
 
-    export_result_mobility(out, mu_tensor, mu_iso, Ef, my_options, max_energy, temperature, nb_vtx, nb_conduction_bands, nb_valence_bands);
+    std::string out_rates_vs_energy = prefix_export + "_rates_vs_energy.csv";
 
-    auto stop = std::chrono::high_resolution_clock::now();
-    std::cout << "Time taken: " << std::chrono::duration_cast<std::chrono::seconds>(stop - start).count() << " seconds\n\n\n" << std::endl;
+    export_result_mobility(out_rates_vs_energy,
+                           mu_tensor,
+                           mu_iso,
+                           Ef,
+                           my_options,
+                           max_energy,
+                           temperature,
+                           nb_vtx,
+                           nb_conduction_bands,
+                           nb_valence_bands);
+
+    auto stop     = std::chrono::high_resolution_clock::now();
+    auto duration = stop - start;
+    fmt::print("\nTotal time : {:.2f} seconds\n\n\n", std::chrono::duration<double>(duration).count());
 
     if (plot_with_python.getValue()) {
-        std::string command = "python3 " + std::string(PROJECT_SRC_DIR) + "/python/plots/plot_phonon_rate.py -f rates_vs_energy.csv";
-        std::cout << "Running command: " << command << std::endl;
+        std::string  rates_vs_Energy_file = prefix_export + "_rates_vs_energy.csv";
+        const double energy_step          = 0.001;  // energy step in eV
+        ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(max_energy, energy_step, rates_vs_Energy_file);
+        std::string command = "python3 " + std::string(PROJECT_SRC_DIR) + "/python/plots/plot_phonon_rate.py -f " + prefix_export;
+        fmt::print("Running command: {}\n", command);
         int pyRes = std::system(command.c_str());
         if (pyRes != 0) {
-            std::cerr << "Error: Python script returned non-zero exit code " << pyRes << "\n";
+            fmt::print(std::cerr, "Error: Python script returned non-zero exit code {}\n", pyRes);
         }
     }
 

@@ -131,8 +131,7 @@ class ElectronPhonon : public BZ_States {
                                                                    std::mt19937&   rng) const;
 
     void export_rate_values(const std::string& filename) const;
-    void compute_plot_electron_phonon_rates_vs_energy_over_mesh(int                nb_bands,
-                                                                double             max_energy,
+    void compute_plot_electron_phonon_rates_vs_energy_over_mesh(double             max_energy,
                                                                 double             energy_step,
                                                                 const std::string& filename);
 
