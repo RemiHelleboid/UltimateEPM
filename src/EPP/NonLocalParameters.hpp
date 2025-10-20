@@ -77,24 +77,24 @@ struct NonLocalParameters {
           m_R0_anion(R0_anion),
           m_R2_anion(R2_anion),
           m_well_type(well_type) {
-        m_alpha_0_cation *= Constants::Ryd_to_eV;
-        m_alpha_0_anion *= Constants::Ryd_to_eV;
-        m_A2_cation *= Constants::Ryd_to_eV;
-        m_A2_anion *= Constants::Ryd_to_eV;
+        m_alpha_0_cation *= uepm::constants::Ryd_to_eV;
+        m_alpha_0_anion *= uepm::constants::Ryd_to_eV;
+        m_A2_cation *= uepm::constants::Ryd_to_eV;
+        m_A2_anion *= uepm::constants::Ryd_to_eV;
 
-        m_R0_anion *= Constants::angstrom_to_m;
-        m_R2_anion *= Constants::angstrom_to_m;
-        m_R0_cation *= Constants::angstrom_to_m;
-        m_R2_cation *= Constants::angstrom_to_m;
+        m_R0_anion *= uepm::constants::angstrom_to_m;
+        m_R2_anion *= uepm::constants::angstrom_to_m;
+        m_R0_cation *= uepm::constants::angstrom_to_m;
+        m_R2_cation *= uepm::constants::angstrom_to_m;
     }
 
     void populate_non_local_parameters(const YAML::Node& node) {
-        m_alpha_0_cation                        = Constants::Ryd_to_eV * node["alpha_0_cation"].as<double>();
+        m_alpha_0_cation                        = uepm::constants::Ryd_to_eV * node["alpha_0_cation"].as<double>();
         m_beta_0_cation                         = node["beta_0_cation"].as<double>();
-        m_A2_cation                             = Constants::Ryd_to_eV * node["A2_cation"].as<double>();
-        m_alpha_0_anion                         = Constants::Ryd_to_eV * node["alpha_0_anion"].as<double>();
+        m_A2_cation                             = uepm::constants::Ryd_to_eV * node["A2_cation"].as<double>();
+        m_alpha_0_anion                         = uepm::constants::Ryd_to_eV * node["alpha_0_anion"].as<double>();
         m_beta_0_anion                          = node["beta_0_anion"].as<double>();
-        m_A2_anion                              = Constants::Ryd_to_eV * node["A2_anion"].as<double>();
+        m_A2_anion                              = uepm::constants::Ryd_to_eV * node["A2_anion"].as<double>();
         m_R0_cation                             = node["R0_cation"].as<double>();
         m_R2_cation                             = node["R2_cation"].as<double>();
         m_R0_anion                              = node["R0_anion"].as<double>();
@@ -109,10 +109,10 @@ struct NonLocalParameters {
             throw std::runtime_error("Unknown non-local well type");
         }
         m_well_type = non_local_well_type;
-        m_R0_anion *= Constants::angstrom_to_m;
-        m_R2_anion *= Constants::angstrom_to_m;
-        m_R0_cation *= Constants::angstrom_to_m;
-        m_R2_cation *= Constants::angstrom_to_m;
+        m_R0_anion *= uepm::constants::angstrom_to_m;
+        m_R2_anion *= uepm::constants::angstrom_to_m;
+        m_R0_cation *= uepm::constants::angstrom_to_m;
+        m_R2_cation *= uepm::constants::angstrom_to_m;
     }
 
     void print_non_local_parameters() const {

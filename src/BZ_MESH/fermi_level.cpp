@@ -79,7 +79,7 @@ static inline double donors_ionized(double EF, double Ec, const Dopants& d, doub
     if (d.Nd_cm3 <= 0) {
         return 0.0;
     }
-    const double kT  = uepm::Constants::k_b_eV * T;
+    const double kT  = uepm::constants::k_b_eV * T;
     const double ED  = Ec - d.Ed_eV;
     const double occ = 1.0 / (1.0 + d.gd * std::exp((EF - ED) / kT));
     return d.Nd_cm3 * 1e6 * occ;  // cm^-3 -> m^-3
@@ -98,7 +98,7 @@ static inline double acceptors_ionized(double EF, double Ev, const Dopants& d, d
     if (d.Na_cm3 <= 0) {
         return 0.0;
     }
-    const double kT  = uepm::Constants::k_b_eV * T;
+    const double kT  = uepm::constants::k_b_eV * T;
     const double EA  = Ev + d.Ea_eV;
     const double occ = 1.0 / (1.0 + d.ga * std::exp((EA - EF) / kT));
     return d.Na_cm3 * 1e6 * occ;  // cm^-3 -> m^-3

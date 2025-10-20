@@ -13,9 +13,7 @@
 #include <cmath>
 #include <numbers>
 
-namespace uepm {
-
-namespace Constants {
+namespace uepm::constants {
 
 constexpr double h   = 6.62607015e-34;   // J·s (exact)
 constexpr double k_B = 1.380649e-23;     // J/K (exact)
@@ -52,5 +50,4 @@ constexpr double eV_to_Ryd     = 1.0 / Ryd_to_eV;
 // FCC lattice constants
 constexpr double irreducible_wedge_factor_fcc = 48.0;  // Volume of BZ / Volume of IW for FCC lattice
 
-}  // namespace Constants
-}  // namespace uepm
+}  // namespace uepm::constants

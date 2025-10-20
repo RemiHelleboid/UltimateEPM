@@ -1,5 +1,5 @@
 /**
- * @file Constants.hpp
+ * @file uepm::constants.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
  * @version 0.1
@@ -16,7 +16,7 @@
 
 namespace uepm::pseudopotential {
 
-namespace Constants {
+namespace uepm::constants {
 
 constexpr double h   = 6.62607015e-34;   // J·s (exact)
 constexpr double k_B = 1.380649e-23;     // J/K (exact)
@@ -50,5 +50,5 @@ constexpr double eV_to_kg        = eV_to_J / (c * c);  // kg/eV (~1.78266192e-36
 constexpr double eV_to_Hartree = 1.0 / Hartree_to_eV;
 constexpr double eV_to_Ryd     = 1.0 / Ryd_to_eV;
 
-}  // namespace Constants
+}  // namespace uepm::constants
 }  // namespace uepm::pseudopotential

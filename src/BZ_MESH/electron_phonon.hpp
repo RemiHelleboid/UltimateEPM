@@ -10,6 +10,9 @@
 
 #pragma once
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+
 #include <Eigen/Sparse>  // needed for member type in class; keep here
 #include <algorithm>     // max_element
 #include <array>
@@ -97,10 +100,9 @@ class ElectronPhonon : public BZ_States {
     void   plot_phonon_dispersion(const std::string& filename) const;
     double get_max_phonon_energy() const;
 
-    void set_parallelize_over_k(bool b) noexcept { m_parallelize_over_k = b; }
-    void set_temperature(double T) noexcept { m_temperature_K = T; }
-    void set_density(double rho) noexcept { m_rho_kg_m3 = rho; }
-
+    void             set_parallelize_over_k(bool b) noexcept { m_parallelize_over_k = b; }
+    void             set_temperature(double T) noexcept { m_temperature_K = T; }
+    void             set_density(double rho) noexcept { m_rho_kg_m3 = rho; }
     void             set_particle_type(MeshParticleType type) noexcept { m_elph_particle_type = type; }
     MeshParticleType get_particle_type() const noexcept { return m_elph_particle_type; }
     void             set_nb_bands_elph(std::size_t nb) noexcept { m_nb_bands_elph = nb; }

@@ -50,7 +50,7 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
     const double       fourier_factor = 2.0 * M_PI / latticeConstant;
     matrix                            = m_constant_non_diagonal_matrix;
     // diagonal elements
-    const double diag_factor = pow(Constants::h_bar, 2) / (2.0 * Constants::m_e * Constants::q_e);
+    const double diag_factor = pow(uepm::constants::h_bar, 2) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
     for (unsigned int i = 0; i < basisSize; ++i) {
         Vector3D<double> real_k_vector = (k + m_basisVectors[i]);
         const double     KG2           = fourier_factor * fourier_factor * diag_factor * (real_k_vector * real_k_vector);

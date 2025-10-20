@@ -35,7 +35,7 @@ Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPh
     const std::size_t index = 0;
     m_particle              = particle(index, particle_type::electron, m_ptr_mesh_bz);
     m_particle.set_position({0.0, 0.0, 0.0});
-    const double thermal_energy = bulk_env.m_temperature * uepm::Constants::k_b_eV;
+    const double thermal_energy = bulk_env.m_temperature * uepm::constants::k_b_eV;
     m_particle.set_energy(thermal_energy);
     m_particle.set_velocity({0.0, 0.0, 0.0});
     std::cout << "Thermal energy at " << bulk_env.m_temperature << " K: " << thermal_energy << " eV" << std::endl;

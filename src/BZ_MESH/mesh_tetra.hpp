@@ -25,6 +25,13 @@ namespace uepm::mesh_bz {
 
 using array4d = std::array<double, 4>;
 
+struct IsoWeightsResult {
+    double                 dos_eV{0.0};    // tranche de DOS tétra à Ef [1/eV]
+    std::array<double, 4>  w{0, 0, 0, 0};  // poids par sommet, somme = dos_eV
+    std::array<vector3, 3> tri{};          // (optionnel) points de l’iso-triangle
+    vector3                centroid{};     // (optionnel) centroïde de l’iso-triangle
+};
+
 struct UniformDos {
     bool               valid{false};
     double             E0{0.0};
@@ -205,7 +212,6 @@ class Tetra {
     bool                 does_intersect_band_energy_range(double e_min, double e_max, std::size_t index_band) const;
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
     double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;
-    double               compute_tetra_iso_surface_energy_band2(double energy, std::size_t band_index) const;
     double               compute_tetra_dos_energy_band(double energy, std::size_t band_index) const;
     vector3              draw_random_uniform_point_at_energy(double iso_energy, std::size_t band_index, std::mt19937& rng) const;
 

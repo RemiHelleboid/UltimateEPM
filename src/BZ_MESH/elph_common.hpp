@@ -96,7 +96,7 @@ inline double cos_angle_safe(const vector3& v, const vector3& w) noexcept {
 }
 
 inline double fermi_dirac_distribution(double E, double Ef, double T) {
-    const double kT = uepm::Constants::k_b_eV * T;
+    const double kT = uepm::constants::k_b_eV * T;
     if (!(kT > 0.0)) {
         return (E < Ef) ? 1.0 : (E > Ef ? 0.0 : 0.5);
     }
@@ -113,7 +113,7 @@ inline double fermi_dirac_distribution(double E, double Ef, double T) {
 }
 
 inline double d_de_fermi_dirac_dE(double energy_eV, double fermi_level_eV, double temperature_K) {
-    const double kT = uepm::Constants::k_b_eV * temperature_K;
+    const double kT = uepm::constants::k_b_eV * temperature_K;
 
     // T <= 0: derivative is a Dirac delta in theory; return 0 numerically.
     if (!(kT > 0.0)) {
@@ -141,7 +141,7 @@ inline double d_de_fermi_dirac_dE(double energy_eV, double fermi_level_eV, doubl
 
 inline double bose_einstein_distribution(double energy_eV, double temperature_K) {
     // N0 = 1 / (exp(E / kT) - 1)
-    const double x = energy_eV / (uepm::Constants::k_b_eV * temperature_K);
+    const double x = energy_eV / (uepm::constants::k_b_eV * temperature_K);
     return 1.0 / std::expm1(x);  // stable for small x
 }
 

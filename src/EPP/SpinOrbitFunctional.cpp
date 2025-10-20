@@ -18,37 +18,37 @@
 namespace uepm::pseudopotential {
 
 double SpinOrbitCorrection::compute_B2_cation(const Vector3D<double>& K) const {
-    double kappa = K.Length() * (Constants::bohr_radius / m_soc_parameters.m_radial_extent_cation);
+    double kappa = K.Length() * (uepm::constants::bohr_radius / m_soc_parameters.m_radial_extent_cation);
     double B2    = 1.0 / std::pow((1.0 + kappa * kappa), 3.0);
     return B2;
 }
 
 double SpinOrbitCorrection::compute_B2_anion(const Vector3D<double>& K) const {
-    double kappa = K.Length() * (Constants::bohr_radius / m_soc_parameters.m_radial_extent_anion);
+    double kappa = K.Length() * (uepm::constants::bohr_radius / m_soc_parameters.m_radial_extent_anion);
     double B2    = 1.0 / std::pow((1.0 + kappa * kappa), 3.0);
     return B2;
 }
 
 double SpinOrbitCorrection::compute_B3_cation(const Vector3D<double>& K) const {
-    double kappa = K.Length() * (Constants::bohr_radius / m_soc_parameters.m_radial_extent_cation);
+    double kappa = K.Length() * (uepm::constants::bohr_radius / m_soc_parameters.m_radial_extent_cation);
     double B3    = (5 - kappa * kappa) / (5.0 * pow((1.0 + kappa * kappa), 4.0));
     return B3;
 }
 
 double SpinOrbitCorrection::compute_B3_anion(const Vector3D<double>& K) const {
-    double kappa = K.Length() * (Constants::bohr_radius / m_soc_parameters.m_radial_extent_anion);
+    double kappa = K.Length() * (uepm::constants::bohr_radius / m_soc_parameters.m_radial_extent_anion);
     double B3    = (5 - kappa * kappa) / (5.0 * pow((1.0 + kappa * kappa), 4.0));
     return B3;
 }
 
 double SpinOrbitCorrection::compute_B4_cation(const Vector3D<double>& K) const {
-    double kappa = K.Length() * (Constants::bohr_radius / m_soc_parameters.m_radial_extent_cation);
+    double kappa = K.Length() * (uepm::constants::bohr_radius / m_soc_parameters.m_radial_extent_cation);
     double B4    = (5.0 - 3.0 * kappa * kappa) / (5.0 * pow((1.0 + kappa * kappa), 5.0));
     return B4;
 }
 
 double SpinOrbitCorrection::compute_B4_anion(const Vector3D<double>& K) const {
-    double kappa = K.Length() * (Constants::bohr_radius / m_soc_parameters.m_radial_extent_anion);
+    double kappa = K.Length() * (uepm::constants::bohr_radius / m_soc_parameters.m_radial_extent_anion);
     double B4    = (5.0 - 3.0 * kappa * kappa) / (5.0 * pow((1.0 + kappa * kappa), 5.0));
     return B4;
 }

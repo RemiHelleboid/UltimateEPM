@@ -723,7 +723,7 @@ double MeshBZ::compute_mesh_volume() const {
 double MeshBZ::compute_iso_surface(double iso_energy, int band_index) const {
     double total_dos = 0.0;
     for (auto&& tetra : m_list_tetrahedra) {
-        total_dos += tetra.compute_tetra_iso_surface_energy_band(iso_energy, band_index);
+        total_dos += tetra.compute_tetra_dos_energy_band(iso_energy, band_index);
     }
 
     return total_dos;
@@ -744,7 +744,7 @@ double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index,
     total_dos *= get_reduce_bz_factor();
     total_dos *= m_spin_degeneracy;
     if (use_iw) {
-        total_dos *= uepm::Constants::irreducible_wedge_factor_fcc;
+        total_dos *= uepm::constants::irreducible_wedge_factor_fcc;
     }
     return total_dos;
 }

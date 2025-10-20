@@ -425,48 +425,11 @@ inline std::vector<vector3> order_cyclic(const std::vector<vector3>& pts) {
 }
 
 /**
- * @brief Compute the surface of the tetrahedra for a given energy of a given band.
- * The iso-surface is computed by the function compute_band_iso_energy_surface, and then
- * the area of the surface is computed.
- *
- * If the surface is a triangle, the area is computed by the class IsoTriangle class function "get_signed_area".
- * If the surface is a quadrangle, the area is computed by splitting the quadrangle into 2 triangles and then computing the area of each
- * triangle.
- *
- * A more direct way to compute the area in both cases should be tested for performances improvement.
- *  *
- * @param energy
- * @param band_index
- * @return double
+ * @brief Compute the area of a polygon defined by its vertices.
+ * 
+ * @param pts 
+ * @return double 
  */
-double Tetra::compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const {
-    std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy, band_index);
-    if (vertices_iso_surface.size() == 3) {
-        return triangle_area(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2]);
-    } else if (vertices_iso_surface.size() == 4) {
-        vertices_iso_surface = order_cyclic(vertices_iso_surface);
-        return triangle_area(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[3]) +
-               triangle_area(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2]);
-    } else {
-        return 0.0;
-    }
-}
-
-double Tetra::compute_tetra_iso_surface_energy_band2(double energy, std::size_t band_index) const {
-    std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(energy, band_index);
-    if (vertices_iso_surface.empty()) {
-        return 0.0;
-    } else if (vertices_iso_surface.size() == 3) {
-        IsoTriangle triangle(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], energy);
-        return fabs(triangle.get_signed_surface());
-    } else {
-        vertices_iso_surface = order_cyclic(vertices_iso_surface);
-        IsoTriangle triangle1(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[3], energy);
-        IsoTriangle triangle2(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], energy);
-        return fabs(triangle1.get_signed_surface()) + fabs(triangle2.get_signed_surface());
-    }
-}
-
 inline double polygon_area(const std::vector<vector3>& pts) {
     auto pts_ordered = order_cyclic(pts);
     if (pts_ordered.size() < 3) {

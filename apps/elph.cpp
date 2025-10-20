@@ -135,6 +135,13 @@ int main(int argc, char const *argv[]) {
     ElectronPhonon.load_phonon_parameters(phonon_file);
     ElectronPhonon.set_nb_bands_elph(nb_conduction_bands);
 
+    const double energy_windows_guard = 10.0 * uepm::constants::k_b_eV * temperature;
+    if (max_energy < energy_windows_guard) {
+        fmt::print("Warning: energy window {:.3f} eV is small compared to thermal energy scale {:.3f} eV at T = {:.1f} K.\n",
+                   max_energy,
+                   energy_windows_guard,
+                   temperature);
+    }
     ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
 
     ElectronPhonon.apply_scissor(1.12);  // eV

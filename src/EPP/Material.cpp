@@ -38,19 +38,19 @@ void Materials::load_material_parameters(const std::string& filename) {
         std::string symbol               = material["symbol"].as<std::string>();
         double      a                    = material["lattice-constant"].as<double>();
         auto        node_pseudopotential = material["pseudo-potential-parameters"];
-        double      V3S                  = Constants::Ryd_to_eV * node_pseudopotential["V3S"].as<double>();
-        double      V8S                  = Constants::Ryd_to_eV * node_pseudopotential["V8S"].as<double>();
-        double      V11S                 = Constants::Ryd_to_eV * node_pseudopotential["V11S"].as<double>();
-        double      V3A                  = Constants::Ryd_to_eV * node_pseudopotential["V3A"].as<double>();
-        double      V4A                  = Constants::Ryd_to_eV * node_pseudopotential["V4A"].as<double>();
-        double      V11A                 = Constants::Ryd_to_eV * node_pseudopotential["V11A"].as<double>();
+        double      V3S                  = uepm::constants::Ryd_to_eV * node_pseudopotential["V3S"].as<double>();
+        double      V8S                  = uepm::constants::Ryd_to_eV * node_pseudopotential["V8S"].as<double>();
+        double      V11S                 = uepm::constants::Ryd_to_eV * node_pseudopotential["V11S"].as<double>();
+        double      V3A                  = uepm::constants::Ryd_to_eV * node_pseudopotential["V3A"].as<double>();
+        double      V4A                  = uepm::constants::Ryd_to_eV * node_pseudopotential["V4A"].as<double>();
+        double      V11A                 = uepm::constants::Ryd_to_eV * node_pseudopotential["V11A"].as<double>();
         double      V4S                  = 0.0;
         double      V8A                  = 0.0;
         if (node_pseudopotential["V4S"]) {
-            V4S = Constants::Ryd_to_eV * node_pseudopotential["V4S"].as<double>();
+            V4S = uepm::constants::Ryd_to_eV * node_pseudopotential["V4S"].as<double>();
         }
         if (node_pseudopotential["V8A"]) {
-            V8A = Constants::Ryd_to_eV * node_pseudopotential["V8A"].as<double>();
+            V8A = uepm::constants::Ryd_to_eV * node_pseudopotential["V8A"].as<double>();
         }
         materials[symbol] = Material(symbol, a, V3S, V4S, V8S, V11S, V3A, V4A, V8A, V11A);
 
@@ -137,7 +137,7 @@ double F_2_function_gaussian(const Vector3D<double>& K1, const Vector3D<double>&
 std::complex<double> Material::compute_pseudopotential_non_local_correction(const Vector3D<double>& K1_normalized,
                                                                             const Vector3D<double>& K2_normalized,
                                                                             const Vector3D<double>& tau) const {
-    const double           diag_factor       = pow(Constants::h_bar, 2) / (2.0 * Constants::m_e * Constants::q_e);
+    const double           diag_factor       = pow(uepm::constants::h_bar, 2) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
     const double           fourier_factor    = 2.0 * M_PI / get_lattice_constant_meter();
     const Vector3D<double> G_diff_normalized = (K1_normalized - K2_normalized);
     const Vector3D<double> K1                = K1_normalized * fourier_factor;

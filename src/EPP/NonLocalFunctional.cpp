@@ -27,7 +27,7 @@
 //     : m_non_local_parameters(non_local_parameters),
 //       m_material(material),
 //       m_tau(tau),
-//       m_cinetic_factor{(Constants::h_bar * Constants::h_bar) / (2.0 * Constants::m_e * Constants::q_e)},
+//       m_cinetic_factor{(uepm::constants::h_bar * uepm::constants::h_bar) / (2.0 * uepm::constants::m_e * uepm::constants::q_e)},
 //       m_fourrier_factor{2.0 * M_PI / m_material.get_lattice_constant_meter()},
 //       m_V0_pref_factor(2.0 * M_PI / m_material.get_lattice_constant_meter()),
 //       m_V2_square_well_pref_factor{m_V0_pref_factor},
@@ -100,7 +100,7 @@
 // std::complex<double> Material::compute_pseudopotential_non_local_correction(const Vector3D<double>& K1_normalized,
 //                                                                             const Vector3D<double>& K2_normalized,
 //                                                                             const Vector3D<double>& tau) const {
-//     const double           diag_factor       = pow(Constants::h_bar, 2) / (2.0 * Constants::m_e * Constants::q_e);
+//     const double           diag_factor       = pow(uepm::constants::h_bar, 2) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
 //     const double           fourier_factor    = 2.0 * M_PI / get_lattice_constant_meter();
 //     const Vector3D<double> G_diff_normalized = (K1_normalized - K2_normalized);
 //     const Vector3D<double> K1                = K1_normalized * fourier_factor;
