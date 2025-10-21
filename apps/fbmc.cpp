@@ -9,6 +9,9 @@
  *
  */
 
+#include <fmt/chrono.h>
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 #include <tclap/CmdLine.h>
 
 #include <chrono>
@@ -35,7 +38,8 @@ int main(int argc, const char** argv) {
     TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "ncbands", "Number of conduction bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
-    TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
+    TCLAP::ValueArg<double>      arg_time("t", "time", "Simulation time (s)", false, 1e-12, "double");
+    TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the MC Runs.", false);
     TCLAP::SwitchArg plot_with_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
@@ -46,15 +50,16 @@ int main(int argc, const char** argv) {
     cmd.add(arg_nb_threads);
     cmd.add(plot_with_wedge);
     cmd.add(arg_phonon_file);
+    cmd.add(arg_time);
 
     cmd.parse(argc, argv);
 
     const std::string file_mesh              = arg_mesh_file.getValue();
     const std::string material_symbol        = arg_material.getValue();
     const std::string file_phonon_scattering = arg_phonon_file.getValue();
-    int nb_threads                          = arg_nb_threads.getValue();
+    int               nb_threads             = arg_nb_threads.getValue();
     int               nb_valence_bands       = 0;
-    int               nb_conduction_bands    = 4;
+    int               nb_conduction_bands    = 2;
 
     uepm::pseudopotential::Materials materials;
     const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
@@ -65,21 +70,41 @@ int main(int argc, const char** argv) {
     mesh.set_number_threads_mesh_ops(nb_threads);
     mesh.read_mesh_geometry_from_msh_file(file_mesh);
     mesh.build_search_tree();
-    mesh.export_octree_to_vtu("octree.vtu");
-    mesh.read_mesh_bands_from_msh_file(file_mesh, nb_conduction_bands);
+    // mesh.export_octree_to_vtu("octree.vtu");
+    mesh.set_nb_bands_elph(nb_conduction_bands);
+
+    const bool shift_conduction_band = true;
+    mesh.read_mesh_bands_from_msh_file(file_mesh, nb_conduction_bands, nb_valence_bands, shift_conduction_band);
+
+    const std::string vtk_file = "mesh_vtk.vtk";
+    if (!std::filesystem::exists(vtk_file)) {
+        mesh.export_to_vtk(vtk_file);
+    }
+
+    const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
+    mesh.load_phonon_parameters(phonon_file);
+
     mesh.read_phonon_scattering_rates_from_file(file_phonon_scattering);
 
     uepm::fbmc::Bulk_environment bulk_env;
     bulk_env.m_temperature          = 300.0;
-    bulk_env.m_electric_field       = {1e5, 0.0, 0.0};
+    bulk_env.m_electric_field       = {0.0, 0.0, 0.0};
     bulk_env.m_doping_concentration = 1e10;
-
+    mesh.set_temperature(bulk_env.m_temperature);
+    mesh.set_particle_type(uepm::mesh_bz::MeshParticleType::conduction);
+    mesh.set_nb_bands_elph(nb_conduction_bands);
+    
     uepm::fbmc::Simulation_parameters sim_params;
-    sim_params.m_simulation_time  = 2000e-12;
+    sim_params.m_simulation_time  = arg_time.getValue();
     sim_params.m_export_frequency = 1;
 
     uepm::fbmc::Single_particle_simulation sim(&mesh, bulk_env, sim_params);
+
+    auto start = std::chrono::high_resolution_clock::now();
     sim.run_simulation();
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    fmt::print("Simulation completed in {:.3f} seconds.\n", elapsed.count());
 
     std::string timestamp = std::to_string(std::time(nullptr));
     std::string filename  = "particle_history_" + timestamp + ".csv";

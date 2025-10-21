@@ -26,8 +26,20 @@ particle::particle(std::size_t index, particle_type arg_particle_type, uepm::mes
  *
  * @param p_gamma
  */
+
 void particle::draw_free_flight_time(double p_gamma) {
-    m_current_free_flight_time = -(1.0 / p_gamma) * std::log(m_random_distribution(m_random_generator));
+    if (!(p_gamma > 0.0) || !std::isfinite(p_gamma)) {
+        throw std::runtime_error("draw_free_flight_time: invalid p_gamma");
+    }
+    double u = m_random_distribution(m_random_generator);  // [0,1)
+    // Map to (0,1] robustly to avoid log(0):
+    if (u <= 0.0) {
+        u = std::numeric_limits<double>::min();  // needs <limits>
+    }
+    if (u >= 1.0) {
+        u = std::nextafter(1.0, 0.0);  // needs <cmath>
+    }
+    m_current_free_flight_time = -std::log(u) / p_gamma;
     m_time += m_current_free_flight_time;
 }
 
@@ -51,12 +63,14 @@ std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(c
 
 void particle::update_energy() { m_energy = m_containing_bz_mesh_tetra->interpolate_energy_at_band(m_k_vector, m_band_index); }
 
-std::pair<int, std::size_t> particle::select_final_state_after_phonon_scattering(uepm::mesh_bz::PhononMode      mode,
-                                                                                 uepm::mesh_bz::PhononDirection direction,
-                                                                                 uepm::mesh_bz::PhononEvent     event) {
-    auto idxBand_idxFinalTetra =
-        m_mesh_bz->select_electron_phonon_final_state(m_band_index, m_k_vector, mode, direction, event, m_random_generator);
-    return idxBand_idxFinalTetra;
+void particle::select_final_state_after_phonon_scattering(std::size_t idx_phonon_branch) {
+    uepm::mesh_bz::SelectedFinalState Sf =
+        m_mesh_bz->select_electron_phonon_final_state(m_band_index, m_k_vector, idx_phonon_branch, m_random_generator);
+    m_k_vector                 = Sf.k_final;
+    m_energy                   = Sf.E_final_eV;
+    m_containing_bz_mesh_tetra = Sf.tetra_ptr;
+
+    update_group_velocity();
 }
 
 }  // namespace uepm::fbmc

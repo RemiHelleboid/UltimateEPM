@@ -23,7 +23,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "bz_states.hpp"  // for vector3, BZ_States, material
+#include "bz_states.hpp"
 #include "elph_common.hpp"
 #include "elph_deformation_potential.hpp"
 #include "elph_dispersion.hpp"
@@ -47,6 +47,14 @@ struct Rates_nk_npkp_ctor {
      *
      */
     EigenSparseMatrix matrix;  // (nk, n'k')
+};
+
+struct SelectedFinalState {
+    int                   band;         // final band index (n2)
+    std::size_t           tetra_index;  // chosen tetra index
+    uepm::mesh_bz::Tetra* tetra_ptr;    // non-owning pointer to that tetra
+    vector3               k_final;      // sampled k' on iso-surface E = Ef
+    double                E_final_eV;   // Ef = Ei ± ħω (for sanity/log)
 };
 
 struct IterativeBTEOptions {
@@ -123,17 +131,19 @@ class ElectronPhonon : public BZ_States {
     void compute_electron_phonon_rates_over_mesh_nk_npkp(bool irreducible_wedge_only = false);
     void clean_all_elph_data();
 
-    std::pair<int, std::size_t> select_electron_phonon_final_state(std::size_t     idx_band_initial,
+    SelectedFinalState          select_electron_phonon_final_state(std::size_t     idx_band_initial,
                                                                    const vector3&  k_initial,
                                                                    PhononMode      mode,
                                                                    PhononDirection direction,
                                                                    PhononEvent     event,
                                                                    std::mt19937&   rng) const;
+    SelectedFinalState          select_electron_phonon_final_state(std::size_t    idx_band_initial,
+                                                                   const vector3& k_initial,
+                                                                   int            idx_phonon_branch,
+                                                                   std::mt19937&  rng) const;
 
     void export_rate_values(const std::string& filename) const;
-    void compute_plot_electron_phonon_rates_vs_energy_over_mesh(double             max_energy,
-                                                                double             energy_step,
-                                                                const std::string& filename);
+    void compute_plot_electron_phonon_rates_vs_energy_over_mesh(double max_energy, double energy_step, const std::string& filename);
 
     void          read_phonon_scattering_rates_from_file(const std::filesystem::path& path);
     Rate8         interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const;

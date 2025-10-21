@@ -70,6 +70,7 @@ int main(int argc, char const *argv[]) {
 
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
+    TCLAP::ValueArg<std::string> arg_phonon_rates("P", "phononrates", "File to load BZ phonon rates.", false, "bz_phonon.csv", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
     TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "ncbands", "Number of conduction bands to consider", false, -1, "int");
@@ -83,7 +84,7 @@ int main(int argc, char const *argv[]) {
                                              0.3,
                                              "double");
     TCLAP::SwitchArg             arg_export_rates("X", "export-rates", "Export electron-phonon rates in k.", false);
-    TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
+    TCLAP::SwitchArg plot_with_python("p", "plot", "Call a python script after the computation to plot the band structure.", false);
     TCLAP::SwitchArg use_irr_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
     TCLAP::SwitchArg plot_with_knkpnp("K", "knkpnp", "Compute and store the full (n,k) -> (n',k') transition rate matrices.", false);
     cmd.add(plot_with_python);
@@ -98,6 +99,7 @@ int main(int argc, char const *argv[]) {
     cmd.add(arg_temperature);
     cmd.add(arg_energy_range);
     cmd.add(arg_export_rates);
+    cmd.add(arg_phonon_rates);
 
     cmd.parse(argc, argv);
 
@@ -123,6 +125,11 @@ int main(int argc, char const *argv[]) {
     const bool        shift_conduction_band     = true;
     const bool        set_positive_valence_band = false;
     const bool        export_rates              = arg_export_rates.getValue();
+    bool phonon_rates_provided = arg_phonon_rates.isSet();
+    std::string phonon_rates_file         = "";
+    if (phonon_rates_provided) {
+        phonon_rates_file = arg_phonon_rates.getValue();
+    }
 
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
@@ -152,9 +159,13 @@ int main(int argc, char const *argv[]) {
                    energy_windows_guard,
                    temperature);
     }
-    ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
+    if (phonon_rates_provided) {
+        ElectronPhonon.read_phonon_scattering_rates_from_file(phonon_rates_file);
+    } else {
+        ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
+    }
 
-    if (export_rates) {
+    if (export_rates && !phonon_rates_provided) {
         const std::string rates_file = prefix_export + "_eph_rates.msh";
         ElectronPhonon.export_rate_values(rates_file);
     }

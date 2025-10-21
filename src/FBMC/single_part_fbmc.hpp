@@ -15,8 +15,6 @@
 #include <cmath>
 #include <cstddef>
 
-#include "bz_mesh.hpp"
-#include "bz_states.hpp"
 #include "electron_phonon.hpp"
 #include "particle.hpp"
 #include "vector.hpp"

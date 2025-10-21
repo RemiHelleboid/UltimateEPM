@@ -1,15 +1,17 @@
 /**
  * @file single_part_fbmc.cpp
- * @author your name (you@domain.com)
- * @brief
+ * @author
+ * @brief Single-particle FBMC with null-collision (Option A)
  * @version 0.1
  * @date 2025-09-19
- *
- * @copyright Copyright (c) 2025
- *
  */
 
 #include "single_part_fbmc.hpp"
+
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fmt/ostream.h>
+#include <fmt/ranges.h>
 
 #include <algorithm>
 #include <array>
@@ -22,6 +24,7 @@
 #include <vector>
 
 #include "physical_constants.hpp"
+
 namespace uepm::fbmc {
 
 Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz,
@@ -29,159 +32,185 @@ Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPh
                                                        const Simulation_parameters&   sim_params)
     : m_ptr_mesh_bz(ptr_mesh_bz),
       m_bulk_env(bulk_env),
-      m_sim_params(sim_params) {
-    double m_time = 0.0;
+      m_sim_params(sim_params),
+      m_time(0.0)  // ✅ initialize the member (fixes the shadowing bug)
+{
     // Initialize the particle
     const std::size_t index = 0;
     m_particle              = particle(index, particle_type::electron, m_ptr_mesh_bz);
+
     m_particle.set_position({0.0, 0.0, 0.0});
-    const double thermal_energy = bulk_env.m_temperature * uepm::constants::k_b_eV;
+
+    // Quick-and-simple initial energy: k_B T (note: not an equilibrium draw)
+    const double thermal_energy = (3.0 / 2.0) * m_bulk_env.m_temperature * uepm::constants::k_b_eV;
     m_particle.set_energy(thermal_energy);
     m_particle.set_velocity({0.0, 0.0, 0.0});
-    std::cout << "Thermal energy at " << bulk_env.m_temperature << " K: " << thermal_energy << " eV" << std::endl;
+
+    std::cout << "Thermal energy at " << m_bulk_env.m_temperature << " K: " << thermal_energy << " eV\n";
+
+    // Draw an initial k-vector at that energy (band 0 here)
     vector3 initial_k = m_ptr_mesh_bz->draw_random_k_point_at_energy(thermal_energy, 0, m_particle.get_random_generator());
     m_particle.set_k_vector(initial_k);
-    std::cout << "Initial k-vector (drawn at thermal energy): " << initial_k << std::endl;
+
+    std::cout << "Initial k-vector (drawn at thermal energy): " << initial_k << "\n";
+
+    // Attach containing tetra
     uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
     if (containing_tetra == nullptr) {
         throw std::runtime_error("Initial k-point is out of the Brillouin zone mesh.");
     }
     m_particle.set_containing_bz_mesh_tetra(containing_tetra);
+
+    // Sync velocity & energy
     m_particle.update_group_velocity();
     m_particle.update_energy();
 
-    double init_energy_true = containing_tetra->interpolate_energy_at_band(m_particle.get_k_vector(), 0);
+    const double init_energy_true = containing_tetra->interpolate_energy_at_band(m_particle.get_k_vector(), 0);
 
-    std::cout << "Initial k-vector: " << m_particle.get_k_vector().x() << " " << m_particle.get_k_vector().y() << " "
-              << m_particle.get_k_vector().z() << std::endl;
-    std::cout << "Initial energy (set): " << m_particle.get_energy() << " eV" << std::endl;
-    std::cout << "Initial energy (true): " << init_energy_true << " eV" << std::endl;
+    fmt::print("Initial energy (set):  {:.10f} eV\n", thermal_energy);
+    fmt::print("Initial energy (true): {:.10f} eV\n", init_energy_true);
 }
 
 void Single_particle_simulation::run_simulation() {
-    // Freefligts time in a file
-    std::ofstream free_flight_time_file("free_flight_times.txt");
-    if (!free_flight_time_file.is_open()) {
-        std::cerr << "Could not open free flight time file for writing." << std::endl;
+    // Global upper bound p_gamma for null-collision
+    double p_gamma = m_ptr_mesh_bz->compute_P_Gamma();
+    // Get some margins
+    p_gamma *= 1.2;
+    fmt::print("Using p_gamma = {:.4e} 1/s for null-collision upper bound.\n", p_gamma);
+
+    if (!(p_gamma > 0.0) || !std::isfinite(p_gamma)) {
+        fmt::print("Invalid p_gamma (<=0 or NaN).\n");
         return;
     }
 
-    // Compute total scattering rate
-    const double p_gamma = m_ptr_mesh_bz->compute_P_Gamma();
-    std::cout << "Total scattering rate: " << p_gamma << " 1/s" << std::endl;
-    if (p_gamma <= 0.0) {
-        std::cerr << "Total scattering rate is zero or negative." << std::endl;
-        return;
-    }
-
+    m_particle.reserve_history(10000);
     int nb_foldings = 0;
 
+    // Uniform [0,1] for selections
+    std::uniform_real_distribution<double> U01(0.0, 1.0);
+
     while (m_time < m_sim_params.m_simulation_time) {
-        // std::cout << "Time: " << m_time << " s" << std::endl;
+
+        // Save current state to history
         m_particle.update_history();
 
-        // Draw free flight time
+        // ---- Draw free-flight time with upper bound p_gamma (null-collision scheme) ----
         m_particle.draw_free_flight_time(p_gamma);
-        free_flight_time_file << m_particle.get_current_free_flight_time() << std::endl;
+        const double dt = m_particle.get_current_free_flight_time();
+        m_time += dt;
 
-        // Update time
-        m_time += m_particle.get_current_free_flight_time();
-
-        // Update k-vector
         m_particle.update_k_vector(m_bulk_env.m_electric_field);
-        // std::cout << "New k-vector: " << m_particle.get_k_vector().x() << " " << m_particle.get_k_vector().y() << " "
-        //           << m_particle.get_k_vector().z() << std::endl;
 
-        // Find containing tetrahedron
+        // ---- Keep k inside the mesh/BZ (fold if needed), reattach tetra ----
         uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
         if (containing_tetra == nullptr) {
-            // TEST
-            bool is_inside_bz = m_ptr_mesh_bz->inside_ws_bcc(m_particle.get_k_vector());
+            const bool is_inside_bz = m_ptr_mesh_bz->inside_ws_bcc(m_particle.get_k_vector());
             if (is_inside_bz) {
-                std::cout << "ERROR : Particle is inside the Wigner-Seitz cell but outside the mesh." << std::endl;
+                std::cout << "\nWARNING: Particle inside WS cell but outside mesh.\n";
             } else {
-                std::cout << "GOOD : Particle is outside the Wigner-Seitz cell and the mesh." << std::endl;
+                std::cout << "\nINFO: Particle outside WS cell and mesh.\n";
             }
 
-            std::cerr << "Particle exited the Brillouin zone mesh (" << "k = " << m_particle.get_k_vector().x() << " "
-                      << m_particle.get_k_vector().y() << " " << m_particle.get_k_vector().z() << "). Folding back..." << std::endl;
-            // Fold back into the first Brillouin zone
-            vector3 folded_k = m_ptr_mesh_bz->fold_ws_bcc(m_particle.get_k_vector());
+            // Fold back into 1st BZ
+            const vector3 folded_k = m_ptr_mesh_bz->retrieve_k_inside_mesh_geometry(m_particle.get_k_vector());
             m_particle.set_k_vector(folded_k);
             containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(m_particle.get_k_vector());
             if (containing_tetra == nullptr) {
-                std::cerr << "Particle still outside the Brillouin zone mesh after folding back." << std::endl;
+                std::cerr << "\nParticle still outside the Brillouin zone mesh after folding back.\n";
                 break;
             } else {
-                std::cout << "Particle folded back into the Brillouin zone mesh at k = " << folded_k.x() << " " << folded_k.y() << " "
-                          << folded_k.z() << std::endl;
-                nb_foldings++;
+                std::cout << "\nFolded back to k = " << folded_k.x() << " " << folded_k.y() << " " << folded_k.z() << "\n";
+                ++nb_foldings;
             }
         }
         m_particle.set_containing_bz_mesh_tetra(containing_tetra);
 
+        // ---- Update energy & velocity after drift ----
         m_particle.update_energy();
-
-        // Update group velocity
         m_particle.update_group_velocity();
 
-        // Update position
-        vector3 new_position = m_particle.get_position() + m_particle.get_velocity() * m_particle.get_current_free_flight_time();
-        m_particle.set_position(new_position);
+        // ---- Compute physical total rate at current k ----
+        std::array<double, 8> scattering_rates = m_particle.interpolate_phonon_scattering_rate_at_location(m_particle.get_k_vector());
 
-        // Scatter the particle
-        std::array<double, 8> scattering_rates      = m_particle.interpolate_phonon_scattering_rate_at_location(m_particle.get_k_vector());
-        double                total_scattering_rate = std::accumulate(scattering_rates.begin(), scattering_rates.end(), 0.0);
-        if (total_scattering_rate <= 0.0) {
-            std::cerr << "Total scattering rate is zero or negative during scattering." << std::endl;
-            break;
+        const double Gamma = std::accumulate(scattering_rates.begin(), scattering_rates.end(), 0.0);
+        m_particle.set_gamma(Gamma);
+
+        if (!(Gamma > 0.0) || !std::isfinite(Gamma)) {
+            // No physical channels at this state → null collision only (do nothing)
+            continue;
         }
-        std::uniform_real_distribution<double> distribution(0.0, total_scattering_rate);
-        double                                 random_value     = distribution(m_particle.get_random_generator());
-        double                                 cumulative_rate  = 0.0;
-        std::size_t                            scattering_event = 0;
-        bool                                   event_found      = false;
-        for (std::size_t idx_mode = 0; idx_mode < scattering_rates.size(); ++idx_mode) {
-            cumulative_rate += scattering_rates[idx_mode];
-            if (random_value <= cumulative_rate) {
-                scattering_event = idx_mode;
-                event_found      = true;
+        if (Gamma < 1e10) {
+            fmt::print("\n[WARN] Very low total scattering rate Gamma = {:.4e} 1/s at energy {:.4e} eV in band {} at k = ({:.4e}, {:.4e}, {:.4e}).\n",
+                       Gamma,
+                       m_particle.get_energy(),
+                       m_particle.get_band_index(),
+                       m_particle.get_k_vector().x(),
+                       m_particle.get_k_vector().y(),
+                       m_particle.get_k_vector().z());
+        }
+
+        // ---- Null-collision acceptance: accept real event with prob = Gamma / p_gamma ----
+        double accept = Gamma / p_gamma;
+        if (accept > 1.0) {
+            // Bound violated somewhere; clamp (optional: log under verbose)
+            std::cout << "\n[WARN] Gamma > p_gamma (" << Gamma << " > " << p_gamma << "). Clamping accept=1.\n";
+
+            accept = 1.0;
+        }
+
+        if (U01(m_particle.get_random_generator()) > accept) {
+            // ---- Null event (self scattering): keep state, go to next loop ----
+            continue;
+        }
+
+        // ---- Real event: pick channel with weights ~ gamma_i/Gamma ----
+        const double rsel             = U01(m_particle.get_random_generator()) * Gamma;
+        double       cum              = 0.0;
+        std::size_t  scattering_event = 0;
+        for (; scattering_event < scattering_rates.size(); ++scattering_event) {
+            cum += scattering_rates[scattering_event];
+            if (rsel <= cum) {
                 break;
             }
         }
-        // std::cout << "Scattering event: " << scattering_event << " at energy " << m_particle.get_energy() << " eV" << std::endl;
-        if (!event_found) {
-            std::cout << "Self-scattering event." << std::endl;
-            continue;
+        if (scattering_event >= scattering_rates.size()) {
+            // Numerical corner case: fallback to last channel
+            scattering_event = scattering_rates.size() - 1;
         }
+
+        // Your helper returns (band index, tetra index). We'll keep it.
+        m_particle.select_final_state_after_phonon_scattering(scattering_event);
+
+        fmt::print("\r time: {:.6e} / {:.6e} s - energy: {:.4e} eV", m_time, m_sim_params.m_simulation_time, m_particle.get_energy());
+        std::cout.flush();
     }
-    // auto indx_final_band_idx_final_tetra =
-    std::cout << "Simulation finished at time " << m_time << " s" << std::endl;
-    std::cout << "Number of foldings: " << nb_foldings << std::endl;
-    free_flight_time_file.close();
+
+    std::cout << "\nSimulation finished at time " << m_time << " s\n";
+    std::cout << "Number of foldings: " << nb_foldings << "\n";
 }
 
 void Single_particle_simulation::export_history(const std::string& filename) {
     std::ofstream history_file(filename);
     if (!history_file.is_open()) {
-        std::cerr << "Could not open history file for writing." << std::endl;
+        std::cerr << "Could not open history file for writing.\n";
         return;
     }
-    constexpr double lattice_constant     = 5.43e-10;  // in meters (for silicon)
-    constexpr double normalization_factor = 2.0 * M_PI / lattice_constant;
+    // Prefer your constants over M_PI for portability
+    constexpr double lattice_constant     = 5.43e-10;  // meters (Si)
+    const double     normalization_factor = 2.0 * uepm::constants::pi / lattice_constant;
 
-    // Write particle history to file
-    auto history = m_particle.get_history();
-    history_file << "time,x,y,z,kx,ky,kz,vx,vy,vz,energy\n";
+    const auto history = m_particle.get_history();
+
+    history_file << "time,gamma,x,y,z,kx,ky,kz,vx,vy,vz,energy\n";
     for (std::size_t step = 0; step < history.get_number_of_steps(); ++step) {
-        history_file << history.m_time_history[step] << "," << history.m_positions[step].x() << "," << history.m_positions[step].y() << ","
+        history_file << history.m_time_history[step] << "," << history.m_gammas[step] << "," << history.m_positions[step].x() << "," << history.m_positions[step].y() << ","
                      << history.m_positions[step].z() << "," << history.m_k_vectors[step].x() / normalization_factor << ","
                      << history.m_k_vectors[step].y() / normalization_factor << "," << history.m_k_vectors[step].z() / normalization_factor
                      << "," << history.m_velocities[step].x() << "," << history.m_velocities[step].y() << ","
                      << history.m_velocities[step].z() << "," << history.m_energies[step] << "\n";
     }
     history_file.close();
-    std::cout << "Particle history exported to " << filename << std::endl;
+    std::cout << "Particle history exported to " << filename << "\n";
 }
 
 }  // namespace uepm::fbmc

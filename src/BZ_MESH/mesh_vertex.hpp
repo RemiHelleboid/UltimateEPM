@@ -240,6 +240,27 @@ class Vertex {
     void add_electron_phonon_rates(const std::array<double, 8>& rates) { m_electron_phonon_rates.push_back(rates); }
 
     /**
+     * @brief Set the number of electron-phonon rates (i.e., number of bands).
+     *
+     * @param nb_bands
+     */
+    void set_nb_electron_phonon_rates(std::size_t nb_bands) { m_electron_phonon_rates.resize(nb_bands); }
+
+    /**
+     * @brief Set the electron-phonon rates for a given band.
+     *
+     * @param band_index
+     * @param rates
+     */
+    void set_electron_phonon_rates(std::size_t band_index, const std::array<double, 8>& rates) {
+        if (band_index >= m_electron_phonon_rates.size()) {
+            throw std::invalid_argument("The electron-phonon rates of band " + std::to_string(band_index) +
+                                        " cannot be modify because it does not exist.");
+        }
+        m_electron_phonon_rates[band_index] = rates;
+    }
+
+    /**
      * @brief Get the electron-phonon rates for a given band.
      *
      * @param band_index

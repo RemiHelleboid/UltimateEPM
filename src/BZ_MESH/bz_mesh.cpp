@@ -843,6 +843,11 @@ std::size_t MeshBZ::draw_random_tetrahedron_index_with_dos_probability(double   
  */
 vector3 MeshBZ::draw_random_k_point_at_energy(double energy, std::size_t idx_band, std::mt19937& random_generator) const {
     if (energy < m_min_band[idx_band] || energy > m_max_band[idx_band]) {
+        fmt::print("Energy {:.4f} eV is out of range for band {} (min: {:.4f} eV, max: {:.4f} eV). Cannot draw k-point.\n",
+                   energy,
+                   idx_band,
+                   m_min_band[idx_band],
+                   m_max_band[idx_band]);
         throw std::runtime_error("Energy is out of range");
     }
     const std::size_t index_tetra = draw_random_tetrahedron_index_with_dos_probability(energy, idx_band, random_generator);
@@ -1304,7 +1309,8 @@ void MeshBZ::export_to_vtk(const std::string&        filename,
     out << "POINTS " << n_points << " double\n";
     out << std::setprecision(8);
     for (const auto& v : m_list_vertices) {
-        const auto& p = v.get_position();
+        auto p = v.get_position();
+        p *= si_to_reduced_scale();  // export in reduced units
         out << p.x() << " " << p.y() << " " << p.z() << "\n";
     }
 

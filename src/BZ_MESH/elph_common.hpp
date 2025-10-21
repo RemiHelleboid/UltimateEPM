@@ -8,9 +8,11 @@
  *
  */
 
-// phonon_axes.hpp
 #pragma once
+
 #include <array>
+#include <vector>
+#include <cmath>
 #include <cstdint>
 
 namespace uepm::mesh_bz {
@@ -20,9 +22,17 @@ enum class PhononMode : uint8_t { acoustic = 0, optical = 1, none = 2 };
 enum class PhononDirection : uint8_t { longitudinal = 0, transverse = 1, none = 2 };
 enum class PhononEvent : uint8_t { absorption = 0, emission = 1, none = 2 };
 
+struct PhononScatteringEvent {
+    PhononMode      mode;
+    PhononDirection direction;
+    PhononEvent     event;
+};
+
+
+
 // ---------- Compact indices ----------
 // Channel packing: (M,D,E) -> [0..7] with (m<<2)|(d<<1)|e
-constexpr int rate_index(PhononMode m, PhononDirection d, PhononEvent e) noexcept {
+inline constexpr int rate_index(PhononMode m, PhononDirection d, PhononEvent e) noexcept {
     const int M = (m == PhononMode::acoustic) ? 0 : (m == PhononMode::optical) ? 1 : -1;
     const int D = (d == PhononDirection::longitudinal) ? 0 : (d == PhononDirection::transverse) ? 1 : -1;
     const int E = (e == PhononEvent::absorption) ? 0 : (e == PhononEvent::emission) ? 1 : -1;
@@ -48,6 +58,23 @@ inline constexpr int md_index(PhononMode m, PhononDirection d) noexcept {
     const int D = (d == PhononDirection::longitudinal) ? 0 : (d == PhononDirection::transverse) ? 1 : -1;
     return (M | D) < 0 ? -1 : ((M << 1) | D);  // 0..3 or -1 if invalid
 }
+
+inline PhononScatteringEvent inverse_rate_index(int idx) noexcept{
+    PhononScatteringEvent event;
+    if (idx < 0 || idx > 7) {
+        event.mode      = PhononMode::none;
+        event.direction = PhononDirection::none;
+        event.event     = PhononEvent::none;
+        return event;
+    }
+    event.event     = (idx & 0b100) ? PhononEvent::emission : PhononEvent::absorption;
+    event.mode      = (idx & 0b010) ? PhononMode::optical : PhononMode::acoustic;
+    event.direction = (idx & 0b001) ? PhononDirection::transverse : PhononDirection::longitudinal;
+    return event;
+}
+
+
+
 
 // ---------- Compact rate containers ----------
 using Rate8           = std::array<double, 8>;

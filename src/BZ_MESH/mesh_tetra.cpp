@@ -538,7 +538,7 @@ double Tetra::interpolate_dos_at_energy_per_band(double energy, std::size_t band
  * @return vector3
  */
 vector3 Tetra::draw_random_uniform_point_at_energy(double iso_energy, std::size_t band_index, std::mt19937& rng) const {
-    std::cout << "Draw random point at energy: " << iso_energy << " in band: " << band_index << std::endl;
+    // std::cout << "Draw random point at energy: " << iso_energy << " in band: " << band_index << std::endl;
     if (iso_energy < m_min_energy_per_band[band_index] || iso_energy > m_max_energy_per_band[band_index]) {
         std::cout << "Band index: " << band_index << std::endl;
         std::cout << "Energie bound: " << m_min_energy_per_band[band_index] << " " << m_max_energy_per_band[band_index] << std::endl;
