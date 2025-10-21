@@ -11,6 +11,8 @@
 #include <fmt/ostream.h>
 #include <fmt/ranges.h>
 
+#include <csv.h>
+
 #include <Eigen/Dense>
 #include <array>
 #include <atomic>
@@ -891,7 +893,7 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
  * @param path The path to the CSV file.
  */
 void ElectronPhonon::read_phonon_scattering_rates_from_file(const std::filesystem::path& path) {
-    std::cout << "Reading phonon scattering rates (CSV) from file " << path.string() << " ...\n";
+    fmt::print("Reading phonon scattering rates from file {} ...\n", path.string());
 
     std::ifstream in(path);
     if (!in.is_open()) {
@@ -903,6 +905,9 @@ void ElectronPhonon::read_phonon_scattering_rates_from_file(const std::filesyste
 
     std::string line;
     std::size_t line_no = 0;
+    // Read the header line
+    std::getline(in, line);
+    ++line_no;
 
     for (std::size_t idx_vtx = 0; idx_vtx < m_list_vertices.size(); ++idx_vtx) {
         const auto&       vertex   = m_list_vertices[idx_vtx];

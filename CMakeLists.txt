@@ -211,6 +211,8 @@ endif()
 include_directories(${GMSH_INC})
 # tclap (header-only)
 include_directories(${PROJECT_SOURCE_DIR}/external/tclap-1.4.0/include)
+# fast-cpp-csv-parser (header-only)
+include_directories(${PROJECT_SOURCE_DIR}/external/fast-cpp-csv-parser)
 
 
 # ---------------------------- Subprojects ----------------------------

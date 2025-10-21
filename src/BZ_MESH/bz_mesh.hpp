@@ -42,13 +42,12 @@ struct BandInfo {
 };
 
 struct BandRange {
-    int global_start_index{-1};
+    int         global_start_index{-1};
     std::size_t count{0};
 };
 
 class MeshBZ {
  protected:
-
     std::string m_filename_mesh;
 
     int m_nb_threads_mesh_ops = 1;
@@ -109,7 +108,7 @@ class MeshBZ {
     // ~MeshBZ();  // out-of-line (needed for unique_ptr<Octree_mesh> with fwd-decl)
 
     // ---------- light getters / basics ----------
-    int get_number_threads_mesh_ops() const noexcept { return m_nb_threads_mesh_ops; }
+    int  get_number_threads_mesh_ops() const noexcept { return m_nb_threads_mesh_ops; }
     void set_number_threads_mesh_ops(int nb_threads) noexcept { m_nb_threads_mesh_ops = nb_threads; }
 
     const vector3& get_vertex_position(std::size_t idx_vtx) const { return m_list_vertices[idx_vtx].get_position(); }
@@ -129,6 +128,9 @@ class MeshBZ {
     const std::vector<std::size_t>& get_list_vertex_indices_in_irreducible_wedge() const noexcept { return m_list_vtx_in_iwedge; }
     std::size_t                     get_number_vertices_in_irreducible_wedge() const noexcept { return m_list_vtx_in_iwedge.size(); }
     const std::vector<std::vector<std::size_t>>& get_kstar_ibz_to_bz() const noexcept { return m_kstar_ibz_to_bz; }
+    std::size_t                                  get_multiplicity_of_kpoint_in_ibz(std::size_t ibz_kpoint_index) const noexcept {
+        return m_kstar_ibz_to_bz[ibz_kpoint_index].size();
+    }
 
     // Band infos
     std::size_t get_number_bands_total() const noexcept { return m_nb_bands_total; }
