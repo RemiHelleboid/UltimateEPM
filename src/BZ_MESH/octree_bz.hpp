@@ -26,13 +26,13 @@ class Octree_mesh {
      * @brief Maximum number of elements in a leaf node.
      * If the number of elements in a node is greater than this value, the node is split into 8 children.
      */
-    static constexpr std::size_t max_number_of_elements_per_node = 32;
+    static constexpr std::size_t max_number_of_elements_per_node = 128;
 
     /**
      * @brief Minimum size of a node.
      * If the size of a node is smaller than this value, the node is not split anymore.
      */
-    static constexpr double min_size_of_a_node = 1e8;
+    static constexpr double min_size_of_a_node = 5e8;
 
     /**
      * @brief Bounding box of the node.
