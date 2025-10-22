@@ -35,12 +35,13 @@ int main(int argc, const char** argv) {
     TCLAP::ValueArg<std::string> arg_phonon_file("p", "phononfile", "File with phonon scattering rates.", true, "rates_all.csv", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
+    TCLAP::ValueArg<int>         arg_nb_part("N", "npart", "Number of particles to simulate", false, 1, "int");
     TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "ncbands", "Number of conduction bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<double>      arg_time("t", "time", "Simulation time (s)", false, 1e-12, "double");
-    TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the MC Runs.", false);
-    TCLAP::SwitchArg plot_with_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
+    TCLAP::SwitchArg             plot_with_python("P", "plot", "Call a python script after the MC Runs.", false);
+    TCLAP::SwitchArg             plot_with_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -51,6 +52,7 @@ int main(int argc, const char** argv) {
     cmd.add(plot_with_wedge);
     cmd.add(arg_phonon_file);
     cmd.add(arg_time);
+    cmd.add(arg_nb_part);
 
     cmd.parse(argc, argv);
 
@@ -60,6 +62,7 @@ int main(int argc, const char** argv) {
     int               nb_threads             = arg_nb_threads.getValue();
     int               nb_valence_bands       = 0;
     int               nb_conduction_bands    = 2;
+    int               nb_particles           = arg_nb_part.getValue();
 
     uepm::pseudopotential::Materials materials;
     const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
@@ -93,21 +96,21 @@ int main(int argc, const char** argv) {
     mesh.set_temperature(bulk_env.m_temperature);
     mesh.set_particle_type(uepm::mesh_bz::MeshParticleType::conduction);
     mesh.set_nb_bands_elph(nb_conduction_bands);
-    
+
     uepm::fbmc::Simulation_parameters sim_params;
     sim_params.m_simulation_time  = arg_time.getValue();
-    sim_params.m_export_frequency = 1;
+    sim_params.m_export_frequency = 10;
 
-    uepm::fbmc::Single_particle_simulation sim(&mesh, bulk_env, sim_params);
+    uepm::fbmc::Single_particle_simulation sim(&mesh, bulk_env, sim_params, nb_particles);
 
     auto start = std::chrono::high_resolution_clock::now();
     sim.run_simulation();
-    auto end = std::chrono::high_resolution_clock::now();
+    auto                          end     = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
     fmt::print("Simulation completed in {:.3f} seconds.\n", elapsed.count());
 
     std::string timestamp = std::to_string(std::time(nullptr));
-    std::string filename  = "particle_history_" + timestamp + ".csv";
+    std::string filename  = "particle_history_" + timestamp;
     sim.export_history(filename);
 
     return 0;

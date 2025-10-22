@@ -37,15 +37,22 @@ class Single_particle_simulation {
     uepm::mesh_bz::ElectronPhonon* m_ptr_mesh_bz;
     Bulk_environment               m_bulk_env;
     Simulation_parameters          m_sim_params;
-    particle                       m_particle;
+    // particle                       m_particle;
+    std::vector<particle> m_list_particle;
+    std::size_t           m_nb_particles;
 
-    double m_time = 0.0;
+    double      m_time = 0.0;
+    std::size_t m_step = 0;
 
  public:
     double a = 0;
     Single_particle_simulation(uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz,
                                const Bulk_environment&        bulk_env,
-                               const Simulation_parameters&   sim_params);
+                               const Simulation_parameters&   sim_params,
+                               std::size_t                    nb_particles = 1);
+
+    std::size_t get_nb_particles() const { return m_nb_particles; }
+    void        set_nb_particles(std::size_t nb_particles) { m_nb_particles = nb_particles; }
 
     void run_simulation();
 

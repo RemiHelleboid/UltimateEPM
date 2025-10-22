@@ -821,13 +821,10 @@ std::size_t MeshBZ::draw_random_tetrahedron_index_with_dos_probability(double   
                                                                        std::mt19937& random_generator) const {
     std::vector<double> list_dos;
     list_dos.reserve(m_list_tetrahedra.size());
-    std::cout << "Computing DOS weights for tetrahedra at energy " << energy << " eV ..." << std::endl;
     for (auto&& tetra : m_list_tetrahedra) {
-        std::cout << "\rTetra " << tetra.get_index() << "/" << m_list_tetrahedra.size() << std::flush;
         double dos = tetra.compute_tetra_dos_energy_band(energy, idx_band);
         list_dos.push_back(dos);
     }
-    std::cout << "\nDrawing tetrahedron with DOS weights ..." << std::endl;
     std::discrete_distribution<std::size_t> distribution(list_dos.begin(), list_dos.end());
     return distribution(random_generator);
 }

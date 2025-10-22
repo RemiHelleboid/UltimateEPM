@@ -57,6 +57,7 @@ struct particle_history {
         m_energies.reserve(n_steps);
         m_gammas.reserve(n_steps);
     }
+    
     void add_time(double time) { m_time_history.push_back(time); }
     void add_position(const vector3& position) { m_positions.push_back(position); }
     void add_k_vector(const vector3& k_vector) { m_k_vectors.push_back(k_vector); }
