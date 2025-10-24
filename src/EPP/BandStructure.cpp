@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <chrono>
+#include <limits>
 #include <experimental/iterator>
 #include <fstream>
 #include <iostream>
@@ -173,7 +174,7 @@ void BandStructure::Compute_parallel(int nb_threads) {
         for (unsigned int level = 0; level < m_nb_bands && level < eigenvals.rows(); ++level) {
             m_results[index_k][level] = eigenvals(level);
         }
-        if ((index_k+1) % 1000 == 0) {
+        if ((index_k + 1) % 1000 == 0) {
 #pragma omp critical
             {
                 std::cout << "\rComputing band structure at point " << index_k + 1 << "/" << m_nb_points << " = "
@@ -213,27 +214,28 @@ double BandStructure::AdjustValues(bool minConductionBandToZero) {
 }
 
 bool BandStructure::FindBandGap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction) {
-    maxValValence = DBL_MIN;
     if (results.empty() || results.front().size() < 2) {
         return false;
     }
 
-    const unsigned int nrLevels       = static_cast<unsigned int>(results.front().size());
-    double             fallbackMaxVal = 0;
+    const unsigned int nrLevels = static_cast<unsigned int>(results.front().size());
+    maxValValence               = std::numeric_limits<double>::lowest();
+    minValConduction            = std::numeric_limits<double>::infinity();
 
-    for (unsigned int levelLow = 2; levelLow < nrLevels - 1; ++levelLow) {
-        maxValValence    = DBL_MIN;
-        minValConduction = DBL_MAX;
+    double fallbackMaxVal = maxValValence;
 
-        for (auto& p : results) {
+    for (unsigned int levelLow = 2; levelLow + 1 < nrLevels; ++levelLow) {
+        maxValValence    = std::numeric_limits<double>::lowest();
+        minValConduction = std::numeric_limits<double>::infinity();
+
+        for (const auto& p : results) {
             const double valLow  = p[levelLow];
-            const double valHigh = p[levelLow + 1ULL];
-
-            maxValValence    = std::max(maxValValence, valLow);
-            minValConduction = std::min(minValConduction, valHigh);
+            const double valHigh = p[levelLow + 1];
+            maxValValence        = std::max(maxValValence, valLow);
+            minValConduction     = std::min(minValConduction, valHigh);
         }
 
-        if (3 == levelLow) {
+        if (levelLow == 3) {
             fallbackMaxVal = maxValValence;
         }
 
@@ -241,9 +243,7 @@ bool BandStructure::FindBandGap(const std::vector<std::vector<double>>& results,
             return true;
         }
     }
-
     maxValValence = fallbackMaxVal;
-
     return false;
 }
 

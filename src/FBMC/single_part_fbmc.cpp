@@ -64,7 +64,6 @@ Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPh
         particle.set_k_vector(initial_k);
         std::cout << "Initial k-vector (drawn at thermal energy): " << initial_k << "\n";
     }
-    
 
     // Attach containing tetra
     for (auto& particle : m_list_particle) {
@@ -73,6 +72,10 @@ Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPh
             throw std::runtime_error("Initial k-point is out of the Brillouin zone mesh.");
         }
         particle.set_containing_bz_mesh_tetra(containing_tetra);
+        // Physical total rate at current k
+        std::array<double, 8> rates = particle.interpolate_phonon_scattering_rate_at_location(particle.get_k_vector());
+        const double          Gamma = std::accumulate(rates.begin(), rates.end(), 0.0);
+        particle.set_gamma(Gamma);
 
         // Sync velocity & energy
         particle.update_group_velocity();
@@ -91,38 +94,48 @@ void Single_particle_simulation::run_simulation() {
         fmt::print("Invalid p_gamma (<=0 or NaN)\n");
         return;
     }
-    for (auto& p : m_list_particle) {
-        p.set_gamma(p_gamma);
-    }
 
-    // Global tallies (optional)
-    int    nb_foldings_total = 0;
-    double max_time_reached  = 0.0;
+    const double WarningGammaThreshold = 1e10;  // 1/s
+    int          nb_foldings_total     = 0;
+    double       max_time_reached      = 0.0;
 
     const double T_end = m_sim_params.m_simulation_time;
+
+    // DEBUG
+    std::ofstream debug_file("fbmc_debug_log.txt");
+    if (!debug_file.is_open()) {
+        throw std::runtime_error("Could not open debug log file for writing.");
+    }
 
 // Parallelize over particles; each runs to T_end
 #pragma omp parallel for reduction(+ : nb_foldings_total) reduction(max : max_time_reached) schedule(dynamic)
     for (std::size_t idx = 0; idx < m_list_particle.size(); ++idx) {
         fmt::print("Running simulation for particle {}\n", idx);
         auto& particle = m_list_particle[idx];
-
+        
         std::uniform_real_distribution<double> U01(0.0, 1.0);
         int                                    nb_foldings_local = 0;
 
         while (particle.get_time() < T_end) {
-            // Save state
-            particle.update_history();
-
-            // Draw free flight with upper bound p_gamma
-            particle.draw_free_flight_time(p_gamma);
+            
+            if (particle.get_index() % 1000 == 0 && particle.get_iter() % 100 == 0) {
+                fmt::print("Particle {} at time {:.3e} / {:.3e} s, iteration {}, energy {:.4f} eV\n",
+                    particle.get_index(),
+                    particle.get_time(),
+                           T_end,
+                           particle.get_iter(),
+                           particle.get_energy());
+                        }
+                        
+                        // Draw free flight with upper bound p_gamma
+                        particle.draw_free_flight_time(p_gamma);
             const double dt = particle.get_current_free_flight_time();
             // Advance particle time (add a setter if needed)
             // particle.set_time(particle.get_time() + dt);
 
             // Drift
             particle.update_k_vector(m_bulk_env.m_electric_field);
-
+            
             // Re-attach tetra; fold if needed
             uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(particle.get_k_vector());
             if (containing_tetra == nullptr) {
@@ -138,29 +151,49 @@ void Single_particle_simulation::run_simulation() {
                 }
             }
             particle.set_containing_bz_mesh_tetra(containing_tetra);
-
+            
             // Update E & v after drift
             particle.update_energy();
             particle.update_group_velocity();
-
+            
             // Physical total rate at current k
             std::array<double, 8> rates = particle.interpolate_phonon_scattering_rate_at_location(particle.get_k_vector());
-            const double          Gamma = std::accumulate(rates.begin(), rates.end(), 0.0);
+            std::array<double, 8> rates_tetra =
+            containing_tetra->interpolate_phonon_scattering_rate_at_location(particle.get_k_vector(), particle.get_band_index());
+            const double Gamma           = std::accumulate(rates.begin(), rates.end(), 0.0);
+            double       sum_rates_tetra = std::accumulate(rates_tetra.begin(), rates_tetra.end(), 0.0);
+            double energy_tetra    = containing_tetra->interpolate_energy_at_band(particle.get_k_vector(), particle.get_band_index());
+            // Debug checks
+            if (std::fabs(energy_tetra - particle.get_energy()) > 1e-6) {
+                fmt::print("Warning: Energy mismatch: particle = {:.6e} eV, tetra = {:.6e} eV\n", particle.get_energy(), energy_tetra);
+            }
+            if (std::fabs(Gamma - sum_rates_tetra) > 1e-6) {
+                fmt::print("Warning: Gamma mismatch: Gamma = {:.6e}, sum_rates_tetra = {:.6e}\n", Gamma, sum_rates_tetra);
+            }
             particle.set_gamma(Gamma);
 
+            particle.update_history();
+            // debug_file << energy_tetra << "," << sum_rates_tetra << "," << Gamma  << ","<< particle.get_gamma() << "\n";
+            
             if (!(Gamma > 0.0) || !std::isfinite(Gamma)) {
                 // Null event only this step
                 continue;
             }
-
+            if (Gamma < WarningGammaThreshold) {
+                fmt::print("Warning: Gamma < {} for particle {} at time {} s\n",
+                    WarningGammaThreshold,
+                           particle.get_index(),
+                           particle.get_time());
+                        }
+                        
             // Null-collision acceptance
             double accept = Gamma / p_gamma;
             if (accept > 1.0) {
                 accept = 1.0;  // clamp if bound violated
             }
-
+            
             if (U01(particle.get_random_generator()) > accept) {
-                // self-scatter: do nothing
+                particle.add_scattering_event_to_history(9);
                 continue;
             }
 
@@ -177,7 +210,7 @@ void Single_particle_simulation::run_simulation() {
             if (ev >= rates.size()) {
                 ev = rates.size() - 1;
             }
-
+            particle.add_scattering_event_to_history(ev);
             particle.select_final_state_after_phonon_scattering(ev);
         }  // while particle
 
@@ -188,10 +221,12 @@ void Single_particle_simulation::run_simulation() {
     }  // omp parallel for
 
     std::cout << "Simulation finished. max_time = " << max_time_reached << " s, total foldings = " << nb_foldings_total << "\n";
+    debug_file.close();
 }
 
 void Single_particle_simulation::export_history(const std::string& filename) {
     for (auto& particle : m_list_particle) {
+        particle.print_history_summary();
         std::string   filename_particle = fmt::format("{}_particle_{}.csv", filename, particle.get_index());
         std::ofstream history_file(filename_particle);
         if (!history_file.is_open()) {

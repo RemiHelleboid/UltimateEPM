@@ -87,6 +87,7 @@ int main(int argc, char const *argv[]) {
     TCLAP::SwitchArg plot_with_python("p", "plot", "Call a python script after the computation to plot the band structure.", false);
     TCLAP::SwitchArg use_irr_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
     TCLAP::SwitchArg plot_with_knkpnp("K", "knkpnp", "Compute and store the full (n,k) -> (n',k') transition rate matrices.", false);
+    TCLAP::SwitchArg use_unit_defpot("U", "unitdefpot", "Keep deformation potential to 1.0.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -100,33 +101,35 @@ int main(int argc, char const *argv[]) {
     cmd.add(arg_energy_range);
     cmd.add(arg_export_rates);
     cmd.add(arg_phonon_rates);
+    cmd.add(use_unit_defpot);
 
     cmd.parse(argc, argv);
 
     auto start = std::chrono::high_resolution_clock::now();
 
     uepm::pseudopotential::Materials materials;
-    const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
+    const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
     materials.load_material_parameters(file_material_parameters);
 
     Options my_options;
-    my_options.materialName                     = arg_material.getValue();
-    my_options.nrLevels                         = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
-    my_options.nrThreads                        = arg_nb_threads.getValue();
-    const int         number_energies           = arg_nb_energies.getValue();
-    const int         nb_conduction_bands       = arg_nb_conduction_bands.getValue();
-    const int         nb_valence_bands          = arg_nb_valence_bands.getValue();
-    const double      max_energy                = arg_energy_range.getValue();  // eV
-    const double      temperature               = arg_temperature.getValue();
-    bool              irreducible_wedge_only    = use_irr_wedge.getValue();
-    const std::string mesh_band_input_file      = arg_mesh_file.getValue();
-    const std::string phonon_file               = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
-    bool              populate_nk_npkp          = false;
-    const bool        shift_conduction_band     = true;
-    const bool        set_positive_valence_band = false;
-    const bool        export_rates              = arg_export_rates.getValue();
-    bool phonon_rates_provided = arg_phonon_rates.isSet();
-    std::string phonon_rates_file         = "";
+    my_options.materialName                          = arg_material.getValue();
+    my_options.nrLevels                              = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
+    my_options.nrThreads                             = arg_nb_threads.getValue();
+    const int         number_energies                = arg_nb_energies.getValue();
+    const int         nb_conduction_bands            = arg_nb_conduction_bands.getValue();
+    const int         nb_valence_bands               = arg_nb_valence_bands.getValue();
+    const double      max_energy                     = arg_energy_range.getValue();  // eV
+    const double      temperature                    = arg_temperature.getValue();
+    bool              irreducible_wedge_only         = use_irr_wedge.getValue();
+    const std::string mesh_band_input_file           = arg_mesh_file.getValue();
+    const std::string phonon_file                    = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
+    bool              populate_nk_npkp               = false;
+    const bool        shift_conduction_band          = true;
+    const bool        set_positive_valence_band      = false;
+    const bool        export_rates                   = arg_export_rates.getValue();
+    bool              use_unit_deformation_potential = use_unit_defpot.getValue();
+    bool              phonon_rates_provided          = arg_phonon_rates.isSet();
+    std::string       phonon_rates_file              = "";
     if (phonon_rates_provided) {
         phonon_rates_file = arg_phonon_rates.getValue();
     }
@@ -138,6 +141,7 @@ int main(int argc, char const *argv[]) {
     ElectronPhonon.set_number_threads_mesh_ops(my_options.nrThreads);
 
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
+    ElectronPhonon.build_search_tree();
     ElectronPhonon.read_mesh_bands_from_msh_file(mesh_band_input_file,
                                                  nb_conduction_bands,
                                                  nb_valence_bands,
@@ -169,7 +173,8 @@ int main(int argc, char const *argv[]) {
         const std::string rates_file = prefix_export + "_eph_rates.msh";
         ElectronPhonon.export_rate_values(rates_file);
     }
-
+    ElectronPhonon.test_elph();
+    
     ElectronPhonon.apply_scissor(1.12);  // eV
     // Solve for Fermi level and export CSV
     uepm::mesh_bz::fermi::Options fermi_options;

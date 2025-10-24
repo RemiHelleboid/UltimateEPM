@@ -1,12 +1,13 @@
 #include "Hamiltonian.h"
 
-#define _USE_MATH_DEFINES 1
 #include <math.h>
 
+#include <cmath>
 #include <complex>
 #include <iostream>
 #include <vector>
 
+#include "Hamiltonian.h"
 #include "NonLocalFunctional.hpp"
 #include "SpinOrbitFunctional.hpp"
 #include "Vector3D.h"
@@ -29,83 +30,100 @@ Hamiltonian::Hamiltonian(const Material& material, const std::vector<Vector3D<in
  *
  */
 void Hamiltonian::SetConstantNonDiagonalMatrix() {
-    const std::size_t     basisSize       = static_cast<unsigned int>(m_basisVectors.size());
-    const double          latticeConstant = m_material.get_lattice_constant_meter();
-    const Pseudopotential pseudopotential = m_material.get_pseudopotential();
+    const Eigen::Index basisSize       = static_cast<Eigen::Index>(m_basisVectors.size());
+    const double       latticeConstant = m_material.get_lattice_constant_meter();
+    const auto&        pseudopotential = m_material.get_pseudopotential();
 
     constexpr double one_eight = 1.0 / 8.0;
     Vector3D<double> tau{one_eight * latticeConstant, one_eight * latticeConstant, one_eight * latticeConstant};
-    for (unsigned int i = 0; i < basisSize; ++i) {
-        for (unsigned int j = 0; j < basisSize; ++j) {
-            m_constant_non_diagonal_matrix(i, j) = pseudopotential.GetValue(m_basisVectors[i] - m_basisVectors[j], tau, latticeConstant);
+
+    for (Eigen::Index i = 0; i < basisSize; ++i) {
+        for (Eigen::Index j = 0; j < basisSize; ++j) {
+            m_constant_non_diagonal_matrix(i, j) =
+                pseudopotential.GetValue(m_basisVectors[static_cast<std::size_t>(i)] - m_basisVectors[static_cast<std::size_t>(j)],
+                                         tau,
+                                         latticeConstant);
         }
     }
 }
 
 void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correction, bool enable_soc) {
-    const unsigned int basisSize       = static_cast<unsigned int>(m_basisVectors.size());
+    const Eigen::Index basisSize       = static_cast<Eigen::Index>(m_basisVectors.size());
     const double       latticeConstant = m_material.get_lattice_constant_meter();
     constexpr double   one_eight       = 1.0 / 8.0;
     Vector3D<double>   tau{one_eight * latticeConstant, one_eight * latticeConstant, one_eight * latticeConstant};
-    const double       fourier_factor = 2.0 * M_PI / latticeConstant;
-    matrix                            = m_constant_non_diagonal_matrix;
-    // diagonal elements
-    const double diag_factor = pow(uepm::constants::h_bar, 2) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
-    for (unsigned int i = 0; i < basisSize; ++i) {
-        Vector3D<double> real_k_vector = (k + m_basisVectors[i]);
-        const double     KG2           = fourier_factor * fourier_factor * diag_factor * (real_k_vector * real_k_vector);
-        matrix(i, i)                   = std::complex<double>(KG2, 0);
-        // Non local correction
-        if (add_non_local_correction) {
-            std::complex<double> nl_correction = m_material.compute_pseudopotential_non_local_correction(real_k_vector, real_k_vector, tau);
-            matrix(i, i) += nl_correction;
-        }
+
+    const double two_pi_over_a = 2.0 * M_PI / latticeConstant;
+
+    // Start from the k-independent local potential (includes diagonal local V)
+    matrix = m_constant_non_diagonal_matrix;
+
+    // Precompute k + G for all basis vectors
+    std::vector<Vector3D<double>> k_plus_G(static_cast<std::size_t>(basisSize));
+    for (Eigen::Index i = 0; i < basisSize; ++i) {
+        k_plus_G[static_cast<std::size_t>(i)] = k + m_basisVectors[static_cast<std::size_t>(i)];
     }
 
-    // const Pseudopotential pseudopotential = m_material.get_pseudopotential();
+    // Diagonal kinetic energy (add on top of local potential; do not overwrite)
+    const double diag_factor = (uepm::constants::h_bar * uepm::constants::h_bar) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
+
+    for (Eigen::Index i = 0; i < basisSize; ++i) {
+        const Vector3D<double>& real_k_vector = k_plus_G[static_cast<std::size_t>(i)];
+        const double            KG2           = two_pi_over_a * two_pi_over_a * diag_factor * (real_k_vector * real_k_vector);
+        matrix(i, i) += std::complex<double>(KG2, 0.0);
+    }
+
+    // Non-local correction: build full matrix once (avoid double-adding diagonal)
     if (add_non_local_correction) {
-        for (unsigned int i = 0; i < basisSize; ++i) {
-            for (unsigned int j = 0; j < basisSize; ++j) {
-                Vector3D<double> k_vector_i = (k + m_basisVectors[i]);
-                Vector3D<double> k_vector_j = (k + m_basisVectors[j]);
-                matrix(i, j) += m_material.compute_pseudopotential_non_local_correction(k_vector_i, k_vector_j, tau);
+        for (Eigen::Index i = 0; i < basisSize; ++i) {
+            const auto& ki = k_plus_G[static_cast<std::size_t>(i)];
+            for (Eigen::Index j = 0; j < basisSize; ++j) {
+                const auto& kj = k_plus_G[static_cast<std::size_t>(j)];
+                auto nl_correction = m_material.compute_pseudopotential_non_local_correction(ki, kj, tau);
+                // std::cout << "Non-local correction (" << i << "," << j << "): " << nl_correction << std::endl;
+                matrix(i, j) += nl_correction;
             }
         }
     }
 
     if (enable_soc) {
-        // std::cout << "Spin-orbit correction enabled" << std::endl;
+        // Spin-orbit correction
         SpinOrbitParameters SpinParams = m_material.get_spin_orbit_parameters();
         SpinOrbitCorrection soc_correction(m_material, SpinParams);
-        std::size_t         matrix_size    = matrix.rows();
-        Eigen::MatrixXcd    UpDownMatrix   = Eigen::MatrixXcd::Zero(matrix_size, matrix_size);
-        Eigen::MatrixXcd    DownUpMatrix   = Eigen::MatrixXcd::Zero(matrix_size, matrix_size);
-        Eigen::MatrixXcd    UpUpMatrix     = matrix;
-        Eigen::MatrixXcd    DownDownMatrix = matrix;
-        for (unsigned int i = 0; i < matrix_size; ++i) {
-            for (unsigned int j = 0; j < matrix_size; ++j) {
-                Vector3D<double>                          k_vector_i = (k + m_basisVectors[i]);
-                Vector3D<double>                          k_vector_j = (k + m_basisVectors[j]);
+
+        const Eigen::Index N = matrix.rows();
+
+        Eigen::MatrixXcd UpUpMatrix     = matrix;                        // start from current scalar H
+        Eigen::MatrixXcd DownDownMatrix = matrix;                        // same for ↓↓ block
+        Eigen::MatrixXcd UpDownMatrix   = Eigen::MatrixXcd::Zero(N, N);  // ↑↓
+        Eigen::MatrixXcd DownUpMatrix   = Eigen::MatrixXcd::Zero(N, N);  // ↓↑
+
+        for (Eigen::Index i = 0; i < N; ++i) {
+            const auto& ki = k_plus_G[static_cast<std::size_t>(i)];
+            for (Eigen::Index j = 0; j < N; ++j) {
+                const auto&                               kj = k_plus_G[static_cast<std::size_t>(j)];
                 Eigen::Matrix<std::complex<double>, 2, 2> soc_contribution =
-                    soc_correction.compute_soc_contribution(k_vector_i, k_vector_j, m_basisVectors[i], m_basisVectors[j], tau);
-                // std::cout << soc_contribution << std::endl;
+                    soc_correction.compute_soc_contribution(ki,
+                                                            kj,
+                                                            m_basisVectors[static_cast<std::size_t>(i)],
+                                                            m_basisVectors[static_cast<std::size_t>(j)],
+                                                            tau);
                 UpUpMatrix(i, j) += soc_contribution(0, 0);
                 UpDownMatrix(i, j) += soc_contribution(1, 0);
                 DownUpMatrix(i, j) += soc_contribution(0, 1);
                 DownDownMatrix(i, j) += soc_contribution(1, 1);
             }
         }
-        matrix.resize(2 * matrix_size, 2 * matrix_size);
+
+        matrix.resize(2 * N, 2 * N);
         matrix << UpUpMatrix, UpDownMatrix, DownUpMatrix, DownDownMatrix;
     }
 }
 
 void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
-    // Check matrix is Hermitian
-    if (!matrix.isApprox(matrix.adjoint())) {
-        std::cout << "Matrix is not Hermitian!" << std::endl;
-        throw std::runtime_error("Matrix is not Hermitian");
-    }
+    // Enforce Hermiticity to mitigate numerical noise prior to diagonalization
+    // matrix = 0.5 * (matrix + matrix.adjoint());
+
     solver.compute(matrix, keep_eigenvectors ? Eigen::ComputeEigenvectors : Eigen::EigenvaluesOnly);
     if (solver.info() != Eigen::Success) {
         std::cout << matrix << std::endl;

@@ -178,7 +178,7 @@ int main(int argc, char** argv) {
     bool use_irreducible_wedge = (bz_sampling == 48) ? true : false;
 
     uepm::pseudopotential::Materials materials;
-    std::string                      file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
+    std::string                      file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
     if (nonlocal_epm) {
         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
     }

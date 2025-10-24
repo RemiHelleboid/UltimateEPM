@@ -42,7 +42,7 @@ TEST_CASE("Epsilon_Si") {
 
     // uepm::pseudopotential::Materials materials;
     // const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) +
-    // "/parameter_files/materials-local.yaml"; materials.load_material_parameters(file_material_parameters);
+    // "/parameter_files/materials-chel.yaml"; materials.load_material_parameters(file_material_parameters);
     // uepm::pseudopotential::Material current_material = materials.materials.at("Si");
 
     // uepm::pseudopotential::BandStructure band_structure{};

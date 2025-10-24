@@ -65,7 +65,7 @@ int main(int argc, const char** argv) {
     int               nb_particles           = arg_nb_part.getValue();
 
     uepm::pseudopotential::Materials materials;
-    const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
+    const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
     materials.load_material_parameters(file_material_parameters);
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
@@ -86,8 +86,9 @@ int main(int argc, const char** argv) {
 
     const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
     mesh.load_phonon_parameters(phonon_file);
+    mesh.export_phonon_dispersion("phonon_dispersion.data");
 
-    mesh.read_phonon_scattering_rates_from_file(file_phonon_scattering);
+        mesh.read_phonon_scattering_rates_from_file(file_phonon_scattering);
 
     uepm::fbmc::Bulk_environment bulk_env;
     bulk_env.m_temperature          = 300.0;
@@ -96,6 +97,8 @@ int main(int argc, const char** argv) {
     mesh.set_temperature(bulk_env.m_temperature);
     mesh.set_particle_type(uepm::mesh_bz::MeshParticleType::conduction);
     mesh.set_nb_bands_elph(nb_conduction_bands);
+
+    mesh.test_elph();
 
     uepm::fbmc::Simulation_parameters sim_params;
     sim_params.m_simulation_time  = arg_time.getValue();

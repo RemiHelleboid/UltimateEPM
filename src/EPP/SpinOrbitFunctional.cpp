@@ -84,7 +84,7 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_pauli_sta
     std::complex<double>                      a10 = myVect.X + myVect.Y * 1i;
     std::complex<double>                      a11 = -myVect.Z;
     Eigen::Matrix<std::complex<double>, 2, 2> res_matrix;
-    res_matrix << a00, a10, a01, a11;
+    res_matrix << a00, a01, a10, a11;
     return res_matrix;
 }
 
@@ -94,11 +94,13 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
                                                                                         const Vector3D<double>& Gp,
                                                                                         const Vector3D<double>& tau) const {
     using namespace std::complex_literals;
-    Vector3D<double>                          Kn               = (m_material.get_lattice_constant_meter() / (2.0 * M_PI)) * K;
-    Vector3D<double>                          Knp              = (m_material.get_lattice_constant_meter() / (2.0 * M_PI)) * Kp;
-    double                                    lambda_sym       = compute_lambda_sym(Kn, Knp);
-    double                                    lambda_antisym   = compute_lambda_antisym(Kn, Knp);
-    Vector3D<double>                          cross_K_Kp       = cross_product(Kn, Knp);
+    const double                              kfac             = (2.0 * M_PI) / m_material.get_lattice_constant_meter();
+    Vector3D<double>                          Kphys            = kfac * K;   // 1/m
+    Vector3D<double>                          Kpphys           = kfac * Kp;  // 1/m
+    double                                    lambda_sym       = compute_lambda_sym(Kphys, Kpphys);
+    double                                    lambda_antisym   = compute_lambda_antisym(Kphys, Kpphys);
+    Vector3D<double>                          cross_K_Kp       = cross_product(Kphys, Kpphys);
+    
     Eigen::Matrix<std::complex<double>, 2, 2> res_matrix       = compute_pauli_state_dot_product(cross_K_Kp);
     Vector3D<double>                          diff_G           = G - Gp;
     const double                              lattice_constant = m_material.get_lattice_constant_meter();

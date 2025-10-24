@@ -386,13 +386,7 @@ void MeshBZ::print_band_info() const {
     for (std::size_t i = 0; i < m_band_info.size(); ++i) {
         const auto& band     = m_band_info[i];
         std::string type_str = (band.type == MeshParticleType::valence) ? "Valence" : "Conduction";
-        fmt::print("{:<6} {:<11} {:<10} {:<12} {:<10.4f} {:<10.4f}\n",
-                   i,
-                   type_str,
-                   band.local_index,
-                   i,
-                   m_min_band[i],
-                   m_max_band[i]);
+        fmt::print("{:<6} {:<11} {:<10} {:<12} {:<10.4f} {:<10.4f}\n", i, type_str, band.local_index, i, m_min_band[i], m_max_band[i]);
     }
     fmt::print("\n");
 }
@@ -545,10 +539,11 @@ std::vector<std::size_t> MeshBZ::get_band_indices(MeshParticleType type) const {
  */
 void MeshBZ::keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduction_bands) {
     if (nb_valence_bands + nb_conduction_bands > get_number_bands_total()) {
-        fmt::print("Requested to keep {} valence bands and {} conduction bands, which is more than the total number of bands ({}). Abort.\n",
-                   nb_valence_bands,
-                   nb_conduction_bands,
-                   get_number_bands_total());
+        fmt::print(
+            "Requested to keep {} valence bands and {} conduction bands, which is more than the total number of bands ({}). Abort.\n",
+            nb_valence_bands,
+            nb_conduction_bands,
+            get_number_bands_total());
         throw std::runtime_error("Cannot keep more bands than available.");
     }
     // Valence
@@ -768,8 +763,8 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
 
 #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
-        double energy = min_energy + index_energy * energy_step;
-        double dos    = compute_dos_at_energy_and_band(energy, band_index);
+        double energy               = min_energy + index_energy * energy_step;
+        double dos                  = compute_dos_at_energy_and_band(energy, band_index);
         list_energies[index_energy] = energy;
         list_dos[index_energy]      = dos;
     }
@@ -848,10 +843,10 @@ vector3 MeshBZ::draw_random_k_point_at_energy(double energy, std::size_t idx_ban
         throw std::runtime_error("Energy is out of range");
     }
     const std::size_t index_tetra = draw_random_tetrahedron_index_with_dos_probability(energy, idx_band, random_generator);
-    std::cout << "Selected tetrahedron index: " << index_tetra << std::endl;
     if (index_tetra >= m_list_tetrahedra.size()) {
         throw std::runtime_error("Selected tetrahedron index is out of range");
     }
+    // std::cout << "Selected tetrahedron index: " << index_tetra << std::endl;
     return m_list_tetrahedra[index_tetra].draw_random_uniform_point_at_energy(energy, idx_band, random_generator);
 }
 

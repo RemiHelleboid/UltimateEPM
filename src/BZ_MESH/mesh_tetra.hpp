@@ -156,11 +156,11 @@ class Tetra {
      * @brief There is not default constructor for Tetra class.
      *
      */
-    Tetra() = default;
-    Tetra(const Tetra &)            = default;
-    Tetra &operator=(const Tetra &) = default;
-    Tetra(Tetra &&)                 = default;
-    Tetra &operator=(Tetra &&)      = default;
+    Tetra()                        = default;
+    Tetra(const Tetra&)            = default;
+    Tetra& operator=(const Tetra&) = default;
+    Tetra(Tetra&&)                 = default;
+    Tetra& operator=(Tetra&&)      = default;
 
     Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices);
 
@@ -216,6 +216,7 @@ class Tetra {
     vector3              draw_random_uniform_point_at_energy(double iso_energy, std::size_t band_index, std::mt19937& rng) const;
 
     std::array<double, 8> get_tetra_electron_phonon_rates(int band_index) const;
+    std::array<double, 8> interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& band_index) const;
 
     double interpolate_scalar_at_position(const vector3& location, const std::vector<double>& scalar_field) const;
     double interpolate_energy_at_band(const vector3& location, std::size_t band_index) const;

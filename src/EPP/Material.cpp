@@ -91,6 +91,7 @@ double F_l_function(const Vector3D<double>& K1, const Vector3D<double>& K2, doub
     constexpr double EPSILON = 1.0e-4;
     const double     norm_K1 = K1.Length();
     const double     norm_K2 = K2.Length();
+    // std::cout << "F_l_function: norm_K1 = " << norm_K1 << ", norm_K2 = " << norm_K2 << std::endl;
     if (fabs(norm_K1 - norm_K2) > EPSILON) {
         const double pre_factor = pow(atomic_radii, 2.0) / (norm_K1 * norm_K1 - norm_K2 * norm_K2);
         const double F = norm_K1 * generalized_bessel(l + 1, norm_K1 * atomic_radii) * generalized_bessel(l, norm_K2 * atomic_radii) -
@@ -98,6 +99,7 @@ double F_l_function(const Vector3D<double>& K1, const Vector3D<double>& K2, doub
         return pre_factor * F;
     } else if (norm_K1 > EPSILON) {
         const double pre_factor = pow(atomic_radii, 3.0) / (2.0);
+        // const double pre_factor = 1.0 / (2.0 * atomi c_radii * atomic_radii);
         const double F          = pow(generalized_bessel(l, norm_K1 * atomic_radii), 2.0) -
                          generalized_bessel(l - 1, norm_K1 * atomic_radii) * generalized_bessel(l + 1, norm_K1 * atomic_radii);
         return pre_factor * F;

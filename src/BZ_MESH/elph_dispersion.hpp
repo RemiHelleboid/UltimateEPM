@@ -81,6 +81,20 @@ struct PhononDispersion {
         }
         return *std::max_element(omega_samples.begin(), omega_samples.end());
     }
+
+    inline void export_lookup_to_csv(const std::string& filename) const {
+        std::ofstream file(filename);
+        if (!file.is_open()) {
+            throw std::runtime_error("could not open file for writing phonon dispersion");
+        }
+        file << "q,omega\n";
+        const double dq = (qmax - q0) / (N - 1);
+        for (uint32_t i = 0; i < N; ++i) {
+            const double q = q0 + i * dq;
+            file << q << "," << omega_samples[i] << "\n";
+        }
+        file.close();
+    }
 };
 
 }  // namespace uepm::mesh_bz

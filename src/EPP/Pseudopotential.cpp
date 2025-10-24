@@ -20,23 +20,14 @@ Pseudopotential::Pseudopotential(double V3S, double V4S, double V8S, double V11S
       m_V8A(V8A),
       m_V11A(V11A) {}
 
-#include <array>
-#include <cmath>
-#include <complex>
-#include <numbers>
 
 std::complex<double> Pseudopotential::GetValue(const Vector3D<int>& G, const Vector3D<double>& tau, double lattice_constant) const {
-    // Optional: enforce fcc selection rule (all-even or all-odd Miller indices)
-    const bool same_parity = ((G.X & 1) == (G.Y & 1)) && ((G.Y & 1) == (G.Z & 1));
-    if (!same_parity) {
-        return {0.0, 0.0};
-    }
-
-    const int    G2   = G * G;  // integer dot product h^2 + k^2 + l^2
+    const int    G2   = G * G;
     const double kfac = 2.0 * std::numbers::pi_v<double> / lattice_constant;
-    const double Gtau = kfac * (tau * G);  // dimensionless phase
+    const double Gtau = kfac * (tau * G);
 
-    double VS = 0.0, VA = 0.0;
+    double VS = 0.0;
+    double VA = 0.0;
     switch (G2) {
         case 3:
             VS = m_V3S;

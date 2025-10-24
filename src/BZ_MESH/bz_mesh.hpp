@@ -273,6 +273,7 @@ class MeshBZ {
                                                                    std::size_t nb_points,
                                                                    bool        use_interp = false,
                                                                    bool        use_iw     = false) const;
+
 };
 
 }  // namespace uepm::mesh_bz

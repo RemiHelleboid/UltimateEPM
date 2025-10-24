@@ -41,6 +41,7 @@ void particle::draw_free_flight_time(double p_gamma) {
     }
     m_current_free_flight_time = -std::log(u) / p_gamma;
     m_time += m_current_free_flight_time;
+    m_iter += 1;
 }
 
 /**
@@ -58,7 +59,7 @@ void particle::update_group_velocity() {
 }
 
 std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(const vector3& location) {
-    return m_mesh_bz->interpolate_phonon_scattering_rate_at_location(location, m_band_index);
+    return m_containing_bz_mesh_tetra->interpolate_phonon_scattering_rate_at_location(location, m_band_index);
 }
 
 void particle::update_energy() { m_energy = m_containing_bz_mesh_tetra->interpolate_energy_at_band(m_k_vector, m_band_index); }
@@ -71,6 +72,23 @@ void particle::select_final_state_after_phonon_scattering(std::size_t idx_phonon
     m_containing_bz_mesh_tetra = Sf.tetra_ptr;
 
     update_group_velocity();
+}
+
+void particle::print_history_summary() const{
+    std::size_t total_events = m_history.m_time_history.size();
+    std::size_t nb_events_type = m_history.m_scattering_events.size();
+    std::array<double, 10> event_fractions = {0.0};
+    for (std::size_t i = 0; i < nb_events_type; ++i) {
+        event_fractions[i] = static_cast<double>(m_history.m_scattering_events[i]) / static_cast<double>(total_events);
+    }
+    fmt::print("Particle {} history summary:\n", m_index);
+    fmt::print("  Total recorded events: {}\n", total_events);
+    for (std::size_t i = 0; i < nb_events_type; ++i) {
+        fmt::print("    Event type {}: count = {}, fraction = {:.4f}\n", i, m_history.m_scattering_events[i], event_fractions[i]);
+    }
+    fmt::print("  Event type 8: count = {}, fraction = {:.4f}\n", m_history.m_scattering_events[8], event_fractions[8]);
+    fmt::print("  Event type 9: count = {}, fraction = {:.4f}\n", m_history.m_scattering_events[9], event_fractions[9]);
+    
 }
 
 }  // namespace uepm::fbmc

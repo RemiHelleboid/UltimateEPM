@@ -101,12 +101,16 @@ class ElectronPhonon : public BZ_States {
     // One matrix per (m,d,e) triplet.
     std::vector<Rates_nk_npkp_ctor> m_rates_nk_npkp;
 
+    const double m_fit_optical  = 1.0;
+    const double m_fit_acoustic = 1.0;
+
  public:
     explicit ElectronPhonon(const uepm::pseudopotential::Material& material) : BZ_States(material) {}
 
     void   load_phonon_parameters(const std::string& filename);
     void   plot_phonon_dispersion(const std::string& filename) const;
     double get_max_phonon_energy() const;
+    void export_phonon_dispersion(const std::string& filename) const;
 
     void             set_parallelize_over_k(bool b) noexcept { m_parallelize_over_k = b; }
     void             set_temperature(double T) noexcept { m_temperature_K = T; }
@@ -152,6 +156,8 @@ class ElectronPhonon : public BZ_States {
 
     Eigen::Matrix3d compute_electron_MRTA_mobility_tensor(double fermi_level_eV, double temperature_K, bool conduction_only = true);
     double          compute_electron_MRTA_mobility_isotropic(double fermi_level_eV, double temperature_K, bool conduction_only = true);
+
+    void test_elph() const;
 };
 
 }  // namespace uepm::mesh_bz

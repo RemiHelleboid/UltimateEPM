@@ -9,10 +9,16 @@
  *
  */
 
+#include <fmt/chrono.h>
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 #include <tclap/CmdLine.h>
 
 #include <chrono>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 #include <thread>
 
 #include "BandStructure.h"
@@ -66,7 +72,7 @@ int compute_path_mat(const uepm::pseudopotential::Material& material,
                                 my_options.nearestNeighbors,
                                 enable_non_local_correction,
                                 enable_soc);
-    my_bandstructure.Compute();
+    my_bandstructure.Compute_parallel(my_options.nrThreads);
     my_bandstructure.AdjustValues();
     std::cout << "Time to compute: " << my_bandstructure.get_computation_time_s() << " s" << std::endl;
     const std::string file_output =
@@ -204,10 +210,12 @@ int main(int argc, char* argv[]) {
                                                "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<std::string> arg_res_dir("r", "resultdir", "directory to store the results.", false, "./", "str");
+    TCLAP::ValueArg<std::string> arg_data_mat("d", "file-data", "Name of the material data file", false, "materials-local.yaml", "string");
     TCLAP::SwitchArg arg_enable_nonlocal_correction("C", "nonlocal-correction", "Enable the non-local-correction for the EPM model", false);
     TCLAP::SwitchArg arg_enable_soc("S", "soc", "Enable the spin-orbit coupling for the EPM model", false);
     TCLAP::SwitchArg all_path_mat("A", "all", "Compute the band structure on all the paths for all the materials", false);
     TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
+
     cmd.add(arg_path_sym_points);
     cmd.add(arg_material);
     cmd.add(arg_nb_bands);
@@ -219,6 +227,7 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_enable_soc);
     cmd.add(all_path_mat);
     cmd.add(plot_with_python);
+    cmd.add(arg_data_mat);
 
     cmd.parse(argc, argv);
 
@@ -236,10 +245,19 @@ int main(int argc, char* argv[]) {
     }
 
     uepm::pseudopotential::Materials materials;
-    std::string                      file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
-    if (!arg_enable_nonlocal_correction.isSet()) {
-        file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
+
+    std::string file_material_parameters = arg_data_mat.getValue();
+    if (!std::filesystem::exists(file_material_parameters)) {
+        std::filesystem::path p_try = std::filesystem::path(PROJECT_SRC_DIR) / "parameter_files" / file_material_parameters;
+        if (std::filesystem::exists(p_try)) {
+            file_material_parameters = p_try.string();
+        } else {
+            std::cerr << "Error: material data file " << file_material_parameters << " does not exist!" << std::endl;
+            return -1;
+        }
     }
+    fmt::print("Loading material parameters from file: {}\n", file_material_parameters);
+
     materials.load_material_parameters(file_material_parameters);
     materials.print_material_parameters();
 

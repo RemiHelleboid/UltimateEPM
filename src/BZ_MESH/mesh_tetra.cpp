@@ -426,9 +426,9 @@ inline std::vector<vector3> order_cyclic(const std::vector<vector3>& pts) {
 
 /**
  * @brief Compute the area of a polygon defined by its vertices.
- * 
- * @param pts 
- * @return double 
+ *
+ * @param pts
+ * @return double
  */
 inline double polygon_area(const std::vector<vector3>& pts) {
     auto pts_ordered = order_cyclic(pts);
@@ -586,6 +586,22 @@ std::array<double, 8> Tetra::get_tetra_electron_phonon_rates(int band_index) con
     }
     std::transform(mean_rates.begin(), mean_rates.end(), mean_rates.begin(), [](double val) { return val / 4.0; });
     return mean_rates;
+}
+
+std::array<double, 8> Tetra::interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& band_index) const {
+    if (is_location_inside(location) == false) {
+        throw std::invalid_argument("In Tetra::interpolate_phonon_scattering_rate_at_location, the location is not inside the tetrahedra.");
+    }
+    const auto            barycentric_coord = compute_barycentric_coordinates(location);
+    std::array<double, 8> interpolated_rates;
+    std::fill(interpolated_rates.begin(), interpolated_rates.end(), 0.0);
+    for (std::size_t i = 0; i < 4; i++) {
+        const std::array<double, 8>& rates = m_list_vertices[i]->get_electron_phonon_rates(band_index);
+        for (std::size_t j = 0; j < 8; j++) {
+            interpolated_rates[j] += rates[j] * barycentric_coord[i];
+        }
+    }
+    return interpolated_rates;
 }
 
 }  // namespace uepm::mesh_bz

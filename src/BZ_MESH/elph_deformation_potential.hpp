@@ -33,11 +33,12 @@ struct DeformationPotential {
 
     double get_fischetti_deformation_potential(const vector3& q, int idx_band) const {
         constexpr double cm_to_m = 1e2;
-        const double     boost   = 1.5;
+        const double     boost_acc   = 2.0;
+        const double     boost_opt   = 2.0;
         if (mode == PhononMode::acoustic) {
-            return (idx_band == 0 ? boost * 1.2 : boost * 1.0 * 1.7) * q.norm();
+            return (idx_band == 0 ? boost_acc * 1.2 : boost_acc * 1.0 * 1.7) * q.norm();
         } else {
-            return (idx_band == 0 ? boost * 1.75e8 : boost * 2.10e8) * cm_to_m;
+            return (idx_band == 0 ? boost_opt * 1.75e8 : boost_opt * 2.10e8) * cm_to_m;
         }
     }
 };

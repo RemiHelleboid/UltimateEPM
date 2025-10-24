@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
     cmd.parse(argc, argv);
 
     uepm::pseudopotential::Materials materials;
-    const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
+    const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
     materials.load_material_parameters(file_material_parameters);
 
     Options my_options;

@@ -99,7 +99,7 @@ int main(int argc, char* argv[]) {
     if (file_material_parameters.empty()) {
         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-cohen.yaml";
         if (!arg_enable_nonlocal_correction.getValue()) {
-            file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-local.yaml";
+            file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
         }
     }
 
