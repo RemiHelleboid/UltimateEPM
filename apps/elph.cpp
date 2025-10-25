@@ -139,6 +139,7 @@ int main(int argc, char const *argv[]) {
     uepm::mesh_bz::ElectronPhonon ElectronPhonon{current_material};
     ElectronPhonon.set_temperature(temperature);
     ElectronPhonon.set_number_threads_mesh_ops(my_options.nrThreads);
+    ElectronPhonon.set_max_energy_global(max_energy);
 
     ElectronPhonon.read_mesh_geometry_from_msh_file(mesh_band_input_file);
     ElectronPhonon.build_search_tree();

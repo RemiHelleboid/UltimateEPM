@@ -33,6 +33,7 @@
 #include "gmsh.h"
 #include "gmsh_guard.hpp"
 #include "integrals.hpp"
+#include "numerical_helper.hpp"
 #include "octree_bz.hpp"
 #include "omp.h"
 #include "physical_constants.hpp"
@@ -375,6 +376,7 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
 
     compute_energy_gradient_at_tetras();
     set_energy_gradient_at_vertices_by_averaging_tetras();
+    recompute_tetra_ordered_energies(m_max_energy_global);
 
     print_band_info();
     fmt::print("Done reading band energies from mesh file.\n");
@@ -514,6 +516,60 @@ void MeshBZ::recompute_energies_data_and_sync(bool   recompute_min_max,
         throw std::runtime_error("The number of bands in the vertices does not match the total number of bands. Abort.");
     }
 }
+
+void MeshBZ::recompute_tetra_ordered_energies(double max_energy) {
+    fmt::print("Recomputing tetra ordered energies ...\n");
+    std::size_t nb_band_total = get_number_bands_total();
+    m_tetra_ordered_energy_min.resize(nb_band_total);
+    for (std::size_t idx_band = 0; idx_band < nb_band_total; ++idx_band) {
+        std::vector<double> min_energies_tetra(m_list_tetrahedra.size());
+        std::vector<double> max_energies_tetra(m_list_tetrahedra.size());
+#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
+        for (std::size_t j = 0; j < m_list_tetrahedra.size(); ++j) {
+            min_energies_tetra[j] = m_list_tetrahedra[j].get_min_energy_at_band(idx_band);
+            max_energies_tetra[j] = m_list_tetrahedra[j].get_max_energy_at_band(idx_band);
+        }
+        auto sorted_indices = uepm::numerical::argsort(min_energies_tetra);
+
+        std::cout << "\n";
+        m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices.resize(m_list_tetrahedra.size());
+        m_tetra_ordered_energy_min[idx_band].m_ordered_energies.resize(m_list_tetrahedra.size());
+        for (std::size_t idx_tetra = 0; idx_tetra < m_list_tetrahedra.size(); ++idx_tetra) {
+            m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices[idx_tetra] = sorted_indices[idx_tetra];
+            m_tetra_ordered_energy_min[idx_band].m_ordered_energies[idx_tetra]      = min_energies_tetra[sorted_indices[idx_tetra]];
+        }
+        auto        it_last  = std::upper_bound(m_tetra_ordered_energy_min[idx_band].m_ordered_energies.begin(),
+                                        m_tetra_ordered_energy_min[idx_band].m_ordered_energies.end(),
+                                        max_energy);
+        std::size_t idx_last = std::distance(m_tetra_ordered_energy_min[idx_band].m_ordered_energies.begin(), it_last);
+        fmt::print("Band {}: {} tetras have min energy <= {:.3f} eV (out of {} = {:.3f} %)\n",
+                   idx_band,
+                   idx_last,
+                   max_energy,
+                   m_list_tetrahedra.size(),
+                   100.0 * static_cast<double>(idx_last) / static_cast<double>(m_list_tetrahedra.size()));
+
+        m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices.resize(idx_last);
+        m_tetra_ordered_energy_min[idx_band].m_ordered_energies.resize(idx_last);
+        std::vector<double> diffsE(m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices.size());
+        for (std::size_t idx_tetra = 0; idx_tetra < diffsE.size(); ++idx_tetra) {
+            std::size_t actual_idx_tetra = m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices[idx_tetra];
+            diffsE[idx_tetra]            = std::abs(max_energies_tetra[actual_idx_tetra] - min_energies_tetra[actual_idx_tetra]);
+        }
+        auto        minmax_diffE  = std::minmax_element(diffsE.begin(), diffsE.end());
+        double      min_diffE     = *(minmax_diffE.first);
+        double      max_diffE     = *(minmax_diffE.second);
+        std::size_t idx_max_diffE = std::distance(diffsE.begin(), minmax_diffE.second);
+        fmt::print("Band {}: min deltaE among tetras = {:.6f} eV, max deltaE = {:.6f} eV, at tetra #{}\n",
+                   idx_band,
+                   min_diffE,
+                   max_diffE,
+                   idx_max_diffE);
+        const Tetra& T_max_diffE = m_list_tetrahedra[m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices[idx_max_diffE]];
+    }
+    fmt::print("Done recomputing tetra ordered energies.\n");
+}
+
 
 std::vector<std::size_t> MeshBZ::get_band_indices(MeshParticleType type) const {
     std::vector<std::size_t> indices;

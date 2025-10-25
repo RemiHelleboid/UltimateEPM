@@ -46,6 +46,22 @@ struct BandRange {
     std::size_t count{0};
 };
 
+struct TetraOrderedEnergyMin {
+    std::size_t              m_band_idx;
+    std::vector<std::size_t> m_ordered_tetra_indices;
+    std::vector<double>      m_ordered_energies;
+    double                   m_max_energy_spread{0.0};
+    double                   max_energy = 1e100;
+
+    auto get_inidices_in_energy_range(double E_min, double E_max) const {
+        auto        it_low   = std::lower_bound(m_ordered_energies.begin(), m_ordered_energies.end(), E_min);
+        auto        it_high  = std::upper_bound(m_ordered_energies.begin(), m_ordered_energies.end(), E_max);
+        std::size_t idx_low  = std::distance(m_ordered_energies.begin(), it_low);
+        std::size_t idx_high = std::distance(m_ordered_energies.begin(), it_high);
+        return std::make_pair(idx_low, idx_high);
+    }
+};
+
 class MeshBZ {
  protected:
     std::string m_filename_mesh;
@@ -76,7 +92,17 @@ class MeshBZ {
      */
     std::vector<std::vector<std::size_t>> m_kstar_ibz_to_bz;
 
-    std::unique_ptr<Octree_mesh> m_search_tree;  // fwd-decl OK; dtor out-of-line
+    /**
+     * @brief For each band, list of tetrahedra ordered by increasing minimum energy in the tetrahedron.
+     *
+     */
+    std::vector<TetraOrderedEnergyMin> m_tetra_ordered_energy_min;
+
+    /**
+     * @brief Octree search tree for fast spatial queries.
+     *
+     */
+    std::unique_ptr<Octree_mesh> m_search_tree;
 
     std::size_t           m_nb_bands_total = 0;
     std::vector<BandInfo> m_band_info;
@@ -85,6 +111,8 @@ class MeshBZ {
 
     std::vector<double> m_min_band;
     std::vector<double> m_max_band;
+
+    double m_max_energy_global = 1e100;
 
     double m_total_volume    = 0.0;
     double m_spin_degeneracy = 2.0;
@@ -110,6 +138,9 @@ class MeshBZ {
     // ---------- light getters / basics ----------
     int  get_number_threads_mesh_ops() const noexcept { return m_nb_threads_mesh_ops; }
     void set_number_threads_mesh_ops(int nb_threads) noexcept { m_nb_threads_mesh_ops = nb_threads; }
+
+    double get_max_energy_global() const noexcept { return m_max_energy_global; }
+    void   set_max_energy_global(double max_energy) noexcept { m_max_energy_global = max_energy; }
 
     const vector3& get_vertex_position(std::size_t idx_vtx) const { return m_list_vertices[idx_vtx].get_position(); }
     const vector3& get_center() const noexcept { return m_center; }
@@ -216,6 +247,18 @@ class MeshBZ {
     void auto_set_positive_valence_band_energies();
     void set_bands_in_right_order();
     void recompute_min_max_energies();
+    void recompute_tetra_ordered_energies(double max_energy = 1e100);
+
+    /**
+     * @brief Get the list of tetrahedron indices ordered by increasing minimum energy at given band,
+     * limited to tetrahedra with minimum energy below m_max_energy_global.
+     *
+     * @param band_index
+     * @return const std::vector<std::size_t>&
+     */
+    const std::vector<std::size_t>& get_ordered_tetra_indices_at_band(std::size_t band_index) const {
+        return m_tetra_ordered_energy_min[band_index].m_ordered_tetra_indices;
+    }
 
     void precompute_dos_tetra(double energy_step = 0.01, double energy_max = 100.0);
     void set_energy_gradient_at_vertices_by_averaging_tetras();
@@ -273,7 +316,6 @@ class MeshBZ {
                                                                    std::size_t nb_points,
                                                                    bool        use_interp = false,
                                                                    bool        use_iw     = false) const;
-
 };
 
 }  // namespace uepm::mesh_bz

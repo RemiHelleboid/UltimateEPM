@@ -170,6 +170,8 @@ class Tetra {
     void             set_lies_in_irreducible_wedge(bool value) { m_lies_in_iwedge = value; }
 
     void    compute_min_max_energies_at_bands();
+    double  get_min_energy_at_band(std::size_t band_index) const { return m_min_energy_per_band[band_index]; }
+    double  get_max_energy_at_band(std::size_t band_index) const { return m_max_energy_per_band[band_index]; }
     vector3 get_barycenter() const { return m_barycenter; }
 
     std::size_t                   get_index() const { return m_index; }
@@ -239,6 +241,21 @@ class Tetra {
         }
 
         return interpolated_value;
+    }
+
+    void print_info() const {
+        std::cout << "Tetra #" << m_index << ":\n";
+        std::cout << "  Vertices indices: ";
+        for (const auto& vtx : m_list_vertices) {
+            std::cout << vtx->get_index() << std::endl;
+            int nb_bands = vtx->get_number_bands();
+            for (int i = 0; i < nb_bands; ++i) {
+                std::cout << "    Band " << i << ": Energy = " << vtx->get_energy_at_band(i) << " eV\n";
+            }
+        }
+        std::cout << "\n";
+        std::cout << "  Signed volume: " << m_signed_volume << "\n";
+        std::cout << "  Barycenter: " << m_barycenter << "\n";
     }
 };
 

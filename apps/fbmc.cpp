@@ -81,7 +81,7 @@ int main(int argc, const char** argv) {
 
     const std::string vtk_file = "mesh_vtk.vtk";
     if (!std::filesystem::exists(vtk_file)) {
-        mesh.export_to_vtk(vtk_file);
+        mesh.export_energies_and_gradients_to_vtk(vtk_file);
     }
 
     const std::string phonon_file = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";

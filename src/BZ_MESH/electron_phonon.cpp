@@ -58,19 +58,19 @@ double ElectronPhonon::get_max_phonon_energy() const {
 
 void ElectronPhonon::export_phonon_dispersion(const std::string& filename) const {
     for (const auto& disp : m_phonon_dispersion) {
-        std::string mode_str = (disp.mode == PhononMode::acoustic) ? "acoustic" : "optical";
-        std::string dir_str  = (disp.direction == PhononDirection::longitudinal) ? "longitudinal" : "transverse";
-        std::string file_out = fmt::format("{}_{}_dispersion.csv", mode_str, dir_str);
+        std::string   mode_str = (disp.mode == PhononMode::acoustic) ? "acoustic" : "optical";
+        std::string   dir_str  = (disp.direction == PhononDirection::longitudinal) ? "longitudinal" : "transverse";
+        std::string   file_out = fmt::format("{}_{}_dispersion.csv", mode_str, dir_str);
         std::ofstream disp_file(file_out);
         if (!disp_file.is_open()) {
             throw std::runtime_error(fmt::format("export_phonon_dispersion: cannot open file {}", file_out));
         }
         disp_file << "q (1/m),omega (1/s),omega (eV)\n";
-        const double hbar_eV = uepm::constants::h_bar_eV;
-        const std::size_t N  = disp.N;
+        const double      hbar_eV = uepm::constants::h_bar_eV;
+        const std::size_t N       = disp.N;
         for (std::size_t i = 0; i < N; ++i) {
-            const double q     = disp.q0 + i * (1.0 / disp.inv_dq);
-            const double omega = disp.omega_samples[i];
+            const double q        = disp.q0 + i * (1.0 / disp.inv_dq);
+            const double omega    = disp.omega_samples[i];
             const double omega_eV = hbar_eV * omega;
             disp_file << fmt::format("{:.6e},{:.6e},{:.6e}\n", q, omega, omega_eV);
         }
@@ -209,14 +209,22 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
         if (Ef_min > m_max_band[idx_n2] || Ef_max < m_min_band[idx_n2]) {
             continue;
         }
+        const auto& list_idx_relevent_tetra = get_ordered_tetra_indices_at_band(idx_n2);
+        std::size_t num_tetra               = list_idx_relevent_tetra.size();
+        std::size_t nb_tetra = list_idx_relevent_tetra.size();
 
-        for (std::size_t t = 0; t < m_list_tetrahedra.size(); ++t) {
-            const auto& tetra = m_list_tetrahedra[t];
+        for (auto idx_tetra : list_idx_relevent_tetra) {
+            const auto& tetra = m_list_tetrahedra[idx_tetra];
+
             if (!tetra.does_intersect_band_energy_range(Ef_min, Ef_max, idx_n2)) {
                 continue;
             }
+            // The tetra list is ordered by increasing min energy, so we can break early.
+            if (tetra.get_min_energy_at_band(idx_n2) > Ef_max ){
+                break;
+            }
 
-            const Rate8 r = compute_electron_phonon_transition_rates_pair(idx_n1, idx_k1, idx_n2, t, populate_nk_npkp);
+            const Rate8 r = compute_electron_phonon_transition_rates_pair(idx_n1, idx_k1, idx_n2, idx_tetra, populate_nk_npkp);
             for (int i = 0; i < 8; ++i) {
                 acc.v[i] += r[i];
             }
