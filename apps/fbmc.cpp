@@ -34,9 +34,9 @@ int main(int argc, const char** argv) {
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
     TCLAP::ValueArg<std::string> arg_phonon_file("p", "phononfile", "File with phonon scattering rates.", true, "rates_all.csv", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
-    TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
     TCLAP::ValueArg<int>         arg_nb_part("N", "npart", "Number of particles to simulate", false, 1, "int");
     TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "ncbands", "Number of conduction bands to consider", false, -1, "int");
+    TCLAP::ValueArg<double>      arg_max_energy("e", "maxenergy", "Maximum energy to consider (eV)", false, 1.0e10, "double");
     TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<double>      arg_time("t", "time", "Simulation time (s)", false, 1e-12, "double");
@@ -47,7 +47,7 @@ int main(int argc, const char** argv) {
     cmd.add(arg_material);
     cmd.add(arg_nb_conduction_bands);
     cmd.add(arg_nb_valence_bands);
-    cmd.add(arg_nb_energies);
+    cmd.add(arg_max_energy);
     cmd.add(arg_nb_threads);
     cmd.add(plot_with_wedge);
     cmd.add(arg_phonon_file);
@@ -63,6 +63,7 @@ int main(int argc, const char** argv) {
     int               nb_valence_bands       = 0;
     int               nb_conduction_bands    = 2;
     int               nb_particles           = arg_nb_part.getValue();
+    const double      max_energy_eV          = arg_max_energy.getValue();
 
     uepm::pseudopotential::Materials materials;
     const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
@@ -75,6 +76,7 @@ int main(int argc, const char** argv) {
     mesh.build_search_tree();
     // mesh.export_octree_to_vtu("octree.vtu");
     mesh.set_nb_bands_elph(nb_conduction_bands);
+    mesh.set_max_energy_global(max_energy_eV);
 
     const bool shift_conduction_band = true;
     mesh.read_mesh_bands_from_msh_file(file_mesh, nb_conduction_bands, nb_valence_bands, shift_conduction_band);
@@ -88,7 +90,7 @@ int main(int argc, const char** argv) {
     mesh.load_phonon_parameters(phonon_file);
     mesh.export_phonon_dispersion("phonon_dispersion.data");
 
-        mesh.read_phonon_scattering_rates_from_file(file_phonon_scattering);
+    mesh.read_phonon_scattering_rates_from_file(file_phonon_scattering);
 
     uepm::fbmc::Bulk_environment bulk_env;
     bulk_env.m_temperature          = 300.0;
