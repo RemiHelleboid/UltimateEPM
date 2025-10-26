@@ -53,7 +53,7 @@ double ElectronPhonon::get_max_phonon_energy() const {
             max_energy = max_w;
         }
     }
-    return max_energy * uepm::constants::h_bar_eV;  // ħω → eV
+    return max_energy * uepm::constants::h_bar_eV;
 }
 
 void ElectronPhonon::export_phonon_dispersion(const std::string& filename) const {
@@ -113,15 +113,18 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
     const double I2 = I * I;
 
     // q = k2 - k1
-    vector3 q = k2 - k1;
-    if (!is_inside_mesh_geometry(q)) {
-        q = retrieve_k_inside_mesh_geometry(q);
-    }
-    if (!is_inside_mesh_geometry(q)) {
-        throw std::runtime_error("q not in BZ");
-    }
+    vector3 q       = k2 - k1;
+    double  qn_star = q.norm();
+    double  qn      = scale_q_norm(qn_star);
 
-    const double qn = q.norm();
+    // if (!is_inside_mesh_geometry(q)) {
+    //     q = retrieve_k_inside_mesh_geometry(q);
+    // }
+    // if (!is_inside_mesh_geometry(q)) {
+    //     throw std::runtime_error("q not in BZ");
+    // }
+
+    // const double qn = q.norm();
 
     constexpr double SMALL_OMEGA_CUTOFF = 1.0;  // [1/s]
     const double     pi                 = uepm::constants::pi;
@@ -150,7 +153,9 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
 
         // Deformation potential (J)
         const DeformationPotential& defpot  = (mode == PhononMode::acoustic) ? m_ac_defpot_e : m_op_defpot_e;
-        const double                Delta_J = defpot.get_fischetti_deformation_potential(q, local_n1) * qe;
+        double                      Delta_J = defpot.get_fischetti_deformation_potential(qn, local_n1) * qe;
+
+        double rates_factor = (mode == PhononMode::acoustic) ? m_fit_acoustic : m_fit_optical;
 
         const double pref = m_spin_degeneracy * (pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) * I2 / m_reduce_bz_factor;
 
@@ -160,8 +165,9 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
             if (tetra.is_energy_inside_band(Ef_eV, idx_n2)) {
                 const double dos_eV = tetra.compute_tetra_dos_energy_band(Ef_eV, idx_n2);
                 if (dos_eV > 0.0) {
-                    const double val      = pref * (N0 + 1.0) * (dos_eV / qe);
-                    const int    mode_idx = rate_index(mode, dir, PhononEvent::emission);
+                    double val = pref * (N0 + 1.0) * (dos_eV / qe);
+                    val *= rates_factor;
+                    const int mode_idx = rate_index(mode, dir, PhononEvent::emission);
                     out[mode_idx] += val;
                     inv_mrta_rate += val * transport_weight_value;  // for 1/τ_tr
                 }
@@ -173,8 +179,9 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
             if (tetra.is_energy_inside_band(Ef_eV, idx_n2)) {
                 const double dos_eV = tetra.compute_tetra_dos_energy_band(Ef_eV, idx_n2);
                 if (dos_eV > 0.0) {
-                    const double val      = pref * (N0) * (dos_eV / qe);
-                    const int    mode_idx = rate_index(mode, dir, PhononEvent::absorption);
+                    double val = pref * (N0) * (dos_eV / qe);
+                    val *= rates_factor;
+                    const int mode_idx = rate_index(mode, dir, PhononEvent::absorption);
                     out[mode_idx] += val;
                     inv_mrta_rate += val * transport_weight_value;  // for 1/τ_tr
                 }
@@ -210,8 +217,6 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
             continue;
         }
         const auto& list_idx_relevent_tetra = get_ordered_tetra_indices_at_band(idx_n2);
-        std::size_t num_tetra               = list_idx_relevent_tetra.size();
-        std::size_t nb_tetra = list_idx_relevent_tetra.size();
 
         for (auto idx_tetra : list_idx_relevent_tetra) {
             const auto& tetra = m_list_tetrahedra[idx_tetra];
@@ -220,7 +225,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
                 continue;
             }
             // The tetra list is ordered by increasing min energy, so we can break early.
-            if (tetra.get_min_energy_at_band(idx_n2) > Ef_max ){
+            if (tetra.get_min_energy_at_band(idx_n2) > Ef_max) {
                 break;
             }
 
@@ -256,16 +261,15 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(std::size_t idx_n1, std::siz
             const double overlap  = hole_overlap_integral(idx_n1, k1, idx_n2, k2, m_hole_overlap_int_params);
             const double overlap2 = overlap * overlap;
 
-            vector3 q = k2 - k1;
-            if (!is_inside_mesh_geometry(q)) {
-                q = retrieve_k_inside_mesh_geometry(q);
-            }
-            if (!is_inside_mesh_geometry(q)) {
-                throw std::runtime_error("q not in BZ");
-            }
-
-            const double q_norm = q.norm();
-
+            vector3 q       = k2 - k1;
+            double  q_norm = q.norm();
+            q_norm         = scale_q_norm(q_norm);
+            // if (!is_inside_mesh_geometry(q)) {
+            //     q = retrieve_k_inside_mesh_geometry(q);
+            // }
+            // if (!is_inside_mesh_geometry(q)) {
+            //     throw std::runtime_error("q not in BZ");
+            // }
             for (int md = 0; md < 4; ++md) {
                 const auto&           disp = m_phonon_dispersion[md];
                 const PhononMode      mode = (md < 2) ? PhononMode::acoustic : PhononMode::optical;
@@ -280,7 +284,7 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(std::size_t idx_n1, std::siz
                 const double N0     = bose_einstein_distribution(Eph_eV, m_temperature_K);
 
                 const DeformationPotential& defpot  = (mode == PhononMode::acoustic) ? m_ac_defpot_h : m_op_defpot_h;
-                const double                Delta_J = defpot.get_fischetti_deformation_potential(q, idx_n1) * uepm::constants::q_e;
+                const double                Delta_J = defpot.get_fischetti_deformation_potential(q_norm, idx_n1) * uepm::constants::q_e;
 
                 // Emission
                 {
@@ -422,6 +426,20 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     fmt::print("Completed electron-phonon rates computation in {:.2f} seconds.\n\n", std::chrono::duration<double>(duration).count());
 }
 
+double ElectronPhonon::scale_q_norm(double q_norm) const {
+    const double qmax = 1.0 / si_to_reduced_scale();
+    double       qm   = q_norm / qmax;
+    if (qm > 1.0) {
+        if (qm <= 2.0) {
+            qm = 2.0 - qm;
+        } else {
+            qm -= 2.0;
+        }
+    }
+    qm *= qmax;
+    return qm;
+}
+
 SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_t     idx_band_initial,
                                                                       const vector3&  k_initial,
                                                                       PhononMode      mode,
@@ -434,20 +452,22 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
     }
     const auto& disp = m_phonon_dispersion[md];
 
-    // ---- Initial state and Ei ----
+    // Initial tetra & energy
     Tetra* init_tetra = find_tetra_at_location(k_initial);
     if (!init_tetra) {
         throw std::runtime_error("select_final_state: initial k not inside any tetrahedron.");
     }
     const double Ei_eV = init_tetra->interpolate_energy_at_band(k_initial, idx_band_initial);
 
-    const double sign_ph = (event == PhononEvent::emission) ? -1.0 : +1.0;
+    const double      sign_ph  = (event == PhononEvent::emission) ? -1.0 : +1.0;
+    const std::size_t nb_bands = m_list_vertices.empty() ? 0 : m_list_vertices.front().get_number_bands();
+    if (nb_bands == 0) {
+        return SelectedFinalState{static_cast<int>(idx_band_initial), init_tetra->get_index(), init_tetra, k_initial, Ei_eV};
+    }
 
-    const std::size_t nb_bands = m_list_vertices.front().get_number_bands();
-    const std::size_t nb_tetra = m_list_tetrahedra.size();
-
-    std::vector<double> probs_flat(nb_bands * nb_tetra, 0.0);
-    auto                P_ref = [&](int n2, std::size_t t) -> double& { return probs_flat[static_cast<std::size_t>(n2) * nb_tetra + t]; };
+    using Cand = std::pair<int, std::size_t>;  // (band n2, global tetra index)
+    std::vector<Cand>   candidates;
+    std::vector<double> probs;
 
     const double pi      = uepm::constants::pi;
     const double qe      = uepm::constants::q_e;
@@ -456,29 +476,38 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
     constexpr double eps_energy = 1e-5;
     const double     Eph_max_eV = get_max_phonon_energy() + eps_energy;
 
-    std::size_t local_idx_band_initial = get_local_band_index(idx_band_initial);
-
-    // std::cout << "Max phonon energy (eV): " << Eph_max_eV << std::endl;
     const double Ef_min_win = Ei_eV - Eph_max_eV;
     const double Ef_max_win = Ei_eV + Eph_max_eV;
 
-    // ---- Build probabilities per (n2, tetra) ----
+    std::size_t local_idx_band_initial = get_local_band_index(idx_band_initial);
+
     for (std::size_t n2 = 0; n2 < nb_bands; ++n2) {
-        // quick band window reject
+        // quick band-window reject
         if (Ef_min_win > m_max_band[n2] || Ef_max_win < m_min_band[n2]) {
             continue;
         }
 
-        for (std::size_t t = 0; t < nb_tetra; ++t) {
-            const auto& T = m_list_tetrahedra[t];
-            if (!T.does_intersect_band_energy_range(Ef_min_win, Ef_max_win, n2)) {
+        const auto& list_idx_relevent_tetra = get_ordered_tetra_indices_at_band(n2);
+
+        // for (std::size_t idx_tetra = 0; idx_tetra < list_idx_relevent_tetra.size(); ++idx_tetra) {
+        //     const std::size_t idx_tetra   = list_idx_relevent_tetra[idx_tetra];  // global tetra index
+        for (auto idx_tetra : list_idx_relevent_tetra) {
+            const auto& final_tetra = m_list_tetrahedra[idx_tetra];
+
+            if (!final_tetra.does_intersect_band_energy_range(Ef_min_win, Ef_max_win, n2)) {
                 continue;
             }
+            // The tetra list is ordered by increasing min energy, so we can break early.
+            if (final_tetra.get_min_energy_at_band(n2) > Ef_max_win) {
+                break;
+            }
 
-            // Representative q* → cheap estimate for ħω and Ef (OK for scoring)
-            const vector3 k2_bary = T.compute_barycenter();
+            // representative q* → ω*, Ef*
+            const vector3 k2_bary = final_tetra.compute_barycenter();
             vector3       qstar   = k2_bary - k_initial;
+
             if (!is_inside_mesh_geometry(qstar)) {
+                continue;
                 qstar = retrieve_k_inside_mesh_geometry(qstar);
             }
             if (!is_inside_mesh_geometry(qstar)) {
@@ -493,31 +522,36 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
             const double Eph_star_eV = hbar_eV * omega_star;
             const double Ef_eV       = Ei_eV + sign_ph * Eph_star_eV;
 
-            // Must actually cut the band at Ef
-            if (!T.is_energy_inside_band(Ef_eV, n2)) {
+            if (!final_tetra.is_energy_inside_band(Ef_eV, n2)) {
                 continue;
             }
 
-            // DOS slice at Ef (exact tetra DOS)
-            const double dos_eV = T.compute_tetra_dos_energy_band(Ef_eV, n2);
+            // DOS(Ef)
+            const double dos_eV = final_tetra.compute_tetra_dos_energy_band(Ef_eV, n2);
             if (!(dos_eV > 0.0)) {
                 continue;
             }
 
-            // Use iso-triangle centroid for the k-dependent factors (more faithful than tetra barycenter)
-            const auto iso_pts = T.compute_band_iso_energy_surface(Ef_eV, n2);
+            // centroid of iso-triangle for k-dependent parts
+            const auto iso_pts = final_tetra.compute_band_iso_energy_surface(Ef_eV, n2);
             if (iso_pts.size() < 3) {
                 continue;
             }
             const vector3 k2_centroid = (iso_pts[0] + iso_pts[1] + iso_pts[2]) / 3.0;
 
-            vector3 qloc = k2_centroid - k_initial;
+            // vector3 qloc = k2_centroid - k_initial;
+            // double  qn   = qloc.norm();
+            // qn           = scale_q_norm(qn);
+
+            vector3 qloc      = k2_centroid - k_initial;
+            vector3 qloc2     = k2_centroid - k_initial;
             if (!is_inside_mesh_geometry(qloc)) {
-                qloc = retrieve_k_inside_mesh_geometry(qloc);
+                qloc  = retrieve_k_inside_mesh_geometry(qloc);
             }
             if (!is_inside_mesh_geometry(qloc)) {
                 continue;
             }
+            double qn = qloc.norm();
 
             const double omega_loc = disp.omega_analytic(qloc.norm());
             if (!(omega_loc > 0.0)) {
@@ -534,58 +568,55 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
             const double I2 = I * I;
 
             const DeformationPotential& defpot  = (mode == PhononMode::acoustic) ? m_ac_defpot_e : m_op_defpot_e;
-            double                      Delta_J = defpot.get_fischetti_deformation_potential(qloc, local_idx_band_initial) * qe;
+            double                      Delta_J = defpot.get_fischetti_deformation_potential(qn, local_idx_band_initial) * qe;
 
-            // FIIIIIT
-            double factor = (mode == PhononMode::acoustic) ? m_fit_acoustic : m_fit_optical;
-            Delta_J *= factor;
+            // fit factor
+            double factor_rates = (mode == PhononMode::acoustic) ? m_fit_acoustic : m_fit_optical;
 
             double P = (pi / (m_rho_kg_m3 * omega_loc)) * (Delta_J * Delta_J) * I2 * bose * dos_per_J;
             P /= m_reduce_bz_factor;
             P *= m_spin_degeneracy;
+            P *= factor_rates;
 
             if (P > 0.0 && std::isfinite(P)) {
-                P_ref(static_cast<int>(n2), t) = P;
+                candidates.emplace_back(static_cast<int>(n2), idx_tetra);  // keep the **global** tetra index
+                probs.push_back(P);
             }
         }
     }
 
-    // ---- Sample (n2, tetra) from the discrete distribution ----
-    double total = 0.0;
-    for (const auto& p : probs_flat) {
-        total += p;
-    }
+    // --- sample from probs ---
+    double total = std::accumulate(probs.begin(), probs.end(), 0.0);
 
     if (!(total > 0.0) || !std::isfinite(total)) {
-        // No admissible final state → return "stay" (null outcome)
+        // no admissible final state: stay put
         return SelectedFinalState{static_cast<int>(idx_band_initial), init_tetra->get_index(), init_tetra, k_initial, Ei_eV};
     }
 
     std::uniform_real_distribution<double> U(0.0, 1.0);
     const double                           threshold = U(rng) * total;
 
-    double      acc    = 0.0;
-    int         n2_sel = -1;
-    std::size_t t_sel  = 0;
-
-    for (std::size_t flat = 0; flat < probs_flat.size(); ++flat) {
-        acc += probs_flat[flat];
+    double      acc  = 0.0;
+    std::size_t pick = 0;
+    for (; pick < probs.size(); ++pick) {
+        acc += probs[pick];
         if (acc >= threshold) {
-            n2_sel = static_cast<int>(flat / nb_tetra);
-            t_sel  = static_cast<std::size_t>(flat % nb_tetra);
             break;
         }
     }
-    if (n2_sel < 0) {
-        throw std::runtime_error("select_final_state: internal sampling error (cdf).");
+    if (pick >= probs.size()) {
+        pick = probs.size() - 1;
     }
 
-    // ---- Having selected the tetra, draw k' ON THE ISO-TRIANGLE at the same Ef used for scoring ----
-    const auto& Tsel = m_list_tetrahedra[t_sel];
+    const int         n2_sel  = candidates[pick].first;
+    const std::size_t tet_sel = candidates[pick].second;  // **global** tetra index
+    const auto&       Tsel    = m_list_tetrahedra[tet_sel];
 
-    // Rebuild Ef with the same q* recipe used above (keeps consistency of the selection)
+    // rebuild Ef using same recipe as scoring
     const vector3 k2_bary_sel = Tsel.compute_barycenter();
+
     vector3       qstar_sel   = k2_bary_sel - k_initial;
+
     if (!is_inside_mesh_geometry(qstar_sel)) {
         qstar_sel = retrieve_k_inside_mesh_geometry(qstar_sel);
     }
@@ -593,25 +624,23 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
     const double Eph_star_sel_eV = hbar_eV * omega_star_sel;
     const double Ef_sel_eV       = Ei_eV + sign_ph * Eph_star_sel_eV;
 
-    // Sample a point uniformly on the iso-surface triangle
+    // draw k' on iso-triangle at Ef_sel_eV
     vector3 k_final = Tsel.draw_random_uniform_point_at_energy(Ef_sel_eV, static_cast<std::size_t>(n2_sel), rng);
-    // CHECK
-    double interpolated_Ef = Tsel.interpolate_energy_at_band(k_final, static_cast<std::size_t>(n2_sel));
+
+    const double interpolated_Ef = Tsel.interpolate_energy_at_band(k_final, static_cast<std::size_t>(n2_sel));
     if (std::abs(interpolated_Ef - Ef_sel_eV) > 1e-9) {
         throw std::runtime_error("select_final_state: sampled k_final energy mismatch.");
     }
-
-    // Fallbacks in very rare degeneracies
     if (!Tsel.is_location_inside(k_final)) {
         const auto iso_pts2 = Tsel.compute_band_iso_energy_surface(Ef_sel_eV, static_cast<std::size_t>(n2_sel));
         if (iso_pts2.size() >= 3) {
             k_final = (iso_pts2[0] + iso_pts2[1] + iso_pts2[2]) / 3.0;
         } else {
-            k_final = k2_bary_sel;  // last resort (may introduce tiny energy error)
+            k_final = k2_bary_sel;
         }
     }
 
-    return SelectedFinalState{n2_sel, t_sel, const_cast<Tetra*>(&Tsel), k_final, Ef_sel_eV};
+    return SelectedFinalState{n2_sel, tet_sel, const_cast<Tetra*>(&Tsel), k_final, Ef_sel_eV};
 }
 
 SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_t    idx_band_initial,
@@ -951,7 +980,7 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
             PhononMode      mode      = (std::string(wave) == "acoustic") ? PhononMode::acoustic : PhononMode::optical;
 
             PhononDispersion phononDispersion(mode, direction, w0, vs, c);
-            double           q_max_norm = 1.5 / m_si2red;
+            double           q_max_norm = 1.0 / m_si2red;
             std::size_t      points     = 200;
             // std::cout << "Max q norm in reduced units: " << q_max_norm << std::endl;
             phononDispersion.build_lookup(q_max_norm, points);

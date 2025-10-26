@@ -953,7 +953,6 @@ void MeshBZ::precompute_G_shifts() {
     // shell 0
     m_Gshifts.push_back({0, 0, 0});
 
-    // by increasing |n1|+|n2|+|n3|
     for (int L1 = 1; L1 <= maxShell; ++L1) {
         for (int n1 = -L1; n1 <= L1; ++n1) {
             for (int n2 = -L1; n2 <= L1; ++n2) {

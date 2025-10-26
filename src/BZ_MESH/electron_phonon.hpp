@@ -128,6 +128,8 @@ class ElectronPhonon : public BZ_States {
     RateValues compute_electron_phonon_rate(std::size_t idx_n1, std::size_t idx_k1, bool populate_nk_npkp = false);
     RateValues compute_hole_phonon_rate(std::size_t idx_n1, std::size_t idx_k1);
 
+
+    double scale_q_norm(double q_norm) const;
     void compute_electron_phonon_rates_over_mesh(double energy_max             = 100.0,
                                                  bool   irreducible_wedge_only = false,
                                                  bool   populate_nk_npkp       = false);

@@ -34,12 +34,15 @@ int main(int argc, const char** argv) {
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
     TCLAP::ValueArg<std::string> arg_phonon_file("p", "phononfile", "File with phonon scattering rates.", true, "rates_all.csv", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
+    TCLAP::ValueArg<std::string> arg_outputdir("d", "outdir", "Output directory for results", false, "", "string");
     TCLAP::ValueArg<int>         arg_nb_part("N", "npart", "Number of particles to simulate", false, 1, "int");
     TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "ncbands", "Number of conduction bands to consider", false, -1, "int");
     TCLAP::ValueArg<double>      arg_max_energy("e", "maxenergy", "Maximum energy to consider (eV)", false, 1.0e10, "double");
     TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<double>      arg_time("t", "time", "Simulation time (s)", false, 1e-12, "double");
+    TCLAP::ValueArg<double>      arg_temperature("T", "temperature", "Simulation temperature (K)", false, 300.0, "double");
+    TCLAP::ValueArg<double>      arg_electric_field_x("", "Ex", "Electric field in x direction (V/m)", false, 0.0, "double");
     TCLAP::SwitchArg             plot_with_python("P", "plot", "Call a python script after the MC Runs.", false);
     TCLAP::SwitchArg             plot_with_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
     cmd.add(plot_with_python);
@@ -53,22 +56,37 @@ int main(int argc, const char** argv) {
     cmd.add(arg_phonon_file);
     cmd.add(arg_time);
     cmd.add(arg_nb_part);
+    cmd.add(arg_electric_field_x);
+    cmd.add(arg_outputdir);
 
     cmd.parse(argc, argv);
 
     const std::string file_mesh              = arg_mesh_file.getValue();
     const std::string material_symbol        = arg_material.getValue();
     const std::string file_phonon_scattering = arg_phonon_file.getValue();
+    const std::string init_output_directory       = arg_outputdir.getValue();
     int               nb_threads             = arg_nb_threads.getValue();
     int               nb_valence_bands       = 0;
     int               nb_conduction_bands    = 2;
     int               nb_particles           = arg_nb_part.getValue();
     const double      max_energy_eV          = arg_max_energy.getValue();
+    double            electric_field_x       = arg_electric_field_x.getValue();
+    double            temperature            = arg_temperature.getValue();
 
     uepm::pseudopotential::Materials materials;
     const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
     materials.load_material_parameters(file_material_parameters);
-    uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
+    uepm::pseudopotential::Material current_material = materials.materials.at(material_symbol);
+
+    std::string output_dir;
+    if (init_output_directory.empty()) {
+        output_dir = fmt::format("fbmc_{}_{:.1f}_{}", material_symbol, temperature, electric_field_x);
+    } else {
+        output_dir = init_output_directory;
+    }
+    if (!std::filesystem::exists(output_dir)) {
+        std::filesystem::create_directories(output_dir);
+    }
 
     uepm::mesh_bz::ElectronPhonon mesh(current_material);
     mesh.set_number_threads_mesh_ops(nb_threads);
@@ -94,7 +112,7 @@ int main(int argc, const char** argv) {
 
     uepm::fbmc::Bulk_environment bulk_env;
     bulk_env.m_temperature          = 300.0;
-    bulk_env.m_electric_field       = {0.0, 0.0, 0.0};
+    bulk_env.m_electric_field       = {electric_field_x, 0.0, 0.0};
     bulk_env.m_doping_concentration = 1e10;
     mesh.set_temperature(bulk_env.m_temperature);
     mesh.set_particle_type(uepm::mesh_bz::MeshParticleType::conduction);
@@ -115,8 +133,8 @@ int main(int argc, const char** argv) {
     fmt::print("Simulation completed in {:.3f} seconds.\n", elapsed.count());
 
     std::string timestamp = std::to_string(std::time(nullptr));
-    std::string filename  = "particle_history_" + timestamp;
-    sim.export_history(filename);
+    std::string fileprefix  = fmt::format("{}/simulation_results_{}", output_dir, timestamp);
+    sim.export_history(fileprefix);
 
     return 0;
 }
