@@ -206,6 +206,9 @@ int main(int argc, char const *argv[]) {
     fmt::print("μ_iso = {:.2f} cm^2/(V·s)\n\n", mu_iso * mu_to_cm2Vs);
     fmt::print("tensor = \n{} cm^2/(V*s)\n\n\n", fmt::streamed(M));
 
+    double mean_energy = ElectronPhonon.mean_electron_energy_equilibrium(Ef, T, true);
+    fmt::print("Mean electron energy above CBM at equilibrium: {:.4f} eV\n", mean_energy);
+
     std::string output_mobility = name_stem + "_mobility.txt";
     auto        out             = name_stem + stamp_params + "_mobility.txt";
 

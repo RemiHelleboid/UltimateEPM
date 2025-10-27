@@ -38,9 +38,25 @@
 
 namespace uepm::mesh_bz {
 
+double PGamma::interpolate_P_Gamma(double energy_eV) const {
+    if (m_energies_eV.empty() || m_P_Gamma_values.empty()) {
+        throw std::runtime_error("interpolate_P_Gamma: empty data.");
+    }
+    if (energy_eV <= m_energies_eV.front()) {
+        return m_P_Gamma_values.front();
+    }
+    if (energy_eV >= m_energies_eV.back()) {
+        return m_P_Gamma_values.back();
+    }
+    // Linear interpolation
+    auto it = std::upper_bound(m_energies_eV.begin(), m_energies_eV.end(), energy_eV);
+    std::size_t idx = std::distance(m_energies_eV.begin(), it);
+    double t = (energy_eV - m_energies_eV[idx - 1]) / (m_energies_eV[idx] - m_energies_eV[idx - 1]);
+    return (1.0 - t) * m_P_Gamma_values[idx - 1] + t * m_P_Gamma_values[idx];
+}
+
 void ElectronPhonon::clean_all_elph_data() {
     m_phonon_rates_transport.clear();
-    m_rates_nk_npkp.clear();
     m_list_phonon_scattering_rates.clear();
     m_count_weight_tetra_per_vertex.clear();
 }
@@ -261,7 +277,7 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(std::size_t idx_n1, std::siz
             const double overlap  = hole_overlap_integral(idx_n1, k1, idx_n2, k2, m_hole_overlap_int_params);
             const double overlap2 = overlap * overlap;
 
-            vector3 q       = k2 - k1;
+            vector3 q      = k2 - k1;
             double  q_norm = q.norm();
             q_norm         = scale_q_norm(q_norm);
             // if (!is_inside_mesh_geometry(q)) {
@@ -543,10 +559,10 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
             // double  qn   = qloc.norm();
             // qn           = scale_q_norm(qn);
 
-            vector3 qloc      = k2_centroid - k_initial;
-            vector3 qloc2     = k2_centroid - k_initial;
+            vector3 qloc  = k2_centroid - k_initial;
+            vector3 qloc2 = k2_centroid - k_initial;
             if (!is_inside_mesh_geometry(qloc)) {
-                qloc  = retrieve_k_inside_mesh_geometry(qloc);
+                qloc = retrieve_k_inside_mesh_geometry(qloc);
             }
             if (!is_inside_mesh_geometry(qloc)) {
                 continue;
@@ -615,7 +631,7 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
     // rebuild Ef using same recipe as scoring
     const vector3 k2_bary_sel = Tsel.compute_barycenter();
 
-    vector3       qstar_sel   = k2_bary_sel - k_initial;
+    vector3 qstar_sel = k2_bary_sel - k_initial;
 
     if (!is_inside_mesh_geometry(qstar_sel)) {
         qstar_sel = retrieve_k_inside_mesh_geometry(qstar_sel);
@@ -1265,6 +1281,62 @@ double ElectronPhonon::compute_electron_MRTA_mobility_isotropic(double fermi_lev
     return mu.trace() / 3.0;  // isotropic average, m^2/(V·s)
 }
 
+double ElectronPhonon::mean_electron_energy_equilibrium(double fermi_level_eV, double temperature_K, bool excess_above_cbm) const {
+    using namespace uepm::physics;
+
+    if (m_list_vertices.empty() || m_list_tetrahedra.empty()) {
+        throw std::runtime_error("Mean energy (e): mesh is empty.");
+    }
+
+    // Build per-vertex k-space weights (same recipe as MRTA, but local copy)
+    const double        inv_2pi3 = 1.0 / std::pow(2.0 * uepm::constants::pi, 3);
+    std::vector<double> w_k(m_list_vertices.size(), 0.0);
+    for (const auto& T : m_list_tetrahedra) {
+        const double Vt  = std::fabs(T.get_signed_volume());
+        const auto   ids = T.get_list_indices_vertices();
+        for (int i = 0; i < 4; ++i) {
+            w_k[ids[i]] += Vt * 0.25 * inv_2pi3;
+        }
+    }
+    const double scale = get_reduce_bz_factor() * m_spin_degeneracy;
+    for (double& w : w_k) {
+        w *= scale;
+    }
+
+    // Reference band edge (CBM) if requested
+    double Ec_min = std::numeric_limits<double>::infinity();
+    for (auto b : get_band_indices(MeshParticleType::conduction)) {
+        Ec_min = std::min(Ec_min, m_min_band[b]);
+    }
+
+    double num = 0.0;  // eV * m^-3
+    double den = 0.0;  // m^-3
+
+    auto bands = get_band_indices(MeshParticleType::conduction);
+    for (auto b : bands) {
+        for (std::size_t k = 0; k < m_list_vertices.size(); ++k) {
+            const double wk = w_k[k];
+            if (wk <= 0.0) {
+                continue;
+            }
+            const double E  = m_list_vertices[k].get_energy_at_band(b);  // eV
+            const double f0 = fermi_dirac_distribution(E, fermi_level_eV, temperature_K);
+            if (f0 <= 0.0) {
+                continue;
+            }
+
+            const double Euse = excess_above_cbm ? (E - Ec_min) : E;  // eV
+            num += wk * Euse * f0;
+            den += wk * f0;
+        }
+    }
+
+    if (!(den > 0.0) || !std::isfinite(den)) {
+        throw std::runtime_error("Mean energy (e): carrier density is zero/invalid for given EF,T.");
+    }
+    return num / den;  // eV
+}
+
 void ElectronPhonon::test_elph() const {
     std::cout << "Running electron-phonon test: sampling rates over energy..." << std::endl;
     std::string   filename = "eelph_test_output.txt";
@@ -1302,5 +1374,8 @@ void ElectronPhonon::test_elph() const {
     }
     file.close();
 }
+
+
+
 
 }  // namespace uepm::mesh_bz

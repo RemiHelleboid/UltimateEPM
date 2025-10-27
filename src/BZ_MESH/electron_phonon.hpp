@@ -36,17 +36,11 @@ namespace uepm::mesh_bz {
 using EigenSparseMatrix = Eigen::SparseMatrix<double>;
 using EigenTriplet      = Eigen::Triplet<double>;
 
-struct Rates_nk_npkp_ctor {
-    PhononMode      mode      = PhononMode::none;
-    PhononDirection direction = PhononDirection::none;
-    PhononEvent     event     = PhononEvent::none;
-    /**
-     * @brief Preliminary constructor for the rate matrix (n,k) → (n',k') for a given (m,d,e) triplet.
-    // (n,k) → (n',k') transition rate matrix. /!\ k' are the barycenters of final tetrahedra, not the mesh vertices!
-    // So the size is (nk, n'k') where n'k' are the number of final tetrahedra × number of bands.
-     *
-     */
-    EigenSparseMatrix matrix;  // (nk, n'k')
+struct PGamma {
+    std::vector<double> m_energies_eV;
+    std::vector<double> m_P_Gamma_values;
+
+    double interpolate_P_Gamma(double energy_eV) const;
 };
 
 struct SelectedFinalState {
@@ -96,10 +90,7 @@ class ElectronPhonon : public BZ_States {
     std::vector<std::vector<Rate8>> m_list_phonon_scattering_rates;
     std::vector<double>             m_count_weight_tetra_per_vertex;
 
-    // (n,k) → (n',k') transition rate matrices. /!\ k' are the barycenters of final tetrahedra, not the mesh vertices!
-    // So the size is (nk, n'k') where n'k' are the number of final tetrahedra × number of bands.
-    // One matrix per (m,d,e) triplet.
-    std::vector<Rates_nk_npkp_ctor> m_rates_nk_npkp;
+    PGamma m_P_Gamma_data;
 
     const double m_fit_optical  = 1.0;
     const double m_fit_acoustic = 1.0;
@@ -110,7 +101,7 @@ class ElectronPhonon : public BZ_States {
     void   load_phonon_parameters(const std::string& filename);
     void   plot_phonon_dispersion(const std::string& filename) const;
     double get_max_phonon_energy() const;
-    void export_phonon_dispersion(const std::string& filename) const;
+    void   export_phonon_dispersion(const std::string& filename) const;
 
     void             set_parallelize_over_k(bool b) noexcept { m_parallelize_over_k = b; }
     void             set_temperature(double T) noexcept { m_temperature_K = T; }
@@ -128,25 +119,24 @@ class ElectronPhonon : public BZ_States {
     RateValues compute_electron_phonon_rate(std::size_t idx_n1, std::size_t idx_k1, bool populate_nk_npkp = false);
     RateValues compute_hole_phonon_rate(std::size_t idx_n1, std::size_t idx_k1);
 
-
     double scale_q_norm(double q_norm) const;
-    void compute_electron_phonon_rates_over_mesh(double energy_max             = 100.0,
-                                                 bool   irreducible_wedge_only = false,
-                                                 bool   populate_nk_npkp       = false);
-    void add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename);
-    void compute_electron_phonon_rates_over_mesh_nk_npkp(bool irreducible_wedge_only = false);
-    void clean_all_elph_data();
+    void   compute_electron_phonon_rates_over_mesh(double energy_max             = 100.0,
+                                                   bool   irreducible_wedge_only = false,
+                                                   bool   populate_nk_npkp       = false);
+    void   add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename);
+    void   compute_electron_phonon_rates_over_mesh_nk_npkp(bool irreducible_wedge_only = false);
+    void   clean_all_elph_data();
 
-    SelectedFinalState          select_electron_phonon_final_state(std::size_t     idx_band_initial,
-                                                                   const vector3&  k_initial,
-                                                                   PhononMode      mode,
-                                                                   PhononDirection direction,
-                                                                   PhononEvent     event,
-                                                                   std::mt19937&   rng) const;
-    SelectedFinalState          select_electron_phonon_final_state(std::size_t    idx_band_initial,
-                                                                   const vector3& k_initial,
-                                                                   int            idx_phonon_branch,
-                                                                   std::mt19937&  rng) const;
+    SelectedFinalState select_electron_phonon_final_state(std::size_t     idx_band_initial,
+                                                          const vector3&  k_initial,
+                                                          PhononMode      mode,
+                                                          PhononDirection direction,
+                                                          PhononEvent     event,
+                                                          std::mt19937&   rng) const;
+    SelectedFinalState select_electron_phonon_final_state(std::size_t    idx_band_initial,
+                                                          const vector3& k_initial,
+                                                          int            idx_phonon_branch,
+                                                          std::mt19937&  rng) const;
 
     void export_rate_values(const std::string& filename) const;
     void compute_plot_electron_phonon_rates_vs_energy_over_mesh(double max_energy, double energy_step, const std::string& filename);
@@ -158,8 +148,8 @@ class ElectronPhonon : public BZ_States {
 
     Eigen::Matrix3d compute_electron_MRTA_mobility_tensor(double fermi_level_eV, double temperature_K, bool conduction_only = true);
     double          compute_electron_MRTA_mobility_isotropic(double fermi_level_eV, double temperature_K, bool conduction_only = true);
-
-    void test_elph() const;
+    double          mean_electron_energy_equilibrium(double fermi_level_eV, double temperature_K, bool excess_above_cbm = false) const;
+    void            test_elph() const;
 };
 
 }  // namespace uepm::mesh_bz
