@@ -11,9 +11,9 @@ materials:
     symbol: Si
     lattice-constant: 5.43
     pseudo-potential-parameters:
-      V3S: -0.2241
-      V8S: 0.0551
-      V11S: 0.0724
+      V3S: -0.21
+      V8S: 0.04
+      V11S: 0.08
       V3A: 0.0
       V4A: 0.0
       V11A: 0.0

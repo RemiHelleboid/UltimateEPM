@@ -210,7 +210,7 @@ int main(int argc, char* argv[]) {
                                                "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<std::string> arg_res_dir("r", "resultdir", "directory to store the results.", false, "./", "str");
-    TCLAP::ValueArg<std::string> arg_data_mat("d", "file-data", "Name of the material data file", false, "materials-local.yaml", "string");
+    TCLAP::ValueArg<std::string> arg_data_mat("d", "file-data", "Name of the material data file", false, "materials-local-cohen.yaml", "string");
     TCLAP::SwitchArg arg_enable_nonlocal_correction("C", "nonlocal-correction", "Enable the non-local-correction for the EPM model", false);
     TCLAP::SwitchArg arg_enable_soc("S", "soc", "Enable the spin-orbit coupling for the EPM model", false);
     TCLAP::SwitchArg all_path_mat("A", "all", "Compute the band structure on all the paths for all the materials", false);

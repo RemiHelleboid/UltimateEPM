@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshfile", "Name to print", true, "bz.msh", "string");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
-    TCLAP::ValueArg<std::string> arg_data_mat("d", "file-data", "Name of the material data file", false, "materials-local.yaml", "string");
+    TCLAP::ValueArg<std::string> arg_data_mat("d", "file-data", "Material data file", false, "materials-local-cohen.yaml", "string");
     TCLAP::ValueArg<std::string> arg_outfile("o", "outfile", "Name of the output file", false, "", "string");
     TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "nvbands", "Number of valence bands to export", false, 4, "int");
     TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "ncbands", "Number of conduction bands to export", false, 12, "int");
@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
     cmd.parse(argc, argv);
 
     uepm::pseudopotential::Materials materials;
-    
+
     std::string file_material_parameters = arg_data_mat.getValue();
     if (!std::filesystem::exists(file_material_parameters)) {
         std::filesystem::path p_try = std::filesystem::path(PROJECT_SRC_DIR) / "parameter_files" / file_material_parameters;
