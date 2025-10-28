@@ -234,7 +234,7 @@ void Single_particle_simulation::export_history(const std::string& filename) {
             return;
         }
         // Prefer your constants over M_PI for portability
-        constexpr double lattice_constant     = 5.43e-10;  // meters (Si)
+        constexpr double lattice_constant     = 5.431e-10;  // meters (Si)
         const double     normalization_factor = 2.0 * uepm::constants::pi / lattice_constant;
 
         const auto history = particle.get_history();

@@ -566,6 +566,7 @@ void MeshBZ::recompute_tetra_ordered_energies(double max_energy) {
                    max_diffE,
                    idx_max_diffE);
         const Tetra& T_max_diffE = m_list_tetrahedra[m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices[idx_max_diffE]];
+        m_tetra_ordered_energy_min[idx_band].m_max_energy_spread = max_diffE;
     }
     fmt::print("Done recomputing tetra ordered energies.\n");
 }

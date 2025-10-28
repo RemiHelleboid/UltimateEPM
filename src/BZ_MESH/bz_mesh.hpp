@@ -12,11 +12,13 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <map>
 #include <memory>
 #include <random>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -59,6 +61,22 @@ struct TetraOrderedEnergyMin {
         std::size_t idx_low  = std::distance(m_ordered_energies.begin(), it_low);
         std::size_t idx_high = std::distance(m_ordered_energies.begin(), it_high);
         return std::make_pair(idx_low, idx_high);
+    }
+
+    std::span<const std::size_t> indices_in_min_energy_range(double E_min, double E_max) const noexcept {
+        // binary-search on energies
+        const auto        it_low  = std::lower_bound(m_ordered_energies.begin(), m_ordered_energies.end(), E_min);
+        const auto        it_high = std::upper_bound(m_ordered_energies.begin(), m_ordered_energies.end(), E_max);
+        const std::size_t lo      = static_cast<std::size_t>(it_low - m_ordered_energies.begin());
+        const std::size_t hi      = static_cast<std::size_t>(it_high - m_ordered_energies.begin());
+
+        // return a view over the corresponding slice of tetra indices
+        const auto all = std::span<const std::size_t>(m_ordered_tetra_indices);
+        return all.subspan(lo, hi - lo);
+    }
+
+    std::span<const std::size_t> candidate_indices(double E_min, double E_max) const noexcept {
+        return indices_in_min_energy_range(E_min - m_max_energy_spread, E_max);
     }
 };
 

@@ -97,7 +97,7 @@ def PseudoPotential(G: np.ndarray, mat_params: pMat.MaterialParameterEPM) -> flo
         return 0.0
 
 
-def non_diag_hamiltonian(mat_params: pMat.MaterialParameterEPM, basis_G: n  p.ndarray) -> np.ndarray:
+def non_diag_hamiltonian(mat_params: pMat.MaterialParameterEPM, basis_G: np.ndarray) -> np.ndarray:
     """Generate the Hamiltonian matrix.
 
     Args:

@@ -90,10 +90,10 @@ struct NonLocalParameters {
 
     void populate_non_local_parameters(const YAML::Node& node) {
         m_alpha_0_cation                        = uepm::constants::Ryd_to_eV * node["alpha_0_cation"].as<double>();
-        m_beta_0_cation                         = node["beta_0_cation"].as<double>();
-        m_A2_cation                             = uepm::constants::Ryd_to_eV * node["A2_cation"].as<double>();
         m_alpha_0_anion                         = uepm::constants::Ryd_to_eV * node["alpha_0_anion"].as<double>();
+        m_beta_0_cation                         = node["beta_0_cation"].as<double>();
         m_beta_0_anion                          = node["beta_0_anion"].as<double>();
+        m_A2_cation                             = uepm::constants::Ryd_to_eV * node["A2_cation"].as<double>();
         m_A2_anion                              = uepm::constants::Ryd_to_eV * node["A2_anion"].as<double>();
         m_R0_cation                             = node["R0_cation"].as<double>();
         m_R2_cation                             = node["R2_cation"].as<double>();

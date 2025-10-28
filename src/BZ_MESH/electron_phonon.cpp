@@ -49,9 +49,9 @@ double PGamma::interpolate_P_Gamma(double energy_eV) const {
         return m_P_Gamma_values.back();
     }
     // Linear interpolation
-    auto it = std::upper_bound(m_energies_eV.begin(), m_energies_eV.end(), energy_eV);
+    auto        it  = std::upper_bound(m_energies_eV.begin(), m_energies_eV.end(), energy_eV);
     std::size_t idx = std::distance(m_energies_eV.begin(), it);
-    double t = (energy_eV - m_energies_eV[idx - 1]) / (m_energies_eV[idx] - m_energies_eV[idx - 1]);
+    double      t   = (energy_eV - m_energies_eV[idx - 1]) / (m_energies_eV[idx] - m_energies_eV[idx - 1]);
     return (1.0 - t) * m_P_Gamma_values[idx - 1] + t * m_P_Gamma_values[idx];
 }
 
@@ -221,7 +221,7 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
 
     const double     Ei_eV      = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
     const double     Eph_max    = get_max_phonon_energy();
-    constexpr double eps_energy = 1e-5;
+    constexpr double eps_energy = 1e-2;
     const double     Ef_min     = Ei_eV - Eph_max - eps_energy;
     const double     Ef_max     = Ei_eV + Eph_max + eps_energy;
 
@@ -232,17 +232,13 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
         if (Ef_min > m_max_band[idx_n2] || Ef_max < m_min_band[idx_n2]) {
             continue;
         }
-        const auto& list_idx_relevent_tetra = get_ordered_tetra_indices_at_band(idx_n2);
+        const auto& ordered_tetra_indices = m_tetra_ordered_energy_min[idx_n2];
 
-        for (auto idx_tetra : list_idx_relevent_tetra) {
+        for (auto idx_tetra : ordered_tetra_indices.candidate_indices(Ef_min, Ef_max)) {
             const auto& tetra = m_list_tetrahedra[idx_tetra];
 
             if (!tetra.does_intersect_band_energy_range(Ef_min, Ef_max, idx_n2)) {
                 continue;
-            }
-            // The tetra list is ordered by increasing min energy, so we can break early.
-            if (tetra.get_min_energy_at_band(idx_n2) > Ef_max) {
-                break;
             }
 
             const Rate8 r = compute_electron_phonon_transition_rates_pair(idx_n1, idx_k1, idx_n2, idx_tetra, populate_nk_npkp);
@@ -1384,8 +1380,5 @@ void ElectronPhonon::test_elph() const {
     }
     file.close();
 }
-
-
-
 
 }  // namespace uepm::mesh_bz

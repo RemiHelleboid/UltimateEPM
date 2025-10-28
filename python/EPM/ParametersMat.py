@@ -21,13 +21,37 @@ Si = MaterialParameterEPM(
     name="Silicon",
     symbol="Si",
     lattice_constant=5.43,
-    V3S=-0.2241,
-    V8S=0.0551,
-    V11S=0.0724,
+    V3S=-0.263,
+    V8S=-0.040,
+    V11S=0.033,
     V3A=0.0,
     V4A=0.0,
     V11A=0.0,
 )
+
+# Si = MaterialParameterEPM(
+#     name="Silicon",
+#     symbol="Si",
+#     lattice_constant=5.43,
+#     V3S=-0.2241,
+#     V8S=0.0551,
+#     V11S=0.0724,
+#     V3A=0.0,
+#     V4A=0.0,
+#     V11A=0.0,
+# )
+
+# Si = MaterialParameterEPM(
+#     name="Silicon",
+#     symbol="Si",
+#     lattice_constant=5.43,
+#     V3S=-0.2241,
+#     V8S=0.0551,
+#     V11S=0.0724,
+#     V3A=0.0,
+#     V4A=0.0,
+#     V11A=0.0,
+# )
 
 Ge = MaterialParameterEPM(
     name="Germanium",
