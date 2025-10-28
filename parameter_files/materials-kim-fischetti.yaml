@@ -33,7 +33,7 @@ materials:
       radial_extent_anion: 4.60
       radial_extent_cation: 4.60
       alpha_soc: 1.00
-      mu_soc: 000214
+      mu_soc: 0.000214
 
   - name: Germanium
     symbol: Ge

@@ -17,40 +17,34 @@
 
 namespace uepm::pseudopotential {
 
-double SpinOrbitCorrection::compute_B2_cation(const Vector3D<double>& K) const {
-    double kappa = K.Length() * (uepm::constants::bohr_radius / m_soc_parameters.m_radial_extent_cation);
-    double B2    = 1.0 / std::pow((1.0 + kappa * kappa), 3.0);
-    return B2;
-}
-
-double SpinOrbitCorrection::compute_B2_anion(const Vector3D<double>& K) const {
-    double kappa = K.Length() * (uepm::constants::bohr_radius / m_soc_parameters.m_radial_extent_anion);
-    double B2    = 1.0 / std::pow((1.0 + kappa * kappa), 3.0);
-    return B2;
-}
-
 double SpinOrbitCorrection::compute_B3_cation(const Vector3D<double>& K) const {
-    double kappa = K.Length() * (uepm::constants::bohr_radius / m_soc_parameters.m_radial_extent_cation);
-    double B3    = (5 - kappa * kappa) / (5.0 * pow((1.0 + kappa * kappa), 4.0));
-    return B3;
+    const double kappa = K.Length() * uepm::constants::bohr_radius * m_soc_parameters.m_radial_extent_cation;  // extent in Bohr radii
+    return (5.0 - kappa * kappa) / (5.0 * std::pow(1.0 + kappa * kappa, 4.0));
 }
 
 double SpinOrbitCorrection::compute_B3_anion(const Vector3D<double>& K) const {
-    double kappa = K.Length() * (uepm::constants::bohr_radius / m_soc_parameters.m_radial_extent_anion);
-    double B3    = (5 - kappa * kappa) / (5.0 * pow((1.0 + kappa * kappa), 4.0));
-    return B3;
+    const double kappa = K.Length() * uepm::constants::bohr_radius * m_soc_parameters.m_radial_extent_anion;
+    return (5.0 - kappa * kappa) / (5.0 * std::pow(1.0 + kappa * kappa, 4.0));
+}
+
+double SpinOrbitCorrection::compute_B2_cation(const Vector3D<double>& K) const {
+    const double kappa = K.Length() * uepm::constants::bohr_radius * m_soc_parameters.m_radial_extent_cation;  // extent in a0
+    return 1.0 / std::pow(1.0 + kappa * kappa, 3.0);
+}
+
+double SpinOrbitCorrection::compute_B2_anion(const Vector3D<double>& K) const {
+    const double kappa = K.Length() * uepm::constants::bohr_radius * m_soc_parameters.m_radial_extent_anion;
+    return 1.0 / std::pow(1.0 + kappa * kappa, 3.0);
 }
 
 double SpinOrbitCorrection::compute_B4_cation(const Vector3D<double>& K) const {
-    double kappa = K.Length() * (uepm::constants::bohr_radius / m_soc_parameters.m_radial_extent_cation);
-    double B4    = (5.0 - 3.0 * kappa * kappa) / (5.0 * pow((1.0 + kappa * kappa), 5.0));
-    return B4;
+    const double kappa = K.Length() * uepm::constants::bohr_radius * m_soc_parameters.m_radial_extent_cation;
+    return (5.0 - 3.0 * kappa * kappa) / (5.0 * std::pow(1.0 + kappa * kappa, 5.0));
 }
 
 double SpinOrbitCorrection::compute_B4_anion(const Vector3D<double>& K) const {
-    double kappa = K.Length() * (uepm::constants::bohr_radius / m_soc_parameters.m_radial_extent_anion);
-    double B4    = (5.0 - 3.0 * kappa * kappa) / (5.0 * pow((1.0 + kappa * kappa), 5.0));
-    return B4;
+    const double kappa = K.Length() * uepm::constants::bohr_radius * m_soc_parameters.m_radial_extent_anion;
+    return (5.0 - 3.0 * kappa * kappa) / (5.0 * std::pow(1.0 + kappa * kappa, 5.0));
 }
 
 double SpinOrbitCorrection::compute_lambda_1(const Vector3D<double>& K, const Vector3D<double>& Kp) const {
@@ -94,21 +88,26 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
                                                                                         const Vector3D<double>& Gp,
                                                                                         const Vector3D<double>& tau) const {
     using namespace std::complex_literals;
-    const double                              kfac             = (2.0 * M_PI) / m_material.get_lattice_constant_meter();
-    Vector3D<double>                          Kphys            = kfac * K;   // 1/m
-    Vector3D<double>                          Kpphys           = kfac * Kp;  // 1/m
-    double                                    lambda_sym       = compute_lambda_sym(Kphys, Kpphys);
-    double                                    lambda_antisym   = compute_lambda_antisym(Kphys, Kpphys);
-    Vector3D<double>                          cross_K_Kp       = cross_product(Kphys, Kpphys);
-    
-    Eigen::Matrix<std::complex<double>, 2, 2> res_matrix       = compute_pauli_state_dot_product(cross_K_Kp);
-    Vector3D<double>                          diff_G           = G - Gp;
-    const double                              lattice_constant = m_material.get_lattice_constant_meter();
-    const double                              Gtau             = (2 * M_PI / lattice_constant) * tau * diff_G;
-    std::complex<double>                      sym_factor       = -1i * lambda_sym * std::cos(Gtau);
-    std::complex<double>                      antisym_factor   = lambda_antisym * std::sin(Gtau);
-    res_matrix *= (2.0 * M_PI / lattice_constant) * (2.0 * M_PI / lattice_constant) * (sym_factor + antisym_factor);
+
+    const double a    = m_material.get_lattice_constant_meter();
+    const double kfac = (2.0 * M_PI) / a;
+
+    // Physical K for λ (B3 expects 1/m)
+    const Vector3D<double> Kphys  = kfac * K;
+    const Vector3D<double> Kpphys = kfac * Kp;
+
+    // Elemental Si: antisymmetric = 0
+    const double lambda_sym     = compute_lambda_sym(Kphys, Kpphys);
+    const double lambda_antisym = 0.0;
+
+    // (K × K')·σ using dimensionless K, then scale by kfac^2 once
+    Eigen::Matrix<std::complex<double>, 2, 2> res_matrix = compute_pauli_state_dot_product(cross_product(K, Kp));
+
+    const double               Gtau  = kfac * (tau * (G - Gp));
+    const std::complex<double> phase = (-1i * lambda_sym * std::cos(Gtau)) + (lambda_antisym * std::sin(Gtau));
+
+    res_matrix *= (phase * kfac * kfac);  // <-- multiply, don't divide
+
     return res_matrix;
 }
-
 }  // namespace uepm::pseudopotential

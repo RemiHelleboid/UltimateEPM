@@ -109,10 +109,13 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
                                                             m_basisVectors[static_cast<std::size_t>(i)],
                                                             m_basisVectors[static_cast<std::size_t>(j)],
                                                             tau);
+                // DBEUG
+                // soc_contribution *= 1e-10;
                 UpUpMatrix(i, j) += soc_contribution(0, 0);
-                UpDownMatrix(i, j) += soc_contribution(1, 0);
-                DownUpMatrix(i, j) += soc_contribution(0, 1);
+                UpDownMatrix(i, j) += soc_contribution(0, 1);
+                DownUpMatrix(i, j) += soc_contribution(1, 0);
                 DownDownMatrix(i, j) += soc_contribution(1, 1);
+                
             }
         }
 
@@ -123,7 +126,7 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
 
 void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
     // Enforce Hermiticity to mitigate numerical noise prior to diagonalization
-    // matrix = 0.5 * (matrix + matrix.adjoint());
+    matrix = 0.5 * (matrix + matrix.adjoint());
 
     solver.compute(matrix, keep_eigenvectors ? Eigen::ComputeEigenvectors : Eigen::EigenvaluesOnly);
     if (solver.info() != Eigen::Success) {
