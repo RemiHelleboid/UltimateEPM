@@ -175,7 +175,7 @@ int main(int argc, char const *argv[]) {
         ElectronPhonon.export_rate_values(rates_file);
     }
     ElectronPhonon.test_elph();
-    
+
     ElectronPhonon.apply_scissor(1.12);  // eV
     // Solve for Fermi level and export CSV
     uepm::mesh_bz::fermi::Options fermi_options;
@@ -209,10 +209,9 @@ int main(int argc, char const *argv[]) {
     double mean_energy = ElectronPhonon.mean_electron_energy_equilibrium(Ef, T, true);
     fmt::print("Mean electron energy above CBM at equilibrium: {:.4f} eV\n", mean_energy);
 
-    std::string output_mobility = name_stem + "_mobility.txt";
-    auto        out             = name_stem + stamp_params + "_mobility.txt";
-
-    std::string out_rates_vs_energy = prefix_export + "_rates_vs_energy.csv";
+    std::string output_mobility     = name_stem + "_mobility.txt";
+    auto        out                 = name_stem + stamp_params + "_mobility.txt";
+    std::string out_rates_vs_energy = prefix_export + "_elph_results.csv";
 
     export_result_mobility(out_rates_vs_energy,
                            mu_tensor,

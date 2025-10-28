@@ -44,11 +44,11 @@ struct PGamma {
 };
 
 struct SelectedFinalState {
-    int                   band;         // final band index (n2)
-    std::size_t           tetra_index;  // chosen tetra index
-    uepm::mesh_bz::Tetra* tetra_ptr;    // non-owning pointer to that tetra
-    vector3               k_final;      // sampled k' on iso-surface E = Ef
-    double                E_final_eV;   // Ef = Ei ± ħω (for sanity/log)
+    std::size_t           idx_final_band;
+    std::size_t           idx_final_tetra;
+    uepm::mesh_bz::Tetra* ptr_final_tetra;
+    vector3               k_final;     // Randomly selected final k-point on the final energy surface
+    double                E_final_eV;  // Energy of the final state
 };
 
 struct IterativeBTEOptions {

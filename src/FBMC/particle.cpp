@@ -69,14 +69,15 @@ void particle::select_final_state_after_phonon_scattering(std::size_t idx_phonon
         m_mesh_bz->select_electron_phonon_final_state(m_band_index, m_k_vector, idx_phonon_branch, m_random_generator);
     m_k_vector                 = Sf.k_final;
     m_energy                   = Sf.E_final_eV;
-    m_containing_bz_mesh_tetra = Sf.tetra_ptr;
+    m_containing_bz_mesh_tetra = Sf.ptr_final_tetra;
+    m_band_index               = Sf.idx_final_band;
 
     update_group_velocity();
 }
 
-void particle::print_history_summary() const{
-    std::size_t total_events = m_history.m_time_history.size();
-    std::size_t nb_events_type = m_history.m_scattering_events.size();
+void particle::print_history_summary() const {
+    std::size_t            total_events    = m_history.m_time_history.size();
+    std::size_t            nb_events_type  = m_history.m_scattering_events.size();
     std::array<double, 10> event_fractions = {0.0};
     for (std::size_t i = 0; i < nb_events_type; ++i) {
         event_fractions[i] = static_cast<double>(m_history.m_scattering_events[i]) / static_cast<double>(total_events);
@@ -88,7 +89,6 @@ void particle::print_history_summary() const{
     }
     fmt::print("  Event type 8: count = {}, fraction = {:.4f}\n", m_history.m_scattering_events[8], event_fractions[8]);
     fmt::print("  Event type 9: count = {}, fraction = {:.4f}\n", m_history.m_scattering_events[9], event_fractions[9]);
-    
 }
 
 }  // namespace uepm::fbmc

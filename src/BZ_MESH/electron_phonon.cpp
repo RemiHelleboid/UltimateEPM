@@ -397,6 +397,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
 #pragma omp critical
             {
                 fmt::print("\rDone {}/{} ({:.1f}%)", d, total, 100.0 * double(d) / double(total));
+                std::cout.flush();
             }
         }
     }
@@ -432,6 +433,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
 #pragma omp critical
                 {
                     fmt::print("\rDone {}/{} ({:.1f}%)", d, total, 100.0 * double(d) / double(total));
+                    std::cout.flush();
                 }
             }
         }
@@ -478,10 +480,10 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
     const double      sign_ph  = (event == PhononEvent::emission) ? -1.0 : +1.0;
     const std::size_t nb_bands = m_list_vertices.empty() ? 0 : m_list_vertices.front().get_number_bands();
     if (nb_bands == 0) {
-        return SelectedFinalState{static_cast<int>(idx_band_initial), init_tetra->get_index(), init_tetra, k_initial, Ei_eV};
+        return SelectedFinalState{idx_band_initial, init_tetra->get_index(), init_tetra, k_initial, Ei_eV};
     }
 
-    using Cand = std::pair<int, std::size_t>;  // (band n2, global tetra index)
+    using Cand = std::pair<std::size_t, std::size_t>;  // (band n2, global tetra index)
     std::vector<Cand>   candidates;
     std::vector<double> probs;
 
@@ -595,7 +597,7 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
             P *= factor_rates;
 
             if (P > 0.0 && std::isfinite(P)) {
-                candidates.emplace_back(static_cast<int>(n2), idx_tetra);  // keep the **global** tetra index
+                candidates.emplace_back(n2, idx_tetra);  // keep the **global** tetra index
                 probs.push_back(P);
             }
         }
@@ -606,7 +608,7 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
 
     if (!(total > 0.0) || !std::isfinite(total)) {
         // no admissible final state: stay put
-        return SelectedFinalState{static_cast<int>(idx_band_initial), init_tetra->get_index(), init_tetra, k_initial, Ei_eV};
+        return SelectedFinalState{idx_band_initial, init_tetra->get_index(), init_tetra, k_initial, Ei_eV};
     }
 
     std::uniform_real_distribution<double> U(0.0, 1.0);
@@ -624,7 +626,7 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
         pick = probs.size() - 1;
     }
 
-    const int         n2_sel  = candidates[pick].first;
+    const std::size_t n2_sel  = candidates[pick].first;
     const std::size_t tet_sel = candidates[pick].second;  // **global** tetra index
     const auto&       Tsel    = m_list_tetrahedra[tet_sel];
 
@@ -751,6 +753,8 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(doub
     std::vector<double>                energies(n_steps);
     std::vector<double>                dos_values(n_steps, 0.0);
     std::vector<std::array<double, 8>> rate_values(n_steps, std::array<double, 8>{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
+
+#pragma omp parallel for num_threads(m_nb_threads_mesh_ops)
     for (std::size_t istep = 0; istep < n_steps; ++istep) {
         const double E                = energy_step * static_cast<double>(istep) + energy_min;
         energies[istep]               = energy_step * static_cast<double>(istep);
@@ -809,6 +813,12 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(doub
             fmt::print(out, ",{:.6e}", rate_values[istep][i]);
         }
         fmt::print(out, "\n");
+    }
+
+    m_P_Gamma_data.m_energies_eV = energies;
+    m_P_Gamma_data.m_P_Gamma_values.resize(energies.size());
+    for (std::size_t i = 0; i < energies.size(); ++i) {
+        m_P_Gamma_data.m_P_Gamma_values[i] = std::accumulate(rate_values[i].begin(), rate_values[i].end(), 0.0);
     }
 
     std::cout << std::endl;
