@@ -521,7 +521,6 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
             vector3       qstar   = k2_bary - k_initial;
 
             if (!is_inside_mesh_geometry(qstar)) {
-                continue;
                 qstar = retrieve_k_inside_mesh_geometry(qstar);
             }
             if (!is_inside_mesh_geometry(qstar)) {

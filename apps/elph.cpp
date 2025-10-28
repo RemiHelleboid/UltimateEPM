@@ -77,6 +77,7 @@ int main(int argc, char const *argv[]) {
     TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<double>      arg_temperature("T", "temperature", "Temperature in Kelvin.", false, 300.0, "double");
+    TCLAP::ValueArg<double>      arg_band_gap("g", "bandgap", "Band gap energy in eV.", false, 1.12, "double");
     TCLAP::ValueArg<double>      arg_energy_range("E",
                                              "energy_window",
                                              "Energy window around the band gap to consider (in eV).",
@@ -102,7 +103,7 @@ int main(int argc, char const *argv[]) {
     cmd.add(arg_export_rates);
     cmd.add(arg_phonon_rates);
     cmd.add(use_unit_defpot);
-
+    cmd.add(arg_band_gap);
     cmd.parse(argc, argv);
 
     auto start = std::chrono::high_resolution_clock::now();
@@ -133,6 +134,7 @@ int main(int argc, char const *argv[]) {
     if (phonon_rates_provided) {
         phonon_rates_file = arg_phonon_rates.getValue();
     }
+    double band_gap = arg_band_gap.getValue();
 
     uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
 
@@ -176,7 +178,7 @@ int main(int argc, char const *argv[]) {
     }
     ElectronPhonon.test_elph();
 
-    ElectronPhonon.apply_scissor(1.12);  // eV
+    ElectronPhonon.apply_scissor(band_gap);  // eV
     // Solve for Fermi level and export CSV
     uepm::mesh_bz::fermi::Options fermi_options;
     fermi_options.nE                = 250;  // number of energy points for DOS interpolation
@@ -207,7 +209,7 @@ int main(int argc, char const *argv[]) {
     fmt::print("tensor = \n{} cm^2/(V*s)\n\n\n", fmt::streamed(M));
 
     double mean_energy = ElectronPhonon.mean_electron_energy_equilibrium(Ef, T, true);
-    fmt::print("Mean electron energy above CBM at equilibrium: {:.4f} eV\n", mean_energy);
+    fmt::print("Mean electron energy above CBM at equilibrium: {:.6f} eV\n", mean_energy);
 
     std::string output_mobility     = name_stem + "_mobility.txt";
     auto        out                 = name_stem + stamp_params + "_mobility.txt";

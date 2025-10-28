@@ -239,7 +239,7 @@ void Single_particle_simulation::export_history(const std::string& filename) {
 
         const auto history = particle.get_history();
 
-        history_file << "time,gamma,x,y,z,kx,ky,kz,vx,vy,vz,energy\n";
+        history_file << "time,gamma,x,y,z,kx,ky,kz,vx,vy,vz,energy,band_occupation\n";
         for (std::size_t step = 0; step < history.get_number_of_steps(); ++step) {
             history_file << history.m_time_history[step] << "," << history.m_gammas[step] << "," << history.m_positions[step].x() << ","
                          << history.m_positions[step].y() << "," << history.m_positions[step].z() << ","
@@ -247,7 +247,7 @@ void Single_particle_simulation::export_history(const std::string& filename) {
                          << history.m_k_vectors[step].y() / normalization_factor << ","
                          << history.m_k_vectors[step].z() / normalization_factor << "," << history.m_velocities[step].x() << ","
                          << history.m_velocities[step].y() << "," << history.m_velocities[step].z() << "," << history.m_energies[step]
-                         << "\n";
+                         << "," << history.m_band_occupations[step] << "\n";
         }
         history_file.close();
         std::cout << "Particle history exported to " << filename << "\n";

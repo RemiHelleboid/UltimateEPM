@@ -38,16 +38,17 @@ struct scattering_rate {
 };
 
 struct particle_history {
-    std::size_t                 m_index;
-    std::vector<double>         m_time_history;
-    std::vector<vector3>        m_positions;
-    std::vector<vector3>        m_k_vectors;
-    std::vector<vector3>        m_velocities;
-    std::vector<double>         m_energies;
-    std::vector<double>         m_gammas;
+    std::size_t          m_index;
+    std::vector<double>  m_time_history;
+    std::vector<vector3> m_positions;
+    std::vector<vector3> m_k_vectors;
+    std::vector<vector3> m_velocities;
+    std::vector<double>  m_energies;
+    std::vector<double>  m_gammas;
 
     // 8 phonon branches + impact ionization + self-scattering
     std::array<std::size_t, 10> m_scattering_events = {0};
+    std::vector<double>         m_band_occupations;
 
     particle_history() : m_index(0), m_positions(), m_k_vectors(), m_velocities(), m_energies(), m_gammas() {}
     particle_history(std::size_t index) : m_index(index), m_positions(), m_k_vectors(), m_velocities(), m_energies(), m_gammas() {}
@@ -59,6 +60,7 @@ struct particle_history {
         m_velocities.reserve(n_steps);
         m_energies.reserve(n_steps);
         m_gammas.reserve(n_steps);
+        m_band_occupations.reserve(n_steps);
     }
 
     void add_time(double time) { m_time_history.push_back(time); }
@@ -67,26 +69,29 @@ struct particle_history {
     void add_velocity(const vector3& velocity) { m_velocities.push_back(velocity); }
     void add_energy(double energy) { m_energies.push_back(energy); }
     void add_gamma(double gamma) { m_gammas.push_back(gamma); }
+    void add_band_occupation(double band_occupation) { m_band_occupations.push_back(band_occupation); }
 
     void add_particle_state(const double&  my_time,
                             const vector3& my_position,
                             const vector3& my_k_vector,
                             const vector3& my_velocity,
                             double         my_energy,
-                            double         my_gamma) {
+                            double         my_gamma,
+                            double         band_idx) {
         add_time(my_time);
         add_position(my_position);
         add_k_vector(my_k_vector);
         add_velocity(my_velocity);
         add_energy(my_energy);
         add_gamma(my_gamma);
+        add_band_occupation(band_idx);
     }
     std::size_t get_number_of_steps() const { return m_positions.size(); }
 
     /**
      * @brief Add a scattering event to the history.
-     * 
-     * @param event_index 
+     *
+     * @param event_index
      */
     void add_event(std::size_t event_index) {
         if (event_index < m_scattering_events.size()) {
@@ -242,7 +247,7 @@ class particle {
     void          draw_random_k_point_at_energy(double energy, std::size_t idx_band) {
         m_mesh_bz->draw_random_k_point_at_energy(energy, idx_band, get_random_generator());
     }
-    void update_history() { m_history.add_particle_state(m_time, m_position, m_k_vector, m_velocity, m_energy, m_gamma); }
+    void update_history() { m_history.add_particle_state(m_time, m_position, m_k_vector, m_velocity, m_energy, m_gamma, m_band_index); }
     void add_scattering_event_to_history(std::size_t event_index) { m_history.add_event(event_index); }
     void print_history_summary() const;
     const particle_history& get_history() const { return m_history; }
