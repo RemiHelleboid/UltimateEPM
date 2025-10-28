@@ -116,14 +116,14 @@ class Material {
     }
 
     /**
-     * @brief Get the atomic volume of the material in angstrom^3.
+     * @brief Get the atomic volume of the material in angstrom^3 (per atom).
      * 
      * @return double 
      */
     double get_atomic_volume_angstrom() const { return (1.0 / 8.0) * pow(m_lattice_constant, 3.0); }
 
     /**
-     * @brief Get the atomic volume of the material in meter^3.
+     * @brief Get the atomic volume of the material in meter^3 (per atom).
      * 
      * @return double 
      */

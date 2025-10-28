@@ -27,6 +27,13 @@ materials:
       R0_anion: 1.06
       R2_anion: 0.0
       well_type: "square"
+    spin-orbit-parameters:
+      period_anion: 3
+      period_cation: 3
+      radial_extent_anion: 4.60
+      radial_extent_cation: 4.60
+      alpha_soc: 1.00
+      mu_soc: 000214
 
   - name: Germanium
     symbol: Ge
