@@ -240,6 +240,7 @@ class particle {
     void update_k_vector(const vector3& v_electric_field);
     void update_energy();
     void update_group_velocity();
+    void update_position();
 
     void select_final_state_after_phonon_scattering(std::size_t idx_phonon_branch);
 

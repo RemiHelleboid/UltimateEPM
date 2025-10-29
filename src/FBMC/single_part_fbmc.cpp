@@ -112,30 +112,29 @@ void Single_particle_simulation::run_simulation() {
     for (std::size_t idx = 0; idx < m_list_particle.size(); ++idx) {
         fmt::print("Running simulation for particle {}\n", idx);
         auto& particle = m_list_particle[idx];
-        
+
         std::uniform_real_distribution<double> U01(0.0, 1.0);
         int                                    nb_foldings_local = 0;
 
         while (particle.get_time() < T_end) {
-            
             if (particle.get_index() % 1000 == 0 && particle.get_iter() % 100 == 0) {
                 fmt::print("Particle {} at time {:.3e} / {:.3e} s, iteration {}, energy {:.4f} eV\n",
-                    particle.get_index(),
-                    particle.get_time(),
+                           particle.get_index(),
+                           particle.get_time(),
                            T_end,
                            particle.get_iter(),
                            particle.get_energy());
-                        }
-                        
-                        // Draw free flight with upper bound p_gamma
-                        particle.draw_free_flight_time(p_gamma);
+            }
+
+            // Draw free flight with upper bound p_gamma
+            particle.draw_free_flight_time(p_gamma);
             const double dt = particle.get_current_free_flight_time();
             // Advance particle time (add a setter if needed)
             // particle.set_time(particle.get_time() + dt);
 
             // Drift
             particle.update_k_vector(m_bulk_env.m_electric_field);
-            
+
             // Re-attach tetra; fold if needed
             uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(particle.get_k_vector());
             if (containing_tetra == nullptr) {
@@ -151,18 +150,18 @@ void Single_particle_simulation::run_simulation() {
                 }
             }
             particle.set_containing_bz_mesh_tetra(containing_tetra);
-            
+
             // Update E & v after drift
             particle.update_energy();
             particle.update_group_velocity();
-            
+
             // Physical total rate at current k
             std::array<double, 8> rates = particle.interpolate_phonon_scattering_rate_at_location(particle.get_k_vector());
             std::array<double, 8> rates_tetra =
-            containing_tetra->interpolate_phonon_scattering_rate_at_location(particle.get_k_vector(), particle.get_band_index());
+                containing_tetra->interpolate_phonon_scattering_rate_at_location(particle.get_k_vector(), particle.get_band_index());
             const double Gamma           = std::accumulate(rates.begin(), rates.end(), 0.0);
             double       sum_rates_tetra = std::accumulate(rates_tetra.begin(), rates_tetra.end(), 0.0);
-            double energy_tetra    = containing_tetra->interpolate_energy_at_band(particle.get_k_vector(), particle.get_band_index());
+            double       energy_tetra    = containing_tetra->interpolate_energy_at_band(particle.get_k_vector(), particle.get_band_index());
             // Debug checks
             if (std::fabs(energy_tetra - particle.get_energy()) > 1e-6) {
                 fmt::print("Warning: Energy mismatch: particle = {:.6e} eV, tetra = {:.6e} eV\n", particle.get_energy(), energy_tetra);
@@ -174,24 +173,24 @@ void Single_particle_simulation::run_simulation() {
 
             particle.update_history();
             // debug_file << energy_tetra << "," << sum_rates_tetra << "," << Gamma  << ","<< particle.get_gamma() << "\n";
-            
+
             if (!(Gamma > 0.0) || !std::isfinite(Gamma)) {
                 // Null event only this step
                 continue;
             }
             if (Gamma < WarningGammaThreshold) {
                 fmt::print("Warning: Gamma < {} for particle {} at time {} s\n",
-                    WarningGammaThreshold,
+                           WarningGammaThreshold,
                            particle.get_index(),
                            particle.get_time());
-                        }
-                        
+            }
+
             // Null-collision acceptance
             double accept = Gamma / p_gamma;
             if (accept > 1.0) {
                 accept = 1.0;  // clamp if bound violated
             }
-            
+
             if (U01(particle.get_random_generator()) > accept) {
                 particle.add_scattering_event_to_history(9);
                 continue;

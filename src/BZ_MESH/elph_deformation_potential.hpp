@@ -31,14 +31,35 @@ struct DeformationPotential {
         return (mode == PhononMode::acoustic) ? std::sqrt(A + Ee * B) * q.norm() : std::sqrt(A + Ee * B);
     }
 
+    /**
+     * @brief Get the fischetti deformation potential object
+     *
+     * Values of Fischetti et al. for Si :
+     *  if (mode == PhononMode::acoustic) {
+     *      return (idx_band == 0 ? boost_acc * 1.2 : boost_acc * 1.0 * 1.7) * norm_q;
+     *   } else {
+     *       return (idx_band == 0 ? boost_opt * 1.75e8 : boost_opt * 2.10e8) * cm_to_m;
+     *   }
+     * Values from XANG : . Appl. Phys. 73, 3339–3347 (1993) https://doi.org/10.1063/1.352959
+     *
+     *  if (mode == PhononMode::acoustic) {
+            return (idx_band == 0 ? boost_acc * 1.8 : boost_acc * 1.0 * 2.5) * norm_q;
+        } else {
+            return (idx_band == 0 ? boost_opt * 3.4e8 : boost_opt * 4.10e8) * cm_to_m;
+        }
+     *
+     * @param norm_q
+     * @param idx_band
+     * @return double
+     */
     double get_fischetti_deformation_potential(double norm_q, int idx_band) const {
         constexpr double cm_to_m = 1e2;
-        const double     boost_acc   = 2.0;
-        const double     boost_opt   = 2.0;
+        const double     boost_acc   = 1.25;
+        const double     boost_opt   = 1.25;
         if (mode == PhononMode::acoustic) {
-            return (idx_band == 0 ? boost_acc * 1.2 : boost_acc * 1.0 * 1.7) * norm_q;
+            return (idx_band == 0 ? boost_acc * 1.8 : boost_acc * 2.5) * norm_q;
         } else {
-            return (idx_band == 0 ? boost_opt * 1.75e8 : boost_opt * 2.10e8) * cm_to_m;
+            return (idx_band == 0 ? boost_opt * 3.4e8 : boost_opt * 4.10e8) * cm_to_m;
         }
     }
 };

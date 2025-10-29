@@ -75,7 +75,6 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
 
     // Non-local correction: build full matrix once (avoid double-adding diagonal)
     if (add_non_local_correction) {
-        std::cout << "Adding non-local correction to Hamiltonian matrix." << std::endl;
         for (Eigen::Index i = 0; i < basisSize; ++i) {
             const auto& ki = k_plus_G[static_cast<std::size_t>(i)];
             for (Eigen::Index j = 0; j < basisSize; ++j) {

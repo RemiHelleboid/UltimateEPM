@@ -42,6 +42,7 @@ void particle::draw_free_flight_time(double p_gamma) {
     m_current_free_flight_time = -std::log(u) / p_gamma;
     m_time += m_current_free_flight_time;
     m_iter += 1;
+    update_position();
 }
 
 /**
@@ -56,6 +57,10 @@ void particle::update_k_vector(const vector3& v_electric_field) {
 void particle::update_group_velocity() {
     m_velocity = m_containing_bz_mesh_tetra->get_gradient_energy_at_band(m_band_index);
     m_velocity *= (1.0 / uepm::constants::h_bar_eV);
+}
+
+void particle::update_position() {
+    m_position += m_velocity * m_current_free_flight_time;
 }
 
 std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(const vector3& location) {

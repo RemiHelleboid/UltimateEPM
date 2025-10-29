@@ -118,9 +118,12 @@ int main(int argc, char** argv) {
     int  name_len;
     MPI_Get_processor_name(processor_name, &name_len);
 
+    if (process_rank == 0) {
+        std::cout << "EPSILON PROGRAM" << std::endl;
+        std::cout << "Number of processes: " << number_processes << std::endl;
+    }
     std::cout << "Process " << process_rank << " of " << number_processes << " is on " << processor_name << std::endl;
 
-    // std::cout << "EPSILON PROGRAM" << std::endl;
     TCLAP::CmdLine               cmd("Epsilon", ' ', "0.1");
     TCLAP::ValueArg<std::string> arg_yaml_config("c", "config", "YAML config file", true, "", "string");
     TCLAP::ValueArg<int>         arg_crystal_dir("d", "dir", "Crystalographic direction (100, 110, 111)", false, 100, "int");

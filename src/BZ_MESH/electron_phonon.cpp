@@ -130,17 +130,15 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
 
     // q = k2 - k1
     vector3 q       = k2 - k1;
-    double  qn_star = q.norm();
-    double  qn      = scale_q_norm(qn_star);
 
-    // if (!is_inside_mesh_geometry(q)) {
-    //     q = retrieve_k_inside_mesh_geometry(q);
-    // }
-    // if (!is_inside_mesh_geometry(q)) {
-    //     throw std::runtime_error("q not in BZ");
-    // }
+    if (!is_inside_mesh_geometry(q)) {
+        q = retrieve_k_inside_mesh_geometry(q);
+    }
+    if (!is_inside_mesh_geometry(q)) {
+        throw std::runtime_error("q not in BZ");
+    }
 
-    // const double qn = q.norm();
+    const double qn = q.norm();
 
     constexpr double SMALL_OMEGA_CUTOFF = 1.0;  // [1/s]
     const double     pi                 = uepm::constants::pi;
@@ -274,14 +272,13 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(std::size_t idx_n1, std::siz
             const double overlap2 = overlap * overlap;
 
             vector3 q      = k2 - k1;
+            if (!is_inside_mesh_geometry(q)) {
+                q = retrieve_k_inside_mesh_geometry(q);
+            }
+            if (!is_inside_mesh_geometry(q)) {
+                throw std::runtime_error("q not in BZ");
+            }
             double  q_norm = q.norm();
-            q_norm         = scale_q_norm(q_norm);
-            // if (!is_inside_mesh_geometry(q)) {
-            //     q = retrieve_k_inside_mesh_geometry(q);
-            // }
-            // if (!is_inside_mesh_geometry(q)) {
-            //     throw std::runtime_error("q not in BZ");
-            // }
             for (int md = 0; md < 4; ++md) {
                 const auto&           disp = m_phonon_dispersion[md];
                 const PhononMode      mode = (md < 2) ? PhononMode::acoustic : PhononMode::optical;
@@ -557,7 +554,6 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
             // qn           = scale_q_norm(qn);
 
             vector3 qloc  = k2_centroid - k_initial;
-            vector3 qloc2 = k2_centroid - k_initial;
             if (!is_inside_mesh_geometry(qloc)) {
                 qloc = retrieve_k_inside_mesh_geometry(qloc);
             }
