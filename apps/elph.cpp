@@ -124,7 +124,6 @@ int main(int argc, char const *argv[]) {
     bool              irreducible_wedge_only         = use_irr_wedge.getValue();
     const std::string mesh_band_input_file           = arg_mesh_file.getValue();
     const std::string phonon_file                    = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
-    bool              populate_nk_npkp               = false;
     const bool        shift_conduction_band          = true;
     const bool        set_positive_valence_band      = false;
     const bool        export_rates                   = arg_export_rates.getValue();
@@ -169,7 +168,7 @@ int main(int argc, char const *argv[]) {
     if (phonon_rates_provided) {
         ElectronPhonon.read_phonon_scattering_rates_from_file(phonon_rates_file);
     } else {
-        ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, populate_nk_npkp);
+        ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only);
     }
 
     if (export_rates && !phonon_rates_provided) {
@@ -186,7 +185,7 @@ int main(int argc, char const *argv[]) {
     fermi_options.use_interp        = false;        // use interpolation when computing DOS at given energy
     fermi_options.T_K               = temperature;  // temperature for Fermi-Dirac
     const bool use_iw               = true;         // use only irreducible wedge for DOS and Fermi level
-    fermi_options.abs_max_energy_eV = 2.0;          // absolute max energy to consider (both conduction and valence)
+    fermi_options.abs_max_energy_eV = 1.0;          // absolute max energy to consider (both conduction and valence)
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options, use_iw);
     if (result.success) {

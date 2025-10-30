@@ -42,7 +42,7 @@ int main(int argc, const char** argv) {
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<double>      arg_time("t", "time", "Simulation time (s)", false, 1e-12, "double");
     TCLAP::ValueArg<double>      arg_temperature("T", "temperature", "Simulation temperature (K)", false, 300.0, "double");
-    TCLAP::ValueArg<double>      arg_electric_field_x("", "Ex", "Electric field in x direction (V/m)", false, 0.0, "double");
+    TCLAP::ValueArg<double>      arg_electric_field_x("", "Ex", "Electric field in x direction (V/cm)", false, 0.0, "double");
     TCLAP::SwitchArg             plot_with_python("P", "plot", "Call a python script after the MC Runs.", false);
     TCLAP::SwitchArg             plot_with_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
     cmd.add(plot_with_python);
@@ -64,7 +64,7 @@ int main(int argc, const char** argv) {
     const std::string file_mesh              = arg_mesh_file.getValue();
     const std::string material_symbol        = arg_material.getValue();
     const std::string file_phonon_scattering = arg_phonon_file.getValue();
-    const std::string init_output_directory       = arg_outputdir.getValue();
+    const std::string init_output_directory  = arg_outputdir.getValue();
     int               nb_threads             = arg_nb_threads.getValue();
     int               nb_valence_bands       = 0;
     int               nb_conduction_bands    = 2;
@@ -111,8 +111,10 @@ int main(int argc, const char** argv) {
     mesh.read_phonon_scattering_rates_from_file(file_phonon_scattering);
 
     uepm::fbmc::Bulk_environment bulk_env;
-    bulk_env.m_temperature          = 300.0;
-    bulk_env.m_electric_field       = {electric_field_x, 0.0, 0.0};
+    bulk_env.m_temperature    = 300.0;
+    bulk_env.m_electric_field = {electric_field_x, 0.0, 0.0};
+    constexpr double m_to_cm  = 1e2;
+    bulk_env.m_electric_field *= m_to_cm;
     bulk_env.m_doping_concentration = 1e10;
     mesh.set_temperature(bulk_env.m_temperature);
     mesh.set_particle_type(uepm::mesh_bz::MeshParticleType::conduction);
@@ -132,8 +134,8 @@ int main(int argc, const char** argv) {
     std::chrono::duration<double> elapsed = end - start;
     fmt::print("Simulation completed in {:.3f} seconds.\n", elapsed.count());
 
-    std::string timestamp = std::to_string(std::time(nullptr));
-    std::string fileprefix  = fmt::format("{}/simulation_results_{}", output_dir, timestamp);
+    std::string timestamp  = std::to_string(std::time(nullptr));
+    std::string fileprefix = fmt::format("{}/simulation_results_{}", output_dir, timestamp);
     sim.export_history(fileprefix);
 
     return 0;

@@ -11,13 +11,12 @@
 #pragma once
 
 #include <array>
-#include <vector>
 #include <cmath>
 #include <cstdint>
+#include <vector>
 
 namespace uepm::mesh_bz {
 
-// ---------- Discrete axes ----------
 enum class PhononMode : uint8_t { acoustic = 0, optical = 1, none = 2 };
 enum class PhononDirection : uint8_t { longitudinal = 0, transverse = 1, none = 2 };
 enum class PhononEvent : uint8_t { absorption = 0, emission = 1, none = 2 };
@@ -28,10 +27,18 @@ struct PhononScatteringEvent {
     PhononEvent     event;
 };
 
+using Rate8           = std::array<double, 8>;
+using BandRates       = std::vector<Rate8>;
+using VertexBandRates = std::vector<BandRates>;
 
-
-// ---------- Compact indices ----------
-// Channel packing: (M,D,E) -> [0..7] with (m<<2)|(d<<1)|e
+/**
+ * @brief Compute the compact index for a phonon scattering event.
+ *
+ * @param m Phonon mode.
+ * @param d Phonon direction.
+ * @param e Phonon event.
+ * @return constexpr int Compact index in the range [0..7], or -1 if invalid.
+ */
 inline constexpr int rate_index(PhononMode m, PhononDirection d, PhononEvent e) noexcept {
     const int M = (m == PhononMode::acoustic) ? 0 : (m == PhononMode::optical) ? 1 : -1;
     const int D = (d == PhononDirection::longitudinal) ? 0 : (d == PhononDirection::transverse) ? 1 : -1;
@@ -52,14 +59,20 @@ constexpr int IDX_AC_T_EM = 5;
 constexpr int IDX_OP_L_EM = 6;
 constexpr int IDX_OP_T_EM = 7;
 
-// Helper: 4-branch (mode×direction) index
+/**
+ * @brief Gives the mode-direction index (0..3) for phonon dispersion array access.
+ *
+ * @param m Phonon mode.
+ * @param d Phonon direction.
+ * @return constexpr int Mode-direction index (0..3), or -1 if invalid.
+ */
 inline constexpr int md_index(PhononMode m, PhononDirection d) noexcept {
     const int M = (m == PhononMode::acoustic) ? 0 : (m == PhononMode::optical) ? 1 : -1;
     const int D = (d == PhononDirection::longitudinal) ? 0 : (d == PhononDirection::transverse) ? 1 : -1;
     return (M | D) < 0 ? -1 : ((M << 1) | D);  // 0..3 or -1 if invalid
 }
 
-inline constexpr PhononScatteringEvent inverse_rate_index(int idx) noexcept{
+inline constexpr PhononScatteringEvent inverse_rate_index(int idx) noexcept {
     PhononScatteringEvent event;
     if (idx < 0 || idx > 7) {
         event.mode      = PhononMode::none;
@@ -73,25 +86,17 @@ inline constexpr PhononScatteringEvent inverse_rate_index(int idx) noexcept{
     return event;
 }
 
-
-
-
-// ---------- Compact rate containers ----------
-using Rate8           = std::array<double, 8>;
-using BandRates       = std::vector<Rate8>;      // per band
-using VertexBandRates = std::vector<BandRates>;  // per vertex
-
 struct RateValues {
-    Rate8 v{};
+    Rate8 m_rate_values{};
     void  add(PhononMode m, PhononDirection d, PhononEvent e, double x) noexcept {
         const int idx = rate_index(m, d, e);
         if (idx >= 0) {
-            v[static_cast<size_t>(idx)] += x;
+            m_rate_values[static_cast<size_t>(idx)] += x;
         }
     }
-    double&       at(PhononMode m, PhononDirection d, PhononEvent e) { return v[rate_index(m, d, e)]; }
-    const double& at(PhononMode m, PhononDirection d, PhononEvent e) const { return v[rate_index(m, d, e)]; }
-    const Rate8&  as_array() const noexcept { return v; }
+    double&       at(PhononMode m, PhononDirection d, PhononEvent e) { return m_rate_values[rate_index(m, d, e)]; }
+    const double& at(PhononMode m, PhononDirection d, PhononEvent e) const { return m_rate_values[rate_index(m, d, e)]; }
+    const Rate8&  as_array() const noexcept { return m_rate_values; }
 
     static const char* label(int i) noexcept {
         static constexpr const char* L[8] = {"ac_L_ab", "ac_T_ab", "op_L_ab", "op_T_ab", "ac_L_em", "ac_T_em", "op_L_em", "op_T_em"};
@@ -180,19 +185,15 @@ inline double bose_einstein_distribution(double energy_eV, double temperature_K)
  * @return double
  */
 inline double transport_weight_RTA(const vector3& v0, const vector3& v1) {
-    const double norm_v0 = v0.norm_squared();
-    const double norm_v1 = v1.norm_squared();
-    if (norm_v0 < 1e-24 || norm_v1 < 1e-24) {
-        return 1.0;  // degeneracy/edge guard
-    }
-    double cos_theta = v0.dot(v1) / std::sqrt(norm_v0 * norm_v1);
-    if (cos_theta > 1.0) {
-        cos_theta = 1.0;
-    }
-    if (cos_theta < -1.0) {
-        cos_theta = -1.0;
-    }
-    return 1.0 - cos_theta;  // = 1 - cos θ
+    const double v0sq = v0.norm_squared();
+    if (v0sq < 1e-24) return 1.0; // guard near band extrema/flat band
+
+    const double dot = v0.dot(v1);
+    double w = 1.0 - dot / v0sq;   // = 1 - (v'·v)/|v|^2
+
+    // Optional: enforce non-negativity if you want numerical robustness
+    if (!(w >= 0.0)) w = 0.0;
+    return w;
 }
 
 // ---- Optional compile-time sanity checks (won’t cost runtime) ----
@@ -210,29 +211,21 @@ static_assert(md_index(PhononMode::acoustic, PhononDirection::transverse) == 1);
 static_assert(md_index(PhononMode::optical, PhononDirection::longitudinal) == 2);
 static_assert(md_index(PhononMode::optical, PhononDirection::transverse) == 3);
 
-static_assert(inverse_rate_index(0).mode == PhononMode::acoustic &&
-              inverse_rate_index(0).direction == PhononDirection::longitudinal &&
+static_assert(inverse_rate_index(0).mode == PhononMode::acoustic && inverse_rate_index(0).direction == PhononDirection::longitudinal &&
               inverse_rate_index(0).event == PhononEvent::absorption);
-static_assert(inverse_rate_index(1).mode == PhononMode::acoustic &&
-              inverse_rate_index(1).direction == PhononDirection::transverse &&
+static_assert(inverse_rate_index(1).mode == PhononMode::acoustic && inverse_rate_index(1).direction == PhononDirection::transverse &&
               inverse_rate_index(1).event == PhononEvent::absorption);
-static_assert(inverse_rate_index(2).mode == PhononMode::optical &&
-              inverse_rate_index(2).direction == PhononDirection::longitudinal &&
+static_assert(inverse_rate_index(2).mode == PhononMode::optical && inverse_rate_index(2).direction == PhononDirection::longitudinal &&
               inverse_rate_index(2).event == PhononEvent::absorption);
-static_assert(inverse_rate_index(3).mode == PhononMode::optical &&
-              inverse_rate_index(3).direction == PhononDirection::transverse &&
+static_assert(inverse_rate_index(3).mode == PhononMode::optical && inverse_rate_index(3).direction == PhononDirection::transverse &&
               inverse_rate_index(3).event == PhononEvent::absorption);
-static_assert(inverse_rate_index(4).mode == PhononMode::acoustic &&
-              inverse_rate_index(4).direction == PhononDirection::longitudinal &&
+static_assert(inverse_rate_index(4).mode == PhononMode::acoustic && inverse_rate_index(4).direction == PhononDirection::longitudinal &&
               inverse_rate_index(4).event == PhononEvent::emission);
-static_assert(inverse_rate_index(5).mode == PhononMode::acoustic &&
-              inverse_rate_index(5).direction == PhononDirection::transverse &&
+static_assert(inverse_rate_index(5).mode == PhononMode::acoustic && inverse_rate_index(5).direction == PhononDirection::transverse &&
               inverse_rate_index(5).event == PhononEvent::emission);
-static_assert(inverse_rate_index(6).mode == PhononMode::optical &&
-              inverse_rate_index(6).direction == PhononDirection::longitudinal &&
+static_assert(inverse_rate_index(6).mode == PhononMode::optical && inverse_rate_index(6).direction == PhononDirection::longitudinal &&
               inverse_rate_index(6).event == PhononEvent::emission);
-static_assert(inverse_rate_index(7).mode == PhononMode::optical &&
-              inverse_rate_index(7).direction == PhononDirection::transverse &&
+static_assert(inverse_rate_index(7).mode == PhononMode::optical && inverse_rate_index(7).direction == PhononDirection::transverse &&
               inverse_rate_index(7).event == PhononEvent::emission);
 
 }  // namespace uepm::mesh_bz

@@ -111,20 +111,17 @@ class ElectronPhonon : public BZ_States {
     void             set_nb_bands_elph(std::size_t nb) noexcept { m_nb_bands_elph = nb; }
     std::size_t      get_nb_bands_elph() const noexcept { return m_nb_bands_elph; }
 
-    Rate8      compute_electron_phonon_transition_rates_pair(std::size_t idx_n1,
-                                                             std::size_t idx_k1,
-                                                             std::size_t idx_n2,
-                                                             std::size_t idx_tetra_final,
-                                                             bool        push_nk_npkp);
-    RateValues compute_electron_phonon_rate(std::size_t idx_n1, std::size_t idx_k1, bool populate_nk_npkp = false);
+    Rate8 compute_electron_phonon_transition_rates_pair(std::size_t idx_n1,
+                                                        std::size_t idx_k1,
+                                                        std::size_t idx_n2,
+                                                        std::size_t idx_tetra_final);
+
+    RateValues compute_electron_phonon_rate(std::size_t idx_n1, std::size_t idx_k1);
     RateValues compute_hole_phonon_rate(std::size_t idx_n1, std::size_t idx_k1);
 
     double scale_q_norm(double q_norm) const;
-    void   compute_electron_phonon_rates_over_mesh(double energy_max             = 100.0,
-                                                   bool   irreducible_wedge_only = false,
-                                                   bool   populate_nk_npkp       = false);
+    void   compute_electron_phonon_rates_over_mesh(double energy_max = 100.0, bool irreducible_wedge_only = false);
     void   add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename);
-    void   compute_electron_phonon_rates_over_mesh_nk_npkp(bool irreducible_wedge_only = false);
     void   clean_all_elph_data();
 
     SelectedFinalState select_electron_phonon_final_state(std::size_t     idx_band_initial,
