@@ -107,7 +107,7 @@ void Single_particle_simulation::run_simulation() {
         throw std::runtime_error("Could not open debug log file for writing.");
     }
 
-// Parallelize over particles; each runs to T_end
+// Parallelize over particles; each runs to T_end; each particle are independent (it's like multiple single-particle simulations)
 #pragma omp parallel for reduction(+ : nb_foldings_total) reduction(max : max_time_reached) schedule(dynamic)
     for (std::size_t idx = 0; idx < m_list_particle.size(); ++idx) {
         fmt::print("Running simulation for particle {}\n", idx);
@@ -116,7 +116,7 @@ void Single_particle_simulation::run_simulation() {
         std::uniform_real_distribution<double> U01(0.0, 1.0);
         int                                    nb_foldings_local = 0;
 
-        while (particle.get_time() < T_end) {
+        while (particle.get_time() <= T_end) {
             if (particle.get_index() % 1000 == 0 && particle.get_iter() % 100 == 0) {
                 fmt::print("Particle {} at time {:.3e} / {:.3e} s, iteration {}, energy {:.4f} eV\n",
                            particle.get_index(),
@@ -171,9 +171,6 @@ void Single_particle_simulation::run_simulation() {
             }
             particle.set_gamma(Gamma);
 
-            particle.update_history();
-            // debug_file << energy_tetra << "," << sum_rates_tetra << "," << Gamma  << ","<< particle.get_gamma() << "\n";
-
             if (!(Gamma > 0.0) || !std::isfinite(Gamma)) {
                 // Null event only this step
                 continue;
@@ -195,6 +192,8 @@ void Single_particle_simulation::run_simulation() {
                 particle.add_scattering_event_to_history(9);
                 continue;
             }
+            // to gain place, we update the history only after a real event
+            particle.update_history();
 
             // Real event: pick channel
             const double rsel = U01(particle.get_random_generator()) * Gamma;
@@ -212,6 +211,7 @@ void Single_particle_simulation::run_simulation() {
             particle.add_scattering_event_to_history(ev);
             particle.select_final_state_after_phonon_scattering(ev);
         }  // while particle
+        particle.update_history();  // final update
 
         nb_foldings_total += nb_foldings_local;
         if (particle.get_time() > max_time_reached) {
@@ -220,36 +220,15 @@ void Single_particle_simulation::run_simulation() {
     }  // omp parallel for
 
     std::cout << "Simulation finished. max_time = " << max_time_reached << " s, total foldings = " << nb_foldings_total << "\n";
-    debug_file.close();
 }
 
-void Single_particle_simulation::export_history(const std::string& filename) {
+void        Single_particle_simulation::export_history(const std::string& filename) {
+#pragma omp parallel for schedule(static)
     for (auto& particle : m_list_particle) {
         particle.print_history_summary();
         std::string   filename_particle = fmt::format("{}_particle_{}.csv", filename, particle.get_index());
-        std::ofstream history_file(filename_particle);
-        if (!history_file.is_open()) {
-            std::cerr << "Could not open history file for writing.\n";
-            return;
-        }
-        // Prefer your constants over M_PI for portability
-        constexpr double lattice_constant     = 5.431e-10;  // meters (Si)
-        const double     normalization_factor = 2.0 * uepm::constants::pi / lattice_constant;
-
-        const auto history = particle.get_history();
-
-        history_file << "time,gamma,x,y,z,kx,ky,kz,vx,vy,vz,energy,band_occupation\n";
-        for (std::size_t step = 0; step < history.get_number_of_steps(); ++step) {
-            history_file << history.m_time_history[step] << "," << history.m_gammas[step] << "," << history.m_positions[step].x() << ","
-                         << history.m_positions[step].y() << "," << history.m_positions[step].z() << ","
-                         << history.m_k_vectors[step].x() / normalization_factor << ","
-                         << history.m_k_vectors[step].y() / normalization_factor << ","
-                         << history.m_k_vectors[step].z() / normalization_factor << "," << history.m_velocities[step].x() << ","
-                         << history.m_velocities[step].y() << "," << history.m_velocities[step].z() << "," << history.m_energies[step]
-                         << "," << history.m_band_occupations[step] << "\n";
-        }
-        history_file.close();
-        std::cout << "Particle history exported to " << filename << "\n";
+        particle.export_history_to_csv(filename_particle);
+        fmt::print("Exported history of particle {} to {}\n", particle.get_index(), filename_particle);
     }
 }
 

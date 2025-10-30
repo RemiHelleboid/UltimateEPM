@@ -253,6 +253,7 @@ class particle {
     void print_history_summary() const;
     const particle_history& get_history() const { return m_history; }
     void                    reset_history() { m_history = particle_history(m_index); }
+    void                    export_history_to_csv(const std::string& filename) const;
 };
 
 }  // namespace uepm::fbmc

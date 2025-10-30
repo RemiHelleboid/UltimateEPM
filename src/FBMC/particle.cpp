@@ -96,4 +96,28 @@ void particle::print_history_summary() const {
     fmt::print("  Event type 9: count = {}, fraction = {:.4f}\n", m_history.m_scattering_events[9], event_fractions[9]);
 }
 
+void particle::export_history_to_csv(const std::string& filename) const {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        throw std::runtime_error("export_history_to_csv: cannot open file for writing");
+    }
+    file << "time,gamma,x,y,z,kx,ky,kz,vx,vy,vz,energy,band_occupation\n";
+    for (std::size_t i = 0; i < m_history.get_number_of_steps(); ++i) {
+        file << m_history.m_time_history[i] << ","
+             << m_history.m_gammas[i] << ","
+             << m_history.m_positions[i].x() << ","
+             << m_history.m_positions[i].y() << ","
+             << m_history.m_positions[i].z() << ","
+             << m_history.m_k_vectors[i].x() << ","
+             << m_history.m_k_vectors[i].y() << ","
+             << m_history.m_k_vectors[i].z() << ","
+             << m_history.m_velocities[i].x() << ","
+             << m_history.m_velocities[i].y() << ","
+             << m_history.m_velocities[i].z() << ","
+             << m_history.m_energies[i] << ","
+             << m_history.m_band_occupations[i] << "\n";
+    }
+    file.close();
+}
+
 }  // namespace uepm::fbmc
