@@ -43,6 +43,7 @@ int main(int argc, char* argv[]) {
     TCLAP::SwitchArg arg_enable_nonlocal_correction("C", "nonlocal-correction", "Enable the non-local-correction for the EPM model", false);
     TCLAP::SwitchArg arg_enable_soc("s", "soc", "Enable the spin-orbit coupling for the EPM model", false);
     TCLAP::SwitchArg arg_cond_band_zero("z", "MinCondZero", "Shift the conduction band minimum to 0 eV", false);
+    TCLAP::SwitchArg arg_irr_wedge("w", "IrrWedge", "Compute bands only in the irreducible wedge of the BZ", false);
     TCLAP::ValueArg<int> arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -55,6 +56,7 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_enable_soc);
     cmd.add(arg_cond_band_zero);
     cmd.add(arg_data_mat);
+    cmd.add(arg_irr_wedge);
 
     cmd.parse(argc, argv);
 
@@ -79,8 +81,9 @@ int main(int argc, char* argv[]) {
     Options my_options;
     my_options.materialName = arg_material.getValue();
 
-    constexpr int max_valence_bands = 8;
-    my_options.nrLevels             = arg_nb_valence_bands.getValue() + arg_nb_conduction_bands.getValue() +
+    const int max_valence_bands = enable_soc ? 8 : 4;
+
+    my_options.nrLevels         = arg_nb_valence_bands.getValue() + arg_nb_conduction_bands.getValue() +
                           max_valence_bands;  // add extra bands for the calculations (won't be exported)
     my_options.nearestNeighbors = arg_nearest_neighbors.getValue();
     my_options.nrThreads        = arg_nb_threads.getValue();
@@ -99,7 +102,7 @@ int main(int argc, char* argv[]) {
     uepm::pseudopotential::BandStructure my_bandstructure;
     my_bandstructure
         .Initialize(mat, my_options.nrLevels, mesh_kpoints, my_options.nearestNeighbors, enable_nonlocal_correction, arg_enable_soc);
-    bool use_iwedge = true;
+    bool use_iwedge = arg_irr_wedge.isSet();
     my_bz_mesh.compute_band_structure_over_mesh(my_bandstructure, use_iwedge);
 
     auto end              = std::chrono::high_resolution_clock::now();
@@ -116,12 +119,16 @@ int main(int argc, char* argv[]) {
     std::cout << "Exporting " << arg_nb_valence_bands.getValue() << " valence bands and " << arg_nb_conduction_bands.getValue()
               << " conduction bands to file: " << out_file_bands << std::endl;
     bool highest_valence_as_band0 = true;
-
+    bool write_gradients         = true;
     my_bz_mesh.export_selected_bands_to_gmsh(out_file_bands,
                                              arg_nb_valence_bands.getValue(),
                                              arg_nb_conduction_bands.getValue(),
                                              highest_valence_as_band0,
-                                             mesh_filename);
+                                             mesh_filename,
+                                             write_gradients);
+
+    const std::string vtk_file = in_path.stem().replace_extension("").string() + "_bands.vtk";
+    my_bz_mesh.export_energies_and_gradients_to_vtk(vtk_file);
 
     return 0;
 }

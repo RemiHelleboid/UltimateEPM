@@ -36,7 +36,6 @@ Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPh
       m_sim_params(sim_params),
       m_nb_particles(nb_particles),
       m_time(0.0) {
-    // Initialize the particles
     m_list_particle.reserve(m_nb_particles);
     for (std::size_t i = 0; i < m_nb_particles; ++i) {
         particle particle(i, particle_type::electron, m_ptr_mesh_bz);
@@ -47,10 +46,6 @@ Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPh
     const double thermal_energy = (3.0 / 2.0) * m_bulk_env.m_temperature * uepm::constants::k_b_eV;
     std::cout << "Thermal energy at " << m_bulk_env.m_temperature << " K: " << thermal_energy << " eV\n";
 
-    // for (std::size_t i = 0; i < m_nb_particles; ++i) {
-    //     m_particle[i].set_energy(thermal_energy);
-    //     m_particle[i].set_velocity({0.0, 0.0, 0.0});
-    // }
     for (auto& particle : m_list_particle) {
         particle.set_energy(thermal_energy);
         particle.set_velocity({0.0, 0.0, 0.0});
@@ -96,28 +91,18 @@ void Single_particle_simulation::run_simulation() {
     }
 
     const double WarningGammaThreshold = 1e10;  // 1/s
-    int          nb_foldings_total     = 0;
-    double       max_time_reached      = 0.0;
-
     const double T_end = m_sim_params.m_simulation_time;
 
-    // DEBUG
-    std::ofstream debug_file("fbmc_debug_log.txt");
-    if (!debug_file.is_open()) {
-        throw std::runtime_error("Could not open debug log file for writing.");
-    }
-
 // Parallelize over particles; each runs to T_end; each particle are independent (it's like multiple single-particle simulations)
-#pragma omp parallel for reduction(+ : nb_foldings_total) reduction(max : max_time_reached) schedule(dynamic)
+#pragma omp parallel for schedule(dynamic) num_threads(m_sim_params.m_nb_openmp_threads)
     for (std::size_t idx = 0; idx < m_list_particle.size(); ++idx) {
         fmt::print("Running simulation for particle {}\n", idx);
         auto& particle = m_list_particle[idx];
 
         std::uniform_real_distribution<double> U01(0.0, 1.0);
-        int                                    nb_foldings_local = 0;
 
         while (particle.get_time() <= T_end) {
-            if (particle.get_index() % 1000 == 0 && particle.get_iter() % 100 == 0) {
+            if (particle.get_index() == 0 && particle.get_iter() % 1000 == 0) {
                 fmt::print("Particle {} at time {:.3e} / {:.3e} s, iteration {}, energy {:.4f} eV\n",
                            particle.get_index(),
                            particle.get_time(),
@@ -142,11 +127,7 @@ void Single_particle_simulation::run_simulation() {
                 particle.set_k_vector(folded_k);
                 containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(particle.get_k_vector());
                 if (containing_tetra == nullptr) {
-                    // Mark and stop this particle; keep others running
-                    // (optional) set a flag on the particle
-                    break;
-                } else {
-                    ++nb_foldings_local;
+                    throw std::runtime_error("Particle k-point is out of the Brillouin zone mesh after folding.");
                 }
             }
             particle.set_containing_bz_mesh_tetra(containing_tetra);
@@ -212,21 +193,17 @@ void Single_particle_simulation::run_simulation() {
             particle.select_final_state_after_phonon_scattering(ev);
         }  // while particle
         particle.update_history();  // final update
+                                    // Print summary for this particle
+        particle.print_history_summary();
 
-        nb_foldings_total += nb_foldings_local;
-        if (particle.get_time() > max_time_reached) {
-            max_time_reached = particle.get_time();
-        }
+
     }  // omp parallel for
-
-    std::cout << "Simulation finished. max_time = " << max_time_reached << " s, total foldings = " << nb_foldings_total << "\n";
 }
 
-void        Single_particle_simulation::export_history(const std::string& filename) {
-#pragma omp parallel for schedule(static)
+void Single_particle_simulation::export_history(const std::string& filename) {
     for (auto& particle : m_list_particle) {
         particle.print_history_summary();
-        std::string   filename_particle = fmt::format("{}_particle_{}.csv", filename, particle.get_index());
+        std::string filename_particle = fmt::format("{}_particle_{}.csv", filename, particle.get_index());
         particle.export_history_to_csv(filename_particle);
         fmt::print("Exported history of particle {} to {}\n", particle.get_index(), filename_particle);
     }

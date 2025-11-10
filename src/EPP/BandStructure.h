@@ -54,8 +54,8 @@ class BandStructure {
     const std::vector<std::string>& GetPath() const { return m_path; }
     std::string                     get_path_as_string() const;
     unsigned int                    GetPointsNumber() const { return static_cast<unsigned int>(m_kpoints.size()); }
-    void                            Compute();
-    void                            Compute_parallel(int nb_threads);
+    void                            Compute(bool compute_gradient = false);
+    void                            Compute_parallel(bool compute_gradient = false, int nb_threads = 1);
     double                          AdjustValues(bool minConductionBandToZero = false);
 
     void        print_results() const;
@@ -66,14 +66,14 @@ class BandStructure {
 
     unsigned int        get_number_of_bands() const { return m_nb_bands; }
     std::vector<double> get_band(unsigned int band_index) const;
-    double              get_energy_at_k_band(unsigned int band_index, unsigned int index_k) const { return m_results[index_k][band_index]; }
+    double get_energy_at_k_band(unsigned int band_index, unsigned int index_k) const { return m_energies[index_k][band_index]; }
 
-    const std::vector<Vector3D<int>>&       get_basis_vectors() const { return basisVectors; }
-    const std::vector<Vector3D<double>>&    get_kpoints() const { return m_kpoints; }
-    const std::vector<std::vector<double>>& get_band_energies() const { return m_results; }
+    const std::vector<Vector3D<int>>&                 get_basis_vectors() const { return basisVectors; }
+    const std::vector<Vector3D<double>>&              get_kpoints() const { return m_kpoints; }
+    const std::vector<std::vector<double>>&           get_band_energies() const { return m_energies; }
+    const std::vector<std::vector<Vector3D<double>>>& get_band_energy_gradients() const { return m_energies_gradient; }
 
     void set_kpoints(const std::vector<Vector3D<double>>& kpoints) { m_kpoints = kpoints; }
-    
 
     double get_computation_time_s() const { return m_computation_time_s; }
     bool   is_soc_enabled() const { return m_enable_spin_orbit_coupling; }
@@ -92,9 +92,10 @@ class BandStructure {
     bool         m_enable_non_local_correction;
     bool         m_enable_spin_orbit_coupling = false;
 
-    std::vector<Vector3D<int>>       basisVectors;
-    std::vector<Vector3D<double>>    m_kpoints;
-    std::vector<std::vector<double>> m_results;
+    std::vector<Vector3D<int>>                 basisVectors;
+    std::vector<Vector3D<double>>              m_kpoints;
+    std::vector<std::vector<double>>           m_energies;
+    std::vector<std::vector<Vector3D<double>>> m_energies_gradient;
 
     double m_computation_time_s;
 

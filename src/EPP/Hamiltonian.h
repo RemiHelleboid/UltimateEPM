@@ -20,6 +20,7 @@ class Hamiltonian {
 
     const Eigen::VectorXd& eigenvalues() const { return solver.eigenvalues(); }
     bool                   check_matrix_is_symmetric() const { return matrix.isApprox(matrix.transpose()); }
+    Vector3D<double>       compute_gradient_at_level(const Vector3D<double>& k_point, unsigned int level_index) const;
 
  protected:
     const Material&                   m_material;

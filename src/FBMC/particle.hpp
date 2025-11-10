@@ -38,7 +38,10 @@ struct scattering_rate {
 };
 
 struct particle_history {
-    std::size_t          m_index;
+    std::size_t          m_index_particle;
+    // Total number of steps (including self-scattering)
+    std::size_t          m_total_nb_steps = 0;
+    // Recorded data at each step (not including self-scattering)
     std::vector<double>  m_time_history;
     std::vector<vector3> m_positions;
     std::vector<vector3> m_k_vectors;
@@ -50,8 +53,8 @@ struct particle_history {
     std::array<std::size_t, 10> m_scattering_events = {0};
     std::vector<double>         m_band_occupations;
 
-    particle_history() : m_index(0), m_positions(), m_k_vectors(), m_velocities(), m_energies(), m_gammas() {}
-    particle_history(std::size_t index) : m_index(index), m_positions(), m_k_vectors(), m_velocities(), m_energies(), m_gammas() {}
+    particle_history() : m_index_particle(0), m_positions(), m_k_vectors(), m_velocities(), m_energies(), m_gammas() {}
+    particle_history(std::size_t index) : m_index_particle(index), m_positions(), m_k_vectors(), m_velocities(), m_energies(), m_gammas() {}
 
     void reserve(std::size_t n_steps) {
         m_time_history.reserve(n_steps);
@@ -254,6 +257,7 @@ class particle {
     const particle_history& get_history() const { return m_history; }
     void                    reset_history() { m_history = particle_history(m_index); }
     void                    export_history_to_csv(const std::string& filename) const;
+    double                  compute_mean_energy() const;
 };
 
 }  // namespace uepm::fbmc

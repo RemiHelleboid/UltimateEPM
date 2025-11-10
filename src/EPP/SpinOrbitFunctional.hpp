@@ -62,7 +62,7 @@ class SpinOrbitCorrection {
                                                                        const Vector3D<double>& Gp,
                                                                        const Vector3D<double>& tau) const;
 
-    static Eigen::Matrix<std::complex<double>, 2, 2> compute_pauli_state_dot_product(const Vector3D<double>& a);
+    static Eigen::Matrix<std::complex<double>, 2, 2> compute_pauli_state_dot_product(const Vector3D<double>& K, const Vector3D<double>& Kp);
 };
 
 }  // namespace uepm::pseudopotential

@@ -78,8 +78,8 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
         for (Eigen::Index i = 0; i < basisSize; ++i) {
             const auto& ki = k_plus_G[static_cast<std::size_t>(i)];
             for (Eigen::Index j = 0; j < basisSize; ++j) {
-                const auto& kj = k_plus_G[static_cast<std::size_t>(j)];
-                auto nl_correction = m_material.compute_pseudopotential_non_local_correction(ki, kj, tau);
+                const auto& kj            = k_plus_G[static_cast<std::size_t>(j)];
+                auto        nl_correction = m_material.compute_pseudopotential_non_local_correction(ki, kj, tau);
                 // std::cout << "Non-local correction (" << i << "," << j << "): " << nl_correction << std::endl;
                 matrix(i, j) += nl_correction;
             }
@@ -114,7 +114,6 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
                 UpDownMatrix(i, j) += soc_contribution(0, 1);
                 DownUpMatrix(i, j) += soc_contribution(1, 0);
                 DownDownMatrix(i, j) += soc_contribution(1, 1);
-                
             }
         }
 
@@ -132,6 +131,59 @@ void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
         std::cout << matrix << std::endl;
         throw std::runtime_error("Eigenvalue decomposition failed");
     }
+}
+
+Vector3D<double> Hamiltonian::compute_gradient_at_level(const Vector3D<double>& k_point, unsigned int level_index) const {
+    // Uses Hellmann–Feynman on the kinetic term; local V is k-independent.
+    using std::size_t;
+
+    const Eigen::Index Nbasis = static_cast<Eigen::Index>(m_basisVectors.size());
+    if (solver.eigenvectors().size() == 0) {
+        throw std::runtime_error("compute_gradient_at_level: eigenvectors not available. Call Diagonalize(true) first.");
+    }
+    if (level_index >= static_cast<unsigned int>(solver.eigenvectors().cols())) {
+        throw std::out_of_range("compute_gradient_at_level: level_index out of range");
+    }
+
+    const double two_pi_over_a = 2.0 * M_PI / m_material.get_lattice_constant_meter();
+
+    // ħ²/(2 m_e q_e) converts J to eV
+    constexpr double diag_factor = (uepm::constants::h_bar * uepm::constants::h_bar) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
+
+    // For fractional-k derivative (dimensionless): pref_frac = 2 * diag_factor * (2π/a)^2
+    const double pref_frac = 2.0 * diag_factor * (two_pi_over_a * two_pi_over_a);
+
+    // Build k+G (fractional components as elsewhere in SetMatrix)
+    std::vector<Vector3D<double>> k_plus_G(static_cast<size_t>(Nbasis));
+    for (Eigen::Index i = 0; i < Nbasis; ++i) {
+        k_plus_G[static_cast<size_t>(i)] = k_point + m_basisVectors[static_cast<size_t>(i)];
+    }
+
+    // Eigenvector
+    const Eigen::VectorXcd ev       = solver.eigenvectors().col(static_cast<Eigen::Index>(level_index));
+    const bool             has_spin = (ev.size() == 2 * Nbasis);
+
+    // Accumulate Σ |C|² (k+G)
+    Vector3D<double> sum_kG{0.0, 0.0, 0.0};
+    if (!has_spin) {
+        for (Eigen::Index i = 0; i < Nbasis; ++i) {
+            sum_kG += k_plus_G[static_cast<size_t>(i)] * std::norm(ev(i));
+        }
+    } else {
+        for (Eigen::Index i = 0; i < Nbasis; ++i) {
+            const double w = std::norm(ev(i)) + std::norm(ev(i + Nbasis));
+            sum_kG += k_plus_G[static_cast<size_t>(i)] * w;
+        }
+    }
+
+    // Gradient w.r.t. fractional k is: grad_frac = pref_frac * Σ |C|² (k+G)  [eV]
+    Vector3D<double> grad_frac = sum_kG * pref_frac;
+
+    // Convert to physical-k gradient (eV·m): multiply by a / (2π)
+    const double     frac_to_phys = 1.0 / two_pi_over_a;
+    Vector3D<double> grad_phys    = grad_frac * frac_to_phys;  // **eV·m**
+
+    return grad_phys;
 }
 
 }  // namespace uepm::pseudopotential

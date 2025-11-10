@@ -5,7 +5,7 @@
 materials:
   - name: Silicon
     symbol: Si
-    lattice-constant: 5.43
+    lattice-constant: 5.431
     pseudo-potential-parameters:
       V3S: -0.263
       V4S: 0.0
@@ -30,10 +30,10 @@ materials:
     spin-orbit-parameters:
       period_anion: 3
       period_cation: 3
-      radial_extent_anion: 4.50
-      radial_extent_cation: 4.50
+      radial_extent_anion: 4.5
+      radial_extent_cation: 4.5
       alpha_soc: 1.00
-      mu_soc: 0.000214
+      mu_soc: 0.00214
 
   - name: Germanium
     symbol: Ge

@@ -149,6 +149,11 @@ int main(int argc, char const *argv[]) {
                                                  nb_valence_bands,
                                                  shift_conduction_band,
                                                  set_positive_valence_band);
+    const std::string vtk_file = "mesh_vtk.vtk";
+    if (!std::filesystem::exists(vtk_file)) {
+        ElectronPhonon.export_energies_and_gradients_to_vtk(vtk_file);
+    }
+
     ElectronPhonon.load_phonon_parameters(phonon_file);
     ElectronPhonon.set_nb_bands_elph(nb_conduction_bands);
 

@@ -125,6 +125,7 @@ int main(int argc, const char** argv) {
     uepm::fbmc::Simulation_parameters sim_params;
     sim_params.m_simulation_time  = arg_time.getValue();
     sim_params.m_export_frequency = 10;
+    sim_params.m_nb_openmp_threads = nb_threads;
 
     uepm::fbmc::Single_particle_simulation sim(&mesh, bulk_env, sim_params, nb_particles);
 

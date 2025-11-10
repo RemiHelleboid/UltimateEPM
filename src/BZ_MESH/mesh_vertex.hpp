@@ -149,6 +149,13 @@ class Vertex {
      */
     void add_band_energy_value(double energy) { m_band_energies.push_back(energy); }
 
+    /**
+     * @brief Add an energy gradient at the end of the list of energy gradients. (One gradient per band).
+     *
+     * @param gradient
+     */
+    void add_band_energy_gradient(const vector3& gradient) { m_energy_gradient_at_bands.push_back(gradient); }
+
     void remove_band_energy(std::size_t band_index) {
         if (band_index >= m_band_energies.size()) {
             throw std::invalid_argument("The energy of band " + std::to_string(band_index) +

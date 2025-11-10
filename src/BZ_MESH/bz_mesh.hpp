@@ -240,7 +240,8 @@ class MeshBZ {
                                        std::size_t        nb_valence_to_export,
                                        std::size_t        nb_conduction_to_export,
                                        bool               highest_valence_as_band0,
-                                       const std::string& model_name_or_msh_path) const;
+                                       const std::string& model_name_or_msh_path,
+                                       bool               write_gradients) const;
 
     // ---------- reading ----------
     void read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor = true);
@@ -250,6 +251,7 @@ class MeshBZ {
                                        bool               auto_shift_conduction_band = false,
                                        bool               set_positive_valence_band  = false);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
+    void add_new_gradient_band_energies_to_vertices(const std::vector<double>& gradients_at_vertices);
     void keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduction_bands);
     void load_kstar_ibz_to_bz(const std::string& filename = "kstar_ibz_to_bz.txt");
 

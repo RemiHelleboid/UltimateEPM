@@ -73,29 +73,20 @@ vector3 Tetra::compute_barycenter() const {
  * @return vector3
  */
 vector3 Tetra::compute_gradient_at_tetra(const array4d& values_at_vertices) const {
-    // Edges from vertex 0 to the others: a = v1 - v0, b = v2 - v0, c = v3 - v0
-    const vector3 a = m_list_edges[0];  // V0V1
-    const vector3 b = m_list_edges[1];  // V0V2
-    const vector3 c = m_list_edges[2];  // V0V3
+    const vector3 a = m_list_edges[0];
+    const vector3 b = m_list_edges[1];
+    const vector3 c = m_list_edges[2];
 
-    // Value differences relative to vertex 0
     const double du1 = values_at_vertices[1] - values_at_vertices[0];
     const double du2 = values_at_vertices[2] - values_at_vertices[0];
     const double du3 = values_at_vertices[3] - values_at_vertices[0];
 
-    // det(R) = a · (b × c)  (note: det = 6 * signed_volume)
     const double     det = dot(a, cross_product(b, c));
     constexpr double eps = 1e-14;
     if (std::abs(det) < eps) {
-        // Degenerate tetrahedron — return zero gradient (or handle as you prefer)
         return vector3{0.0, 0.0, 0.0};
     }
-
-    // R^{-T} = (1/det) * [ b×c, c×a, a×b ]  (columns)
-    // ∇u = R^{-T} * Δu
-    const vector3 grad = (cross_product(b, c) * du1 + cross_product(c, a) * du2 + cross_product(a, b) * du3) / det;
-
-    return grad;
+    return (cross_product(b, c) * du1 + cross_product(c, a) * du2 + cross_product(a, b) * du3) / det;
 }
 
 void Tetra::compute_gradient_energy_at_bands() {

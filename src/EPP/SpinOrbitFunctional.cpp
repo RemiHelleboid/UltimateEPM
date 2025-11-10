@@ -49,13 +49,27 @@ double SpinOrbitCorrection::compute_B4_anion(const Vector3D<double>& K) const {
 }
 
 double SpinOrbitCorrection::compute_lambda_1(const Vector3D<double>& K, const Vector3D<double>& Kp) const {
-    double lambda_1 =  m_soc_parameters.m_mu * compute_B3_cation(K) * compute_B3_cation(Kp);
-    return lambda_1;
+    if (m_soc_parameters.m_period_cation == 2) {
+        return m_soc_parameters.m_mu * compute_B2_cation(K) * compute_B2_cation(Kp);
+    } else if (m_soc_parameters.m_period_cation == 3) {
+        return m_soc_parameters.m_mu * compute_B3_cation(K) * compute_B3_cation(Kp);
+    } else if (m_soc_parameters.m_period_cation == 4) {
+        return m_soc_parameters.m_mu * compute_B4_cation(K) * compute_B4_cation(Kp);
+    } else {
+        throw std::runtime_error("SpinOrbitCorrection::compute_lambda_1: Unsupported period for cation.");
+    }
 }
 
 double SpinOrbitCorrection::compute_lambda_2(const Vector3D<double>& K, const Vector3D<double>& Kp) const {
-    double lambda_2 = m_soc_parameters.m_alpha * m_soc_parameters.m_mu * compute_B3_anion(K) * compute_B3_anion(Kp);
-    return lambda_2;
+    if (m_soc_parameters.m_period_anion == 2) {
+        return m_soc_parameters.m_alpha * m_soc_parameters.m_mu * compute_B2_anion(K) * compute_B2_anion(Kp);
+    } else if (m_soc_parameters.m_period_anion == 3) {
+        return m_soc_parameters.m_alpha * m_soc_parameters.m_mu * compute_B3_anion(K) * compute_B3_anion(Kp);
+    } else if (m_soc_parameters.m_period_anion == 4) {
+        return m_soc_parameters.m_alpha * m_soc_parameters.m_mu * compute_B4_anion(K) * compute_B4_anion(Kp);
+    } else {
+        throw std::runtime_error("SpinOrbitCorrection::compute_lambda_2: Unsupported period for anion.");
+    }
 }
 
 double SpinOrbitCorrection::compute_lambda_sym(const Vector3D<double>& K, const Vector3D<double>& Kp) const {
@@ -72,13 +86,24 @@ double SpinOrbitCorrection::compute_lambda_antisym(const Vector3D<double>& K, co
     return lambda_antisym;
 }
 
-Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_pauli_state_dot_product(const Vector3D<double>& myVect) {
+// Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_pauli_state_dot_product(const Vector3D<double>& myVect) {
+//     using namespace std::complex_literals;
+//     std::complex<double>                      a00 = myVect.Z;
+//     std::complex<double>                      a01 = myVect.X - myVect.Y * 1i;
+//     std::complex<double>                      a10 = myVect.X + myVect.Y * 1i;
+//     std::complex<double>                      a11 = -myVect.Z;
+//     Eigen::Matrix<std::complex<double>, 2, 2> res_matrix;
+//     res_matrix << a00, a01, a10, a11;
+//     return res_matrix;
+// }
+
+Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_pauli_state_dot_product(const Vector3D<double>& K, const Vector3D<double>& Kp) {
     using namespace std::complex_literals;
-    std::complex<double>                      a00 = myVect.Z;
-    std::complex<double>                      a01 = myVect.X - myVect.Y * 1i;
-    std::complex<double>                      a10 = myVect.X + myVect.Y * 1i;
-    std::complex<double>                      a11 = -myVect.Z;
     Eigen::Matrix<std::complex<double>, 2, 2> res_matrix;
+    auto a00 = K.X * Kp.Y - K.Y * Kp.X;
+    auto a01 = K.Y * Kp.Z - K.Z * Kp.Y + 1i * (K.X * Kp.Z - K.Z * Kp.X);
+    auto a10 = K.Y * Kp.Z - K.Z * Kp.Y - 1i * (K.X * Kp.Z - K.Z * Kp.X);
+    auto a11 = -(K.X * Kp.Y - K.Y * Kp.X);
     res_matrix << a00, a01, a10, a11;
     return res_matrix;
 }
@@ -102,7 +127,7 @@ Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contr
     const double lambda_antisym = compute_lambda_antisym(Kphys, Kpphys);
 
     // (K × K')·σ using dimensionless K, then scale by kfac^2 once
-    Eigen::Matrix<std::complex<double>, 2, 2> res_matrix = compute_pauli_state_dot_product(cross_product(K, Kp));
+    Eigen::Matrix<std::complex<double>, 2, 2> res_matrix = compute_pauli_state_dot_product(K, Kp);
 
     const double               Gtau  = kfac * (tau * (G - Gp));
     const std::complex<double> phase = (-1i * lambda_sym * std::cos(Gtau)) + (lambda_antisym * std::sin(Gtau));

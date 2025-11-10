@@ -29,7 +29,8 @@ struct Bulk_environment {
 
 struct Simulation_parameters {
     double      m_simulation_time;
-    std::size_t m_export_frequency;
+    std::size_t m_export_frequency  = 10;
+    std::size_t m_nb_openmp_threads = 1;
 };
 
 class Single_particle_simulation {
@@ -37,9 +38,8 @@ class Single_particle_simulation {
     uepm::mesh_bz::ElectronPhonon* m_ptr_mesh_bz;
     Bulk_environment               m_bulk_env;
     Simulation_parameters          m_sim_params;
-    // particle                       m_particle;
-    std::vector<particle> m_list_particle;
-    std::size_t           m_nb_particles;
+    std::vector<particle>          m_list_particle;
+    std::size_t                    m_nb_particles;
 
     double      m_time = 0.0;
     std::size_t m_step = 0;

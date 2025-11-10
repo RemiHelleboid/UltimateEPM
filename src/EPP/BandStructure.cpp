@@ -5,11 +5,11 @@
 #include <algorithm>
 #include <cfloat>
 #include <chrono>
-#include <limits>
 #include <experimental/iterator>
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <limits>
 
 #include "Hamiltonian.h"
 
@@ -71,9 +71,9 @@ void BandStructure::Initialize(const Material&                 material,
     m_enable_non_local_correction = enable_non_local_correction;
     m_enable_spin_orbit_coupling  = enable_soc;
     m_kpoints.clear();
-    m_results.clear();
+    m_energies.clear();
     m_kpoints.reserve(m_nb_points);
-    m_results.reserve(m_nb_points);
+    m_energies.reserve(m_nb_points);
 
     if (m_enable_spin_orbit_coupling) {
         m_nb_bands *= 2;
@@ -113,7 +113,7 @@ void BandStructure::Initialize(const Material&                      material,
     }
 
     m_kpoints.clear();
-    m_results.clear();
+    m_energies.clear();
     m_kpoints = list_k_points;
 
     if (!GenerateBasisVectors(nearestNeighborsNumber)) {
@@ -121,11 +121,12 @@ void BandStructure::Initialize(const Material&                      material,
     }
 }
 
-void BandStructure::Compute() {
+void BandStructure::Compute(bool compute_gradient) {
     std::cout << "Computing band structure..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
-    m_results.clear();
+    m_energies.clear();
+    m_energies_gradient.clear();
 
     Hamiltonian hamiltonian(m_material, basisVectors);
     for (unsigned int i = 0; i < m_nb_points; ++i) {
@@ -133,29 +134,35 @@ void BandStructure::Compute() {
         // std::cout << "Computing band structure at point " << m_kpoints[i] << std::endl;
 
         hamiltonian.SetMatrix(m_kpoints[i], m_enable_non_local_correction, m_enable_spin_orbit_coupling);
-        hamiltonian.Diagonalize();
+        hamiltonian.Diagonalize(compute_gradient);
 
         const Eigen::VectorXd& eigenvals = hamiltonian.eigenvalues();
 
-        m_results.emplace_back();
-        m_results.back().reserve(m_nb_bands);
+        m_energies.emplace_back();
+        m_energies.back().reserve(m_nb_bands);
         for (unsigned int level = 0; level < m_nb_bands && level < eigenvals.rows(); ++level) {
-            m_results.back().push_back(eigenvals(level));
+            m_energies.back().push_back(eigenvals(level));
         }
     }
     auto end             = std::chrono::high_resolution_clock::now();
     m_computation_time_s = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
 }
 
-void BandStructure::Compute_parallel(int nb_threads) {
+void BandStructure::Compute_parallel(bool compute_gradient, int nb_threads) {
     std::cout << "Computing band structure with " << nb_threads << " threads..." << std::endl;
     auto start  = std::chrono::high_resolution_clock::now();
     m_nb_points = m_kpoints.size();
     std::cout << "Reserving space for " << m_nb_points << " k-points and " << m_nb_bands << " bands." << std::endl;
-    m_results.clear();
-    m_results.resize(m_nb_points);
-    for (auto& row : m_results) {
+    m_energies.clear();
+    m_energies.resize(m_nb_points);
+    if (compute_gradient) {
+        m_energies_gradient.resize(m_nb_points * m_nb_bands);
+    }
+    for (auto& row : m_energies) {
         row.resize(m_nb_bands);
+    }
+    for (auto& grad : m_energies_gradient) {
+        grad.resize(m_nb_bands);
     }
 
     std::vector<Hamiltonian> hamiltonian_per_thread;
@@ -168,11 +175,16 @@ void BandStructure::Compute_parallel(int nb_threads) {
     for (unsigned int index_k = 0; index_k < m_nb_points; ++index_k) {
         int tid = omp_get_thread_num();
         hamiltonian_per_thread[tid].SetMatrix(m_kpoints[index_k], m_enable_non_local_correction, m_enable_spin_orbit_coupling);
-        hamiltonian_per_thread[tid].Diagonalize();
+
+        hamiltonian_per_thread[tid].Diagonalize(compute_gradient);
 
         const Eigen::VectorXd& eigenvals = hamiltonian_per_thread[tid].eigenvalues();
         for (unsigned int level = 0; level < m_nb_bands && level < eigenvals.rows(); ++level) {
-            m_results[index_k][level] = eigenvals(level);
+            m_energies[index_k][level] = eigenvals(level);
+            if (compute_gradient) {
+                Vector3D<double> grad               = hamiltonian_per_thread[tid].compute_gradient_at_level(m_kpoints[index_k], level);
+                m_energies_gradient[index_k][level] = grad;
+            }
         }
         if ((index_k + 1) % 1000 == 0) {
 #pragma omp critical
@@ -193,22 +205,23 @@ double BandStructure::AdjustValues(bool minConductionBandToZero) {
 
     double band_gap = 0;
 
-    if (FindBandGap(m_results, maxValValence, minValConduction)) {
+    if (FindBandGap(m_energies, maxValValence, minValConduction)) {
         band_gap = minValConduction - maxValValence;
     }
     std::cout << "Band gap found: " << band_gap << " eV" << std::endl;
-
-    for (std::size_t idx_k = 0; idx_k < m_results.size(); ++idx_k) {
-        for (std::size_t idx_band = 0; idx_band < m_results[idx_k].size(); ++idx_band) {
-            if (idx_band < 4) {
-                m_results[idx_k][idx_band] -= maxValValence;
+    std::size_t nb_valence_bands = m_enable_spin_orbit_coupling ? 8 : 4;
+    for (std::size_t idx_k = 0; idx_k < m_energies.size(); ++idx_k) {
+        for (std::size_t idx_band = 0; idx_band < m_energies[idx_k].size(); ++idx_band) {
+            if (idx_band < nb_valence_bands) {
+                m_energies[idx_k][idx_band] -= maxValValence;
             } else if (minConductionBandToZero) {
-                m_results[idx_k][idx_band] -= minValConduction;
+                m_energies[idx_k][idx_band] -= minValConduction;
             } else {
-                m_results[idx_k][idx_band] -= maxValValence;
+                m_energies[idx_k][idx_band] -= maxValValence;
             }
         }
     }
+    std::cout << "Energies adjusted: Valence band maximum set to 0 eV" << std::endl;
 
     return band_gap;
 }
@@ -249,15 +262,15 @@ bool BandStructure::FindBandGap(const std::vector<std::vector<double>>& results,
 
 std::vector<double> BandStructure::get_band(unsigned int band_index) const {
     std::vector<double> res;
-    res.reserve(m_results.size());
-    for (auto& p : m_results) {
+    res.reserve(m_energies.size());
+    for (auto& p : m_energies) {
         res.push_back(p[band_index]);
     }
     return res;
 }
 
 void BandStructure::print_results() const {
-    for (auto& p : m_results) {
+    for (auto& p : m_energies) {
         for (auto& v : p) {
             std::cout << v << " ";
         }
@@ -276,18 +289,24 @@ void BandStructure::export_k_points_to_file(std::string filename) const {
 void BandStructure::export_result_in_file(const std::string& filename) const {
     std::cout << "Exporting band structure to file:     " << filename << std::endl;
     std::ofstream file(filename);
-    file << "# Path " << get_path_as_string() << std::endl;
     file << "# Material " << m_material.get_name() << std::endl;
     file << "# NBands " << m_nb_bands << std::endl;
     file << "# Nonlocal " << (m_enable_non_local_correction ? "Yes" : "No") << std::endl;
+    file << "# Path " << get_path_as_string() << std::endl;
+    int nb_sym_points = static_cast<int>(symmetryPointsPositions.size());
+    file << "# Symmetry points:";
+    for (int i = 0; i < nb_sym_points; i++) {
+        file << " " << symmetryPointsPositions[i];
+    }
+    file << std::endl;
 
-    for (unsigned int i = 0; i < m_results.front().size() - 1; ++i) {
+    for (unsigned int i = 0; i < m_energies.front().size() - 1; ++i) {
         file << "band_" << i << ",";
     }
-    file << "band_" << m_results.front().size() - 1 << std::endl;
+    file << "band_" << m_energies.front().size() - 1 << std::endl;
     for (unsigned int index_k = 0; index_k < m_nb_points; ++index_k) {
         // file << m_kpoints[index_k].Y << "," << m_kpoints[index_k].X << "," << m_kpoints[index_k].Z << ",";
-        std::vector<double> band_values = m_results[index_k];
+        std::vector<double> band_values = m_energies[index_k];
         std::copy(std::begin(band_values), std::end(band_values), std::experimental::make_ostream_joiner(file, ","));
         file << std::endl;
     }
@@ -298,13 +317,13 @@ void BandStructure::export_result_in_file_with_kpoints(const std::string& filena
     std::ofstream file(filename);
     file << "kx,ky,kz,";
 
-    for (unsigned int i = 0; i < m_results.front().size() - 1; ++i) {
+    for (unsigned int i = 0; i < m_energies.front().size() - 1; ++i) {
         file << "band_" << i << ",";
     }
-    file << "band_" << m_results.front().size() - 1 << std::endl;
+    file << "band_" << m_energies.front().size() - 1 << std::endl;
     for (unsigned int index_k = 0; index_k < m_nb_points; ++index_k) {
         file << m_kpoints[index_k].Y << "," << m_kpoints[index_k].X << "," << m_kpoints[index_k].Z << ",";
-        std::vector<double> band_values = m_results[index_k];
+        std::vector<double> band_values = m_energies[index_k];
         std::copy(std::begin(band_values), std::end(band_values), std::experimental::make_ostream_joiner(file, ","));
         file << std::endl;
     }
@@ -319,7 +338,7 @@ std::string BandStructure::path_band_filename() const {
             path_string += point;
         }
     }
-    std::string filename = "EPM_" + m_material.get_name() + "_nb_bands_" + std::to_string(m_results.front().size()) + "_path_" +
+    std::string filename = "EPM_" + m_material.get_name() + "_nb_bands_" + std::to_string(m_energies.front().size()) + "_path_" +
                            path_string + "_size_basis_" + std::to_string(basisVectors.size());
     return filename;
 }

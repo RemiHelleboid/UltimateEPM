@@ -568,6 +568,7 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
             vector3 qloc = k2_centroid - k_initial;
             if (!is_inside_mesh_geometry(qloc)) {
                 qloc = retrieve_k_inside_mesh_geometry(qloc);
+                // std::cout << "Qn : " << qloc.norm() << "\n";
             }
             if (!is_inside_mesh_geometry(qloc)) {
                 continue;
