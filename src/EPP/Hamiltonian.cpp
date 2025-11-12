@@ -64,7 +64,7 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
         k_plus_G[static_cast<std::size_t>(i)] = k + m_basisVectors[static_cast<std::size_t>(i)];
     }
 
-    // Diagonal kinetic energy (add on top of local potential; do not overwrite)
+    // Diagonal kinetic energy 
     const double diag_factor = (uepm::constants::h_bar * uepm::constants::h_bar) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
 
     for (Eigen::Index i = 0; i < basisSize; ++i) {
@@ -133,6 +133,16 @@ void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
     }
 }
 
+/**
+ * @brief Compute the gradient of the Hamiltonian at a specific k-point and energy level using Hellmann-Feynman theorem.
+ * 
+ * WARING : IT ONLY TAKES INTO ACCOUNT THE LOCAL PART OF THE EPM, IF NL OR SOC ARE ENABLED, THE RESULT IS "WRONG".
+ * WARNINAG : IT IS VERY IMPORTANT TO DISENTEGLE THE BANDS BEFORE CALLING THIS FUNCTION, OTHERWISE THE RESULT WILL BE LOCCALLY WRONG .
+ * 
+ * @param k_point 
+ * @param level_index 
+ * @return Vector3D<double> 
+ */
 Vector3D<double> Hamiltonian::compute_gradient_at_level(const Vector3D<double>& k_point, unsigned int level_index) const {
     // Uses Hellmann–Feynman on the kinetic term; local V is k-independent.
     using std::size_t;
@@ -163,7 +173,7 @@ Vector3D<double> Hamiltonian::compute_gradient_at_level(const Vector3D<double>& 
     const Eigen::VectorXcd ev       = solver.eigenvectors().col(static_cast<Eigen::Index>(level_index));
     const bool             has_spin = (ev.size() == 2 * Nbasis);
 
-    // Accumulate Σ |C|² (k+G)
+    // Hellmann-Feynman sum
     Vector3D<double> sum_kG{0.0, 0.0, 0.0};
     if (!has_spin) {
         for (Eigen::Index i = 0; i < Nbasis; ++i) {
@@ -176,14 +186,11 @@ Vector3D<double> Hamiltonian::compute_gradient_at_level(const Vector3D<double>& 
         }
     }
 
-    // Gradient w.r.t. fractional k is: grad_frac = pref_frac * Σ |C|² (k+G)  [eV]
-    Vector3D<double> grad_frac = sum_kG * pref_frac;
+    Vector3D<double> grad_frac     = sum_kG * pref_frac;
+    const double     frac_to_phys  = 1.0 / two_pi_over_a;
+    Vector3D<double> grad_phys_eVm = grad_frac * frac_to_phys;
 
-    // Convert to physical-k gradient (eV·m): multiply by a / (2π)
-    const double     frac_to_phys = 1.0 / two_pi_over_a;
-    Vector3D<double> grad_phys    = grad_frac * frac_to_phys;  // **eV·m**
-
-    return grad_phys;
+    return grad_phys_eVm;
 }
 
 }  // namespace uepm::pseudopotential

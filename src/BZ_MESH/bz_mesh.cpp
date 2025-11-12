@@ -386,8 +386,8 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
         tetra.pre_compute_sorted_slots_per_band();
     }
 
-    compute_energy_gradient_at_tetras();
-    set_energy_gradient_at_vertices_by_averaging_tetras();
+    // compute_energy_gradient_at_tetras();
+    // set_energy_gradient_at_vertices_by_averaging_tetras();
     recompute_tetra_ordered_energies(m_max_energy_global);
 
     print_band_info();

@@ -195,6 +195,15 @@ double Tetra::interpolate_energy_at_band(const vector3& location, std::size_t ba
            energies_at_vertices[2] * barycentric_coord[2] + energies_at_vertices[3] * barycentric_coord[3];
 }
 
+vector3 Tetra::interpolate_gradient_energy_at_band(const vector3& location, std::size_t band_index) const {
+    const auto barycentric_coord = compute_barycentric_coordinates(location);
+    vector3    gradient_at_location{0.0, 0.0, 0.0};
+    for (int i = 0; i < 4; ++i) {
+        gradient_at_location += m_list_vertices[i]->get_energy_gradient_at_band(band_index) * barycentric_coord[i];
+    }
+    return gradient_at_location;
+}
+
 /**
  * @brief Check if a given location lies inside the tetrahedra.
  *
@@ -436,32 +445,45 @@ inline double polygon_area(const std::vector<vector3>& pts) {
     return 0.5 * sum.norm();
 }
 
-/**
- * @brief Main function to compute the DOS of the energy energy of the band with index band_index within the tetrahedra.
- *
- * One could try to store the value eps_12, eps_13, eps_14 for each band at the construction step, to avoid computing them each time the
- * function is called.  Returns DOS contribution in states / (eV · m^3)
- * Assumes: k in m^-1; A in m^-2; |∇_k E| in eV·m
- *
- * @param energy
- * @param band_index
- * @return double
- */
 double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_index) const {
+    // Early-out if E outside tetra range for this band
     if (energy_eV < m_min_energy_per_band[band_index] || energy_eV > m_max_energy_per_band[band_index]) {
         return 0.0;
     }
 
-    const double A = polygon_area(compute_band_iso_energy_surface(energy_eV, band_index));  // m^-2
+    // Intersect isosurface E(k)=energy with tetra edges -> polygon vertices in k (m^-1)
+    std::vector<vector3> iso = compute_band_iso_energy_surface(energy_eV, band_index);
+    if (iso.size() < 3) {
+        return 0.0;  // no area
+    }
 
-    const double grad = m_gradient_energy_per_band[band_index].norm();  // eV·m
-    if (A <= 0.0 || grad <= 0.0) {
+    // Surface area in k-space (m^-2)
+    const double A = polygon_area(iso);
+    if (!(A > 0.0)) {
         return 0.0;
     }
 
-    constexpr double pref = 1.0 / (8.0 * M_PI * M_PI * M_PI);  // 1/(2π)^3 = 1/(8π^3)
+    // Estimate ⟨ 1/|∇_k E| ⟩ over the polygon vertices
+    double inv_grad_sum = 0.0;
+    for (const auto& kpt : iso) {
+        // interpolate_gradient_energy_at_band must return ∂E/∂k in units **eV·m**
+        const double g = interpolate_gradient_energy_at_band(kpt, band_index).norm();  // eV·m
+        // clamp to avoid blow-ups near van Hove points
+        constexpr double g_min = 1e-12;  // eV·m (tune to your mesh resolution)
+        inv_grad_sum += 1.0 / std::max(g, g_min);
+    }
+    const double inv_grad_avg = inv_grad_sum / static_cast<double>(iso.size());  // (eV·m)^-1
 
-    return pref * (A / grad);
+    // Prefactor 1/(2π)^3
+    constexpr double pref = 1.0 / (8.0 * M_PI * M_PI * M_PI);
+
+    // DOS contribution: (1/(2π)^3) * ∫(dS / |∇E|) ≈ pref * A * ⟨1/|∇E|⟩
+    double dos = pref * (A * inv_grad_avg);  // states / (eV · m^3)
+
+    // Optional: multiply by 2 if you want spin-degenerate DOS and your band is spinless.
+    // if (include_spin_degeneracy) dos *= 2.0;
+
+    return dos;
 }
 
 void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double energy_max) {

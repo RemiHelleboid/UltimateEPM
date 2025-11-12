@@ -171,12 +171,13 @@ void BandStructure::Compute_parallel(bool compute_gradient, int nb_threads) {
     }
     std::cout << "Starting parallel computation..." << std::endl;
 
+    bool keep_eigenvectors = compute_gradient;
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (unsigned int index_k = 0; index_k < m_nb_points; ++index_k) {
         int tid = omp_get_thread_num();
         hamiltonian_per_thread[tid].SetMatrix(m_kpoints[index_k], m_enable_non_local_correction, m_enable_spin_orbit_coupling);
 
-        hamiltonian_per_thread[tid].Diagonalize(compute_gradient);
+        hamiltonian_per_thread[tid].Diagonalize(keep_eigenvectors);
 
         const Eigen::VectorXd& eigenvals = hamiltonian_per_thread[tid].eigenvalues();
         for (unsigned int level = 0; level < m_nb_bands && level < eigenvals.rows(); ++level) {
@@ -186,7 +187,7 @@ void BandStructure::Compute_parallel(bool compute_gradient, int nb_threads) {
                 m_energies_gradient[index_k][level] = grad;
             }
         }
-        if ((index_k + 1) % 1000 == 0) {
+        if ((index_k + 1) % 100 == 0) {
 #pragma omp critical
             {
                 std::cout << "\rComputing band structure at point " << index_k + 1 << "/" << m_nb_points << " = "
