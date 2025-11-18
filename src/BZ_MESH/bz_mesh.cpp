@@ -1245,28 +1245,72 @@ void MeshBZ::compute_band_structure_over_mesh(uepm::pseudopotential::BandStructu
  * @return vector3
  */
 inline vector3 apply_same_symmetry_operation(const vector3& k_iw, const vector3& k_bz, const vector3& v) {
-    // Determine the symmetry operation that maps k_iw to k_bz
-    std::array<int, 3> perm = {0, 1, 2};
-    std::array<int, 3> sign = {1, 1, 1};
+    constexpr double eps = 1e-8;
 
-    for (int i = 0; i < 3; ++i) {
-        if (std::fabs(k_iw.x() - k_bz.x()) < 1e-8) {
-            perm[0] = i;
-            sign[0] = (k_bz.x() >= 0) ? 1 : -1;
-        } else if (std::fabs(k_iw.y() - k_bz.y()) < 1e-8) {
-            perm[1] = i;
-            sign[1] = (k_bz.y() >= 0) ? 1 : -1;
-        } else if (std::fabs(k_iw.z() - k_bz.z()) < 1e-8) {
-            perm[2] = i;
-            sign[2] = (k_bz.z() >= 0) ? 1 : -1;
+    std::array<double, 3> a = {k_iw.x(), k_iw.y(), k_iw.z()};
+    std::array<double, 3> b = {k_bz.x(), k_bz.y(), k_bz.z()};
+
+    std::array<int, 3>  perm   = {-1, -1, -1};
+    std::array<int, 3>  sign   = {1, 1, 1};
+    std::array<bool, 3> used_a = {false, false, false};
+
+    double scale = 0.0;
+    for (double x : a) {
+        scale = std::max(scale, std::abs(x));
+    }
+    for (double x : b) {
+        scale = std::max(scale, std::abs(x));
+    }
+    if (scale < 1.0) {
+        scale = 1.0;
+    }
+    const double tol = eps * scale;
+
+    // For each component of k_bz, find the matching component of k_iw up to |·|
+    for (int jb = 0; jb < 3; ++jb) {
+        bool found = false;
+        for (int ia = 0; ia < 3; ++ia) {
+            if (used_a[ia]) {
+                continue;
+            }
+            if (std::abs(std::abs(a[ia]) - std::abs(b[jb])) <= tol) {
+                perm[jb]   = ia;
+                used_a[ia] = true;
+
+                if (std::abs(a[ia]) > tol) {
+                    const int sa = (a[ia] >= 0.0) ? 1 : -1;
+                    const int sb = (b[jb] >= 0.0) ? 1 : -1;
+                    sign[jb]     = sb * sa;
+                } else {
+                    // a[ia] ~ 0: sign of the mapping does not really matter; follow k_bz
+                    sign[jb] = (b[jb] >= 0.0) ? 1 : -1;
+                }
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            // Could not represent the mapping as pure signed permutation; do nothing.
+            return v;
         }
     }
 
-    const double x_transformed = sign[0] * ((perm[0] == 0) ? v.x() : (perm[0] == 1) ? v.y() : v.z());
-    const double y_transformed = sign[1] * ((perm[1] == 0) ? v.x() : (perm[1] == 1) ? v.y() : v.z());
-    const double z_transformed = sign[2] * ((perm[2] == 0) ? v.x() : (perm[2] == 1) ? v.y() : v.z());
-    vector3      v_transformed{x_transformed, y_transformed, z_transformed};
-    return v_transformed;
+    auto comp = [&](int idx) -> double {
+        switch (idx) {
+            case 0:
+                return v.x();
+            case 1:
+                return v.y();
+            default:
+                return v.z();
+        }
+    };
+
+    const double vx = sign[0] * comp(perm[0]);
+    const double vy = sign[1] * comp(perm[1]);
+    const double vz = sign[2] * comp(perm[2]);
+
+    return vector3{vx, vy, vz};
 }
 
 void MeshBZ::distribute_energies_from_iw_wedge_to_full_bz() {
@@ -1305,9 +1349,9 @@ void MeshBZ::distribute_energies_from_iw_wedge_to_full_bz() {
             }
             vtx_full.set_energy_gradient_at_bands(transformed_gradients);
             // DEBUG
-            vector3              null_grad{0.0, 0.0, 0.0};
-            std::vector<vector3> null_grads(nb_bands, null_grad);
-            vtx_full.set_energy_gradient_at_bands(null_grads);
+            // vector3              null_grad{0.0, 0.0, 0.0};
+            // std::vector<vector3> null_grads(nb_bands, null_grad);
+            // vtx_full.set_energy_gradient_at_bands(null_grads);
         }
     }
 }
