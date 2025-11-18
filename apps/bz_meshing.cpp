@@ -21,10 +21,10 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <filesystem>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -586,7 +586,7 @@ int main(int argc, char **argv) try {
 
     // Symmetry expansion
     fmt::print("Expanding nodes to full BZ using symmetry...\n");
-    auto             ops      = symmetry_ops_full();  // MUST contain identity
+    auto              ops      = symmetry_ops_full();  // MUST contain identity
     const std::size_t nb_nodes = nodes.size();
 
     std::unordered_map<Vec3, std::size_t, VecHash, VecEq> index;
@@ -594,7 +594,6 @@ int main(int argc, char **argv) try {
 
     std::vector<Vec3> symPts;
     symPts.reserve(nb_nodes * ops.size());
-
 
     auto get_id = [&](const Vec3 &q_raw) -> std::size_t {
         Vec3 q  = q_raw;
@@ -628,8 +627,8 @@ int main(int argc, char **argv) try {
         }
     }
 
-    std::string stem = std::filesystem::path(outArg.getValue()).stem().string();
-    std::string kstar_filename = fmt::format("{}_kstar_ibz_to_bz.txt", stem);
+    std::string   stem           = std::filesystem::path(outArg.getValue()).stem().string();
+    std::string   kstar_filename = fmt::format("{}_kstar_ibz_to_bz.txt", stem);
     std::ofstream out_kstar(kstar_filename);
     if (!out_kstar) {
         std::cerr << "[error] could not open " << kstar_filename << " for writing\n";
@@ -657,7 +656,8 @@ int main(int argc, char **argv) try {
     int                      vol2   = gmsh::model::addDiscreteEntity(3);
     std::vector<double>      coords = flatten_xyz(symPts);
     std::vector<std::size_t> tets;
-    gmsh::algorithm::tetrahedralize(coords, tets);
+    std::vector<double>      steiner;
+    gmsh::algorithm::tetrahedralize(coords, tets, steiner);
 
     std::vector<std::size_t> nodeTags2 = iota_tags(symPts.size(), 1);
     gmsh::model::mesh::addNodes(3, vol2, nodeTags2, coords);
