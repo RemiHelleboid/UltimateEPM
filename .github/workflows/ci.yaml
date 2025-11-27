@@ -1,108 +1,34 @@
-name: CI
+name: C++ CI
 
 on:
-  push: { branches: [ main ] }
+  push:
+    branches: [ main ]
   pull_request:
+    branches: [ main ]
 
 jobs:
-  build-test:
-    runs-on: ubuntu-24.04
+  build-and-test:
+    runs-on: ubuntu-latest
 
-    env:
-      # ---- Gmsh pin & feature toggles (change only when you mean to) ----
-      GMSH_REF: gmsh_4_14_1
-      GMSH_ENABLE_FLTK: "OFF"   # GUI
-      GMSH_ENABLE_OCC:  "OFF"   # OpenCascade CAD kernel
-      GMSH_ENABLE_MPI:  "OFF"
-      GMSH_ENABLE_HDF5: "OFF"
-
-      # ---- Your project knobs ----
-      CMAKE_BUILD_TYPE: Release
-      CTEST_OUTPUT_ON_FAILURE: 1
-      CPM_SOURCE_CACHE: $RUNNER_TEMP/cpm-cache
+    # Use your Docker image as the job environment
+    container:
+      image: ghcr.io/remihelleboid/empirical-pp-ci:latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Install toolchain & deps
+      - name: Configure (CMake)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            g++ cmake ninja-build git pkg-config \
-            zlib1g-dev \
-            libopenmpi-dev openmpi-bin \
-             ccache
-
-      # Cache the final installed Gmsh so we don't rebuild every run
-      - name: Cache Gmsh install
-        id: gmsh-cache
-        uses: actions/cache@v4
-        with:
-          path: /opt/gmsh-install
-          key: gmsh-${{ runner.os }}-${{ env.GMSH_REF }}-${{ env.GMSH_ENABLE_FLTK }}-${{ env.GMSH_ENABLE_OCC }}-${{ env.GMSH_ENABLE_MPI }}-${{ env.GMSH_ENABLE_HDF5 }}
-
-      - name: Build & install Gmsh (from source) if cache miss
-        if: steps.gmsh-cache.outputs.cache-hit != 'true'
-        run: |
-          set -euxo pipefail
-          git clone --depth 1 --branch "${GMSH_REF}" https://gitlab.onelab.info/gmsh/gmsh.git
-          cmake -S gmsh -B gmsh/build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/opt/gmsh-install \
-            -DENABLE_BUILD_SHARED=ON \
-            -DENABLE_FLTK=${GMSH_ENABLE_FLTK} \
-            -DENABLE_OCC=${GMSH_ENABLE_OCC} \
-            -DENABLE_MPI=${GMSH_ENABLE_MPI} \
-            -DENABLE_HDF5=${GMSH_ENABLE_HDF5}
-          cmake --build gmsh/build --target shared --parallel
-          cmake --install gmsh/build
-
-      - name: Expose Gmsh to CMake & linker
-        run: |
-          echo "GMSH_INC=/opt/gmsh-install/include" >> $GITHUB_ENV
-          echo "GMSH_LIB=/opt/gmsh-install/lib"     >> $GITHUB_ENV
-          echo "/opt/gmsh-install/lib" | sudo tee /etc/ld.so.conf.d/gmsh.conf
-          sudo ldconfig
-          echo "LD_LIBRARY_PATH=/opt/gmsh-install/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-
-      - name: Cache CPM/FetchContent
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.CPM_SOURCE_CACHE }}
-          key: cpm-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt','**/*.cmake') }}
-          restore-keys: |
-            cpm-${{ runner.os }}-
-
-      - name: Cache ccache
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: ccache-${{ runner.os }}-${{ hashFiles('**/*.[ch]pp','**/*.[ch]','**/*.cmake','CMakeLists.txt') }}
-          restore-keys: |
-            ccache-${{ runner.os }}-
-      - name: Configure (Release)
-        run: |
-          cmake -S . -B build  \
-            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DENABLE_MPI_BUILD=ON \
+            -DENABLE_BUILD_TEST=ON
 
       - name: Build
-        run: cmake --build build --parallel
+        run: |
+          cmake --build build --config RelWithDebInfo -- -j"$(nproc)"
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure
-
-      - name: Upload logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: |
-            build/Testing/Temporary/LastTest.log
-            build/CMakeFiles/CMakeOutput.log
-            build/CMakeFiles/CMakeError.log
-          if-no-files-found: ignore
+        run: |
+          ctest --test-dir build --output-on-failure
