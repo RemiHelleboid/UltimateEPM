@@ -1,0 +1,30 @@
+name: C++ CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    # MY CONTAINER AHAHAHAH
+    container:
+      image: ghcr.io/remihelleboid/empirical-pp-ci:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure (CMake)
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DENABLE_MPI_BUILD=ON \
+            -DENABLE_BUILD_TEST=ON
+
+      - name: Build
+        run: |
+          cmake --build build --config RelWithDebInfo -- -j"$(nproc)"
