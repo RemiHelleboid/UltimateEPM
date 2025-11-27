@@ -10,7 +10,7 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    # Use your Docker image as the job environment
+    # MY CONTAINER AHAHAHAH
     container:
       image: ghcr.io/remihelleboid/empirical-pp-ci:latest
 
