@@ -6,7 +6,8 @@ Band structure and DOS computation using empirical pseudopotentials on the full 
 * __Spin-orbit coupling__ (SOC) for the EPM band structure.
 * MPI and OpenMP __parallelization__.
 
-[![CI/CL](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci.yaml/badge.svg)](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci.yaml)
+[![CI Build](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci_comp.yaml/badge.svg)](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci_comp.yaml)
+[![CI Unit Tests](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci.yaml/badge.svg)](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci.yaml)
 
 ---
 
