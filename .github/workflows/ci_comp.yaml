@@ -1,4 +1,4 @@
-name: C++ CI
+name: CI Build
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
 
     # MY CONTAINER AHAHAHAH
