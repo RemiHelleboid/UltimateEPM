@@ -355,6 +355,7 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
             add_new_band_energies_to_vertices(data_view);
         } else if (numComp == 3) {
             // Band energy gradients at each vertex
+            std::cout << "Reading band energy gradients for band " << count_band - 1 << std::endl;
             add_new_gradient_band_energies_to_vertices(data_view);
         } else {
             throw std::runtime_error("read_mesh_bands_from_msh_file: unsupported number of components per view: " +

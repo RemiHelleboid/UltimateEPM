@@ -166,8 +166,8 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
     const double     hbar_eV            = uepm::constants::h_bar_eV;
 
     double        inv_mrta_rate          = 0.0;
-    const vector3 vnk                    = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);   // m/s
-    const vector3 v_npkp                 = tetra.get_gradient_energy_at_band(idx_n2) * (1.0 / hbar_eV);  // m/s
+    const vector3 vnk                    = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);               // m/s
+    const vector3 v_npkp                 = tetra.interpolate_gradient_energy_at_band(k2, idx_n2) * (1.0 / hbar_eV);  // m/s
     const double  transport_weight_value = transport_weight_RTA(vnk, v_npkp);
 
     // Loop 4 branches: md=0..3 → (ac/op)×(L/T)
@@ -1132,6 +1132,7 @@ void ElectronPhonon::read_phonon_scattering_rates_from_file(const std::filesyste
             throw std::runtime_error("Vertex index out of range in phonon scattering rates file.");
         }
         if (band_index >= m_nb_bands_elph) {
+            std::cerr << "Warning: band index " << band_index << " out of range in phonon scattering rates file. Skipping this entry.\n";
             throw std::runtime_error("Band index out of range in phonon scattering rates file.");
         }
         Rate8 rates = {rate_ac_L_ab, rate_ac_T_ab, rate_op_L_ab, rate_op_T_ab, rate_ac_L_em, rate_ac_T_em, rate_op_L_em, rate_op_T_em};

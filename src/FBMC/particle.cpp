@@ -50,7 +50,7 @@ void particle::update_k_vector(const vector3& v_electric_field) {
 }
 
 void particle::update_group_velocity() {
-    m_velocity = m_containing_bz_mesh_tetra->get_gradient_energy_at_band(m_band_index);
+    m_velocity = m_containing_bz_mesh_tetra->interpolate_gradient_energy_at_band(m_k_vector, m_band_index);
     m_velocity *= (1.0 / uepm::constants::h_bar_eV);
 }
 

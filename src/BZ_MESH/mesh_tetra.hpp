@@ -208,7 +208,8 @@ class Tetra {
     void   precompute_dos_on_energy_grid_per_band(double energy_step, double energy_threshold);
     double interpolate_dos_at_energy_per_band(double energy, std::size_t band_index) const noexcept;
 
-    const vector3& get_gradient_energy_at_band(std::size_t band_index) const { return m_gradient_energy_per_band[band_index]; }
+    const std::vector<vector3>& get_gradient_energies() const { return m_gradient_energy_per_band; }
+    const vector3&              get_gradient_energy_at_band(std::size_t band_index) const { return m_gradient_energy_per_band[band_index]; }
 
     bool                 is_energy_inside_band(double energy, std::size_t index_band) const;
     bool                 does_intersect_band_energy_range(double e_min, double e_max, std::size_t index_band) const;

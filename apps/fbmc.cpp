@@ -67,7 +67,7 @@ int main(int argc, const char** argv) {
     const std::string init_output_directory  = arg_outputdir.getValue();
     int               nb_threads             = arg_nb_threads.getValue();
     int               nb_valence_bands       = 0;
-    int               nb_conduction_bands    = 2;
+    int               nb_conduction_bands    = arg_nb_conduction_bands.getValue();
     int               nb_particles           = arg_nb_part.getValue();
     const double      max_energy_eV          = arg_max_energy.getValue();
     double            electric_field_x       = arg_electric_field_x.getValue();
