@@ -38,9 +38,9 @@ struct scattering_rate {
 };
 
 struct particle_history {
-    std::size_t          m_index_particle;
+    std::size_t m_index_particle;
     // Total number of steps (including self-scattering)
-    std::size_t          m_total_nb_steps = 0;
+    std::size_t m_total_nb_steps = 0;
     // Recorded data at each step (not including self-scattering)
     std::vector<double>  m_time_history;
     std::vector<vector3> m_positions;
@@ -246,6 +246,7 @@ class particle {
     void update_position();
 
     void select_final_state_after_phonon_scattering(std::size_t idx_phonon_branch);
+    void select_final_state_after_impact_ionization();
 
     std::mt19937& get_random_generator() { return m_random_generator; }
     void          draw_random_k_point_at_energy(double energy, std::size_t idx_band) {
@@ -258,6 +259,8 @@ class particle {
     void                    reset_history() { m_history = particle_history(m_index); }
     void                    export_history_to_csv(const std::string& filename) const;
     double                  compute_mean_energy() const;
+    double                  extract_impact_ionization_coeff() const;
+    vector3                 extract_global_average_velocity() const;
 };
 
 }  // namespace uepm::fbmc

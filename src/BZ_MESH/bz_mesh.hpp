@@ -323,7 +323,8 @@ class MeshBZ {
 
     std::size_t draw_random_tetrahedron_index_with_dos_probability(double energy, std::size_t idx_band, std::mt19937& rng) const;
 
-    vector3 draw_random_k_point_at_energy(double energy, std::size_t idx_band, std::mt19937& rng) const;
+    vector3                         draw_random_k_point_at_energy(double energy, std::size_t idx_band, std::mt19937& rng) const;
+    std::pair<vector3, std::size_t> draw_random_k_point_at_energy(double energy, std::mt19937& rng) const;
 
     std::vector<std::vector<double>> compute_dos_band_at_band(int         band_index,
                                                               double      min_energy,

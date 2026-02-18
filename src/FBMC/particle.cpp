@@ -73,6 +73,22 @@ void particle::select_final_state_after_phonon_scattering(std::size_t idx_phonon
     update_group_velocity();
 }
 
+void particle::select_final_state_after_impact_ionization() {
+    constexpr double energy_threshold_ionization = 1.20;  // eV, TODO: make this a parameter
+    if (m_energy < energy_threshold_ionization) {
+        fmt::print(stderr,
+                   "Warning: particle energy ({:.6f} eV) is below the ionization threshold ({:.2f} eV). No ionization will occur.\n",
+                   m_energy,
+                   energy_threshold_ionization);
+        throw std::runtime_error("select_final_state_after_impact_ionization: particle energy is below the ionization threshold");
+    }
+    m_energy -= energy_threshold_ionization;  // lose energy due to ionization
+    auto [k_final, idx_band_final] = m_mesh_bz->draw_random_k_point_at_energy(m_energy, m_random_generator);
+    m_k_vector                     = k_final;
+    m_containing_bz_mesh_tetra     = m_mesh_bz->find_tetra_at_location(m_k_vector);
+    m_band_index                   = idx_band_final;
+}
+
 double particle::compute_mean_energy() const {
     double weighted_sum = 0.0;
     double total_weight = 0.0;
@@ -83,6 +99,37 @@ double particle::compute_mean_energy() const {
         total_weight += weight;
     }
     return (total_weight > 0.0) ? (weighted_sum / total_weight) : 0.0;
+}
+
+/**
+ * @brief Extract an estimate of the impact ionization coefficient from the particle history.
+ * The impact ionization coefficient is defined as the number of ionization events per unit length traveled by the particle.
+ * (For now we only take the number of impact ionization events divided by the total length traveled, but we could refine this by only
+ * considering the length traveled (Xf -X0).
+ *
+ * @return double
+ */
+double particle::extract_impact_ionization_coeff() const {
+    std::size_t nb_ionization_events  = m_history.m_scattering_events[8];
+    vector3     previous_position     = m_history.m_positions[0];
+    vector3     current_position      = m_history.m_positions.back();
+    double      total_length_traveled = (current_position - previous_position).norm();
+    if (total_length_traveled > 0.0) {
+        return static_cast<double>(nb_ionization_events) / total_length_traveled;
+    } else {
+        return 0.0;
+    }
+}
+
+vector3 particle::extract_global_average_velocity() const {
+    vector3 previous_position     = m_history.m_positions[0];
+    vector3 current_position      = m_history.m_positions.back();
+    double  total_length_traveled = (current_position - previous_position).norm();
+    if (total_length_traveled > 0.0) {
+        return (current_position - previous_position) / (m_history.m_time_history.back() - m_history.m_time_history[0]);
+    } else {
+        return vector3{0.0, 0.0, 0.0};
+    }
 }
 
 void particle::print_history_summary() const {
@@ -103,6 +150,12 @@ void particle::print_history_summary() const {
 
     double mean_energy = compute_mean_energy();
     fmt::print("  Mean energy: {:.6f} eV\n", mean_energy);
+
+    double mean_velocity_norm = extract_global_average_velocity().norm();
+    fmt::print("  Mean velocity norm: {:.6e} m/s\n", mean_velocity_norm);
+
+    double ionization_coeff = extract_impact_ionization_coeff();
+    fmt::print("  Estimated impact ionization coefficient: {:.6e} 1/m\n", ionization_coeff);
 }
 
 void particle::export_history_to_csv(const std::string& filename) const {

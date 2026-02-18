@@ -933,6 +933,31 @@ vector3 MeshBZ::draw_random_k_point_at_energy(double energy, std::size_t idx_ban
     return m_list_tetrahedra[index_tetra].draw_random_uniform_point_at_energy(energy, idx_band, random_generator);
 }
 
+/**
+ * @brief Draw a random k-vector in the mesh, on a iso-energy surface.
+ * The k-vector is drawn with a probability locally proportional to the DOS.
+ *
+ * @param energy
+ * @param rng
+ * @return std::pair<vector3, std::size_t> The drawn k-point and the index of the band it belongs to.
+ */
+std::pair<vector3, std::size_t> MeshBZ::draw_random_k_point_at_energy(double energy, std::mt19937& rng) const {
+    std::vector<std::size_t> candidate_bands;
+    for (std::size_t idx_band = 0; idx_band < m_min_band.size(); ++idx_band) {
+        if (energy >= m_min_band[idx_band] && energy <= m_max_band[idx_band]) {
+            candidate_bands.push_back(idx_band);
+        }
+    }
+    if (candidate_bands.empty()) {
+        fmt::print("Energy {:.4f} eV is out of range for all bands. Cannot draw k-point.\n", energy);
+        throw std::runtime_error("Energy is out of range for all bands");
+    }
+    std::uniform_int_distribution<std::size_t> band_distribution(0, candidate_bands.size() - 1);
+    std::size_t                               selected_band_index = candidate_bands[band_distribution(rng)];
+    vector3                                   k_point             = draw_random_k_point_at_energy(energy, selected_band_index, rng);
+    return {k_point, selected_band_index};
+}
+
 void MeshBZ::export_k_points_to_file(const std::string& filename) const {
     std::ofstream file(filename);
     if (!file.is_open()) {
