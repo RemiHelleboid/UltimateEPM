@@ -57,5 +57,7 @@ class Single_particle_simulation {
     void run_simulation();
 
     void export_history(const std::string& filename);
+
+    void extract_stats_and_export(const std::string& filename);
 };
 }  // namespace uepm::fbmc

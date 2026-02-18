@@ -138,6 +138,7 @@ int main(int argc, const char** argv) {
     std::string timestamp  = std::to_string(std::time(nullptr));
     std::string fileprefix = fmt::format("{}/simulation_results_{}", output_dir, timestamp);
     sim.export_history(fileprefix);
+    sim.extract_stats_and_export(fileprefix + "_stats.csv");
 
     return 0;
 }

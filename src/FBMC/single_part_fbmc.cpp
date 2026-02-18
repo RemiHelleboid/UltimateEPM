@@ -388,8 +388,37 @@ void Single_particle_simulation::run_simulation() {
         }  // while particle
 
         particle.update_history();  // final update
-        particle.print_history_summary();
+        // particle.print_history_summary();
     }  // omp parallel for
+}
+
+void Single_particle_simulation::extract_stats_and_export(const std::string& filename) {
+    double mean_energy = 0.0;
+    double mean_velocity_norm = 0.0;
+    double ionization_coeff = 0.0;
+    for (const auto& particle : m_list_particle) {
+        mean_energy += particle.compute_mean_energy();
+        mean_velocity_norm += particle.extract_global_average_velocity().norm();
+        ionization_coeff += particle.extract_impact_ionization_coeff();
+    }
+    mean_energy /= static_cast<double>(m_list_particle.size());
+    mean_velocity_norm /= static_cast<double>(m_list_particle.size());
+    ionization_coeff /= static_cast<double>(m_list_particle.size());
+
+    fmt::print("Extracted stats across {} particles:\n", m_list_particle.size());
+    fmt::print("  Mean energy: {:.6f} eV\n", mean_energy);
+    fmt::print("  Mean velocity norm: {:.6e} m/s\n", mean_velocity_norm);
+    fmt::print("  Mean impact ionization coefficient: {:.3e} 1/s\n", ionization_coeff);
+
+    // Export to CSV
+    std::ofstream ofs(filename);
+    if (!ofs) {
+        fmt::print("Error: Could not open file {} for writing\n", filename);
+        return;
+    }
+    ofs << "mean_energy_eV,mean_velocity_norm_m_per_s,mean_ionization_coeff_1_per_s\n";
+    ofs << fmt::format("{:.6f},{:.6e},{:.3e}\n", mean_energy, mean_velocity_norm, ionization_coeff);
+    fmt::print("Exported extracted stats to {}\n", filename);
 }
 
 void Single_particle_simulation::export_history(const std::string& filename) {
