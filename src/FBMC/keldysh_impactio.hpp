@@ -20,7 +20,7 @@ namespace uepm::fbmc {
  * 
  */
 struct KeldyshImpactIonization {
-    double m_P0 = 2.0e11;  // Pre-exponential factor (1/s)
+    double m_P0 = 1.0e11;  // Pre-exponential factor (1/s)
     double m_alpha = 4.6;  // Exponent
     double m_E_threshold = 1.1;  // Threshold energy for impact ionization (eV)
 
