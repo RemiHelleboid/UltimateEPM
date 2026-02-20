@@ -12,6 +12,8 @@
 
 #include <cmath>
 
+#include "yaml-cpp/yaml.h"
+
 namespace uepm::fbmc {
 
 /**
@@ -26,6 +28,12 @@ struct KeldyshImpactIonization {
 
     KeldyshImpactIonization() = default;
     KeldyshImpactIonization(double P0, double alpha, double E_threshold) : m_P0(P0), m_alpha(alpha), m_E_threshold(E_threshold) {}
+
+    void load_from_yaml(const YAML::Node& node) {
+        m_P0 = node["P0"].as<double>();
+        m_alpha = node["alpha"].as<double>();
+        m_E_threshold = node["energy_threshold"].as<double>();
+    }
 
     double compute_rate(double energy_eV) const {
         if (energy_eV < m_E_threshold) {

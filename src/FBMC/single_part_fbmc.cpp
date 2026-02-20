@@ -81,6 +81,8 @@ Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPh
 
         fmt::print("Initial energy (set):  {:.10f} eV\n", thermal_energy);
         fmt::print("Initial energy (true): {:.10f} eV\n", init_energy_true);
+
+        particle.update_history();
     }
 }
 
@@ -398,7 +400,7 @@ void Single_particle_simulation::extract_stats_and_export(const std::string& fil
     double ionization_coeff = 0.0;
     for (const auto& particle : m_list_particle) {
         mean_energy += particle.compute_mean_energy();
-        mean_velocity_norm += particle.extract_global_average_velocity().norm();
+        mean_velocity_norm += particle.extract_global_average_velocity();
         ionization_coeff += particle.extract_impact_ionization_coeff();
     }
     mean_energy /= static_cast<double>(m_list_particle.size());

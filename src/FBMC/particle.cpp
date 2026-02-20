@@ -121,15 +121,13 @@ double particle::extract_impact_ionization_coeff() const {
     }
 }
 
-vector3 particle::extract_global_average_velocity() const {
-    vector3 previous_position     = m_history.m_positions[0];
+double particle::extract_global_average_velocity() const {
+    vector3 initial_position     = m_history.m_positions[0];
     vector3 current_position      = m_history.m_positions.back();
-    double  total_length_traveled = (current_position - previous_position).norm();
-    if (total_length_traveled > 0.0) {
-        return (current_position - previous_position) / (m_history.m_time_history.back() - m_history.m_time_history[0]);
-    } else {
-        return vector3{0.0, 0.0, 0.0};
-    }
+    double  total_length_traveled = (current_position.x() - initial_position.x());
+
+    return total_length_traveled / (m_history.m_time_history.back() - m_history.m_time_history[0]);
+
 }
 
 void particle::print_history_summary() const {
@@ -151,8 +149,8 @@ void particle::print_history_summary() const {
     double mean_energy = compute_mean_energy();
     fmt::print("  Mean energy: {:.6f} eV\n", mean_energy);
 
-    double mean_velocity_norm = extract_global_average_velocity().norm();
-    fmt::print("  Mean velocity norm: {:.6e} m/s\n", mean_velocity_norm);
+    double mean_velocity = extract_global_average_velocity();
+    fmt::print("  Mean velocity: {:.6e} m/s\n", mean_velocity);
 
     double ionization_coeff = extract_impact_ionization_coeff();
     fmt::print("  Estimated impact ionization coefficient: {:.6e} 1/m\n", ionization_coeff);

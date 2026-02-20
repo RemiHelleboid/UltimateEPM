@@ -260,7 +260,7 @@ class particle {
     void                    export_history_to_csv(const std::string& filename) const;
     double                  compute_mean_energy() const;
     double                  extract_impact_ionization_coeff() const;
-    vector3                 extract_global_average_velocity() const;
+    double                 extract_global_average_velocity() const;
 };
 
 }  // namespace uepm::fbmc
