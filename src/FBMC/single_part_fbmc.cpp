@@ -279,10 +279,6 @@ void Single_particle_simulation::run_simulation() {
 
             // Draw free flight with global upper bound p_gamma
             particle.draw_free_flight_time(p_gamma);
-            const double dt = particle.get_current_free_flight_time();
-
-            // Advance particle time (required if draw_free_flight_time does not do it internally)
-            particle.set_time(particle.get_time() + dt);
 
             // Drift
             particle.update_k_vector(m_bulk_env.m_electric_field);
@@ -333,6 +329,9 @@ void Single_particle_simulation::run_simulation() {
                            particle.get_time());
             }
 
+            // Real event
+            particle.update_history();
+
             // Null-collision acceptance
             double accept = Gamma / p_gamma;
 
@@ -350,9 +349,6 @@ void Single_particle_simulation::run_simulation() {
                 particle.add_scattering_event_to_history(9);  // null/self-scatter
                 continue;
             }
-
-            // Real event
-            particle.update_history();
 
             const double rsel = U01(particle.get_random_generator()) * Gamma;
 
