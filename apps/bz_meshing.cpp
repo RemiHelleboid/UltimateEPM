@@ -396,10 +396,19 @@ MeshKnobs apply_presets(Mode mode, int level, const MeshKnobs &base, bool no_L =
         double h, dax, drad, hD, Lrad, hL, tubeFac, LtubeFac;
     };
 
+    // Doc : 
+    // - h: global base size
+    // - dax, drad: Δ cigar axial and radial semi-axes
+    // - hD: size at Δ (overrides global h)
+    // - Lrad: radius of L bubble
+    // - hL: size at L (overrides global h)
+    // - tubeFac: tube size min factor (relative to h)
+    // - LtubeFac: L tube size min factor (relative to h)
     static const Pack ladder[5] = {
-        {0.1, 0.20, 0.1, 0.0050, 0.08, 0.0060, 0.8, 0.9},      // L0
+        {0.05, 0.20, 0.1, 0.0050, 0.08, 0.010, 0.8, 0.9},      // L0
+        // {0.2, 0.20, 0.1, 0.050, 0.08, 0.0160, 0.8, 0.9},       // L0
         {0.1, 0.2, 0.1, 0.0025, 0.07, 0.0050, 0.7, 0.8},       // L1
-        {0.05, 0.3, 0.2, 0.0025, 0.06, 0.0040, 0.6, 0.7},      // L2
+        {0.05, 0.3, 0.2, 0.005, 0.06, 0.0080, 0.6, 0.7},      // L2
         {0.01, 0.16, 0.025, 0.0022, 0.05, 0.0032, 0.55, 0.6},  // L3
         {0.005, 0.18, 0.020, 0.0016, 0.04, 0.0026, 0.5, 0.5}   // L4
     };
@@ -549,7 +558,7 @@ int main(int argc, char **argv) try {
     gmsh::initialize();
     gmsh::model::add("BZ_from_IBZ_cpp");
     gmsh::option::setNumber("Mesh.Binary", 1);
-    gmsh::option::setNumber("Mesh.Algorithm3D", 1);  // Delaunay 3D
+    gmsh::option::setNumber("Mesh.Algorithm3D", 4);  // Delaunay 3D
     gmsh::option::setNumber("General.Verbosity", 10);
 
     // Build geometry
@@ -570,6 +579,10 @@ int main(int argc, char **argv) try {
 
     // Mesh
     gmsh::model::mesh::generate(3);
+
+    // Remove dupplicates nodes and elements (can happen with some Gmsh versions when using background fields and/or recombination)
+    gmsh::model::mesh::removeDuplicateNodes();
+    gmsh::model::mesh::removeDuplicateElements();
 
     // Export nodes
     std::vector<std::size_t> nodeTags;
@@ -659,9 +672,23 @@ int main(int argc, char **argv) try {
     std::vector<double>      steiner;
     gmsh::algorithm::tetrahedralize(coords, tets, steiner);
 
+    // // Remove dupplicates nodes and elements (can happen with some Gmsh versions when using background fields and/or recombination)
+    // gmsh::model::mesh::removeDuplicateNodes();
+    // gmsh::model::mesh::removeDuplicateElements();
+
     std::vector<std::size_t> nodeTags2 = iota_tags(symPts.size(), 1);
     gmsh::model::mesh::addNodes(3, vol2, nodeTags2, coords);
     gmsh::model::mesh::addElementsByType(vol2, 4, std::vector<std::size_t>{}, tets);
+
+    // Optimize mesh (optional, can be slow on large meshes)
+    const std::string opt_alg   = "Netgen";  // "Delaunay", "Frontal", "Laplace", "Netgen", "HighOrder", "BAMG"
+    const int         opt_iter  = 2;         // number of optimization iterations
+    const bool        force_opt = false;
+    gmsh::model::mesh::optimize(opt_alg, force_opt, opt_iter);
+
+    // Remove dupplicates nodes and elements (can happen with some Gmsh versions when using background fields and/or recombination)
+    gmsh::model::mesh::removeDuplicateNodes();
+    gmsh::model::mesh::removeDuplicateElements();
 
     // Write additional outputs
     std::string out = outArg.getValue();

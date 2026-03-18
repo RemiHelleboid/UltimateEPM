@@ -1332,11 +1332,11 @@ void ElectronPhonon::test_elph() const {
     std::size_t                            glob_band  = 0;
     double                                 min_energy = m_min_band[glob_band] + 0.01;
     double                                 max_energy = m_max_band[glob_band] - 0.01;
-    std::mt19937                           rng(42);  // fixed seed for reproducibility
+    std::mt19937                           rng(2);  // fixed seed for reproducibility
     std::uniform_real_distribution<double> energy_dist(min_energy, max_energy);
     std::vector<double>                    energies(Nsample);
     std::vector<double>                    sum_rates(Nsample, 0.0);
-#pragma omp parallel for
+#pragma omp parallel for schedule(static) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t i = 0; i < Nsample; ++i) {
         double  energy  = energy_dist(rng);
         vector3 k_point = draw_random_k_point_at_energy(energy, glob_band, rng);

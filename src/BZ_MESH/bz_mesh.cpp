@@ -122,24 +122,53 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
         throw std::runtime_error("Number of elements vertices index is not 4 x NumberOfElements. Abort.");
     }
     std::cout << "Number of elements: " << number_elements << " ... reserving memory." << std::endl;
-    // Sizeof tetrahedra  ?
     std::cout << "Size of tetrahedra: " << sizeof(Tetra) << " bytes." << std::endl;
-    m_list_tetrahedra.resize(number_elements);
+
+    m_list_tetrahedra.clear();
+    m_list_tetrahedra.reserve(number_elements);
+    m_vertex_to_tetrahedra.clear();
     m_vertex_to_tetrahedra.resize(m_list_vertices.size());
+
+    std::size_t      degenerate_count = 0;
+    constexpr double vol_threshold    = 1e-12;
 
     for (std::size_t index_element = 0; index_element < number_elements; ++index_element) {
         const std::array<Vertex*, 4> array_element_vertices = {&m_list_vertices[elemNodeTags[0][4 * index_element] - 1],
                                                                &m_list_vertices[elemNodeTags[0][4 * index_element + 1] - 1],
                                                                &m_list_vertices[elemNodeTags[0][4 * index_element + 2] - 1],
                                                                &m_list_vertices[elemNodeTags[0][4 * index_element + 3] - 1]};
-        Tetra                        new_tetra(index_element, array_element_vertices);
-        bool                         in_iwedge = is_irreducible_wedge(new_tetra.get_barycenter());
+
+        Tetra        new_tetra(0, array_element_vertices);  // temp id, or use a ctor without id
+        const double signed_vol = new_tetra.get_signed_volume();
+
+        if (std::abs(signed_vol) < vol_threshold) {
+            std::cerr << "Warning: Tetrahedron " << index_element << " has a very small volume (|6*V| = " << std::abs(signed_vol)
+                      << "). This may lead to numerical instability in barycentric coordinate computation." << std::endl;
+            ++degenerate_count;
+            continue;
+        }
+
+        const bool in_iwedge = is_irreducible_wedge(new_tetra.get_barycenter());
         new_tetra.set_lies_in_irreducible_wedge(in_iwedge);
-        m_list_tetrahedra[index_element] = new_tetra;
+
+        const std::size_t compact_index = m_list_tetrahedra.size();
+        new_tetra.set_index(compact_index);  // if available
+
+        m_list_tetrahedra.push_back(std::move(new_tetra));
+
         for (std::size_t i = 0; i < 4; ++i) {
-            m_vertex_to_tetrahedra[elemNodeTags[0][4 * index_element + i] - 1].push_back(index_element);
+            const std::size_t vertex_index = elemNodeTags[0][4 * index_element + i] - 1;
+            m_vertex_to_tetrahedra[vertex_index].push_back(compact_index);
         }
     }
+
+    m_list_tetrahedra.shrink_to_fit();
+
+    fmt::print("Number of degenerate tetrahedra: {} / {} ({:.2f}%)\n",
+               degenerate_count,
+               number_elements,
+               100.0 * static_cast<double>(degenerate_count) / static_cast<double>(number_elements));
+
     gmsh::finalize();
     m_total_volume = compute_mesh_volume();
     std::cout << "Total mesh volume: " << m_total_volume << std::endl;
@@ -901,7 +930,19 @@ std::size_t MeshBZ::draw_random_tetrahedron_index_with_dos_probability(double   
     list_dos.reserve(m_list_tetrahedra.size());
     for (auto&& tetra : m_list_tetrahedra) {
         double dos = tetra.compute_tetra_dos_energy_band(energy, idx_band);
+        // std::cout << "Dos at energy " << energy << " eV for band " << idx_band << " in tetrahedron: " << dos << std::endl;
+        if (dos < 0.0 or std::isnan(dos)) {
+            std::cout << "Warning: negative or NaN DOS value (" << dos << ") at energy " << energy << " eV for band " << idx_band
+                      << " in tetra : " << tetra.get_index() << ". Setting DOS to 0.\n";
+            dos = 0.0;
+        }
         list_dos.push_back(dos);
+    }
+    // Check that we have some non-zero DOS to avoid errors in the distribution
+    double dos_sum = std::accumulate(list_dos.begin(), list_dos.end(), 0.0);
+    std::cout << "Total DOS at energy " << energy << " eV for band " << idx_band << ": " << dos_sum << std::endl;
+    if (dos_sum <= 0.0) {
+        throw std::runtime_error("Total DOS is zero or negative at the given energy. Cannot draw tetrahedron index.");
     }
     std::discrete_distribution<std::size_t> distribution(list_dos.begin(), list_dos.end());
     return distribution(random_generator);
@@ -953,8 +994,8 @@ std::pair<vector3, std::size_t> MeshBZ::draw_random_k_point_at_energy(double ene
         throw std::runtime_error("Energy is out of range for all bands");
     }
     std::uniform_int_distribution<std::size_t> band_distribution(0, candidate_bands.size() - 1);
-    std::size_t                               selected_band_index = candidate_bands[band_distribution(rng)];
-    vector3                                   k_point             = draw_random_k_point_at_energy(energy, selected_band_index, rng);
+    std::size_t                                selected_band_index = candidate_bands[band_distribution(rng)];
+    vector3                                    k_point             = draw_random_k_point_at_energy(energy, selected_band_index, rng);
     return {k_point, selected_band_index};
 }
 

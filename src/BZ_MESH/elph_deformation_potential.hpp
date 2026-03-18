@@ -12,8 +12,8 @@
 
 #include <cmath>
 
-#include "vector.hpp"
 #include "elph_common.hpp"
+#include "vector.hpp"
 
 namespace uepm::mesh_bz {
 
@@ -56,12 +56,14 @@ struct DeformationPotential {
         constexpr double cm_to_m = 1e2;
         // const double     boost_acc   = 33.75;
         // const double     boost_opt   = 33.75;
-        const double     boost_acc   = 1.60;
-        const double     boost_opt   = 1.60;
+        const double boost_acc    = 2.85;
+        const double boost_acc_he = 1.0;
+        const double boost_opt    = 1.0;
+        const double boost_opt_he    = 1.0;
         if (mode == PhononMode::acoustic) {
-            return (idx_band == 0 ? boost_acc * 1.8 : boost_acc * 2.5) * norm_q;
+            return (idx_band == 0 ? boost_acc * 1.8 : boost_acc_he * 2.5) * norm_q;
         } else {
-            return (idx_band == 0 ? boost_opt * 3.4e8 : boost_opt * 4.10e8) * cm_to_m;
+            return (idx_band == 0 ? boost_opt * 3.4e8 : boost_opt_he * 4.10e8) * cm_to_m;
         }
     }
 };

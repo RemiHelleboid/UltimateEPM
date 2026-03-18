@@ -58,6 +58,11 @@ Tetra::Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices)
     m_signed_volume = compute_signed_volume();
     m_bbox          = compute_bounding_box();
     m_barycenter    = compute_barycenter();
+
+    // const double vol_threshold = 1e-12;
+    // if (m_signed_volume <= vol_threshold) {
+    //     std::cerr << "Nul volume !! " << std::endl;
+    // }
 }
 
 vector3 Tetra::compute_barycenter() const {
@@ -168,10 +173,21 @@ vector3 Tetra::compute_edge(std::size_t index_vtx_1, std::size_t index_vtx_2) co
 std::array<double, 4> Tetra::compute_barycentric_coordinates(const vector3& location) const {
     const vector3 v_loc1            = location - m_list_vertices[0]->get_position();
     const double  tetra_determinant = 6.0 * m_signed_volume;
-    const double  lambda_2          = scalar_triple_product(v_loc1, m_list_edges[1], m_list_edges[2]) / tetra_determinant;
-    const double  lambda_3          = scalar_triple_product(v_loc1, m_list_edges[2], m_list_edges[0]) / tetra_determinant;
-    const double  lambda_4          = scalar_triple_product(v_loc1, m_list_edges[0], m_list_edges[1]) / tetra_determinant;
-    const double  lambda_1          = 1.0 - lambda_2 - lambda_3 - lambda_4;
+    // DEBUG: check if tetra_determinant is zero to avoid division by zero
+    if (std::abs(tetra_determinant) < 1e-14) {
+        std::cerr << "Warning: Tetrahedron " << m_index << " has a very small volume (|6*V| = " << std::abs(tetra_determinant)
+                  << "). This may lead to numerical instability in barycentric coordinate computation." << std::endl;
+        std::cout << m_list_vertices[0]->get_position() << std::endl;
+        std::cout << m_list_vertices[1]->get_position() << std::endl;
+        std::cout << m_list_vertices[2]->get_position() << std::endl;
+        std::cout << m_list_vertices[3]->get_position() << std::endl << std::endl;
+    }
+
+    const double lambda_2 = scalar_triple_product(v_loc1, m_list_edges[1], m_list_edges[2]) / tetra_determinant;
+    const double lambda_3 = scalar_triple_product(v_loc1, m_list_edges[2], m_list_edges[0]) / tetra_determinant;
+    const double lambda_4 = scalar_triple_product(v_loc1, m_list_edges[0], m_list_edges[1]) / tetra_determinant;
+    const double lambda_1 = 1.0 - lambda_2 - lambda_3 - lambda_4;
+
     return {lambda_1, lambda_2, lambda_3, lambda_4};
 }
 
@@ -197,9 +213,22 @@ double Tetra::interpolate_energy_at_band(const vector3& location, std::size_t ba
 
 vector3 Tetra::interpolate_gradient_energy_at_band(const vector3& location, std::size_t band_index) const {
     const auto barycentric_coord = compute_barycentric_coordinates(location);
-    vector3    gradient_at_location{0.0, 0.0, 0.0};
+
+    vector3 gradient_at_location{0.0, 0.0, 0.0};
     for (int i = 0; i < 4; ++i) {
         gradient_at_location += m_list_vertices[i]->get_energy_gradient_at_band(band_index) * barycentric_coord[i];
+    }
+    // DEBUG
+    if (std::isnan(gradient_at_location.x()) || std::isnan(gradient_at_location.y()) || std::isnan(gradient_at_location.z())) {
+        std::cerr << "Warning: NaN gradient at location " << location << " for band " << band_index
+                  << ". This may indicate a van Hove singularity or insufficient mesh resolution." << std::endl;
+        for (int i = 0; i < 4; ++i) {
+            std::cerr << "Volume: " << m_signed_volume << std::endl;
+            std::cerr << "  Vertex " << i << ": k = " << m_list_vertices[i]->get_position()
+                      << ", energy = " << m_list_vertices[i]->get_energy_at_band(band_index)
+                      << ", gradient = " << m_list_vertices[i]->get_energy_gradient_at_band(band_index)
+                      << " barycentric coord = " << barycentric_coord[i] << std::endl;
+        }
     }
     return gradient_at_location;
 }
@@ -473,6 +502,15 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
         inv_grad_sum += 1.0 / std::max(g, g_min);
     }
     const double inv_grad_avg = inv_grad_sum / static_cast<double>(iso.size());  // (eV·m)^-1
+
+    // DEBUG
+    if (std::isnan(inv_grad_avg) || std::isinf(inv_grad_avg)) {
+        std::cerr << "Warning: inv_grad_avg is " << inv_grad_avg << " at energy " << energy_eV << " eV in band " << band_index
+                  << ". This may indicate a van Hove singularity or insufficient mesh resolution." << std::endl;
+        for (const auto& kpt : iso) {
+            std::cerr << "  k: " << kpt << " |∇E|: " << interpolate_gradient_energy_at_band(kpt, band_index).norm() << std::endl;
+        }
+    }
 
     // Prefactor 1/(2π)^3
     constexpr double pref = 1.0 / (8.0 * M_PI * M_PI * M_PI);

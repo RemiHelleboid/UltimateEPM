@@ -175,6 +175,7 @@ class Tetra {
     vector3 get_barycenter() const { return m_barycenter; }
 
     std::size_t                   get_index() const { return m_index; }
+    void                         set_index(std::size_t index) { m_index = index; }
     const std::array<Vertex*, 4>& get_list_vertices() const { return m_list_vertices; }
     std::array<std::size_t, 4>    get_list_indices_vertices() const {
         return {m_list_vertices[0]->get_index(),
