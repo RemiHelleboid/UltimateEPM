@@ -616,6 +616,7 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
         // throw std::runtime_error("select_final_state: sampled k_final energy mismatch.");
     }
     if (!Tsel.is_location_inside(k_final)) {
+        fmt::print("LOCATION : {:.6e}, {:.6e}, {:.6e}\n", k_final.x(), k_final.y(), k_final.z());
         throw std::runtime_error("select_final_state: sampled k_final not inside tetrahedron.");
     }
 
