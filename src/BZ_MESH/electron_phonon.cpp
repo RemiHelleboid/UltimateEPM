@@ -609,6 +609,10 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
 
     const double Ef_check = Tsel.interpolate_energy_at_band(k_final, chosen.band);
     if (std::abs(Ef_check - chosen.Ef_eV) > 1e-9) {
+        fmt::print(stderr,
+                   "Warning: sampled k_final energy mismatch: Ef_check = {:.6e} eV, chosen.Ef_eV = {:.6e} eV\n",
+                   Ef_check,
+                   chosen.Ef_eV);
         throw std::runtime_error("select_final_state: sampled k_final energy mismatch.");
     }
     if (!Tsel.is_location_inside(k_final)) {
