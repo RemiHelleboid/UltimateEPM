@@ -221,6 +221,7 @@ add_subdirectory(src/Common)
 add_subdirectory(src/EPP)
 add_subdirectory(src/BZ_MESH)
 add_subdirectory(src/FBMC)
+add_subdirectory(src/AMC)
 add_subdirectory(apps)
 
 # ---------------------------- Tests ----------------------------

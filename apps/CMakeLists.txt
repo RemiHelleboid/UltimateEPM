@@ -23,6 +23,10 @@ add_executable(fbmc.epm fbmc.cpp)
 target_link_libraries(fbmc.epm PRIVATE libepp lib_bzmesh lib_fbmc)
 target_compile_features(fbmc.epm PRIVATE cxx_std_20)
 
+add_executable(amc.epm analytic_mc.cpp)
+target_link_libraries(amc.epm PRIVATE libepp lib_amc)
+target_compile_features(amc.epm PRIVATE cxx_std_20)
+
 add_executable(impact_io.epm impact_io.cpp)
 target_link_libraries(impact_io.epm PRIVATE libepp lib_bzmesh)
 target_compile_features(impact_io.epm PRIVATE cxx_std_20)
