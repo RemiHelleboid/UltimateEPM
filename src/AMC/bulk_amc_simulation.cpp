@@ -34,7 +34,6 @@ valley_model::mat3 rotation_local_z_to_global_x() { return {{{{0.0, 0.0, 1.0}}, 
 // Local z -> global y
 valley_model::mat3 rotation_local_z_to_global_y() { return {{{{1.0, 0.0, 0.0}}, {{0.0, 0.0, 1.0}}, {{0.0, -1.0, 0.0}}}}; }
 
-
 std::vector<valley_model> make_silicon_delta_valleys() {
     std::vector<valley_model> valleys;
     valleys.reserve(6);
@@ -167,8 +166,6 @@ void bulk_amc_simulation::initialize() {
     // //     std::cout << "  branch " << branch.m_name << " family=" << (branch.m_family == intervalley_family::f ? "f" : "g")
     // //               << " final_valleys=" << branch.m_final_valley_count << '\n';
     // // }
-
-
 
     m_particles.clear();
     m_particles.reserve(m_cfg.m_number_of_particles);
@@ -407,9 +404,8 @@ void bulk_amc_simulation::scatter_particle(particle_amc& p, double dt) {
         double                           final_energy_eV    = 0.0;
     };
 
-    const auto& current_valley = m_valleys[current_valley_index];
-    const double rate_ac = acoustic_scattering_rate_silicon(current_valley, energy_eV, m_cfg.m_lattice_temperature);
-
+    const auto&  current_valley = m_valleys[current_valley_index];
+    const double rate_ac        = acoustic_scattering_rate_silicon(current_valley, energy_eV, m_cfg.m_lattice_temperature);
 
     std::vector<sampled_intervalley_event> intervalley_events;
     intervalley_events.reserve(2 * m_intervalley_branches.size());
@@ -497,23 +493,23 @@ void bulk_amc_simulation::scatter_particle(particle_amc& p, double dt) {
     throw std::runtime_error("failed to select a scattering event");
 }
 
-// double bulk_amc_simulation::acoustic_scattering_rate_silicon(double energy_eV, double temperature_K) const {
-//     const double energy_clamped = std::max(energy_eV, 1.0e-6);
-
-//     // Simple fitted placeholder coefficient for now.
-//     // Units chosen so the result is in s^-1 when E is in eV and T in K.
-//     constexpr double C_ac = 1.0e12;
-
-//     return C_ac * (temperature_K / 300.0) * std::sqrt(energy_clamped);
-// }
+void bulk_amc_simulation::accumulate_observables() {
+    for (const auto& p : m_particles) {
+        m_observables.mean_velocity_x_m_per_s += p.state().velocity.x();
+        m_observables.mean_kinetic_energy_eV += p.state().kinetic_energy;
+        ++m_observables.sample_count;
+    }
+}
 
 void bulk_amc_simulation::run() {
     if (m_particles.empty()) {
         throw std::runtime_error("simulation not initialized");
     }
 
-    constexpr double  dt      = 5.0e-15;
-    const std::size_t n_steps = static_cast<std::size_t>(std::ceil(m_cfg.m_final_time / dt));
+    constexpr double  dt           = 5.0e-15;
+    const std::size_t n_steps      = static_cast<std::size_t>(std::ceil(m_cfg.m_final_time / dt));
+    m_observables                  = {};
+    const std::size_t warmup_steps = n_steps / 5;
 
     for (std::size_t step = 0; step < n_steps; ++step) {
         for (auto& p : m_particles) {
@@ -523,6 +519,9 @@ void bulk_amc_simulation::run() {
             if (m_cfg.m_record_history) {
                 p.record_state();
             }
+        }
+        if (step >= warmup_steps) {
+            accumulate_observables();
         }
     }
     fmt::print("Completed {} steps of {} particles\n", n_steps, m_particles.size());
@@ -541,7 +540,6 @@ void bulk_amc_simulation::run() {
     fmt::print("Average kinetic energy: {:.6f} eV\n", avg_energy);
     fmt::print("Average velocity: ({:.6e}, {:.6e}, {:.6e}) m/s\n", avg_velocity.x(), avg_velocity.y(), avg_velocity.z());
 
-
     std::size_t total_acoustic_events    = 0;
     std::size_t total_intervalley_events = 0;
 
@@ -553,6 +551,36 @@ void bulk_amc_simulation::run() {
 
     fmt::print("Total acoustic events: {}\n", total_acoustic_events);
     fmt::print("Total intervalley events: {}\n", total_intervalley_events);
+
+    m_observables.electric_field_V_per_m = m_cfg.m_electric_field.norm();
+    const double avg_vx_m_per_s = m_observables.mean_velocity_x_m_per_s / static_cast<double>(m_observables.sample_count);
+    const double avg_energy_eV = m_observables.mean_kinetic_energy_eV / static_cast<double>(m_observables.sample_count);
+
+    fmt::print("Steady-state average vx: {:.6e} m/s\n", avg_vx_m_per_s);
+    fmt::print("Steady-state average energy: {:.6f} eV\n", avg_energy_eV);
+}
+
+/**
+ * @brief Append the current observables to a CSV file. If the file does not exist, it will be created with a header. If it already exists,
+ * a new line will be appended with the current observables values.
+ *
+ * @param filename
+ */
+void bulk_amc_simulation::export_observables_to_csv(const std::string& filename) const {
+    std::ofstream file(filename, std::ios::app);
+    if (!file.is_open()) {
+        fmt::print(stderr, "Failed to open file for writing: {}\n", filename);
+        return;
+    }
+    // Check if the file is empty to write the header
+    if (file.tellp() == 0) {
+        file << "electric_field_V_per_m,mean_velocity_x_m_per_s,mean_kinetic_energy_eV,sample_count\n";
+    }
+    file << fmt::format("{},{},{},{}\n",
+                        m_observables.electric_field_V_per_m,
+                        m_observables.mean_velocity_x_m_per_s / static_cast<double>(m_observables.sample_count),
+                        m_observables.mean_kinetic_energy_eV / static_cast<double>(m_observables.sample_count),
+                        m_observables.sample_count);
 }
 
 void bulk_amc_simulation::export_particles_history_to_csv(const std::string& prefix_name) const {

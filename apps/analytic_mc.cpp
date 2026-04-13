@@ -109,6 +109,8 @@ int main(int argc, const char** argv) {
     if (arg_export_hist.getValue()) {
         sim.export_particles_history_to_csv(fileprefix);
     }
+
+    sim.export_observables_to_csv("observables.csv");
     // sim.extract_stats_and_export(fileprefix + "_stats.csv");
 
     return 0;

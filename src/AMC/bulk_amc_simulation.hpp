@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <random>
 #include <vector>
 
@@ -31,6 +30,13 @@ struct bulk_amc_simulation_config {
     bool                   m_record_history           = true;
 };
 
+struct bulk_observables {
+    double      electric_field_V_per_m  = 0.0;
+    double      mean_velocity_x_m_per_s = 0.0;
+    double      mean_kinetic_energy_eV  = 0.0;
+    std::size_t sample_count            = 0;
+};
+
 class bulk_amc_simulation {
  private:
     bulk_amc_simulation_config m_cfg;
@@ -39,6 +45,8 @@ class bulk_amc_simulation {
     std::mt19937_64            m_rng;
 
     std::vector<intervalley_phonon_branch> m_intervalley_branches;
+
+    bulk_observables m_observables;
 
  public:
     bulk_amc_simulation() : m_rng(std::random_device{}()) {}
@@ -51,8 +59,7 @@ class bulk_amc_simulation {
     void run();
     void export_particles_history_to_csv(const std::string& prefix_name) const;
     void accumulate_observables();
-
-
-    };
+    void export_observables_to_csv(const std::string& filename) const;
+};
 
 }  // namespace uepm::amc
