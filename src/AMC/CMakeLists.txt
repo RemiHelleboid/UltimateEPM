@@ -3,6 +3,7 @@ set(HEADER_FILES_LIBAMC
     particle_amc.hpp
     bulk_amc_simulation.hpp
     scattering_events.hpp
+    intervalley_phonon.hpp
   )
 
 
@@ -10,6 +11,7 @@ set(SOURCE_FILES_LIBAMC
     particle_amc.cpp
     bulk_amc_simulation.cpp
     valley_model.cpp
+    intervalley_phonon.cpp
 )
 
 add_library(lib_amc STATIC ${SOURCE_FILES_LIBAMC} ${HEADER_FILES_LIBAMC})

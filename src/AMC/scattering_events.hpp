@@ -17,12 +17,5 @@ namespace uepm::amc {
 
 enum class scattering_type : std::size_t { acoustic, intervalley_g, intervalley_f, self_scattering };
 
-struct scattering_result {
-    scattering_type type             = scattering_type::self_scattering;
-    std::size_t     new_valley_index = 0;
-    double          new_energy       = 0.0;
-    vector3         new_local_k{};
-    bool            real_scattering = false;
-};
-
+enum class scattering_event : std::size_t { acoustic = 0, intervalley_absorption, intervalley_emission, self_scattering, count };
 } // namespace uepm::amc

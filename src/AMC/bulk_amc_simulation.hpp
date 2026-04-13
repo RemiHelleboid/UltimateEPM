@@ -10,9 +10,11 @@
 
 #pragma once
 
+
 #include <random>
 #include <vector>
 
+#include "intervalley_phonon.hpp"
 #include "particle_amc.hpp"
 #include "valley_model.hpp"
 #include "vector.hpp"
@@ -25,7 +27,7 @@ struct bulk_amc_simulation_config {
     double                 m_lattice_temperature      = 300.0;            // K
     double                 m_final_time               = 5.0e-12;          // s
     double                 m_doping_concentration     = 1.0e16;           // m^-3
-    double                 m_max_self_scattering_rate = 0.0;              // s^-1
+    double                 m_max_self_scattering_rate = 1.0e14;           // s^-1
     bool                   m_record_history           = true;
 };
 
@@ -36,6 +38,8 @@ class bulk_amc_simulation {
     std::vector<particle_amc>  m_particles;
     std::mt19937_64            m_rng;
 
+    std::vector<intervalley_phonon_branch> m_intervalley_branches;
+
  public:
     bulk_amc_simulation() : m_rng(std::random_device{}()) {}
 
@@ -43,10 +47,12 @@ class bulk_amc_simulation {
 
     void initialize();
     void drift_particle(particle_amc& p, double dt);
+    void scatter_particle(particle_amc& p, double dt);
     void run();
     void export_particles_history_to_csv(const std::string& prefix_name) const;
-    void scatter_particle(particle_amc& p);
     void accumulate_observables();
-};
+
+
+    };
 
 }  // namespace uepm::amc

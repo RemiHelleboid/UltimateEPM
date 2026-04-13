@@ -40,7 +40,7 @@ int main(int argc, const char** argv) {
     TCLAP::ValueArg<double>      arg_temperature("T", "temperature", "Simulation temperature (K)", false, 300.0, "double");
     TCLAP::ValueArg<double>      arg_electric_field_x("", "Ex", "Electric field in x direction (V/cm)", false, 0.0, "double");
     TCLAP::SwitchArg             plot_with_python("P", "plot", "Call a python script after the MC Runs.", false);
-    TCLAP::SwitchArg             plot_with_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
+    TCLAP::SwitchArg             arg_export_hist("E", "export", "Export history of all particles to csv files for post-processing.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_material);
     cmd.add(arg_nb_conduction_bands);
@@ -48,7 +48,7 @@ int main(int argc, const char** argv) {
     cmd.add(arg_max_energy);
     cmd.add(arg_nb_threads);
     cmd.add(arg_temperature);
-    cmd.add(plot_with_wedge);
+    cmd.add(arg_export_hist);
     cmd.add(arg_time);
     cmd.add(arg_nb_part);
     cmd.add(arg_electric_field_x);
@@ -105,7 +105,10 @@ int main(int argc, const char** argv) {
 
     std::string timestamp  = std::to_string(std::time(nullptr));
     std::string fileprefix = fmt::format("{}/simulation_results_{}", output_dir, timestamp);
-    sim.export_particles_history_to_csv("./");
+
+    if (arg_export_hist.getValue()) {
+        sim.export_particles_history_to_csv(fileprefix);
+    }
     // sim.extract_stats_and_export(fileprefix + "_stats.csv");
 
     return 0;
