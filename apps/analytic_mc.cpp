@@ -85,6 +85,7 @@ int main(int argc, const char** argv) {
     uepm::amc::bulk_amc_simulation_config bulk_env;
     bulk_env.m_electric_field *= m_to_cm;
 
+    bulk_env.m_record_history       = arg_export_hist.getValue();
     bulk_env.m_lattice_temperature  = temperature;
     bulk_env.m_final_time           = arg_time.getValue();
     bulk_env.m_number_of_particles  = static_cast<std::size_t>(nb_particles);
