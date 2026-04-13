@@ -81,22 +81,23 @@ int main(int argc, const char** argv) {
         std::filesystem::create_directories(output_dir);
     }
 
+    constexpr double                      m_to_cm = 1e2;
     uepm::amc::bulk_amc_simulation_config bulk_env;
-    bulk_env.m_lattice_temperature = 300.0;
-    bulk_env.m_electric_field      = {0.0, 0.0, 0.0};
-    constexpr double m_to_cm       = 1e2;
     bulk_env.m_electric_field *= m_to_cm;
 
-    double m_doping_concentration   = 1.0e16;  // m^-3
+    bulk_env.m_lattice_temperature  = temperature;
+    bulk_env.m_final_time           = arg_time.getValue();
+    bulk_env.m_number_of_particles  = static_cast<std::size_t>(nb_particles);
+    bulk_env.m_electric_field       = {electric_field_x * m_to_cm, 0.0, 0.0};
+    double m_doping_concentration   = 1.0e10;                  // m^-3
     bulk_env.m_doping_concentration = m_doping_concentration;  // m^-3
-
 
     // CREATION OF THE VALLEY MODEL (SI, 6 valleys, non-parabolicity, hardcoded parameters for now, will be read from yaml later)
 
     uepm::amc::bulk_amc_simulation sim{bulk_env};
     sim.initialize();
     auto start = std::chrono::high_resolution_clock::now();
-    // sim.run();
+    sim.run();
 
     auto                          end     = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
@@ -104,7 +105,7 @@ int main(int argc, const char** argv) {
 
     std::string timestamp  = std::to_string(std::time(nullptr));
     std::string fileprefix = fmt::format("{}/simulation_results_{}", output_dir, timestamp);
-    // sim.export_history(fileprefix);
+    sim.export_particles_history_to_csv("./");
     // sim.extract_stats_and_export(fileprefix + "_stats.csv");
 
     return 0;

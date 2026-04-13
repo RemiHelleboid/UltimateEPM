@@ -1,14 +1,13 @@
 /**
  * @file bulk_amc_simulation.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-04-10
- * 
- * 
+ *
+ *
  */
 
- 
 #pragma once
 
 #include <random>
@@ -27,7 +26,7 @@ struct bulk_amc_simulation_config {
     double                 m_final_time               = 5.0e-12;          // s
     double                 m_doping_concentration     = 1.0e16;           // m^-3
     double                 m_max_self_scattering_rate = 0.0;              // s^-1
-    bool                   m_record_history           = false;
+    bool                   m_record_history           = true;
 };
 
 class bulk_amc_simulation {
@@ -43,8 +42,9 @@ class bulk_amc_simulation {
     explicit bulk_amc_simulation(const bulk_amc_simulation_config& cfg) : m_cfg(cfg), m_rng(std::random_device{}()) {}
 
     void initialize();
-    void run();
     void drift_particle(particle_amc& p, double dt);
+    void run();
+    void export_particles_history_to_csv(const std::string& prefix_name) const;
     void scatter_particle(particle_amc& p);
     void accumulate_observables();
 };

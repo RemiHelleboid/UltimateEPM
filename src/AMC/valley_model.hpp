@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <array>
+#include <random>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -82,35 +83,23 @@ class valley_model {
     const std::string& name() const noexcept { return m_name; }
 
     double transverse_effective_mass() const noexcept { return m_transverse_effective_mass; }
-
     double longitudinal_effective_mass() const noexcept { return m_longitudinal_effective_mass; }
-
     double non_parabolicity() const noexcept { return m_non_parabolicity; }
-
     double energy_offset() const noexcept { return m_energy_offset; }
-
     double phonon_reference_energy() const noexcept { return m_phonon_reference_energy; }
-
     std::size_t degeneracy() const noexcept { return m_degeneracy; }
-
     band_type dispersion() const noexcept { return m_dispersion; }
-
     const mat3& rotation() const noexcept { return m_rotation; }
-
     bool is_isotropic(double tolerance = 1e-18) const noexcept {
         return std::abs(m_longitudinal_effective_mass - m_transverse_effective_mass) < tolerance;
     }
-
     double conductivity_effective_mass() const noexcept {
         return 3.0 / (1.0 / m_longitudinal_effective_mass + 2.0 / m_transverse_effective_mass);
     }
-
     double density_of_states_effective_mass() const noexcept {
         return std::cbrt(m_longitudinal_effective_mass * m_transverse_effective_mass * m_transverse_effective_mass);
     }
-
     vector3 to_valley_frame(const vector3& k_global) const noexcept { return multiply(transpose(m_rotation), k_global); }
-
     vector3 to_global_frame(const vector3& k_valley) const noexcept { return multiply(m_rotation, k_valley); }
 
     /**
@@ -233,6 +222,8 @@ class valley_model {
 
         return std::sqrt(energy * (1.0 + m_non_parabolicity * energy)) * (1.0 + 2.0 * m_non_parabolicity * energy);
     }
+
+        vector3 draw_random_k_valley_at_energy(double energy_eV, std::mt19937_64& rng) const;
 
     void validate() const {
         if (m_transverse_effective_mass <= 0.0) {

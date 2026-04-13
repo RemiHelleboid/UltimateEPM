@@ -9,6 +9,7 @@ set(HEADER_FILES_LIBAMC
 set(SOURCE_FILES_LIBAMC
     particle_amc.cpp
     bulk_amc_simulation.cpp
+    valley_model.cpp
 )
 
 add_library(lib_amc STATIC ${SOURCE_FILES_LIBAMC} ${HEADER_FILES_LIBAMC})
