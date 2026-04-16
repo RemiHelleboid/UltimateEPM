@@ -4,6 +4,7 @@ set(HEADER_FILES_LIBAMC
     bulk_amc_simulation.hpp
     scattering_events.hpp
     intervalley_phonon.hpp
+    scattering_channels.hpp
   )
 
 

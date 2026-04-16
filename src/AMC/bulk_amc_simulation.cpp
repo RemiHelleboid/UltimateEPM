@@ -384,68 +384,144 @@ std::size_t draw_random_different_valley(std::size_t current_valley, std::size_t
     return draw;
 }
 
+std::vector<scattering_channel> bulk_amc_simulation::build_scattering_channels(const particle_amc& p)  {
+    const auto current_valley_index = p.state().valley_index;
+    if (current_valley_index >= m_valleys.size()) {
+        throw std::out_of_range("invalid valley index in build_scattering_channels");
+    }
+
+    const auto&  current_valley = m_valleys[current_valley_index];
+    const double energy_eV      = p.state().kinetic_energy;
+
+    std::vector<scattering_channel> channels;
+    channels.reserve(1 + 2 * m_intervalley_branches.size());
+
+    const double acoustic_rate = acoustic_scattering_rate_silicon(current_valley, energy_eV, m_cfg.m_lattice_temperature);
+
+    if (acoustic_rate > 0.0) {
+        channels.push_back(scattering_channel{.mechanism          = scattering_mechanism::acoustic,
+                                              .rate_s_1           = acoustic_rate,
+                                              .destination_valley = current_valley_index,
+                                              .final_energy_eV    = energy_eV,
+                                              .branch             = nullptr,
+                                              .process            = intervalley_process::none});
+    }
+
+    for (const auto& branch : m_intervalley_branches) {
+        const double rate_abs = intervalley_scattering_rate(current_valley, branch, energy_eV, true, m_cfg.m_lattice_temperature);
+
+        if (rate_abs > 0.0) {
+            channels.push_back(scattering_channel{.mechanism          = scattering_mechanism::intervalley,
+                                                  .rate_s_1           = rate_abs,
+                                                  .destination_valley = current_valley_index,
+                                                  .final_energy_eV    = energy_eV + branch.m_phonon_energy_eV,
+                                                  .branch             = &branch,
+                                                  .process            = intervalley_process::absorption});
+        }
+
+        const double rate_em = intervalley_scattering_rate(current_valley, branch, energy_eV, false, m_cfg.m_lattice_temperature);
+
+        const double final_energy_emission_eV = energy_eV - branch.m_phonon_energy_eV;
+        if (rate_em > 0.0 && final_energy_emission_eV >= 0.0) {
+            channels.push_back(scattering_channel{.mechanism          = scattering_mechanism::intervalley,
+                                                  .rate_s_1           = rate_em,
+                                                  .destination_valley = current_valley_index,
+                                                  .final_energy_eV    = final_energy_emission_eV,
+                                                  .branch             = &branch,
+                                                  .process            = intervalley_process::emission});
+        }
+    }
+
+    return channels;
+}
+
+double bulk_amc_simulation::total_scattering_rate(const particle_amc& p)  {
+    const auto channels = build_scattering_channels(p);
+
+    double total_rate = 0.0;
+    for (const auto& channel : channels) {
+        total_rate += channel.rate_s_1;
+    }
+
+    return total_rate;
+}
+void bulk_amc_simulation::apply_scattering_channel(particle_amc& p, const scattering_channel& channel) {
+    if (channel.rate_s_1 < 0.0) {
+        throw std::invalid_argument("negative scattering channel rate");
+    }
+
+    switch (channel.mechanism) {
+        case scattering_mechanism::acoustic: {
+            const auto valley_index = p.state().valley_index;
+            if (valley_index >= m_valleys.size()) {
+                throw std::out_of_range("invalid valley index in apply_scattering_channel acoustic");
+            }
+
+            const auto& valley = m_valleys[valley_index];
+
+            p.state().local_k        = valley.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
+            p.state().gamma          = valley.gamma_from_k_valley(p.state().local_k);
+            p.state().kinetic_energy = valley.kinetic_energy_from_gamma(p.state().gamma);
+            p.state().velocity       = valley.velocity_from_k_valley(p.state().local_k);
+
+            p.increment_total_step();
+            p.add_scattering_event(scattering_event::acoustic);
+            return;
+        }
+
+        case scattering_mechanism::intervalley: {
+            if (channel.branch == nullptr) {
+                throw std::runtime_error("intervalley channel missing branch");
+            }
+
+            const auto current_valley_index = p.state().valley_index;
+            if (current_valley_index >= m_valleys.size()) {
+                throw std::out_of_range("invalid current valley index in apply_scattering_channel intervalley");
+            }
+
+            const std::size_t destination_valley = draw_intervalley_destination_valley(*channel.branch, current_valley_index, m_rng);
+
+            if (destination_valley >= m_valleys.size()) {
+                throw std::out_of_range("invalid destination valley in apply_scattering_channel intervalley");
+            }
+
+            const auto& dst_valley = m_valleys[destination_valley];
+
+            p.state().valley_index   = destination_valley;
+            p.state().local_k        = dst_valley.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
+            p.state().gamma          = dst_valley.gamma_from_k_valley(p.state().local_k);
+            p.state().kinetic_energy = dst_valley.kinetic_energy_from_gamma(p.state().gamma);
+            p.state().velocity       = dst_valley.velocity_from_k_valley(p.state().local_k);
+
+            p.increment_total_step();
+
+            if (channel.process == intervalley_process::absorption) {
+                p.add_scattering_event(scattering_event::intervalley_absorption);
+            } else if (channel.process == intervalley_process::emission) {
+                p.add_scattering_event(scattering_event::intervalley_emission);
+            } else {
+                throw std::runtime_error("intervalley channel missing absorption/emission tag");
+            }
+
+            return;
+        }
+    }
+
+    throw std::runtime_error("unknown scattering mechanism");
+}
+
 void bulk_amc_simulation::scatter_particle(particle_amc& p, double dt) {
     if (dt < 0.0) {
         throw std::invalid_argument("scatter time step must be non-negative");
     }
 
-    const auto current_valley_index = p.state().valley_index;
-    if (current_valley_index >= m_valleys.size()) {
-        throw std::out_of_range("invalid valley index in scatter_particle");
+    const auto channels = build_scattering_channels(p);
+
+    double total_rate = 0.0;
+    for (const auto& channel : channels) {
+        total_rate += channel.rate_s_1;
     }
 
-    const double energy_eV = p.state().kinetic_energy;
-
-    struct sampled_intervalley_event {
-        const intervalley_phonon_branch* branch             = nullptr;
-        bool                             absorption         = false;
-        double                           rate               = 0.0;
-        std::size_t                      destination_valley = 0;
-        double                           final_energy_eV    = 0.0;
-    };
-
-    const auto&  current_valley = m_valleys[current_valley_index];
-    const double rate_ac        = acoustic_scattering_rate_silicon(current_valley, energy_eV, m_cfg.m_lattice_temperature);
-
-    std::vector<sampled_intervalley_event> intervalley_events;
-    intervalley_events.reserve(2 * m_intervalley_branches.size());
-
-    double total_intervalley_rate = 0.0;
-
-    for (const auto& branch : m_intervalley_branches) {
-        {
-            const double rate_abs = intervalley_scattering_rate(current_valley, branch, energy_eV, true, m_cfg.m_lattice_temperature);
-
-            if (rate_abs > 0.0) {
-                intervalley_events.push_back(sampled_intervalley_event{
-                    .branch             = &branch,
-                    .absorption         = true,
-                    .rate               = rate_abs,
-                    .destination_valley = draw_intervalley_destination_valley(branch, current_valley_index, m_rng),
-                    .final_energy_eV    = energy_eV + branch.m_phonon_energy_eV});
-                total_intervalley_rate += rate_abs;
-            }
-        }
-
-        {
-            const double rate_em = intervalley_scattering_rate(current_valley, branch, energy_eV, false, m_cfg.m_lattice_temperature);
-
-            if (rate_em > 0.0) {
-                const double final_energy_eV = energy_eV - branch.m_phonon_energy_eV;
-                if (final_energy_eV >= 0.0) {
-                    intervalley_events.push_back(sampled_intervalley_event{
-                        .branch             = &branch,
-                        .absorption         = false,
-                        .rate               = rate_em,
-                        .destination_valley = draw_intervalley_destination_valley(branch, current_valley_index, m_rng),
-                        .final_energy_eV    = final_energy_eV});
-                    total_intervalley_rate += rate_em;
-                }
-            }
-        }
-    }
-
-    const double total_rate = rate_ac + total_intervalley_rate;
     if (total_rate <= 0.0) {
         return;
     }
@@ -459,38 +535,16 @@ void bulk_amc_simulation::scatter_particle(particle_amc& p, double dt) {
 
     const double r_select = unif01(m_rng) * total_rate;
 
-    if (r_select < rate_ac) {
-        const auto& valley = m_valleys[current_valley_index];
-
-        p.state().local_k        = valley.draw_random_k_valley_at_energy(energy_eV, m_rng);
-        p.state().gamma          = valley.gamma_from_k_valley(p.state().local_k);
-        p.state().kinetic_energy = valley.kinetic_energy_from_gamma(p.state().gamma);
-        p.state().velocity       = valley.velocity_from_k_valley(p.state().local_k);
-
-        p.increment_total_step();
-        p.add_scattering_event(scattering_event::acoustic);
-        return;
-    }
-
-    double cumulative = rate_ac;
-    for (const auto& event : intervalley_events) {
-        cumulative += event.rate;
+    double cumulative = 0.0;
+    for (const auto& channel : channels) {
+        cumulative += channel.rate_s_1;
         if (r_select < cumulative) {
-            const auto& dst_valley = m_valleys[event.destination_valley];
-
-            p.state().valley_index   = event.destination_valley;
-            p.state().local_k        = dst_valley.draw_random_k_valley_at_energy(event.final_energy_eV, m_rng);
-            p.state().gamma          = dst_valley.gamma_from_k_valley(p.state().local_k);
-            p.state().kinetic_energy = dst_valley.kinetic_energy_from_gamma(p.state().gamma);
-            p.state().velocity       = dst_valley.velocity_from_k_valley(p.state().local_k);
-
-            p.increment_total_step();
-            p.add_scattering_event(scattering_event::intervalley);
+            apply_scattering_channel(p, channel);
             return;
         }
     }
 
-    throw std::runtime_error("failed to select a scattering event");
+    throw std::runtime_error("failed to select a scattering channel");
 }
 
 void bulk_amc_simulation::accumulate_observables() {
@@ -508,8 +562,9 @@ void bulk_amc_simulation::run() {
 
     constexpr double  dt           = 5.0e-15;
     const std::size_t n_steps      = static_cast<std::size_t>(std::ceil(m_cfg.m_final_time / dt));
-    m_observables                  = {};
     const std::size_t warmup_steps = n_steps / 5;
+
+    m_observables = {};
 
     for (std::size_t step = 0; step < n_steps; ++step) {
         for (auto& p : m_particles) {
@@ -520,10 +575,12 @@ void bulk_amc_simulation::run() {
                 p.record_state();
             }
         }
+
         if (step >= warmup_steps) {
             accumulate_observables();
         }
     }
+
     fmt::print("Completed {} steps of {} particles\n", n_steps, m_particles.size());
 
     double  avg_energy = 0.0;
@@ -540,20 +597,33 @@ void bulk_amc_simulation::run() {
     fmt::print("Average kinetic energy: {:.6f} eV\n", avg_energy);
     fmt::print("Average velocity: ({:.6e}, {:.6e}, {:.6e}) m/s\n", avg_velocity.x(), avg_velocity.y(), avg_velocity.z());
 
-    std::size_t total_acoustic_events    = 0;
-    std::size_t total_intervalley_events = 0;
+    std::size_t total_acoustic_events               = 0;
+    std::size_t total_intervalley_absorption_events = 0;
+    std::size_t total_intervalley_emission_events   = 0;
+    std::size_t total_self_scattering_events        = 0;
 
     for (const auto& p : m_particles) {
         const auto& events = p.history().scattering_events();
+
         total_acoustic_events += events[static_cast<std::size_t>(scattering_event::acoustic)];
-        total_intervalley_events += events[static_cast<std::size_t>(scattering_event::intervalley)];
+        total_intervalley_absorption_events += events[static_cast<std::size_t>(scattering_event::intervalley_absorption)];
+        total_intervalley_emission_events += events[static_cast<std::size_t>(scattering_event::intervalley_emission)];
+        total_self_scattering_events += events[static_cast<std::size_t>(scattering_event::self_scattering)];
     }
 
     fmt::print("Total acoustic events: {}\n", total_acoustic_events);
-    fmt::print("Total intervalley events: {}\n", total_intervalley_events);
+    fmt::print("Total intervalley absorption events: {}\n", total_intervalley_absorption_events);
+    fmt::print("Total intervalley emission events: {}\n", total_intervalley_emission_events);
+    fmt::print("Total self-scattering events: {}\n", total_self_scattering_events);
 
     m_observables.electric_field_V_per_m = m_cfg.m_electric_field.norm();
+
+    if (m_observables.sample_count == 0) {
+        throw std::runtime_error("no steady-state samples accumulated");
+    }
+
     const double avg_vx_m_per_s = m_observables.mean_velocity_x_m_per_s / static_cast<double>(m_observables.sample_count);
+
     const double avg_energy_eV = m_observables.mean_kinetic_energy_eV / static_cast<double>(m_observables.sample_count);
 
     fmt::print("Steady-state average vx: {:.6e} m/s\n", avg_vx_m_per_s);

@@ -19,24 +19,12 @@
 
 #include "vector.hpp"
 #include "physical_constants.hpp"
+#include "scattering_events.hpp"
 
 namespace uepm::amc {
 
 enum class particle_type : std::int8_t { electron, hole };
 
-enum class scattering_event : std::size_t {
-    acoustic = 0,
-    optical_1,
-    optical_2,
-    optical_3,
-    optical_4,
-    optical_5,
-    optical_6,
-    optical_7,
-    intervalley,
-    self_scattering,
-    count
-};
 
 using vector3 = uepm::mesh_bz::vector3;
 

@@ -15,6 +15,7 @@
 
 #include "intervalley_phonon.hpp"
 #include "particle_amc.hpp"
+#include "scattering_channels.hpp"
 #include "valley_model.hpp"
 #include "vector.hpp"
 
@@ -45,18 +46,21 @@ class bulk_amc_simulation {
     std::mt19937_64            m_rng;
 
     std::vector<intervalley_phonon_branch> m_intervalley_branches;
-
-    bulk_observables m_observables;
+    bulk_observables                       m_observables;
 
  public:
-    bulk_amc_simulation() : m_rng(std::random_device{}()) {}
-
+    bulk_amc_simulation() = default;
     explicit bulk_amc_simulation(const bulk_amc_simulation_config& cfg) : m_cfg(cfg), m_rng(std::random_device{}()) {}
 
     void initialize();
     void drift_particle(particle_amc& p, double dt);
     void scatter_particle(particle_amc& p, double dt);
     void run();
+
+    std::vector<scattering_channel> build_scattering_channels(const particle_amc& p);
+    double                          total_scattering_rate(const particle_amc& p);
+    void                            apply_scattering_channel(particle_amc& p, const scattering_channel& channel);
+
     void export_particles_history_to_csv(const std::string& prefix_name) const;
     void accumulate_observables();
     void export_observables_to_csv(const std::string& filename) const;
