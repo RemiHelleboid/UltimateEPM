@@ -31,14 +31,17 @@ int main(int argc, const char** argv) {
     TCLAP::CmdLine               cmd("Anaytical MC PROGRAM. SINGLE PARTICLE MONTE CARLO SIMULATION.", ' ', "1.0");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
     TCLAP::ValueArg<std::string> arg_outputdir("d", "outdir", "Output directory for results", false, "", "string");
+    TCLAP::ValueArg<std::string> arg_part_type("p", "part-type", "Type of particle to simulate (electron, hole)", false, "electron", "string");
     TCLAP::ValueArg<int>         arg_nb_part("N", "npart", "Number of particles to simulate", false, 1, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<double>      arg_time("t", "time", "Simulation time (s)", false, 1e-12, "double");
     TCLAP::ValueArg<double>      arg_temperature("T", "temperature", "Simulation temperature (K)", false, 300.0, "double");
     TCLAP::ValueArg<double>      arg_electric_field_x("", "Ex", "Electric field in x direction (V/cm)", false, 0.0, "double");
+    TCLAP::ValueArg<double>      arg_max_energy("e", "max-energy", "Maximum energy for scattering rate computation (eV)", false, 10.0, "double");
     TCLAP::SwitchArg             plot_with_python("P", "plot", "Call a python script after the MC Runs.", false);
     TCLAP::SwitchArg             arg_export_hist("E", "export", "Export history of all particles to csv files for post-processing.", false);
     cmd.add(plot_with_python);
+    cmd.add(arg_part_type);
     cmd.add(arg_material);
     cmd.add(arg_nb_threads);
     cmd.add(arg_temperature);
@@ -46,6 +49,7 @@ int main(int argc, const char** argv) {
     cmd.add(arg_time);
     cmd.add(arg_nb_part);
     cmd.add(arg_electric_field_x);
+    cmd.add(arg_max_energy);
     cmd.add(arg_outputdir);
 
     cmd.parse(argc, argv);
@@ -57,6 +61,9 @@ int main(int argc, const char** argv) {
     int               nb_particles          = arg_nb_part.getValue();
     double            electric_field_x      = arg_electric_field_x.getValue();
     double            temperature           = arg_temperature.getValue();
+    double            max_energy_eV        = arg_max_energy.getValue();
+    const std::string particle_type         = arg_part_type.getValue();
+
 
     uepm::pseudopotential::Materials materials;
     const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
@@ -75,7 +82,15 @@ int main(int argc, const char** argv) {
 
     constexpr double                      m_to_cm = 1e2;
     uepm::amc::bulk_amc_simulation_config bulk_env;
-    bulk_env.m_electric_field *= m_to_cm;
+
+    if (particle_type == "electron") {
+        bulk_env.m_carrier_type = uepm::amc::particle_type::electron;
+    } else if (particle_type == "hole") {
+        bulk_env.m_carrier_type = uepm::amc::particle_type::hole;
+    } else {
+        fmt::print(stderr, "Invalid particle type: {}. Should be 'electron' or 'hole'.\n", particle_type);
+        return 1;
+    }
 
     bulk_env.m_record_history       = arg_export_hist.getValue();
     bulk_env.m_lattice_temperature  = temperature;
@@ -85,12 +100,19 @@ int main(int argc, const char** argv) {
     double m_doping_concentration   = 1.0e10;                  // m^-3
     bulk_env.m_doping_concentration = m_doping_concentration;  // m^-3
 
+    bulk_env.m_max_energy_eV = max_energy_eV;
+
     // CREATION OF THE VALLEY MODEL (SI, 6 valleys, non-parabolicity, hardcoded parameters for now, will be read from yaml later)
+
+    fmt::print("Running bulk AMC simulation with the following parameters:\n");
+    fmt::print("Material: {}\n", material_symbol);
+    fmt::print("Electric field: ({:.1e}, {:.1e}, {:.1e}) V/m\n", bulk_env.m_electric_field.x(), bulk_env.m_electric_field.y(), bulk_env.m_electric_field.z());
 
     uepm::amc::bulk_amc_simulation sim{bulk_env};
     sim.initialize();
     auto start = std::chrono::high_resolution_clock::now();
-    sim.run();
+    // sim.run();
+    sim.run_self_scattering_emc();
 
     auto                          end     = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;

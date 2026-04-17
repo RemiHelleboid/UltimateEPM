@@ -54,7 +54,7 @@ class particle_history {
 
  private:
     std::size_t                                      m_particle_index = 0;
-    std::size_t                                      m_total_nb_steps = 0;
+    std::size_t                                      m_total_scattering_events = 0;
     std::vector<particle_snapshot>                   m_snapshots;
     std::array<std::size_t, num_scattering_channels> m_scattering_events{};
 
@@ -65,7 +65,7 @@ class particle_history {
 
     std::size_t particle_index() const noexcept { return m_particle_index; }
 
-    std::size_t total_number_of_steps() const noexcept { return m_total_nb_steps; }
+    std::size_t total_scattering_event_count() const noexcept { return m_total_scattering_events; }
 
     std::size_t recorded_number_of_steps() const noexcept { return m_snapshots.size(); }
 
@@ -76,14 +76,14 @@ class particle_history {
     void reserve(std::size_t n_steps) { m_snapshots.reserve(n_steps); }
 
     void clear() noexcept {
-        m_total_nb_steps = 0;
+        m_total_scattering_events = 0;
         m_snapshots.clear();
         m_scattering_events.fill(0);
     }
 
     void set_particle_index(std::size_t particle_index) noexcept { m_particle_index = particle_index; }
 
-    void increment_total_steps() noexcept { ++m_total_nb_steps; }
+    void increment_scattering_event_count() noexcept { ++m_total_scattering_events; }
 
     void record(const particle_state& state) {
         m_snapshots.push_back(particle_snapshot{.time           = state.time,
@@ -188,7 +188,7 @@ class particle_amc {
 
     void set_valley_index(std::size_t valley_index) noexcept { m_state.valley_index = valley_index; }
 
-    void increment_total_step() noexcept { m_history.increment_total_steps(); }
+    void increment_scattering_event_count() noexcept { m_history.increment_scattering_event_count(); }
 
     void record_state() { m_history.record(m_state); }
 
