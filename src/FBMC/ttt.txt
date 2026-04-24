@@ -1,0 +1,1003 @@
+set(HEADER_FILES_LIBFBMC single_part_fbmc.hpp particle.hpp
+
+  )
+
+
+set(SOURCE_FILES_LIBFBMC
+  single_part_fbmc.cpp particle.cpp
+)
+
+add_library(lib_fbmc STATIC ${SOURCE_FILES_LIBFBMC} ${HEADER_FILES_LIBFBMC})
+
+target_include_directories(lib_fbmc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Link with reuired libraries
+target_link_libraries(lib_fbmc PUBLIC libepp lib_bzmesh)
+target_link_libraries(lib_fbmc PUBLIC Eigen3::Eigen rapidcsv fmt::fmt)
+target_include_directories(lib_fbmc PUBLIC ${GMSH_INC})
+target_link_libraries(lib_fbmc PUBLIC ${GMSH_LIB})
+
+
+  target_link_libraries(lib_fbmc PUBLIC OpenMP::OpenMP_CXX)
+
+# All users of this library will need at least C++20
+target_compile_features(lib_fbmc PRIVATE cxx_std_20)/**
+ * @file keldysh_impactio.hpp
+ * @author remzerrr (remi.helleboid@gmail.com)
+ * @brief Impact ionization rates using Keldysh formula.
+ * @version 0.1
+ * @date 2026-02-17
+ * 
+ * 
+ */
+
+#pragma once
+
+#include <cmath>
+
+#include "yaml-cpp/yaml.h"
+
+namespace uepm::fbmc {
+
+/**
+ * @brief Keldysh impact ionization model.
+ * Filled with typical parameters for Si [Kamakura, 1994], but can be adapted for other materials.
+ * 
+ */
+struct KeldyshImpactIonization {
+    double m_P0 = 1.0e11;  // Pre-exponential factor (1/s)
+    double m_alpha = 4.6;  // Exponent
+    double m_E_threshold = 1.1;  // Threshold energy for impact ionization (eV)
+
+    KeldyshImpactIonization() = default;
+    KeldyshImpactIonization(double P0, double alpha, double E_threshold) : m_P0(P0), m_alpha(alpha), m_E_threshold(E_threshold) {}
+
+    void load_from_yaml(const YAML::Node& node) {
+        m_P0 = node["P0"].as<double>();
+        m_alpha = node["alpha"].as<double>();
+        m_E_threshold = node["energy_threshold"].as<double>();
+    }
+
+    double compute_rate(double energy_eV) const {
+        if (energy_eV < m_E_threshold) {
+            return 0.0;  // No ionization below threshold
+        }
+        double excess_energy = energy_eV - m_E_threshold;
+        return m_P0 * std::pow(excess_energy, m_alpha);
+    }
+};
+
+}  // namespace uepm::fbmc/**
+ * @file particle.cpp
+ * @author remzerrr (remi.helleboid@gmail.com)
+ * @brief
+ * @version 0.1
+ * @date 2022-09-10
+ *
+ * @copyright Copyright (c) 2022
+ *
+ */
+
+#include "particle.hpp"
+
+#include <random>
+
+#include "physical_constants.hpp"
+#include "statistics_functions.hpp"
+namespace uepm::fbmc {
+
+particle::particle(std::size_t index, particle_type arg_particle_type, uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz)
+    : m_index(index),
+      m_type(arg_particle_type),
+      m_mesh_bz(ptr_mesh_bz) {}
+
+/**
+ * @brief Draw a new free flight time for the particle.
+ *
+ * @param p_gamma
+ */
+
+void particle::draw_free_flight_time(double p_gamma) {
+    if (!(p_gamma > 0.0) || !std::isfinite(p_gamma)) {
+        throw std::runtime_error("draw_free_flight_time: invalid p_gamma");
+    }
+    double u                   = m_random_distribution(m_random_generator);
+    m_current_free_flight_time = -std::log(u) / p_gamma;
+    m_time += m_current_free_flight_time;
+    m_iter += 1;
+    m_history.m_total_nb_steps += 1;
+    update_position();
+}
+
+/**
+ * @brief Update the k-vector of the particle based on the electric field.
+ *
+ * @param v_electric_field The electric field vector.
+ */
+void particle::update_k_vector(const vector3& v_electric_field) {
+    m_k_vector += (get_charge_sign() * uepm::constants::q_e / uepm::constants::h_bar) * v_electric_field * m_current_free_flight_time;
+}
+
+void particle::update_group_velocity() {
+    m_velocity = m_containing_bz_mesh_tetra->interpolate_gradient_energy_at_band(m_k_vector, m_band_index);
+    m_velocity *= (1.0 / uepm::constants::h_bar_eV);
+}
+
+void particle::update_position() { m_position += m_velocity * m_current_free_flight_time; }
+
+std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(const vector3& location) {
+    return m_containing_bz_mesh_tetra->interpolate_phonon_scattering_rate_at_location(location, m_band_index);
+}
+
+void particle::update_energy() { m_energy = m_containing_bz_mesh_tetra->interpolate_energy_at_band(m_k_vector, m_band_index); }
+
+void particle::select_final_state_after_phonon_scattering(std::size_t idx_phonon_branch) {
+    uepm::mesh_bz::SelectedFinalState Sf =
+        m_mesh_bz->select_electron_phonon_final_state(m_band_index, m_k_vector, idx_phonon_branch, m_random_generator);
+    m_k_vector                 = Sf.k_final;
+    m_energy                   = Sf.E_final_eV;
+    m_containing_bz_mesh_tetra = Sf.ptr_final_tetra;
+    m_band_index               = Sf.idx_final_band;
+
+    update_group_velocity();
+}
+
+void particle::select_final_state_after_impact_ionization() {
+    constexpr double energy_threshold_ionization = 1.20;  // eV, TODO: make this a parameter
+    if (m_energy < energy_threshold_ionization) {
+        fmt::print(stderr,
+                   "Warning: particle energy ({:.6f} eV) is below the ionization threshold ({:.2f} eV). No ionization will occur.\n",
+                   m_energy,
+                   energy_threshold_ionization);
+        throw std::runtime_error("select_final_state_after_impact_ionization: particle energy is below the ionization threshold");
+    }
+    m_energy -= energy_threshold_ionization;  // lose energy due to ionization
+    auto [k_final, idx_band_final] = m_mesh_bz->draw_random_k_point_at_energy(m_energy, m_random_generator);
+    m_k_vector                     = k_final;
+    m_containing_bz_mesh_tetra     = m_mesh_bz->find_tetra_at_location(m_k_vector);
+    m_band_index                   = idx_band_final;
+}
+
+double particle::compute_mean_energy() const {
+    double weighted_sum = 0.0;
+    double total_weight = 0.0;
+    for (std::size_t i = 1; i < m_history.get_number_of_steps(); ++i) {
+        double energy = m_history.m_energies[i];
+        double weight = m_history.m_time_history[i] - m_history.m_time_history[i - 1];
+        weighted_sum += energy * weight;
+        total_weight += weight;
+    }
+    return (total_weight > 0.0) ? (weighted_sum / total_weight) : 0.0;
+}
+
+/**
+ * @brief Extract an estimate of the impact ionization coefficient from the particle history.
+ * The impact ionization coefficient is defined as the number of ionization events per unit length traveled by the particle.
+ * (For now we only take the number of impact ionization events divided by the total length traveled, but we could refine this by only
+ * considering the length traveled (Xf -X0).
+ *
+ * @return double
+ */
+double particle::extract_impact_ionization_coeff() const {
+    std::size_t nb_ionization_events  = m_history.m_scattering_events[8];
+    vector3     previous_position     = m_history.m_positions[0];
+    vector3     current_position      = m_history.m_positions.back();
+    double      total_length_traveled = (current_position - previous_position).norm();
+    if (total_length_traveled > 0.0) {
+        return static_cast<double>(nb_ionization_events) / total_length_traveled;
+    } else {
+        return 0.0;
+    }
+}
+
+double particle::extract_global_average_velocity() const {
+    vector3 initial_position     = m_history.m_positions[0];
+    vector3 current_position      = m_history.m_positions.back();
+    double  total_length_traveled = (current_position.x() - initial_position.x());
+
+    return total_length_traveled / (m_history.m_time_history.back() - m_history.m_time_history[0]);
+
+}
+
+void particle::print_history_summary() const {
+    std::size_t            total_events      = m_history.m_total_nb_steps;
+    std::size_t            total_real_events = m_history.get_number_of_steps();
+    std::size_t            nb_events_type    = m_history.m_scattering_events.size();
+    std::array<double, 10> event_fractions   = {0.0};
+    for (std::size_t i = 0; i < nb_events_type; ++i) {
+        event_fractions[i] = 100.0 * static_cast<double>(m_history.m_scattering_events[i]) / static_cast<double>(total_real_events);
+    }
+    fmt::print("Particle {} history summary:\n", m_index);
+    fmt::print("  Total recorded events: {}\n", total_events);
+    for (std::size_t i = 0; i < nb_events_type; ++i) {
+        fmt::print("\tEvent type {}: fraction = {:.4f}\n", i, event_fractions[i]);
+    }
+    fmt::print("\tEvent type 8: fraction = {:.2f}\n", event_fractions[8]);
+    fmt::print("\tEvent type 9: fraction = {:.2f}\n", event_fractions[9]);
+
+    double mean_energy = compute_mean_energy();
+    fmt::print("  Mean energy: {:.6f} eV\n", mean_energy);
+
+    double mean_velocity = extract_global_average_velocity();
+    fmt::print("  Mean velocity: {:.6e} m/s\n", mean_velocity);
+
+    double ionization_coeff = extract_impact_ionization_coeff();
+    fmt::print("  Estimated impact ionization coefficient: {:.6e} 1/m\n", ionization_coeff);
+}
+
+void particle::export_history_to_csv(const std::string& filename) const {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        throw std::runtime_error("export_history_to_csv: cannot open file for writing");
+    }
+    file << "time,gamma,x,y,z,kx,ky,kz,vx,vy,vz,energy,band_occupation\n";
+    for (std::size_t i = 0; i < m_history.get_number_of_steps(); ++i) {
+        file << m_history.m_time_history[i] << "," << m_history.m_gammas[i] << "," << m_history.m_positions[i].x() << ","
+             << m_history.m_positions[i].y() << "," << m_history.m_positions[i].z() << "," << m_history.m_k_vectors[i].x() << ","
+             << m_history.m_k_vectors[i].y() << "," << m_history.m_k_vectors[i].z() << "," << m_history.m_velocities[i].x() << ","
+             << m_history.m_velocities[i].y() << "," << m_history.m_velocities[i].z() << "," << m_history.m_energies[i] << ","
+             << m_history.m_band_occupations[i] << "\n";
+    }
+    file.close();
+}
+
+}  // namespace uepm::fbmc/**
+ * @file particle.hpp
+ * @author your name (you@domain.com)
+ * @brief Particle simulation class for the FBMC (Full Band Monte Carlo) method.
+ * @version 0.1
+ * @date 2025-09-19
+ *
+ * @copyright Copyright (c) 2025
+ *
+ */
+
+#pragma once
+
+#include <array>
+#include <iostream>
+#include <memory>
+#include <random>
+#include <vector>
+
+#include "bz_mesh.hpp"
+#include "vector.hpp"
+// #include "particle_history_mc.hpp"
+#include "electron_phonon.hpp"
+#include "mesh_tetra.hpp"
+#include "vector.hpp"
+
+namespace uepm::fbmc {
+
+enum class particle_type { electron = -1, hole = 1 };
+
+using vector3 = uepm::mesh_bz::vector3;
+
+struct scattering_rate {
+    std::array<double, 8> m_phonon_rate;
+    double                m_phonon_rate_total      = 0.0;
+    double                m_impurity_rate          = 0.0;
+    double                m_impact_ionization_rate = 0.0;
+};
+
+struct particle_history {
+    std::size_t m_index_particle;
+    // Total number of steps (including self-scattering)
+    std::size_t m_total_nb_steps = 0;
+    // Recorded data at each step (not including self-scattering)
+    std::vector<double>  m_time_history;
+    std::vector<vector3> m_positions;
+    std::vector<vector3> m_k_vectors;
+    std::vector<vector3> m_velocities;
+    std::vector<double>  m_energies;
+    std::vector<double>  m_gammas;
+
+    // 8 phonon branches + impact ionization + self-scattering
+    std::array<std::size_t, 10> m_scattering_events = {0};
+    std::vector<double>         m_band_occupations;
+
+    particle_history() : m_index_particle(0), m_positions(), m_k_vectors(), m_velocities(), m_energies(), m_gammas() {}
+    particle_history(std::size_t index) : m_index_particle(index), m_positions(), m_k_vectors(), m_velocities(), m_energies(), m_gammas() {}
+
+    void reserve(std::size_t n_steps) {
+        m_time_history.reserve(n_steps);
+        m_positions.reserve(n_steps);
+        m_k_vectors.reserve(n_steps);
+        m_velocities.reserve(n_steps);
+        m_energies.reserve(n_steps);
+        m_gammas.reserve(n_steps);
+        m_band_occupations.reserve(n_steps);
+    }
+
+    void add_time(double time) { m_time_history.push_back(time); }
+    void add_position(const vector3& position) { m_positions.push_back(position); }
+    void add_k_vector(const vector3& k_vector) { m_k_vectors.push_back(k_vector); }
+    void add_velocity(const vector3& velocity) { m_velocities.push_back(velocity); }
+    void add_energy(double energy) { m_energies.push_back(energy); }
+    void add_gamma(double gamma) { m_gammas.push_back(gamma); }
+    void add_band_occupation(double band_occupation) { m_band_occupations.push_back(band_occupation); }
+
+    void add_particle_state(const double&  my_time,
+                            const vector3& my_position,
+                            const vector3& my_k_vector,
+                            const vector3& my_velocity,
+                            double         my_energy,
+                            double         my_gamma,
+                            double         band_idx) {
+        add_time(my_time);
+        add_position(my_position);
+        add_k_vector(my_k_vector);
+        add_velocity(my_velocity);
+        add_energy(my_energy);
+        add_gamma(my_gamma);
+        add_band_occupation(band_idx);
+    }
+    std::size_t get_number_of_steps() const { return m_positions.size(); }
+
+    /**
+     * @brief Add a scattering event to the history.
+     *
+     * @param event_index
+     */
+    void add_event(std::size_t event_index) {
+        if (event_index < m_scattering_events.size()) {
+            m_scattering_events[event_index]++;
+        }
+    }
+};
+
+class particle {
+ protected:
+    /**
+     * @brief Pointer to the Brillouin Zone Mesh.
+     *
+     */
+    uepm::mesh_bz::ElectronPhonon* m_mesh_bz = nullptr;
+
+    /**
+     * @brief Index of the particle in the simulation.
+     *
+     */
+    std::size_t m_index = 0;
+
+    /**
+     * @brief Type of the particle (electron or hole).
+     *
+     */
+    particle_type m_type = particle_type::electron;
+
+    /**
+     * @brief Time of the particle in the simulation.
+     *
+     */
+    double m_time = 0.0;
+
+    /**
+     * @brief Iteration count of the particle.
+     *
+     */
+    std::size_t m_iter = 0;
+
+    /**
+     * @brief Position of the particle in the real space.
+     *
+     */
+    vector3 m_position = {0.0, 0.0, 0.0};
+
+    /**
+     * @brief Wave vector of the particle.
+     *
+     */
+    vector3 m_k_vector = {0.0, 0.0, 0.0};
+
+    /**
+     * @brief Band index of the particle.
+     *
+     */
+    int m_band_index = 0;
+
+    /**
+     * @brief Velocity of the particle.
+     *
+     */
+    vector3 m_velocity = {0.0, 0.0, 0.0};
+
+    /**
+     * @brief Energy of the particle.
+     *
+     */
+    double m_energy = 0.0;
+
+    /**
+     * @brief Free flight time of the particle.
+     *
+     */
+    double m_current_free_flight_time = 0.0;
+
+    /**
+     * @brief Scattering rate gamma of the particle.
+     *
+     */
+    double m_gamma = 0.0;
+
+    /**
+     * @brief Pointer to the tetrahedron in which the particle lies.
+     *
+     */
+    uepm::mesh_bz::Tetra* m_containing_bz_mesh_tetra = nullptr;
+
+    /**
+     * @brief Random number generator.
+     *
+     */
+    std::mt19937 m_random_generator = std::mt19937(std::random_device{}());
+
+    /**
+     * @brief Random number distribution.
+     *
+     */
+    std::uniform_real_distribution<double> m_random_distribution = std::uniform_real_distribution<double>(0.0, 1.0);
+
+    /**
+     * @brief History of the particle during the simulation.
+     *
+     */
+    particle_history m_history;
+
+ public:
+    particle() = default;
+    particle(std::size_t index, particle_type type, uepm::mesh_bz::ElectronPhonon* mesh);
+    particle(const particle& other)            = default;
+    particle& operator=(const particle& other) = default;
+    ~particle()                                = default;
+
+    std::size_t           get_index() const { return m_index; }
+    void                  set_index(std::size_t index) { m_index = index; }
+    particle_type         get_type() const { return m_type; }
+    double                get_charge_sign() const { return static_cast<double>(m_type); }
+    double                get_time() const { return m_time; }
+    void                  set_time(double time) { m_time = time; }
+    std::size_t           get_iter() const { return m_iter; }
+    void                  set_iter(std::size_t iter) { m_iter = iter; }
+    int                   get_band_index() const { return m_band_index; }
+    void                  set_band_index(int band_index) { m_band_index = band_index; }
+    const vector3&        get_position() const { return m_position; }
+    void                  set_position(const vector3& position) { m_position = position; }
+    const vector3&        get_k_vector() const { return m_k_vector; }
+    void                  set_k_vector(const vector3& k_vector) { m_k_vector = k_vector; }
+    const vector3&        get_velocity() const { return m_velocity; }
+    void                  set_velocity(const vector3& velocity) { m_velocity = velocity; }
+    double                get_gamma() const { return m_gamma; }
+    void                  set_gamma(double gamma) { m_gamma = gamma; }
+    double                get_energy() const { return m_energy; }
+    void                  set_energy(double energy) { m_energy = energy; }
+    double                get_current_free_flight_time() const { return m_current_free_flight_time; }
+    uepm::mesh_bz::Tetra* get_containing_bz_mesh_tetra() const { return m_containing_bz_mesh_tetra; }
+    void                  set_containing_bz_mesh_tetra(uepm::mesh_bz::Tetra* containing_bz_mesh_tetra) {
+        m_containing_bz_mesh_tetra = containing_bz_mesh_tetra;
+    }
+    void set_random_generator(std::mt19937 random_generator) { m_random_generator = random_generator; }
+    void reserve_history(std::size_t n_steps) { m_history.reserve(n_steps); }
+
+    std::array<double, 8> interpolate_phonon_scattering_rate_at_location(const vector3& location);
+    void                  compute_post_phonon_scattering_state();
+
+    void draw_free_flight_time(double p_gamma);
+    void update_k_vector(const vector3& v_electric_field);
+    void update_energy();
+    void update_group_velocity();
+    void update_position();
+
+    void select_final_state_after_phonon_scattering(std::size_t idx_phonon_branch);
+    void select_final_state_after_impact_ionization();
+
+    std::mt19937& get_random_generator() { return m_random_generator; }
+    void          draw_random_k_point_at_energy(double energy, std::size_t idx_band) {
+        m_mesh_bz->draw_random_k_point_at_energy(energy, idx_band, get_random_generator());
+    }
+    void update_history() { m_history.add_particle_state(m_time, m_position, m_k_vector, m_velocity, m_energy, m_gamma, m_band_index); }
+    void add_scattering_event_to_history(std::size_t event_index) { m_history.add_event(event_index); }
+    void print_history_summary() const;
+    const particle_history& get_history() const { return m_history; }
+    void                    reset_history() { m_history = particle_history(m_index); }
+    void                    export_history_to_csv(const std::string& filename) const;
+    double                  compute_mean_energy() const;
+    double                  extract_impact_ionization_coeff() const;
+    double                 extract_global_average_velocity() const;
+};
+
+}  // namespace uepm::fbmc/**
+ * @file single_part_fbmc.cpp
+ * @author
+ * @brief Single-particle FBMC with null-collision (Option A)
+ * @version 0.1
+ * @date 2025-09-19
+ */
+
+#include "single_part_fbmc.hpp"
+
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fmt/ostream.h>
+#include <fmt/ranges.h>
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <numeric>
+#include <random>
+#include <vector>
+
+#include "keldysh_impactio.hpp"
+#include "physical_constants.hpp"
+
+namespace uepm::fbmc {
+
+Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz,
+                                                       const Bulk_environment&        bulk_env,
+                                                       const Simulation_parameters&   sim_params,
+                                                       std::size_t                    nb_particles)
+    : m_ptr_mesh_bz(ptr_mesh_bz),
+      m_bulk_env(bulk_env),
+      m_sim_params(sim_params),
+      m_nb_particles(nb_particles),
+      m_time(0.0) {
+    m_list_particle.reserve(m_nb_particles);
+    for (std::size_t i = 0; i < m_nb_particles; ++i) {
+        particle particle(i, particle_type::electron, m_ptr_mesh_bz);
+        particle.set_position({0.0, 0.0, 0.0});
+        m_list_particle.emplace_back(std::move(particle));
+    }
+
+    const double thermal_energy = (3.0 / 2.0) * m_bulk_env.m_temperature * uepm::constants::k_b_eV;
+    std::cout << "Thermal energy at " << m_bulk_env.m_temperature << " K: " << thermal_energy << " eV\n";
+
+    for (auto& particle : m_list_particle) {
+        particle.set_energy(thermal_energy);
+        particle.set_velocity({0.0, 0.0, 0.0});
+    }
+
+    // Draw an initial k-vector at that energy (band 0 here)
+    fmt::print("Drawing initial k-vector at thermal energy...\n");
+#pragma omp parallel for
+    for (auto& particle : m_list_particle) {
+        vector3 initial_k = m_ptr_mesh_bz->draw_random_k_point_at_energy(thermal_energy, 0, particle.get_random_generator());
+        particle.set_k_vector(initial_k);
+        std::cout << "Initial k-vector (drawn at thermal energy): " << initial_k << "\n";
+    }
+
+    // Attach containing tetra
+    for (auto& particle : m_list_particle) {
+        uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(particle.get_k_vector());
+        if (containing_tetra == nullptr) {
+            throw std::runtime_error("Initial k-point is out of the Brillouin zone mesh.");
+        }
+        particle.set_containing_bz_mesh_tetra(containing_tetra);
+        // Physical total rate at current k
+        std::array<double, 8> rates = particle.interpolate_phonon_scattering_rate_at_location(particle.get_k_vector());
+        const double          Gamma = std::accumulate(rates.begin(), rates.end(), 0.0);
+        particle.set_gamma(Gamma);
+
+        // Sync velocity & energy
+        particle.update_group_velocity();
+        particle.update_energy();
+
+        const double init_energy_true = containing_tetra->interpolate_energy_at_band(particle.get_k_vector(), 0);
+
+        fmt::print("Initial energy (set):  {:.10f} eV\n", thermal_energy);
+        fmt::print("Initial energy (true): {:.10f} eV\n", init_energy_true);
+
+        particle.update_history();
+    }
+}
+
+
+// void Single_particle_simulation::run_simulation() {
+//     // Upper bound for null-collision
+//     double p_gamma_elph = m_ptr_mesh_bz->compute_P_Gamma() * 1.2;
+//     if (!(p_gamma_elph > 0.0) || !std::isfinite(p_gamma_elph)) {
+//         fmt::print("Invalid p_gamma (<=0 or NaN)\n");
+//         return;
+//     }
+//     KeldyshImpactIonization keldysh_impactio;
+//     double                  max_energy     = 8.0;  // Example value, replace with actual max energy
+//     double                  p_gamma_impact = keldysh_impactio.compute_rate(max_energy);
+
+//     double p_gamma = p_gamma_elph + p_gamma_impact;
+//     if (!(p_gamma > 0.0) || !std::isfinite(p_gamma)) {
+//         fmt::print("Invalid total p_gamma (<=0 or NaN)\n");
+//         return;
+//     }
+//     fmt::print("Using p_gamma = {:.3e} 1/s (el-ph: {:.3e}, impact ionization: {:.3e})\n", p_gamma, p_gamma_elph, p_gamma_impact);
+
+//     const double WarningGammaThreshold = 1e10;  // 1/s
+//     const double T_end                 = m_sim_params.m_simulation_time;
+
+// // Parallelize over particles; each runs to T_end; each particle are independent (it's like multiple single-particle simulations)
+// #pragma omp parallel for schedule(dynamic) num_threads(m_sim_params.m_nb_openmp_threads)
+//     for (std::size_t idx = 0; idx < m_list_particle.size(); ++idx) {
+//         fmt::print("Running simulation for particle {}\n", idx);
+//         auto& particle = m_list_particle[idx];
+
+//         std::uniform_real_distribution<double> U01(0.0, 1.0);
+
+//         while (particle.get_time() <= T_end) {
+//             if (particle.get_index() == 0 && particle.get_iter() % 1000 == 0) {
+//                 fmt::print("Particle {} at time {:.3e} / {:.3e} s, iteration {}, energy {:.4f} eV\n",
+//                            particle.get_index(),
+//                            particle.get_time(),
+//                            T_end,
+//                            particle.get_iter(),
+//                            particle.get_energy());
+//             }
+
+//             // Draw free flight with upper bound p_gamma
+//             particle.draw_free_flight_time(p_gamma);
+//             const double dt = particle.get_current_free_flight_time();
+//             // Advance particle time (add a setter if needed)
+//             // particle.set_time(particle.get_time() + dt);
+
+//             // Drift
+//             particle.update_k_vector(m_bulk_env.m_electric_field);
+
+//             // Re-attach tetra; fold if needed
+//             uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(particle.get_k_vector());
+//             if (containing_tetra == nullptr) {
+//                 const vector3 folded_k = m_ptr_mesh_bz->retrieve_k_inside_mesh_geometry(particle.get_k_vector());
+//                 particle.set_k_vector(folded_k);
+//                 containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(particle.get_k_vector());
+//                 if (containing_tetra == nullptr) {
+//                     throw std::runtime_error("Particle k-point is out of the Brillouin zone mesh after folding.");
+//                 }
+//             }
+//             particle.set_containing_bz_mesh_tetra(containing_tetra);
+
+//             // Update E & v after drift
+//             particle.update_energy();
+//             particle.update_group_velocity();
+
+//             // Physical total rate at current k
+//             std::array<double, 8> rates_elph = particle.interpolate_phonon_scattering_rate_at_location(particle.get_k_vector());
+//             std::array<double, 8> rates_tetra_elph =
+//                 containing_tetra->interpolate_phonon_scattering_rate_at_location(particle.get_k_vector(), particle.get_band_index());
+//             const double Gamma_elph           = std::accumulate(rates_elph.begin(), rates_elph.end(), 0.0) + p_gamma_impact;
+//             double       sum_rates_tetra = std::accumulate(rates_tetra_elph.begin(), rates_tetra_elph.end(), 0.0);
+//             double       energy_tetra    = containing_tetra->interpolate_energy_at_band(particle.get_k_vector(), particle.get_band_index());
+//             double       energy_particle = particle.get_energy();
+//             double       rate_impactio   = keldysh_impactio.compute_rate(energy_particle);
+//             double       Gamma           = Gamma_elph + rate_impactio;
+//             // Debug checks
+//             if (std::fabs(energy_tetra - particle.get_energy()) > 1e-6) {
+//                 fmt::print("Warning: Energy mismatch: particle = {:.6e} eV, tetra = {:.6e} eV\n", particle.get_energy(), energy_tetra);
+//             }
+//             if (std::fabs(Gamma - sum_rates_tetra) > 1e-6) {
+//                 fmt::print("Warning: Gamma mismatch: Gamma = {:.6e}, sum_rates_tetra = {:.6e}\n", Gamma, sum_rates_tetra);
+//             }
+//             particle.set_gamma(Gamma);
+
+//             if (!(Gamma > 0.0) || !std::isfinite(Gamma)) {
+//                 // Null event only this step
+//                 continue;
+//             }
+//             if (Gamma < WarningGammaThreshold) {
+//                 fmt::print("Warning: Gamma < {} for particle {} at time {} s\n",
+//                            WarningGammaThreshold,
+//                            particle.get_index(),
+//                            particle.get_time());
+//             }
+
+//             // Null-collision acceptance
+//             double accept = Gamma / p_gamma;
+//             if (accept > 1.0) {
+//                 accept = 1.0;  // clamp if bound violated
+//             }
+
+//             if (U01(particle.get_random_generator()) > accept) {
+//                 particle.add_scattering_event_to_history(9);
+//                 continue;
+//             }
+//             // to gain place, we update the history only after a real event
+//             particle.update_history();
+
+//             // Real event: pick channel
+//             const double rsel = U01(particle.get_random_generator()) * Gamma;
+//             double       cum  = 0.0;
+//             std::size_t  event_idx   = 0;
+//             for (; event_idx < rates_elph.size(); ++event_idx) {
+//                 cum += rates_elph[event_idx];
+//                 if (rsel <= cum) {
+//                     break;
+//                 }
+//             }
+//             if (event_idx == rates_elph.size()) {
+//                 // Impact ionization event
+//                 event_idx = 8;  // index 8 for impact ionization
+//                 particle.select_final_state_after_impact_ionization();
+//                 fmt::print("Particle {} underwent impact ionization at time {:.3e} s, energy {:.3f} eV\n",
+//                            particle.get_index(),
+//                            particle.get_time(),
+//                            particle.get_energy());
+//             } else {
+//                 // Phonon scattering event
+//                 // event_idx is already set correctly
+//                 particle.select_final_state_after_phonon_scattering(event_idx);
+//             }
+//             particle.add_scattering_event_to_history(event_idx);
+
+
+
+
+//         }  // while particle
+//         particle.update_history();  // final update
+//                                     // Print summary for this particle
+//         particle.print_history_summary();
+
+//     }  // omp parallel for
+// }
+
+void Single_particle_simulation::run_simulation() {
+    // Upper bound for null-collision (el-ph)
+    double p_gamma_elph = m_ptr_mesh_bz->compute_P_Gamma() * 1.2;
+    if (!(p_gamma_elph > 0.0) || !std::isfinite(p_gamma_elph)) {
+        fmt::print("Invalid p_gamma_elph (<=0 or NaN)\n");
+        return;
+    }
+
+    // Upper bound contribution for impact ionization (global, based on an assumed max energy)
+    KeldyshImpactIonization keldysh_impactio;
+    double                  max_energy     = 8.0;  // must be a true upper bound of particle energy
+    double                  p_gamma_impact = keldysh_impactio.compute_rate(max_energy) * 1.2;
+    if (!(p_gamma_impact >= 0.0) || !std::isfinite(p_gamma_impact)) {
+        fmt::print("Invalid p_gamma_impact (NaN)\n");
+        return;
+    }
+
+    const double p_gamma = p_gamma_elph + p_gamma_impact;
+    if (!(p_gamma > 0.0) || !std::isfinite(p_gamma)) {
+        fmt::print("Invalid total p_gamma (<=0 or NaN)\n");
+        return;
+    }
+
+    fmt::print("Using p_gamma = {:.3e} 1/s (el-ph: {:.3e}, impact bound: {:.3e})\n", p_gamma, p_gamma_elph, p_gamma_impact);
+
+    const double WarningGammaThreshold = 1e10;  // 1/s
+    const double T_end                 = m_sim_params.m_simulation_time;
+
+#pragma omp parallel for schedule(dynamic) num_threads(m_sim_params.m_nb_openmp_threads)
+    for (std::size_t idx = 0; idx < m_list_particle.size(); ++idx) {
+#pragma omp critical
+        fmt::print("Running simulation for particle {}\n", idx);
+
+        auto&                                  particle = m_list_particle[idx];
+        std::uniform_real_distribution<double> U01(0.0, 1.0);
+
+        while (particle.get_time() <= T_end) {
+            if (particle.get_index() == 0 && particle.get_iter() % 1000 == 0) {
+#pragma omp critical
+                fmt::print("Particle {} at time {:.3e} / {:.3e} s, iteration {}, energy {:.4f} eV\n",
+                           particle.get_index(),
+                           particle.get_time(),
+                           T_end,
+                           particle.get_iter(),
+                           particle.get_energy());
+            }
+
+            // Draw free flight with global upper bound p_gamma
+            particle.draw_free_flight_time(p_gamma);
+
+            // Drift
+            particle.update_k_vector(m_bulk_env.m_electric_field);
+
+            // Re-attach tetra; fold if needed
+            uepm::mesh_bz::Tetra* containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(particle.get_k_vector());
+            if (containing_tetra == nullptr) {
+                const vector3 folded_k = m_ptr_mesh_bz->retrieve_k_inside_mesh_geometry(particle.get_k_vector());
+                particle.set_k_vector(folded_k);
+                containing_tetra = m_ptr_mesh_bz->find_tetra_at_location(particle.get_k_vector());
+                if (containing_tetra == nullptr) {
+                    throw std::runtime_error("Particle k-point is out of the Brillouin zone mesh after folding.");
+                }
+            }
+            particle.set_containing_bz_mesh_tetra(containing_tetra);
+
+            // Update E & v after drift
+            particle.update_energy();
+            particle.update_group_velocity();
+
+            // Physical rates at current k
+            std::array<double, 8> rates_elph = particle.interpolate_phonon_scattering_rate_at_location(particle.get_k_vector());
+            const double          Gamma_elph = std::accumulate(rates_elph.begin(), rates_elph.end(), 0.0);
+
+            const double energy_particle = particle.get_energy();
+            const double rate_impactio   = keldysh_impactio.compute_rate(energy_particle);
+            const double Gamma           = Gamma_elph + rate_impactio;
+
+            // Debug checks (optional)
+            const double energy_tetra = containing_tetra->interpolate_energy_at_band(particle.get_k_vector(), particle.get_band_index());
+            if (std::fabs(energy_tetra - energy_particle) > 1e-6) {
+#pragma omp critical
+                fmt::print("Warning: Energy mismatch: particle = {:.6e} eV, tetra = {:.6e} eV\n", energy_particle, energy_tetra);
+            }
+
+            particle.set_gamma(Gamma);
+
+            if (!(Gamma > 0.0) || !std::isfinite(Gamma)) {
+                // Null event only this step
+                continue;
+            }
+
+            if (Gamma < WarningGammaThreshold) {
+#pragma omp critical
+                fmt::print("Warning: Gamma < {} for particle {} at time {} s\n",
+                           WarningGammaThreshold,
+                           particle.get_index(),
+                           particle.get_time());
+            }
+
+            // Real event
+            particle.update_history();
+
+            // Null-collision acceptance
+            double accept = Gamma / p_gamma;
+
+            // Bound violation check: null-collision method requires Gamma <= p_gamma
+            // Allow a tiny epsilon for floating rounding.
+            constexpr double eps = 1e-12;
+            if (accept > 1.0 + eps) {
+                throw std::runtime_error("Null-collision bound violated: Gamma > p_gamma. Increase bounds.");
+            }
+            if (accept > 1.0) {
+                accept = 1.0;
+            }
+
+            if (U01(particle.get_random_generator()) > accept) {
+                particle.add_scattering_event_to_history(9);  // null/self-scatter
+                continue;
+            }
+
+            const double rsel = U01(particle.get_random_generator()) * Gamma;
+
+            // Select phonon channel or impact ionization
+            const double sum_elph = Gamma_elph;
+
+            if (rsel > sum_elph) {
+                // Impact ionization event
+                const std::size_t event_idx = 8;
+                particle.select_final_state_after_impact_ionization();
+#pragma omp critical
+                fmt::print("Particle {} underwent impact ionization at time {:.3e} s, energy {:.3f} eV\n",
+                           particle.get_index(),
+                           particle.get_time(),
+                           particle.get_energy());
+                particle.add_scattering_event_to_history(event_idx);
+            } else {
+                // Phonon scattering event
+                double      cum       = 0.0;
+                std::size_t event_idx = 0;
+                for (; event_idx < rates_elph.size(); ++event_idx) {
+                    cum += rates_elph[event_idx];
+                    if (rsel <= cum) {
+                        break;
+                    }
+                }
+                if (event_idx >= rates_elph.size()) {
+                    // Guard against numerical edge cases (rsel very close to sum_elph)
+                    event_idx = rates_elph.size() - 1;
+                }
+
+                particle.select_final_state_after_phonon_scattering(event_idx);
+                particle.add_scattering_event_to_history(event_idx);
+            }
+        }  // while particle
+
+        particle.update_history();  // final update
+        // particle.print_history_summary();
+    }  // omp parallel for
+}
+
+void Single_particle_simulation::extract_stats_and_export(const std::string& filename) {
+    double mean_energy = 0.0;
+    double mean_velocity_norm = 0.0;
+    double ionization_coeff = 0.0;
+    for (const auto& particle : m_list_particle) {
+        mean_energy += particle.compute_mean_energy();
+        mean_velocity_norm += particle.extract_global_average_velocity();
+        ionization_coeff += particle.extract_impact_ionization_coeff();
+    }
+    mean_energy /= static_cast<double>(m_list_particle.size());
+    mean_velocity_norm /= static_cast<double>(m_list_particle.size());
+    ionization_coeff /= static_cast<double>(m_list_particle.size());
+
+    fmt::print("Extracted stats across {} particles:\n", m_list_particle.size());
+    fmt::print("  Mean energy: {:.6f} eV\n", mean_energy);
+    fmt::print("  Mean velocity norm: {:.6e} m/s\n", mean_velocity_norm);
+    fmt::print("  Mean impact ionization coefficient: {:.3e} 1/s\n", ionization_coeff);
+
+    // Export to CSV
+    std::ofstream ofs(filename);
+    if (!ofs) {
+        fmt::print("Error: Could not open file {} for writing\n", filename);
+        return;
+    }
+    ofs << "mean_energy_eV,mean_velocity_norm_m_per_s,mean_ionization_coeff_1_per_s\n";
+    ofs << fmt::format("{:.6f},{:.6e},{:.3e}\n", mean_energy, mean_velocity_norm, ionization_coeff);
+    fmt::print("Exported extracted stats to {}\n", filename);
+}
+
+void Single_particle_simulation::export_history(const std::string& filename) {
+    for (auto& particle : m_list_particle) {
+        particle.print_history_summary();
+        std::string filename_particle = fmt::format("{}_particle_{}.csv", filename, particle.get_index());
+        particle.export_history_to_csv(filename_particle);
+        fmt::print("Exported history of particle {} to {}\n", particle.get_index(), filename_particle);
+    }
+}
+
+}  // namespace uepm::fbmc
+/**
+ * @file single_part_fbmc.hpp
+ * @author your name (you@domain.com)
+ * @brief
+ * @version 0.1
+ * @date 2025-09-17
+ *
+ * @copyright Copyright (c) 2025
+ *
+ */
+
+#pragma once
+
+#include <array>
+#include <cmath>
+#include <cstddef>
+
+#include "electron_phonon.hpp"
+#include "particle.hpp"
+#include "vector.hpp"
+
+namespace uepm::fbmc {
+
+struct Bulk_environment {
+    double  m_temperature;
+    vector3 m_electric_field;
+    double  m_doping_concentration;
+};
+
+struct Simulation_parameters {
+    double      m_simulation_time;
+    std::size_t m_export_frequency  = 10;
+    std::size_t m_nb_openmp_threads = 1;
+};
+
+class Single_particle_simulation {
+ private:
+    uepm::mesh_bz::ElectronPhonon* m_ptr_mesh_bz;
+    Bulk_environment               m_bulk_env;
+    Simulation_parameters          m_sim_params;
+    std::vector<particle>          m_list_particle;
+    std::size_t                    m_nb_particles;
+
+    double      m_time = 0.0;
+    std::size_t m_step = 0;
+
+ public:
+    double a = 0;
+    Single_particle_simulation(uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz,
+                               const Bulk_environment&        bulk_env,
+                               const Simulation_parameters&   sim_params,
+                               std::size_t                    nb_particles = 1);
+
+    std::size_t get_nb_particles() const { return m_nb_particles; }
+    void        set_nb_particles(std::size_t nb_particles) { m_nb_particles = nb_particles; }
+
+    void run_simulation();
+
+    void export_history(const std::string& filename);
+
+    void extract_stats_and_export(const std::string& filename);
+};
+
+}  // namespace uepm::fbmc

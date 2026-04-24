@@ -4,6 +4,7 @@ set(TEST_DIRS
   "${CMAKE_CURRENT_SOURCE_DIR}/bz_mesh"
   "${CMAKE_CURRENT_SOURCE_DIR}/epp"
   "${CMAKE_CURRENT_SOURCE_DIR}/fbmc"
+  "${CMAKE_CURRENT_SOURCE_DIR}/poisson"
 )
 
 foreach(dir IN LISTS TEST_DIRS)

@@ -106,6 +106,13 @@ if(Eigen_ADDED)
 endif()
 
 
+# plog (pin commit)
+FetchContent_Declare(
+  plog
+  GIT_REPOSITORY "https://github.com/SergiusTheBest/plog"
+  GIT_TAG "2ab53dc768507fae46a30426e82e8018d093416b")
+message("Fetching plog lib ...")
+FetchContent_MakeAvailable(plog)
 
 # fmt (pin release)
 message(STATUS "Fetching fmt")
@@ -222,6 +229,9 @@ add_subdirectory(src/EPP)
 add_subdirectory(src/BZ_MESH)
 add_subdirectory(src/FBMC)
 add_subdirectory(src/AMC)
+add_subdirectory(src/DEVICE_MESH)
+add_subdirectory(src/Poisson)
+add_subdirectory(src/Physics)
 add_subdirectory(apps)
 
 # ---------------------------- Tests ----------------------------
