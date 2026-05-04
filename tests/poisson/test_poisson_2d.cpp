@@ -20,20 +20,20 @@
 
 TEST_CASE("Testing Poisson 2d on a PN Junction.") {
 
-    std::string material_file = CMAKE_SOURCE_DIR + std::string("/data/materials.yaml"); 
+    std::string material_file = PROJECT_SRC_DIR + std::string("/data/materials.yaml"); 
     std::cout << "Material file : " << material_file << std::endl;
-    physic::material::list_materials list_of_materials;
+    uepm::physic::material::list_materials list_of_materials;
     list_of_materials.load_materials_from_file(material_file);
 
-    static const std::string file_input_test_msh = CMAKE_SOURCE_DIR + std::string("/tests/test_data/2D_pn_diode_5V.msh");
-    file::msh_file           fileMSH(file_input_test_msh);
+    static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/tests/test_data/2D_pn_diode_5V.msh");
+    uepm::file::msh_file           fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
     fileMSH.read_states();
-    mesh::mesh* p_mesh     = fileMSH.get_p_mesh();
+    uepm::mesh::mesh* p_mesh     = fileMSH.get_p_mesh();
     std::size_t nbVertices = p_mesh->get_nb_vertices();
 
     std::cout << "Start building Poisson system ..." << std::endl;
-    fem::poisson_solver_2d MyPoissonSolver(p_mesh, p_mesh->get_nb_vertices(), list_of_materials);
+    uepm::fem::poisson_solver_2d MyPoissonSolver(p_mesh, p_mesh->get_nb_vertices(), list_of_materials);
     MyPoissonSolver.compute_stiffness_matrix();
     MyPoissonSolver.update_second_member();
     
@@ -48,7 +48,7 @@ TEST_CASE("Testing Poisson 2d on a PN Junction.") {
     MyPoissonSolver.add_solution_to_mesh_functions("Armin_Solution");
     fileMSH.export_as_msh("TEST_POISSON_DIODE_PN_5V.msh", {}, 1);
     const std::string FileName = "TEST_POISSON_DIODE_PN_5V.vtk";
-    file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
 
     // p_mesh->export_all_vertices_data_to_csv("POISSON_PN_CSV.csv");
 

@@ -21,20 +21,20 @@
 
 
 TEST_CASE("Testing Poisson 3d on a PN Junction.") {
-    std::string material_file = CMAKE_SOURCE_DIR + std::string("/data/materials.yaml");
-    physic::material::list_materials list_of_materials;
+    std::string material_file = PROJECT_SRC_DIR + std::string("/data/materials.yaml");
+    uepm::physic::material::list_materials list_of_materials;
     list_of_materials.load_materials_from_file(material_file);
 
 
-    static const std::string file_input_test_STF = CMAKE_SOURCE_DIR + std::string("/tests/test_data/diode_test_admc.msh");
-    file::msh_file           fileMSH(file_input_test_STF);
+    static const std::string file_input_test_STF = PROJECT_SRC_DIR + std::string("/tests/test_data/diode_test_admc.msh");
+    uepm::file::msh_file           fileMSH(file_input_test_STF);
     fileMSH.read_mesh();
     fileMSH.read_states();
-    mesh::mesh* p_mesh     = fileMSH.get_p_mesh();
+    uepm::mesh::mesh* p_mesh     = fileMSH.get_p_mesh();
     std::size_t nbVertices = p_mesh->get_nb_vertices();
 
     std::cout << "Start building Poisson system ..." << std::endl;
-    fem::poisson_solver_3d MyPoissonSolver(p_mesh, p_mesh->get_nb_vertices(), list_of_materials);
+    uepm::fem::poisson_solver_3d MyPoissonSolver(p_mesh, p_mesh->get_nb_vertices(), list_of_materials);
     MyPoissonSolver.compute_stiffness_matrix();
     std::cout << "Start computing second member ..." << std::endl;
     MyPoissonSolver.update_second_member();
@@ -50,7 +50,7 @@ TEST_CASE("Testing Poisson 3d on a PN Junction.") {
     fileMSH.export_as_msh("3D_TEST_POISSON_DIODE_PIN.msh", {}, 1);
     const std::string FileName = "TEST_POISSON_DIODE_PN_5V.vtk";
 
-    file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
 
     p_mesh->export_all_vertices_data_to_csv("POISSON_PIN_CSV.csv");
 
@@ -69,15 +69,15 @@ TEST_CASE("Testing Poisson 3d on a PN Junction.") {
 }
 
 // TEST_CASE("Testing Poisson 3d on a FANCY PN Junction.") {
-//     static const std::string file_input_test_msh = CMAKE_SOURCE_DIR + std::string("/example/data/FANCY_3D_PN_DIODE.STF");
-//     file::STF_file           fileMSH(file_input_test_msh);
+//     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/FANCY_3D_PN_DIODE.STF");
+//     uepm::file::STF_file           fileMSH(file_input_test_msh);
 //     fileMSH.read_mesh();
 //     fileMSH.read_states();
-//     mesh::mesh* p_mesh     = fileMSH.get_p_mesh();
+//     uepm::mesh::mesh* p_mesh     = fileMSH.get_p_mesh();
 //     std::size_t nbVertices = p_mesh->get_nb_vertices();
 
 //     std::cout << "Start building Poisson system ..." << std::endl;
-//     fem::poisson_solver_3d MyPoissonSolver(p_mesh, p_mesh->get_nb_vertices());
+//     uepm::fem::poisson_solver_3d MyPoissonSolver(p_mesh, p_mesh->get_nb_vertices());
 //     MyPoissonSolver.compute_stiffness_matrix();
 //     std::cout << "Start computing second member ..." << std::endl;
 //     MyPoissonSolver.update_second_member();

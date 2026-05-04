@@ -17,7 +17,7 @@ foreach(dir IN LISTS TEST_DIRS)
     set(exe "${dir_name}_${base}")
 
     add_executable(${exe} "${src}")
-    target_link_libraries(${exe} PRIVATE doctest::doctest libepp lib_bzmesh ${EXTRA_LIBS})
+    target_link_libraries(${exe} PRIVATE doctest::doctest libepp lib_bzmesh libpoisson libmesh libfile ${EXTRA_LIBS})
 
     if(COMMAND doctest_discover_tests)
       doctest_discover_tests(${exe}

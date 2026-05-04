@@ -226,6 +226,7 @@ include_directories(${PROJECT_SOURCE_DIR}/external/fast-cpp-csv-parser)
 # ---------------------------- Subprojects ----------------------------
 add_subdirectory(src/Common)
 add_subdirectory(src/EPP)
+add_subdirectory(src/Parser)
 add_subdirectory(src/BZ_MESH)
 add_subdirectory(src/FBMC)
 add_subdirectory(src/AMC)

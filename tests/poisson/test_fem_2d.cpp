@@ -14,29 +14,32 @@
 #include <cmath>
 
 #include "doctest/doctest.h"
+
+
 #include "finite_element2d.hpp"
+
 #include "materials.hpp"
 #include "msh_file.hpp"
 #include "vtkWriter.hpp"
 
 TEST_CASE("Test the stiffness elementary matrix on ref element") {
     // Construct the element.
-    mesh::vertex V1(0, 0.0, 0.0, 0.0);
-    mesh::vertex V2(1, 1.0, 0.0, 0.0);
-    mesh::vertex V3(2, 0.0, 1.0, 0.0);
-    std::shared_ptr<mesh::element2d> sp_reference_element = std::make_shared<mesh::element2d>(&V1, &V2, &V3);
-    const Eigen::Matrix3d MatrixElementRef = fem::FiniteElementP1System2d::compute_elementary_stiffness_matrix(sp_reference_element);
+    uepm::mesh::vertex V1(0, 0.0, 0.0, 0.0);
+    uepm::mesh::vertex V2(1, 1.0, 0.0, 0.0);
+    uepm::mesh::vertex V3(2, 0.0, 1.0, 0.0);
+    std::shared_ptr<uepm::mesh::element2d> sp_reference_element = std::make_shared<uepm::mesh::element2d>(&V1, &V2, &V3);
+    const Eigen::Matrix3d MatrixElementRef = uepm::fem::FiniteElementP1System2d::compute_elementary_stiffness_matrix(sp_reference_element);
     const Eigen::Matrix3d THEORETICAL_MATRIX{{2.0, -1.0, -1.0}, {-1.0, 1.0, 0.0}, {-1.0, 0.0, 1.0}};
     const Eigen::Matrix3d DIFFERENCE_MATRIX = 0.5 * THEORETICAL_MATRIX - MatrixElementRef;
     CHECK(DIFFERENCE_MATRIX.squaredNorm() < 1e-9);
 }
 
 TEST_CASE("Testing Poisson 2d on a unit circle.") {
-    static const std::string file_input_test_msh = CMAKE_SOURCE_DIR + std::string("/example/data/circle_r1.msh");
-    file::msh_file           fileMSH(file_input_test_msh);
+    static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/circle_r1.msh");
+    uepm::file::msh_file           fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
-    mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
-    fem::FiniteElementP1System2d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
+    uepm::mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
+    uepm::fem::FiniteElementP1System2d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
     MyPoissonTest.compute_stiffness_matrix();
     MyPoissonTest.compute_second_member(4.0);
     MyPoissonTest.apply_dirichlet_condition("Contact_1", 0.0);
@@ -56,15 +59,15 @@ TEST_CASE("Testing Poisson 2d on a unit circle.") {
     CHECK_EQ(max_solution, doctest::Approx(max_test_circle_poisson));
 
     const std::string FileName = "TEST_POISSON_2D_CIRCLE.vtk";
-    file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
 }
 
 TEST_CASE("Testing Poisson 2d on a unit square.") {
-    static const std::string file_input_test_msh = CMAKE_SOURCE_DIR + std::string("/example/data/square_test.msh");
-    file::msh_file           fileMSH(file_input_test_msh);
+    static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/square_test.msh");
+    uepm::file::msh_file           fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
-    mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
-    fem::FiniteElementP1System2d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
+    uepm::mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
+    uepm::fem::FiniteElementP1System2d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
     MyPoissonTest.compute_stiffness_matrix();
     MyPoissonTest.compute_second_member(1.0);
     MyPoissonTest.apply_dirichlet_condition("Contact_1", 0.0);
@@ -87,16 +90,16 @@ TEST_CASE("Testing Poisson 2d on a unit square.") {
     CHECK_EQ(max_solution, doctest::Approx(max_test_square_poisson));
 
     const std::string FileName = "TEST_POISSON_2D_SQUARE.vtk";
-    file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
 }
 
 TEST_CASE("Testing Poisson 2d on a unit square with Neuman BC.") {
-    static const std::string file_input_test_msh = CMAKE_SOURCE_DIR + std::string("/example/data/square_1234.msh");
-    file::msh_file           fileMSH(file_input_test_msh);
+    static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/square_1234.msh");
+    uepm::file::msh_file           fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
-    mesh::mesh* p_mesh = fileMSH.get_p_mesh();
+    uepm::mesh::mesh* p_mesh = fileMSH.get_p_mesh();
 
-    fem::FiniteElementP1System2d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
+    uepm::fem::FiniteElementP1System2d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
     MyPoissonTest.compute_stiffness_matrix();
     MyPoissonTest.compute_second_member(1.0);
     MyPoissonTest.apply_dirichlet_condition("Contact_1", 0.0);
@@ -119,16 +122,16 @@ TEST_CASE("Testing Poisson 2d on a unit square with Neuman BC.") {
     CHECK_EQ(max_solution, doctest::Approx(max_test_square_poisson));
 
     const std::string FileName = "TEST_POISSON_2D_SQUARE_NEUMAN.vtk";
-    file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
 }
 
 TEST_CASE("Testing Poisson 2d with a strong arctan profile.") {
-    static const std::string file_input_test_msh = CMAKE_SOURCE_DIR + std::string("/example/data/square_1234.msh");
-    file::msh_file           fileMSH(file_input_test_msh);
+    static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/square_1234.msh");
+    uepm::file::msh_file           fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
-    mesh::mesh* p_mesh = fileMSH.get_p_mesh();
+    uepm::mesh::mesh* p_mesh = fileMSH.get_p_mesh();
 
-    fem::FiniteElementP1System2d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
+    uepm::fem::FiniteElementP1System2d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
     MyPoissonTest.compute_stiffness_matrix();
 
     auto arctan_profile = [&](double x, double y) {return (- 1000.0 * atan(x-0.5));};
@@ -153,5 +156,5 @@ TEST_CASE("Testing Poisson 2d with a strong arctan profile.") {
     // CHECK_EQ(max_solution, doctest::Approx(max_test_square_poisson));
 
     const std::string FileName = "TEST_POISSON_2D_ARCTAN.vtk";
-    file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
 }

@@ -5,6 +5,7 @@ set(HEADER_FILES_LIBAMC
     scattering_events.hpp
     intervalley_phonon.hpp
     scattering_channels.hpp
+    device_amc_simulation.hpp
   )
 
 
@@ -13,6 +14,7 @@ set(SOURCE_FILES_LIBAMC
     bulk_amc_simulation.cpp
     valley_model.cpp
     intervalley_phonon.cpp
+    device_amc_simulation.cpp
 )
 
 add_library(lib_amc STATIC ${SOURCE_FILES_LIBAMC} ${HEADER_FILES_LIBAMC})
@@ -20,7 +22,7 @@ add_library(lib_amc STATIC ${SOURCE_FILES_LIBAMC} ${HEADER_FILES_LIBAMC})
 target_include_directories(lib_amc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Link with reuired libraries
-target_link_libraries(lib_amc PUBLIC libepp lib_bzmesh)
+target_link_libraries(lib_amc PUBLIC libepp lib_bzmesh libfile libmesh libphysics)
 target_link_libraries(lib_amc PUBLIC Eigen3::Eigen rapidcsv fmt::fmt)
 target_include_directories(lib_amc PUBLIC ${GMSH_INC})
 target_link_libraries(lib_amc PUBLIC ${GMSH_LIB})

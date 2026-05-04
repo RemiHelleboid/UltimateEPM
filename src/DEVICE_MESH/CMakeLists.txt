@@ -17,7 +17,10 @@ set(HEADER_FILES_LIBMESH
     "octree_node.hpp"
     "utils_mesh.hpp"
     "quadrangular_interpolators.hpp"
-    "grid_data.hpp")
+    "grid_data.hpp"
+    "device.hpp"
+    "contact.hpp"
+    )
 
 set(SOURCE_FILES_LIBMESH
     "geometry_entity.cpp"
@@ -32,6 +35,7 @@ set(SOURCE_FILES_LIBMESH
     "dataset.cpp"
     "writer.cpp"
     "quadtree_node.cpp"
+    "device.cpp"
     "octree_node.cpp")
 
 # Add the STF library for reading STF files

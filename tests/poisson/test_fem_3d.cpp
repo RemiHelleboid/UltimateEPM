@@ -22,12 +22,12 @@
 
 TEST_CASE("Test the stiffness elementary matrix on ref element") {
     // Construct the element.
-    mesh::vertex                     V1(0, 0.0, 0.0, 0.0);
-    mesh::vertex                     V2(1, 1.0, 0.0, 0.0);
-    mesh::vertex                     V3(2, 0.0, 1.0, 0.0);
-    mesh::vertex                     V4(3, 0.0, 0.0, 1.0);
-    std::shared_ptr<mesh::element3d> sp_reference_element = std::make_shared<mesh::element3d>(&V1, &V2, &V3, &V4);
-    const Eigen::Matrix4d MatrixElementRef = fem::FiniteElementP1System3d::compute_elementary_stiffness_matrix(sp_reference_element);
+    uepm::mesh::vertex                     V1(0, 0.0, 0.0, 0.0);
+    uepm::mesh::vertex                     V2(1, 1.0, 0.0, 0.0);
+    uepm::mesh::vertex                     V3(2, 0.0, 1.0, 0.0);
+    uepm::mesh::vertex                     V4(3, 0.0, 0.0, 1.0);
+    std::shared_ptr<uepm::mesh::element3d> sp_reference_element = std::make_shared<uepm::mesh::element3d>(&V1, &V2, &V3, &V4);
+    const Eigen::Matrix4d MatrixElementRef = uepm::fem::FiniteElementP1System3d::compute_elementary_stiffness_matrix(sp_reference_element);
     Eigen::Matrix4d THEORETICAL_MATRIX{{3.0, -1.0, -1.0, -1.0}, {-1.0, 1.0, 0.0, 0.0}, {-1.0, 0.0, 1.0, 0.0}, {-1.0, 0.0, 0.0, 1.0}};
     THEORETICAL_MATRIX = THEORETICAL_MATRIX * -1.0; 
     const Eigen::Matrix4d DIFFERENCE_MATRIX = (1.0 / 6.0) * THEORETICAL_MATRIX - MatrixElementRef;
@@ -38,11 +38,11 @@ TEST_CASE("Test the stiffness elementary matrix on ref element") {
 }
 
 TEST_CASE("Testing Poisson 3d on a unit sphere.") {
-    static const std::string file_input_test_msh = CMAKE_SOURCE_DIR + std::string("/example/data/sphere_r1.msh");
-    file::msh_file           fileMSH(file_input_test_msh);
+    static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/sphere_r1.msh");
+    uepm::file::msh_file           fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
-    mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
-    fem::FiniteElementP1System3d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
+    uepm::mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
+    uepm::fem::FiniteElementP1System3d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
     MyPoissonTest.compute_stiffness_matrix();
     MyPoissonTest.compute_second_member(-6.0);
     MyPoissonTest.apply_dirichlet_condition("Contact_1", 0.0);
@@ -63,15 +63,15 @@ TEST_CASE("Testing Poisson 3d on a unit sphere.") {
     CHECK_EQ(max_solution, doctest::Approx(max_test_circle_sphere).epsilon(0.01));
 
     const std::string FileName = "TEST_POISSON_3D_SPHERE.vtk";
-    file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
 }
 
 // TEST_CASE("Testing Poisson 3d on a unit cube.") {
-//     static const std::string file_input_test_msh = CMAKE_SOURCE_DIR + std::string("/example/data/simple_cube.msh");
-//     file::msh_file           fileMSH(file_input_test_msh);
+//     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/simple_cube.msh");
+//     uepm::file::msh_file           fileMSH(file_input_test_msh);
 //     fileMSH.read_mesh();
-//     mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
-//     fem::FiniteElementP1System3d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
+//     uepm::mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
+//     uepm::fem::FiniteElementP1System3d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
 //     MyPoissonTest.compute_stiffness_matrix();
 
 //     auto func3d = [](double x, double y, double z) {return (2.0*M_PI) * (2.0*M_PI) * std::sin((2.0*M_PI)*x); };
@@ -98,15 +98,15 @@ TEST_CASE("Testing Poisson 3d on a unit sphere.") {
 //     MyPoissonTest.add_solution_to_mesh_functions("ArminxPoissonxSolution");
 
 //     const std::string FileName = "test_3d_FEM.vtk";
-//     file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+//     uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
 // }
 
 // TEST_CASE("Testing Poisson 3d on a unit cube with Neuman BC.") {
-//     static const std::string file_input_test_msh = CMAKE_SOURCE_DIR + std::string("/example/data/simple_cube.msh");
-//     file::msh_file           fileMSH(file_input_test_msh);
+//     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/simple_cube.msh");
+//     uepm::file::msh_file           fileMSH(file_input_test_msh);
 //     fileMSH.read_mesh();
-//     mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
-//     fem::FiniteElementP1System3d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
+//     uepm::mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
+//     uepm::fem::FiniteElementP1System3d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
 //     MyPoissonTest.compute_stiffness_matrix();
 //     MyPoissonTest.compute_second_member(1.0);
 //     MyPoissonTest.apply_neuman_condition("Contact_1", -5.0);
