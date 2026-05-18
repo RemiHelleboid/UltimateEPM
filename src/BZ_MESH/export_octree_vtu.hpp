@@ -15,15 +15,12 @@
 #include <fstream>
 #include <memory>
 #include <string>
-#include <vector>
 
-// Adjust these includes/namespaces to your project
+#include "vector_bz.hpp"
 #include "bbox_mesh.hpp"
 #include "octree_bz.hpp"
 
 namespace uepm::mesh_bz {
-
-
 
 
 struct VTUBuffer {

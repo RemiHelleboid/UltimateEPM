@@ -34,7 +34,7 @@
 #include "bz_states.hpp"
 #include "physical_constants.hpp"
 #include "physical_functions.hpp"
-#include "vector.hpp"
+#include "vector_bz.hpp"
 #include "yaml-cpp/yaml.h"
 
 namespace uepm::mesh_bz {

@@ -18,6 +18,7 @@ set(SOURCE_FILES_LIBAMC
 )
 
 add_library(lib_amc STATIC ${SOURCE_FILES_LIBAMC} ${HEADER_FILES_LIBAMC})
+add_library(uepm::amc ALIAS lib_amc)
 
 target_include_directories(lib_amc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

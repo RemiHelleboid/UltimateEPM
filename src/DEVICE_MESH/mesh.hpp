@@ -34,7 +34,7 @@
 #include "region.hpp"
 #include "tree_node.hpp"
 #include "utils_mesh.hpp"
-#include "vector.hpp"
+#include "vector_mesh.hpp"
 #include "vertex.hpp"
 
 namespace uepm {

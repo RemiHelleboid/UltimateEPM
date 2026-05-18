@@ -1,12 +1,24 @@
+/**
+ * @file test_vector3.cpp
+ * @author remzerrr (remi.helleboid@gmail.com)
+ * @brief 
+ * @version 0.1
+ * @date 2026-05-18
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
+
 #include <optional>
 #include <sstream>
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest/doctest.h"
-#include "vector.hpp"
 
-using uepm::mesh_bz::permutaion_type;
+#include "vector_bz.hpp"
+
 using uepm::mesh_bz::vector3;
+using uepm::mesh_bz::permutation_type;
 
 TEST_SUITE("[vector3] basics") {
     TEST_CASE("default and value construction + accessors") {
@@ -206,28 +218,28 @@ TEST_SUITE("[vector3] transformations") {
 
         {
             vector3 v = base;
-            v.apply_permutation(permutaion_type::XY);
+            v.apply_permutation(permutation_type::XY);
             CHECK_EQ(v.x(), doctest::Approx(2.0));
             CHECK_EQ(v.y(), doctest::Approx(1.0));
             CHECK_EQ(v.z(), doctest::Approx(3.0));
         }
         {
             vector3 v = base;
-            v.apply_permutation(permutaion_type::XZ);
+            v.apply_permutation(permutation_type::XZ);
             CHECK_EQ(v.x(), doctest::Approx(3.0));
             CHECK_EQ(v.y(), doctest::Approx(2.0));
             CHECK_EQ(v.z(), doctest::Approx(1.0));
         }
         {
             vector3 v = base;
-            v.apply_permutation(permutaion_type::YZ);
+            v.apply_permutation(permutation_type::YZ);
             CHECK_EQ(v.x(), doctest::Approx(1.0));
             CHECK_EQ(v.y(), doctest::Approx(3.0));
             CHECK_EQ(v.z(), doctest::Approx(2.0));
         }
         {
             vector3 v = base;
-            v.apply_permutation(permutaion_type::XYZ);
+            v.apply_permutation(permutation_type::XYZ);
             CHECK_EQ(v.x(), doctest::Approx(1.0));
             CHECK_EQ(v.y(), doctest::Approx(2.0));
             CHECK_EQ(v.z(), doctest::Approx(3.0));
@@ -238,13 +250,13 @@ TEST_SUITE("[vector3] transformations") {
         vector3 base(1.0, 2.0, 3.0);
 
         vector3 yzx = base;
-        yzx.apply_permutation(permutaion_type::YZX);  // (y,z,x)
+        yzx.apply_permutation(permutation_type::YZX);  // (y,z,x)
         CHECK_EQ(yzx.x(), doctest::Approx(2.0));
         CHECK_EQ(yzx.y(), doctest::Approx(3.0));
         CHECK_EQ(yzx.z(), doctest::Approx(1.0));
 
         vector3 zxy = base;
-        zxy.apply_permutation(permutaion_type::ZXY);  // (z,x,y)
+        zxy.apply_permutation(permutation_type::ZXY);  // (z,x,y)
         CHECK_EQ(zxy.x(), doctest::Approx(3.0));
         CHECK_EQ(zxy.y(), doctest::Approx(1.0));
         CHECK_EQ(zxy.z(), doctest::Approx(2.0));

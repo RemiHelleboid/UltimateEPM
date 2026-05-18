@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "geometry_entity.hpp"
-#include "vector.hpp"
+#include "vector_mesh.hpp"
 
 namespace uepm {
 

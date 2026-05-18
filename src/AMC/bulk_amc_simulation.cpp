@@ -254,7 +254,7 @@ void bulk_amc_simulation::drift_particle(particle_amc& p, double dt) {
     const auto&   valley                = m_valleys[valley_index];
     const vector3 electric_field_valley = valley.to_valley_frame(m_cfg.m_electric_field);
 
-    const double  prefactor    = p.signed_charge() / uepm::constants::h_bar;
+    const double  prefactor    = p.get_signed_charge() / uepm::constants::h_bar;
     const vector3 old_velocity = p.state().velocity;
 
     p.state().local_k += electric_field_valley * (prefactor * dt);

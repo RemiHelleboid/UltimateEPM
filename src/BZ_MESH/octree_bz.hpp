@@ -16,7 +16,7 @@
 
 #include "bbox_mesh.hpp"
 #include "mesh_tetra.hpp"
-#include "vector.hpp"
+#include "vector_bz.hpp"
 
 namespace uepm::mesh_bz {
 

@@ -18,7 +18,7 @@
 #include "bbox.hpp"
 #include "element.hpp"
 #include "element1d.hpp"
-#include "vector.hpp"
+#include "vector_mesh.hpp"
 #include "vertex.hpp"
 
 namespace uepm {

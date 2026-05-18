@@ -31,7 +31,7 @@ namespace uepm::amc {
 
 class valley_model {
  public:
-    using vector3 = uepm::mesh_bz::vector3;
+    using vector3 = uepm::mesh::vector3;
     using mat3    = std::array<std::array<double, 3>, 3>;
     enum class band_type { parabolic, kane };
 

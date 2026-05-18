@@ -13,7 +13,7 @@
 #include <random>
 #include <vector>
 
-#include "vector.hpp"
+#include "vector_bz.hpp"
 
 namespace uepm::mesh_bz {
 

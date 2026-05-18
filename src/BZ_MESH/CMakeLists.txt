@@ -4,7 +4,7 @@ set(HEADER_FILES_LIBBZMESH
     mesh_tetra.hpp
     mesh_vertex.hpp
     bz_mesh.hpp
-    vector.hpp
+    vector_bz.hpp
     iso_triangle.hpp
     bz_states.hpp
     electron_phonon.hpp

@@ -28,7 +28,7 @@ target_link_libraries(amc.epm PRIVATE libepp lib_amc)
 target_compile_features(amc.epm PRIVATE cxx_std_20)
 
 add_executable(device_amc.epm device_analytic_mc.cpp)
-target_link_libraries(device_amc.epm PRIVATE libepp lib_amc libmesh libfile)
+target_link_libraries(device_amc.epm PRIVATE libepp uepm::amc uepm::mesh libfile)
 target_compile_features(device_amc.epm PRIVATE cxx_std_20)
 
 add_executable(impact_io.epm impact_io.cpp)

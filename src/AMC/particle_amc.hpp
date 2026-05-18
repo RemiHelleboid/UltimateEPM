@@ -1,11 +1,11 @@
 /**
  * @file particle_amc.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-03-30
- * 
- * 
+ *
+ *
  */
 
 #pragma once
@@ -17,25 +17,41 @@
 #include <utility>
 #include <vector>
 
-#include "vector.hpp"
+#include "element.hpp"
 #include "physical_constants.hpp"
 #include "scattering_events.hpp"
+#include "vector.hpp"
 
 namespace uepm::amc {
 
 enum class particle_type : std::int8_t { electron, hole };
 
-
-using vector3 = uepm::mesh_bz::vector3;
+using vector3 = uepm::mesh::vector3;
+using element = uepm::mesh::element;
 
 struct particle_state {
     double      time = 0.0;
     vector3     position{};
     vector3     local_k{};
     vector3     velocity{};
-    double      kinetic_energy = 0.0; // in eV
-    double      gamma          = 0.0; // gamma = E for parabolic, gamma = E * (1 + alpha * E) for Kane (in eV)
-    std::size_t valley_index   = 0;
+    vector3     electric_field{};            // in V/m
+    double      doping_concentration = 0.0;  // in m^-3
+    double      kinetic_energy       = 0.0;  // in eV
+    double      gamma                = 0.0;  // gamma = E for parabolic, gamma = E * (1 + alpha * E) for Kane (in eV)
+    std::size_t valley_index         = 0;
+
+    /**
+     * @brief Pointer to the element containing the particle. This is used to avoid having to search for the containing element at each
+     * step, which can be costly. It is updated after each scattering event and after each free flight.
+     *
+     */
+    element* m_containing_element = nullptr;
+
+    /**
+     * @brief Flag to indicate if the particle has crossed a contact during its free flight.
+     *
+     */
+    bool m_crossed_contact = false;
 };
 
 struct particle_snapshot {
@@ -43,9 +59,10 @@ struct particle_snapshot {
     vector3     position{};
     vector3     local_k{};
     vector3     velocity{};
-    double      kinetic_energy = 0.0;
-    double      gamma          = 0.0;
-    std::size_t valley_index   = 0;
+    double      kinetic_energy      = 0.0;
+    double      gamma               = 0.0;
+    std::size_t valley_index        = 0;
+    double      electric_field_norm = 0.0;
 };
 
 class particle_history {
@@ -53,7 +70,7 @@ class particle_history {
     static constexpr std::size_t num_scattering_channels = static_cast<std::size_t>(scattering_event::count);
 
  private:
-    std::size_t                                      m_particle_index = 0;
+    std::size_t                                      m_particle_index          = 0;
     std::size_t                                      m_total_scattering_events = 0;
     std::vector<particle_snapshot>                   m_snapshots;
     std::array<std::size_t, num_scattering_channels> m_scattering_events{};
@@ -101,6 +118,8 @@ class particle_history {
             ++m_scattering_events[index];
         }
     }
+
+    void export_trajectory_as_csv(const std::string& filename) const;
 };
 
 class particle_amc {
@@ -124,13 +143,24 @@ class particle_amc {
         }
     }
 
+    particle_amc(std::size_t index, particle_type type, const particle_state& initial_state, double weight = 1.0)
+        : m_index(index),
+          m_type(type),
+          m_state(initial_state),
+          m_weight(weight),
+          m_history(index) {
+        if (weight <= 0.0) {
+            throw std::invalid_argument("particle weight must be > 0");
+        }
+    }
+
     std::size_t index() const noexcept { return m_index; }
 
     particle_type type() const noexcept { return m_type; }
 
     double weight() const noexcept { return m_weight; }
 
-    double signed_charge() const noexcept {
+    double get_signed_charge() const noexcept {
         constexpr double q = 1.602176634e-19;
         return (m_type == particle_type::electron) ? -q : q;
     }
@@ -166,6 +196,8 @@ class particle_amc {
         m_state.time += dt;
     }
 
+    void set_position(const vector3& position) noexcept { m_state.position = position; }
+
     void translate(const vector3& dr) noexcept { m_state.position += dr; }
 
     void set_local_k(const vector3& local_k) noexcept { m_state.local_k = local_k; }
@@ -186,7 +218,12 @@ class particle_amc {
         m_state.gamma = gamma;
     }
 
+    void set_crossed_contact(bool crossed) noexcept { m_state.m_crossed_contact = crossed; }
+
     void set_valley_index(std::size_t valley_index) noexcept { m_state.valley_index = valley_index; }
+
+    void     set_containing_element(mesh::element* element) noexcept { m_state.m_containing_element = element; }
+    element* get_containing_element() const noexcept { return m_state.m_containing_element; }
 
     void increment_scattering_event_count() noexcept { m_history.increment_scattering_event_count(); }
 
@@ -196,7 +233,12 @@ class particle_amc {
 
     void reset_history() noexcept { m_history.clear(); }
 
+    void set_data_from_device(int m_dimension);
+
     void print_info() const;
+
+    void export_trajectory_as_csv(const std::string& filename) const {
+        m_history.export_trajectory_as_csv(filename);}
 };
 
 }  // namespace uepm::amc

@@ -30,7 +30,7 @@
 #include "octree_node.hpp"
 #include "quadtree_node.hpp"
 #include "tree_node.hpp"
-#include "vector.hpp"
+#include "vector_mesh.hpp"
 
 #ifdef USE_OPENMP_ACCELERATION
 #include <omp.h>

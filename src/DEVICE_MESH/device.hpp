@@ -1,21 +1,10 @@
 /**
  * @file device.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
- * @version 0.1
- * @date 2026-05-04
- * 
- * 
- */
-
-/**
- * @file device.hpp
- * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
  * @version 0.1
- * @date 2021-11-15
+ * @date 2026-05-04
  *
- * @copyright Copyright (c) 2021
  *
  */
 

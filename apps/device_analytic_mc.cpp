@@ -23,9 +23,9 @@
 #include "Material.h"
 #include "Options.h"
 #include "bulk_amc_simulation.hpp"
+#include "device.hpp"
 #include "mesh.hpp"
 #include "msh_file.hpp"
-#include "device.hpp"
 #include "particle_amc.hpp"
 
 int main(int argc, const char** argv) {
@@ -78,9 +78,11 @@ int main(int argc, const char** argv) {
     uepm::file::msh_file fileMSH(device_mesh_file);
     fileMSH.read_mesh();
     fileMSH.read_states();
-    uepm::mesh::mesh* p_mesh     = fileMSH.get_p_mesh();
-    std::size_t       nbVertices = p_mesh->get_nb_vertices();
-    uepm::device      my_device(&my_GlobMesh);
+    uepm::mesh::mesh*    p_mesh     = fileMSH.get_p_mesh();
+    std::size_t          nbVertices = p_mesh->get_nb_vertices();
+    
+
+    uepm::device::device my_device(p_mesh);
 
     fmt::print("Device mesh loaded from file: {}\n", device_mesh_file);
     fmt::print("Number of vertices in the mesh: {}\n", nbVertices);

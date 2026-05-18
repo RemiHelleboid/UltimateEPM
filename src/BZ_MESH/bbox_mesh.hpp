@@ -16,7 +16,7 @@
 #include <array>
 #include <vector>
 
-#include "vector.hpp"
+#include "vector_bz.hpp"
 
 namespace uepm::mesh_bz {
 
@@ -149,3 +149,4 @@ class bbox_mesh {
 };
 
 }  // namespace uepm::mesh_bz
+

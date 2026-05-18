@@ -38,7 +38,7 @@
 #include "omp.h"
 #include "physical_constants.hpp"
 #include "rapidcsv.h"
-#include "vector.hpp"
+#include "vector_bz.hpp"
 
 #pragma omp declare reduction(merge : std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 

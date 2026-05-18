@@ -16,7 +16,7 @@
 #include <vector>
 
 #include "dataset.hpp"
-#include "vector.hpp"
+#include "vector_mesh.hpp"
 
 namespace uepm {
 

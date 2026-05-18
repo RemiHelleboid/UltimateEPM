@@ -17,7 +17,7 @@
 
 #include "electron_phonon.hpp"
 #include "particle.hpp"
-#include "vector.hpp"
+#include "vector_bz.hpp"
 
 namespace uepm::fbmc {
 

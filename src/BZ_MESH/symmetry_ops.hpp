@@ -10,10 +10,9 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <utility>
 #include <vector>
-#include <algorithm>
 
-#include "vector.hpp"
-
+#include "vector_bz.hpp"

@@ -27,13 +27,15 @@
 #include "physical_constants.hpp"
 #include "materials.hpp"
 
+#include "bulk_amc_simulation.hpp"
+
 namespace uepm::amc {
 
 /**
  * @brief Struct containing the options of the admc device simulation.
  *
  */
-struct options_device_admc {
+struct options_device_amc {
     /**
      * @brief Time step used for the simulation.
      *
@@ -103,7 +105,7 @@ struct options_device_admc {
      */
     int m_nb_threads = 1;
 
-    options_device_admc(double      t_max,
+    options_device_amc(double      t_max,
                         double      time_step,
                         std::size_t max_number_particle,
                         std::size_t avalanche_threshod,
@@ -146,7 +148,7 @@ struct options_device_admc {
  * @brief Structure contatining the history of the device_simulation states.
  *
  */
-struct history_device_admc {
+struct history_device_amc {
     mesh::vector3              m_last_impact_ionization_position{};
     std::vector<double>        m_list_times{};
     std::vector<std::size_t>   m_list_nb_electrons{};
@@ -158,7 +160,7 @@ struct history_device_admc {
     std::vector<double>        m_max_electric_field{};
     std::size_t                m_initial_seed_rng{0};
 
-    history_device_admc() = default;
+    history_device_amc() = default;
 
     void reserve_memory(std::size_t size) {
         m_list_times.reserve(size);
@@ -255,7 +257,7 @@ struct history_device_admc {
  * The electric field and the doping profile are specified through "analytical" function that are given as input.
  *
  */
-class device_admc_simulation {
+class device_amc_simulation {
  protected:
     /**
      * @brief Device in which the simulation will be performed.
@@ -279,13 +281,13 @@ class device_admc_simulation {
      * @brief Structure containing the options of the simulation
      *
      */
-    options_device_admc m_simulation_options;
+    options_device_amc m_simulation_options;
 
     /**
      * @brief History of the simulation.
      *
      */
-    history_device_admc m_simulation_history{};
+    history_device_amc m_simulation_history{};
 
     /**
      * @brief Time of the simulation.
@@ -378,8 +380,8 @@ class device_admc_simulation {
      * @param simulation_device
      * @param simulation_option
      */
-    device_admc_simulation(const device::device      &simulation_device,
-                           const options_device_admc &simulation_option,
+    device_amc_simulation(const device::device      &simulation_device,
+                           const options_device_amc &simulation_option,
                            const std::string         &simulation_name       = "",
                            int                        seed_random_generator = 0);
 
@@ -392,8 +394,8 @@ class device_admc_simulation {
      * @param number_electrons_start
      * @param number_holes_start
      */
-    device_admc_simulation(const device::device      &simulation_device,
-                           const options_device_admc &simulation_option,
+    device_amc_simulation(const device::device      &simulation_device,
+                           const options_device_amc &simulation_option,
                            const std::string         &simulation_name,
                            const mesh::vector3       &starting_position,
                            std::size_t                number_electrons_start,
@@ -432,41 +434,6 @@ class device_admc_simulation {
      * @param device
      */
     void set_particles_transport_data_from_device();
-
-    void perform_drift_diffusion_transport_without_data_setting();
-
-    /**
-     * @brief Move all particles according to the ADMC algorithm.
-     * Only transport is performed, nothing about impact ionization or so.
-     *
-     */
-    void perform_drift_diffusion_transport();
-
-    /**
-     * @brief For each particle, perform the step of the random path length algorithm to compute potential impact ionization process.
-     *
-     */
-    void perform_impact_ionization(double weight_poisson_new_particle = 1.0);
-
-    /**
-     * @brief Run the main loop of transport simulation, without any impact ionization process.
-     *
-     */
-    void run_transport_simulation();
-
-    /**
-     * @brief Run the main loop of the transport simulation with impact ionization process.
-     *
-     */
-    void run_transport_ionization_simulation();
-
-    /**
-     * @brief Run the main loop of the transport simulation for a single particle only. Returns true if the particle reaches the contact
-     * or a region with a doping concentration that exceeds a set doping threshold (note that we might have problems with signs in the
-     * future if we want to investigate -ive doping concentration ie PP). Returns false if the simulation exceeds max time.
-     *
-     */
-    bool run_transport_to_doping_threshold(const double doping_threshold);
 
     /**
      * @brief Update the m_containing_elements of the particles and check if a particle
@@ -553,9 +520,9 @@ class device_admc_simulation {
     /**
      * @brief Return a const reference to the simulation history.
      *
-     * @return const history_device_admc&
+     * @return const history_device_amc&
      */
-    const history_device_admc &get_simulation_history() const { return m_simulation_history; }
+    const history_device_amc &get_simulation_history() const { return m_simulation_history; }
 
     /**
      * @brief Return a vector with all the current velocities of the particles.
@@ -663,26 +630,6 @@ class device_admc_simulation {
      * @return std::pair<double, double>
      */
     std::pair<double, double> compute_depletion_region() const;
-
-    // /**
-    //  * @brief Ad current simlation state to its history.
-    //  *
-    //  */
-    // void add_data_to_history(bool populate_particle_history = false) {
-    //     m_simulation_history.add_data_to_history(m_time,
-    //                                              get_number_electrons(),
-    //                                              get_number_holes(),
-    //                                              m_number_impact_ionizations,
-    //                                              m_anode_current,
-    //                                              m_cathode_current,
-    //                                              m_max_global_electric_field);
-
-    //     if (populate_particle_history) {
-    //         for (const auto &particle : m_list_particles) {
-    //             particle->add_step_to_history();
-    //         }
-    //     }
-    // }
 
     void export_history_to_csv(const std::string &filename, std::size_t frequency = 1) {
         m_simulation_history.export_to_csv(filename, frequency);

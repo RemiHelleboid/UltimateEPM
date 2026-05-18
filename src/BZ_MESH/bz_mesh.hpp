@@ -29,7 +29,7 @@
 #include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
 #include "octree_bz.hpp"
-#include "vector.hpp"
+#include "vector_bz.hpp"
 
 namespace uepm::mesh_bz {
 

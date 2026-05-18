@@ -1,7 +1,7 @@
 set(HEADER_FILES_LIBMESH
     "geometry_entity.hpp"
+    "vector_mesh.hpp"
     "vertex.hpp"
-    "vector.hpp"
     "bbox.hpp"
     "element.hpp"
     "element1d.hpp"
@@ -40,6 +40,7 @@ set(SOURCE_FILES_LIBMESH
 
 # Add the STF library for reading STF files
 add_library(libmesh STATIC ${SOURCE_FILES_LIBMESH} ${HEADER_FILES_LIBMESH})
+add_library(uepm::mesh ALIAS libmesh)
 
 target_include_directories(libmesh PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(libmesh PUBLIC ${GMSH_INC})

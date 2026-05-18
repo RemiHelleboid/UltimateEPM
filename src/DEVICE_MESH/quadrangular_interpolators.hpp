@@ -16,7 +16,7 @@
 #include <iostream>
 #include <vector>
 
-#include "vector.hpp"
+#include "vector_mesh.hpp"
 #include "vertex.hpp"
 
 namespace uepm {

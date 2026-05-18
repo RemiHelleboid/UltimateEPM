@@ -5,7 +5,7 @@
 #include <cmath>
 
 #include "elph_common.hpp"
-#include "vector.hpp"
+#include "vector_bz.hpp"
 
 namespace uepm::mesh_bz {
 

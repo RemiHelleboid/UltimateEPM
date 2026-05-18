@@ -18,11 +18,10 @@
 #include <vector>
 
 #include "bz_mesh.hpp"
-#include "vector.hpp"
 // #include "particle_history_mc.hpp"
 #include "electron_phonon.hpp"
 #include "mesh_tetra.hpp"
-#include "vector.hpp"
+#include "vector_bz.hpp"
 
 namespace uepm::fbmc {
 
@@ -211,7 +210,7 @@ class particle {
     std::size_t           get_index() const { return m_index; }
     void                  set_index(std::size_t index) { m_index = index; }
     particle_type         get_type() const { return m_type; }
-    double                get_charge_sign() const { return static_cast<double>(m_type); }
+    double                get_signed_charge() const { return static_cast<double>(m_type); }
     double                get_time() const { return m_time; }
     void                  set_time(double time) { m_time = time; }
     std::size_t           get_iter() const { return m_iter; }
