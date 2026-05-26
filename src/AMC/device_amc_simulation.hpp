@@ -144,110 +144,27 @@ class device_amc_simulation {
     void               set_simulation_name(const std::string &new_name) { m_simulation_name = new_name; }
     const std::string &get_simulation_name() const { return m_simulation_name; }
 
-    /**
-     * @brief Add a particle at a given position.
-     *
-     * @param location
-     * @param type_of_particle
-     */
-    void add_particle_at_position(const mesh::vector3 &location, particle_type type_of_particle, double weight = 1.0);
 
-    /**
-     * @brief Add multiple particles at given positions.
-     *
-     * @param positions
-     * @param type_of_particle
-     */
+    void add_particle_at_position(const mesh::vector3 &location, particle_type type_of_particle, double weight = 1.0);
     void add_particles_at_positions(const std::vector<mesh::vector3> &positions, particle_type type_of_particle, double weight = 1.0);
 
-    /**
-     * @brief Set transport data of the particles from the device (drift velocity and diffusion coefficient).
-     * This function is called at the beginning of each iteration to update the transport data of the particles.
-     *
-     * @param device
-     */
+    void transport_particles_one_time_step();
+    void advance_particles_one_time_step();
+    
     void set_particles_transport_data_from_device();
-
-    /**
-     * @brief Update the m_containing_elements of the particles and check if a particle
-     * change of region or went outside of the mesh.
-     *
-     */
     void update_element_and_check_boundary();
-
-    /**
-     * @brief Return true if the segment [point_A, point_B] is crossing one of the device contact.
-     *
-     * @param point_A
-     * @param point_B
-     * @return true
-     * @return false
-     */
-    bool check_crossing_contact(const mesh::vector3 &point_A, const mesh::vector3 &point_B) const;
-
-    /**
-     * @brief Remove particle that was spotted at crossing the contacts.
-     *
-     */
+    
     void remove_collected_particles();
-
-    /**
-     * @brief Compute current through Ramu-like formula.
-     *
-     * @return double
-     */
     double compute_ramo_current() const;
+    
+    void run();
 
-    /**
-     * @brief Set the maximum number of particles in the simulation.
-     * This is also the avalanche threshold.
-     *
-     * @param new_value
-     */
     void set_max_number_particles(std::size_t new_value) { m_simulation_options.m_max_number_particle = new_value; }
-
-    /**
-     * @brief Set the keep particles history object
-     *
-     * @param new_value
-     */
     void set_keep_particles_history(bool new_value) { m_simulation_options.m_keep_particles_history = new_value; }
-
-    /**
-     * @brief Set the status of exporting each iteration. Set to true to save the particles location and data after each step.
-     *
-     * @param new_value
-     */
     void set_exporting_iterations(bool new_value) { m_simulation_options.m_export_time_step = new_value; }
-
-    /**
-     * @brief Set the exporting frequency.
-     * If different to 1, and if m_export_time_step is true, then the export occurs only each frequency iteration step.
-     *
-     * @param new_value
-     */
     void set_exporting_frequency(int new_value) { m_simulation_options.m_frequency_export_trajectory = new_value; }
-
-    /**
-     * @brief Set the prefix export trajectory filename object
-     *
-     * @param new_prefix
-     */
     void set_prefix_export_trajectory_filename(const std::string &new_prefix) { m_prefix_export_filename = new_prefix; }
-
-    /**
-     * @brief If set with true, the simulation is stopped when their is no electron remaining in the device.
-     *
-     * @param new_value
-     */
     void set_stop_simulation_without_electron(bool new_value) { m_simulation_options.m_stop_simu_when_no_electron_remaining = new_value; }
-
-    /**
-     * @brief Return true is the avalanche threshold was reached.
-     *
-     * @return true
-     * @return false
-     */
     bool has_reached_avalanche() const { return m_list_particles.size() >= m_simulation_options.m_max_number_particle; }
 
     /**
@@ -257,75 +174,10 @@ class device_amc_simulation {
      */
     const history_device_amc &get_simulation_history() const { return m_simulation_history; }
 
-    /**
-     * @brief Return a vector with all the current velocities of the particles.
-     *
-     * @return std::vector<mesh::vector3>
-     */
-    std::vector<mesh::vector3> get_all_global_velocities() const;
-
-    /**
-     * @brief Return a vector with all the number of impact ionization for each particle.
-     *
-     * @return std::vector<std::size_t>
-     */
-    std::vector<std::size_t> get_all_number_impact_ionization() const;
-
-    /**
-     * @brief Return a vector with all the positions of impact ionizations of the simulation.
-     *
-     * @return std::vector<std::size_t>
-     */
-    std::vector<mesh::vector3> get_all_positions_impact_ionization() const;
-
-    /**
-     * @brief Return a vector with the impaxct ionization coef of each particle.
-     *
-     * @return std::vector<double>
-     */
-    std::vector<double> get_all_coefficient_impact_ionization() const;
-
-    /**
-     * @brief Return a vector with the average dead space for each particle.
-     *
-     * @return std::vector<double>
-     */
-    std::vector<double> get_all_mean_dead_spaces() const;
-
-    /**
-     * @brief Return a vector with the position of the first impact ionzation for each particle.
-     * If a particle has no II yet, no value is returned.
-     *
-     * @return std::vector<mesh::vector3>
-     */
-    std::vector<mesh::vector3> get_all_first_impact_ionization_position() const;
-
-    /**
-     * @brief Get the number electrons.
-     *
-     * @return std::size_t
-     */
     std::size_t get_number_electrons() const;
-
-    /**
-     * @brief Get the number holes.
-     *
-     * @return std::size_t
-     */
     std::size_t get_number_holes() const;
-
-    /**
-     * @brief Return the current time of the simulation.
-     *
-     * @return std::optional<double>
-     */
     std::optional<double> get_current_time() const { return m_time; }
 
-    /**
-     * @brief Return the vector with all the particles positions.
-     *
-     * @return std::vector<mesh::vector3>
-     */
     std::vector<mesh::vector3> get_all_particles_position() const;
 
     /**

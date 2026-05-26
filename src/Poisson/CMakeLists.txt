@@ -8,6 +8,7 @@ set(SOURCE_FILES_LIBFILE
 
 # Add the STF library for reading STF files
 add_library(libpoisson STATIC ${SOURCE_FILES_LIBFILE} ${HEADER_FILES_LIBFILE})
+add_library(uepm::poisson ALIAS libpoisson)
 
 target_include_directories(libpoisson PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

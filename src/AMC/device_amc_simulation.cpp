@@ -125,7 +125,7 @@ device_amc_simulation::device_amc_simulation(const device::device     &device_si
         const std::size_t particle_index = m_list_particles.size();
         m_list_particles.push_back(std::make_unique<particle_amc>(particle_index, particle_type::hole));
     }
-    
+
     //  Setup the initial position (unique), random number for RPLA and set containing elements for each particles.
     for (auto &p_particle : m_list_particles) {
         p_particle->set_position(starting_position);
@@ -227,6 +227,34 @@ double device_amc_simulation::compute_ramo_current() const {
     return current;
 }
 
+void device_amc_simulation::transport_particles_one_time_step() {
+    const double dt = m_simulation_options.m_time_step;
+
+    for (auto &p_particle : m_list_particles) {
+        auto &particle = *p_particle;
+
+        particle.set_data_from_device(m_dimension);
+
+        auto &transport = transport_for(particle.type());
+
+        transport.drift_particle(particle, particle.state().electric_field, dt);
+        transport.scatter_particle(particle, dt);
+
+        if (m_simulation_options.m_keep_particles_history) {
+            particle.record_state();
+        }
+    }
+
+    update_element_and_check_boundary();
+    remove_collected_particles();
+}
+
+void device_amc_simulation::advance_particles_one_time_step() {
+    transport_particles_one_time_step();
+    m_time += m_simulation_options.m_time_step;
+    ++m_iteration;
+}
+
 void device_amc_simulation::set_particles_transport_data_from_device() {
     for (auto &p_particle : m_list_particles) {
         p_particle->set_data_from_device(m_dimension);
@@ -282,8 +310,36 @@ void device_amc_simulation::remove_collected_particles() {
     std::vector<double> currents = m_device.get_electrode_currents();
     m_anode_current              = uepm::constants::q_e * currents[0] / m_simulation_options.m_time_step;
     m_cathode_current            = uepm::constants::q_e * currents[1] / m_simulation_options.m_time_step;
-    // std::cout << "Anode current : " << m_anode_current << "   Cathode current : " << m_cathode_current << std::endl;
-    // std::cout << "Nb particles erased : " << nb_part_erased << std::endl;
+}
+
+void device_amc_simulation::run() {
+    while (m_time < m_simulation_options.m_t_max) {
+        if (m_list_particles.empty()) {
+            break;
+        }
+
+        if (m_simulation_options.m_stop_simu_when_no_electron_remaining && get_number_electrons() == 0) {
+            break;
+        }
+
+        if (has_reached_avalanche()) {
+            break;
+        }
+
+        advance_particles_one_time_step();
+
+        const auto nb_electrons         = get_number_electrons();
+        const auto nb_holes             = get_number_holes();
+        const auto nb_impact_ionization = m_simulation_history.m_impact_ionization_positions.size();
+
+        m_simulation_history
+            .add_data_to_history(m_time, nb_electrons, nb_holes, nb_impact_ionization, m_anode_current, m_cathode_current, 0.0);
+
+        if (m_simulation_options.m_export_time_step &&
+            m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0) {
+            export_current_time_step_as_csv(m_prefix_export_filename);
+        }
+    }
 }
 
 std::vector<mesh::vector3> device_amc_simulation::get_all_particles_position() const {
@@ -310,9 +366,9 @@ std::vector<mesh::vector3> device_amc_simulation::get_all_particles_position() c
 //     return all_number_impact_ionization;
 // }
 
-std::vector<mesh::vector3> device_amc_simulation::get_all_positions_impact_ionization() const {
-    return m_simulation_history.m_impact_ionization_positions;
-}
+// std::vector<mesh::vector3> device_amc_simulation::get_all_positions_impact_ionization() const {
+//     return m_simulation_history.m_impact_ionization_positions;
+// }
 
 // std::vector<mesh::vector3> device_amc_simulation::get_all_first_impact_ionization_position() const {
 //     std::vector<mesh::vector3> all_impact_ionization_position;

@@ -45,7 +45,7 @@ struct element_line_intersection {
 
     element_line_intersection(const vector3 &intersection_location, std::shared_ptr<element> element_face_intersection)
         : m_intersection_location(intersection_location),
-          m_p_element_face_intersection(element_face_intersection){};
+          m_p_element_face_intersection(element_face_intersection) {};
 };
 
 enum class element_type { edge = 1, triangle = 2, rectange = 3, tetrahedron = 4 };
@@ -59,7 +59,7 @@ class element : public geometry_entity {
     int                   m_region_index = -1;
 
     /**
-     * @brief Flag to indicate if the velocity diffusion is up to date, meaning that 
+     * @brief Flag to indicate if the velocity diffusion is up to date, meaning that
      * it has been computed at the current time step (so with the right electric field).
      * Used to avoid computing it multiple times.
      *
@@ -102,7 +102,10 @@ class element : public geometry_entity {
     double get_p_charge() const { return m_p_charge_density; }
     void   set_p_charge(double new_density) { m_p_charge_density = new_density; }
     void   add_p_charge(double additional_charge) { m_p_charge_density += additional_charge; }
-    
+    void   reset_charge() {
+        m_n_charge_density = 0.0;
+        m_p_charge_density = 0.0;
+    }
 
     virtual std::vector<double> compute_barycentric_coordinate(const vector3 &location) const = 0;
     virtual double              interpolate_scalar_at_location(const std::string &name, const vector3 &location) const;
@@ -123,7 +126,7 @@ class element : public geometry_entity {
         return std::is_permutation(m_vertices.begin(), m_vertices.end(), second_element.get_vertices().begin());
     }
 
-    virtual vector3 draw_uniform_random_point_inside_element() const = 0;
+    virtual vector3 draw_uniform_random_point_inside_element() const                                   = 0;
     virtual vector3 draw_uniform_random_point_inside_element(std::minstd_rand &random_generator) const = 0;
 };
 
