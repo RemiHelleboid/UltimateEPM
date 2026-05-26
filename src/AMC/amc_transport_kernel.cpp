@@ -1,0 +1,524 @@
+/**
+ * @file amc_transport_kernel.cpp
+ * @author remzerrr (remi.helleboid@gmail.com)
+ * @brief
+ * @version 0.1
+ * @date 2026-05-26
+ *
+ * @copyright Copyright (c) 2026
+ *
+ */
+
+#include "amc_transport_kernel.hpp"
+
+#include <fmt/core.h>
+
+#include <stdexcept>
+
+#include "amc_scattering_model.hpp"
+
+namespace uepm::amc {
+
+namespace {
+
+double sample_thermal_energy_eV(double temperature_K, std::mt19937_64& rng) {
+    const double                    kT_eV = uepm::constants::k_b_eV * temperature_K;
+    std::gamma_distribution<double> dist(1.5, kT_eV);
+    return dist(rng);
+}
+
+std::size_t valley_axis(std::size_t valley_index) {
+    if (valley_index < 2) {
+        return 0;
+    }
+    if (valley_index < 4) {
+        return 1;
+    }
+    if (valley_index < 6) {
+        return 2;
+    }
+    throw std::out_of_range("invalid valley index in valley_axis");
+}
+
+std::size_t draw_g_destination_valley(std::size_t current_valley_index) {
+    switch (current_valley_index) {
+        case 0:
+            return 1;
+        case 1:
+            return 0;
+        case 2:
+            return 3;
+        case 3:
+            return 2;
+        case 4:
+            return 5;
+        case 5:
+            return 4;
+        default:
+            throw std::out_of_range("invalid valley index in draw_g_destination_valley");
+    }
+}
+
+std::size_t draw_f_destination_valley(std::size_t current_valley_index, std::mt19937_64& rng) {
+    const std::size_t current_axis = valley_axis(current_valley_index);
+
+    std::array<std::size_t, 4> candidates{};
+    std::size_t                count = 0;
+
+    for (std::size_t valley_index = 0; valley_index < 6; ++valley_index) {
+        if (valley_axis(valley_index) != current_axis) {
+            candidates[count++] = valley_index;
+        }
+    }
+
+    if (count != 4) {
+        throw std::runtime_error("unexpected number of f-type destination valleys");
+    }
+
+    std::uniform_int_distribution<std::size_t> dist(0, 3);
+    return candidates[dist(rng)];
+}
+
+std::size_t draw_intervalley_destination_valley(const intervalley_phonon_branch& branch,
+                                                std::size_t                      current_valley_index,
+                                                std::mt19937_64&                 rng) {
+    switch (branch.m_family) {
+        case intervalley_family::g:
+            return draw_g_destination_valley(current_valley_index);
+        case intervalley_family::f:
+            return draw_f_destination_valley(current_valley_index, rng);
+        default:
+            throw std::runtime_error("unknown intervalley family");
+    }
+}
+
+}  // namespace
+
+amc_transport_kernel::amc_transport_kernel() : m_cfg{}, m_rng(std::random_device{}()) {}
+
+amc_transport_kernel::amc_transport_kernel(const amc_transport_config& cfg) : m_cfg(cfg), m_rng(std::random_device{}()) {}
+
+amc_transport_kernel::amc_transport_kernel(const amc_transport_config& cfg, std::uint64_t seed) : m_cfg(cfg), m_rng(seed) {}
+
+void amc_transport_kernel::initialize() {
+    if (m_cfg.m_carrier_type == particle_type::electron) {
+        m_valleys              = make_silicon_delta_valleys();
+        m_intervalley_branches = make_silicon_intervalley_phonon_branches();
+        m_hole_optical_transitions.clear();
+    } else {
+        m_valleys = make_silicon_hole_bands();
+        m_intervalley_branches.clear();
+        m_hole_optical_transitions = make_silicon_hole_optical_transitions();
+    }
+
+    m_gamma_max_s_1 = compute_max_self_scattering_rate(m_cfg.m_max_energy_eV, m_cfg.m_gamma_max_energy_samples);
+}
+
+void amc_transport_kernel::initialize_particle_state(particle_amc& p) {
+    if (m_valleys.empty()) {
+        throw std::runtime_error("transport kernel is not initialized");
+    }
+
+    if (p.state().valley_index >= m_valleys.size()) {
+        throw std::out_of_range("invalid valley index in initialize_particle_state");
+    }
+
+    const auto& valley = m_valleys[p.state().valley_index];
+
+    const double energy_eV = sample_thermal_energy_eV(m_cfg.m_lattice_temperature, m_rng);
+
+    p.state().local_k        = valley.draw_random_k_valley_at_energy(energy_eV, m_rng);
+    p.state().gamma          = valley.gamma_from_k_valley(p.state().local_k);
+    p.state().kinetic_energy = valley.kinetic_energy_from_gamma(p.state().gamma);
+    p.state().velocity       = valley.velocity_from_k_valley(p.state().local_k);
+}
+
+double amc_transport_kernel::uniform01() {
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
+    return dist(m_rng);
+}
+
+void amc_transport_kernel::drift_particle(particle_amc& p, const mesh::vector3& electric_field, double dt) {
+    if (dt < 0.0) {
+        throw std::invalid_argument("drift time step must be non-negative");
+    }
+
+    const auto valley_index = p.state().valley_index;
+    if (valley_index >= m_valleys.size()) {
+        throw std::out_of_range("invalid valley index in drift_particle");
+    }
+
+    const auto&   valley                = m_valleys[valley_index];
+    const vector3 electric_field_valley = valley.to_valley_frame(electric_field);
+
+    const double  prefactor    = p.get_signed_charge() / uepm::constants::h_bar;
+    const vector3 old_velocity = p.state().velocity;
+
+    p.state().local_k += electric_field_valley * (prefactor * dt);
+
+    p.state().gamma          = valley.gamma_from_k_valley(p.state().local_k);
+    p.state().kinetic_energy = valley.kinetic_energy_from_gamma(p.state().gamma);
+    p.state().velocity       = valley.velocity_from_k_valley(p.state().local_k);
+
+    const vector3 avg_velocity = 0.5 * (old_velocity + p.state().velocity);
+    p.state().position += avg_velocity * dt;
+    p.state().time += dt;
+}
+
+double amc_transport_kernel::sample_free_flight_time() {
+    if (m_gamma_max_s_1 <= 0.0) {
+        throw std::invalid_argument("max self-scattering rate must be > 0");
+    }
+
+    std::uniform_real_distribution<double> unif01(0.0, 1.0);
+    double                                 u = 0.0;
+
+    do {
+        u = unif01(m_rng);
+    } while (u <= 0.0);
+
+    return -std::log(u) / m_gamma_max_s_1;
+}
+
+scattering_channel amc_transport_kernel::select_scattering_channel(const particle_amc& p) {
+    const auto channels = build_scattering_channels(p);
+
+    double total_rate = 0.0;
+    for (const auto& channel : channels) {
+        total_rate += channel.rate_s_1;
+    }
+
+    if (total_rate <= 0.0) {
+        throw std::runtime_error("cannot select scattering channel with zero total rate");
+    }
+
+    std::uniform_real_distribution<double> unif01(0.0, 1.0);
+    const double                           r_select = unif01(m_rng) * total_rate;
+
+    double cumulative = 0.0;
+    for (const auto& channel : channels) {
+        cumulative += channel.rate_s_1;
+        if (r_select < cumulative) {
+            return channel;
+        }
+    }
+
+    throw std::runtime_error("failed to select a real scattering channel");
+}
+
+std::vector<scattering_channel> amc_transport_kernel::build_scattering_channels(const particle_amc& p) const {
+    const auto current_band_index = p.state().valley_index;
+    if (current_band_index >= m_valleys.size()) {
+        throw std::out_of_range("invalid band/valley index in build_scattering_channels");
+    }
+
+    const auto&  current_band = m_valleys[current_band_index];
+    const double energy_eV    = p.state().kinetic_energy;
+
+    std::vector<scattering_channel> channels;
+
+    if (p.type() == particle_type::hole) {
+        channels.reserve(1 + 2 * m_hole_optical_transitions.size());
+
+        const double acoustic_rate = acoustic_scattering_rate_silicon_holes(current_band, energy_eV, m_cfg.m_lattice_temperature);
+
+        if (acoustic_rate > 0.0) {
+            channels.push_back(scattering_channel{.mechanism         = scattering_mechanism::acoustic,
+                                                  .rate_s_1          = acoustic_rate,
+                                                  .final_energy_eV   = energy_eV,
+                                                  .destination_index = current_band_index,
+                                                  .branch            = nullptr,
+                                                  .process           = intervalley_process::none});
+        }
+
+        for (const auto& transition : m_hole_optical_transitions) {
+            if (transition.initial_band != current_band_index) {
+                continue;
+            }
+
+            const auto& final_band = m_valleys[transition.final_band];
+
+            const double rate_abs =
+                optical_scattering_rate_silicon_holes(final_band, transition, energy_eV, true, m_cfg.m_lattice_temperature);
+
+            if (rate_abs > 0.0) {
+                channels.push_back(scattering_channel{.mechanism         = scattering_mechanism::intervalley,
+                                                      .rate_s_1          = rate_abs,
+                                                      .final_energy_eV   = energy_eV + transition.phonon_energy_eV,
+                                                      .destination_index = transition.final_band,
+                                                      .branch            = nullptr,
+                                                      .process           = intervalley_process::absorption});
+            }
+
+            const double final_energy_emission_eV = energy_eV - transition.phonon_energy_eV;
+            const double rate_em =
+                optical_scattering_rate_silicon_holes(final_band, transition, energy_eV, false, m_cfg.m_lattice_temperature);
+
+            if (rate_em > 0.0 && final_energy_emission_eV >= 0.0) {
+                channels.push_back(scattering_channel{.mechanism         = scattering_mechanism::intervalley,
+                                                      .rate_s_1          = rate_em,
+                                                      .final_energy_eV   = final_energy_emission_eV,
+                                                      .destination_index = transition.final_band,
+                                                      .branch            = nullptr,
+                                                      .process           = intervalley_process::emission});
+            }
+        }
+
+        return channels;
+    }
+
+    channels.reserve(1 + 2 * m_intervalley_branches.size());
+
+    const double acoustic_rate = acoustic_scattering_rate_silicon(current_band, energy_eV, m_cfg.m_lattice_temperature);
+
+    if (acoustic_rate > 0.0) {
+        channels.push_back(scattering_channel{.mechanism       = scattering_mechanism::acoustic,
+                                              .rate_s_1        = acoustic_rate,
+                                              .final_energy_eV = energy_eV,
+                                              .branch          = nullptr,
+                                              .process         = intervalley_process::none});
+    }
+
+    for (const auto& branch : m_intervalley_branches) {
+        const double rate_abs = intervalley_scattering_rate(current_band, branch, energy_eV, true, m_cfg.m_lattice_temperature);
+
+        if (rate_abs > 0.0) {
+            channels.push_back(scattering_channel{.mechanism       = scattering_mechanism::intervalley,
+                                                  .rate_s_1        = rate_abs,
+                                                  .final_energy_eV = energy_eV + branch.m_phonon_energy_eV,
+                                                  .branch          = &branch,
+                                                  .process         = intervalley_process::absorption});
+        }
+
+        const double rate_em = intervalley_scattering_rate(current_band, branch, energy_eV, false, m_cfg.m_lattice_temperature);
+
+        const double final_energy_emission_eV = energy_eV - branch.m_phonon_energy_eV;
+        if (rate_em > 0.0 && final_energy_emission_eV >= 0.0) {
+            channels.push_back(scattering_channel{.mechanism       = scattering_mechanism::intervalley,
+                                                  .rate_s_1        = rate_em,
+                                                  .final_energy_eV = final_energy_emission_eV,
+                                                  .branch          = &branch,
+                                                  .process         = intervalley_process::emission});
+        }
+    }
+
+    return channels;
+}
+
+double amc_transport_kernel::total_scattering_rate(const particle_amc& p) const {
+    const auto channels = build_scattering_channels(p);
+
+    double total_rate = 0.0;
+    for (const auto& channel : channels) {
+        total_rate += channel.rate_s_1;
+    }
+
+    return total_rate;
+}
+
+double amc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_or_valley_index, double energy_eV) const {
+    if (band_or_valley_index >= m_valleys.size()) {
+        throw std::out_of_range("invalid band/valley index in total_scattering_rate_for_energy");
+    }
+
+    const auto& band_or_valley = m_valleys[band_or_valley_index];
+    double      total_rate     = 0.0;
+
+    if (m_cfg.m_carrier_type == particle_type::hole) {
+        total_rate += acoustic_scattering_rate_silicon_holes(band_or_valley, energy_eV, m_cfg.m_lattice_temperature);
+
+        for (const auto& transition : m_hole_optical_transitions) {
+            if (transition.initial_band != band_or_valley_index) {
+                continue;
+            }
+
+            const auto& final_band = m_valleys[transition.final_band];
+
+            total_rate += optical_scattering_rate_silicon_holes(final_band, transition, energy_eV, true, m_cfg.m_lattice_temperature);
+
+            total_rate += optical_scattering_rate_silicon_holes(final_band, transition, energy_eV, false, m_cfg.m_lattice_temperature);
+        }
+
+        return total_rate;
+    }
+
+    total_rate += acoustic_scattering_rate_silicon(band_or_valley, energy_eV, m_cfg.m_lattice_temperature);
+
+    for (const auto& branch : m_intervalley_branches) {
+        total_rate += intervalley_scattering_rate(band_or_valley, branch, energy_eV, true, m_cfg.m_lattice_temperature);
+        total_rate += intervalley_scattering_rate(band_or_valley, branch, energy_eV, false, m_cfg.m_lattice_temperature);
+    }
+
+    return total_rate;
+}
+
+void amc_transport_kernel::ensure_gamma_max_covers(double total_rate) {
+    if (total_rate <= m_gamma_max_s_1) {
+        return;
+    }
+
+    const double old_gamma_max = m_gamma_max_s_1;
+    m_gamma_max_s_1            = total_rate * m_cfg.m_self_scattering_safety_factor;
+
+    fmt::print(stderr,
+               "Warning: gamma_max increased from {:.6e} to {:.6e} s^-1 "
+               "after observing total scattering rate {:.6e} s^-1. "
+               "Consider increasing --max-energy or --gamma-safety.\n",
+               old_gamma_max,
+               m_gamma_max_s_1,
+               total_rate);
+}
+
+double amc_transport_kernel::compute_max_self_scattering_rate(double max_energy_eV, std::size_t n_samples) const {
+    if (max_energy_eV <= 0.0) {
+        throw std::invalid_argument("max energy must be > 0");
+    }
+
+    if (n_samples < 2) {
+        throw std::invalid_argument("number of gamma-max energy samples must be >= 2");
+    }
+
+    double gamma_max = 0.0;
+
+    for (std::size_t valley_index = 0; valley_index < m_valleys.size(); ++valley_index) {
+        for (std::size_t i = 0; i < n_samples; ++i) {
+            const double x         = static_cast<double>(i) / static_cast<double>(n_samples - 1);
+            const double energy_eV = x * max_energy_eV;
+
+            const double total_rate = total_scattering_rate_for_energy(valley_index, energy_eV);
+
+            gamma_max = std::max(gamma_max, total_rate);
+        }
+    }
+
+    return gamma_max * m_cfg.m_self_scattering_safety_factor;
+}
+void amc_transport_kernel::apply_scattering_channel(particle_amc& p, const scattering_channel& channel) {
+    if (channel.rate_s_1 < 0.0) {
+        throw std::invalid_argument("negative scattering channel rate");
+    }
+
+    switch (channel.mechanism) {
+        case scattering_mechanism::acoustic: {
+            const auto band_or_valley_index = p.state().valley_index;
+            if (band_or_valley_index >= m_valleys.size()) {
+                throw std::out_of_range("invalid band/valley index in apply_scattering_channel acoustic");
+            }
+
+            const auto& band_or_valley = m_valleys[band_or_valley_index];
+
+            p.state().local_k        = band_or_valley.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
+            p.state().gamma          = band_or_valley.gamma_from_k_valley(p.state().local_k);
+            p.state().kinetic_energy = band_or_valley.kinetic_energy_from_gamma(p.state().gamma);
+            p.state().velocity       = band_or_valley.velocity_from_k_valley(p.state().local_k);
+
+            p.increment_scattering_event_count();
+            p.add_scattering_event(scattering_event::acoustic);
+            return;
+        }
+
+        case scattering_mechanism::intervalley: {
+            if (p.type() == particle_type::hole) {
+                if (channel.destination_index >= m_valleys.size()) {
+                    throw std::out_of_range("invalid destination band in apply_scattering_channel for holes");
+                }
+
+                const auto& dst_band = m_valleys[channel.destination_index];
+
+                p.state().valley_index   = channel.destination_index;
+                p.state().local_k        = dst_band.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
+                p.state().gamma          = dst_band.gamma_from_k_valley(p.state().local_k);
+                p.state().kinetic_energy = dst_band.kinetic_energy_from_gamma(p.state().gamma);
+                p.state().velocity       = dst_band.velocity_from_k_valley(p.state().local_k);
+
+                p.increment_scattering_event_count();
+
+                if (channel.process == intervalley_process::absorption) {
+                    p.add_scattering_event(scattering_event::intervalley_absorption);
+                } else if (channel.process == intervalley_process::emission) {
+                    p.add_scattering_event(scattering_event::intervalley_emission);
+                } else {
+                    throw std::runtime_error("hole optical channel missing absorption/emission tag");
+                }
+
+                return;
+            }
+
+            if (channel.branch == nullptr) {
+                throw std::runtime_error("electron intervalley channel missing branch");
+            }
+
+            const auto current_valley_index = p.state().valley_index;
+            if (current_valley_index >= m_valleys.size()) {
+                throw std::out_of_range("invalid current valley index in apply_scattering_channel for electrons");
+            }
+
+            const std::size_t destination_valley = draw_intervalley_destination_valley(*channel.branch, current_valley_index, m_rng);
+
+            if (destination_valley >= m_valleys.size()) {
+                throw std::out_of_range("invalid destination valley in apply_scattering_channel for electrons");
+            }
+
+            const auto& dst_valley = m_valleys[destination_valley];
+
+            p.state().valley_index   = destination_valley;
+            p.state().local_k        = dst_valley.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
+            p.state().gamma          = dst_valley.gamma_from_k_valley(p.state().local_k);
+            p.state().kinetic_energy = dst_valley.kinetic_energy_from_gamma(p.state().gamma);
+            p.state().velocity       = dst_valley.velocity_from_k_valley(p.state().local_k);
+
+            p.increment_scattering_event_count();
+
+            if (channel.process == intervalley_process::absorption) {
+                p.add_scattering_event(scattering_event::intervalley_absorption);
+            } else if (channel.process == intervalley_process::emission) {
+                p.add_scattering_event(scattering_event::intervalley_emission);
+            } else {
+                throw std::runtime_error("electron intervalley channel missing absorption/emission tag");
+            }
+
+            return;
+        }
+    }
+
+    throw std::runtime_error("unknown scattering mechanism");
+}
+
+void amc_transport_kernel::scatter_particle(particle_amc& p, double dt) {
+    if (dt < 0.0) {
+        throw std::invalid_argument("scatter time step must be non-negative");
+    }
+
+    const auto channels = build_scattering_channels(p);
+
+    double total_rate = 0.0;
+    for (const auto& channel : channels) {
+        total_rate += channel.rate_s_1;
+    }
+
+    if (total_rate <= 0.0) {
+        return;
+    }
+
+    const double scatter_probability = 1.0 - std::exp(-total_rate * dt);
+
+    std::uniform_real_distribution<double> unif01(0.0, 1.0);
+    if (unif01(m_rng) >= scatter_probability) {
+        return;
+    }
+
+    const double r_select = unif01(m_rng) * total_rate;
+
+    double cumulative = 0.0;
+    for (const auto& channel : channels) {
+        cumulative += channel.rate_s_1;
+        if (r_select < cumulative) {
+            apply_scattering_channel(p, channel);
+            return;
+        }
+    }
+
+    throw std::runtime_error("failed to select a scattering channel");
+}
+
+}  // namespace uepm::amc

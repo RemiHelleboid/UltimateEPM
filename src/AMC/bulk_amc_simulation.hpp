@@ -13,6 +13,9 @@
 #include <random>
 #include <vector>
 
+#include "amc_material_model.hpp"
+#include "amc_scattering_model.hpp"
+#include "amc_transport_kernel.hpp"
 #include "intervalley_phonon.hpp"
 #include "particle_amc.hpp"
 #include "scattering_channels.hpp"
@@ -20,15 +23,6 @@
 #include "vector.hpp"
 
 namespace uepm::amc {
-
-struct hole_optical_transition {
-    const char* name                           = "";
-    std::size_t initial_band                   = 0;
-    std::size_t final_band                     = 0;
-    double      phonon_energy_eV               = 0.0;
-    double      deformation_potential_eV_per_m = 0.0;
-    double      overlap_factor                 = 1.0;
-};
 
 struct bulk_amc_simulation_config {
     particle_type       m_carrier_type             = particle_type::electron;
@@ -57,35 +51,19 @@ struct bulk_observables {
 class bulk_amc_simulation {
  private:
     bulk_amc_simulation_config m_cfg;
-    std::vector<valley_model>  m_valleys;
+    amc_transport_kernel       m_transport;
     std::vector<particle_amc>  m_particles;
-    std::mt19937_64            m_rng;
+    bulk_observables           m_observables;
 
-    std::vector<intervalley_phonon_branch> m_intervalley_branches;
-    std::vector<hole_optical_transition>   m_hole_optical_transitions;
-    bulk_observables                       m_observables;
-
-    double m_gamma_max_s_1 = 0.0;
+    static amc_transport_config make_transport_config(const bulk_amc_simulation_config& cfg);
 
  public:
-    bulk_amc_simulation() : m_rng(std::random_device{}()) {}
-    explicit bulk_amc_simulation(const bulk_amc_simulation_config& cfg) : m_cfg(cfg), m_rng(std::random_device{}()) {}
-
-    double total_scattering_rate_for_energy(std::size_t valley_index, double energy_eV) const;
-    double compute_max_self_scattering_rate(double max_energy_eV, std::size_t n_samples) const;
+    bulk_amc_simulation() : m_transport(make_transport_config(m_cfg)) {}
+    explicit bulk_amc_simulation(const bulk_amc_simulation_config& cfg) : m_cfg(cfg), m_transport(make_transport_config(m_cfg)) {}
 
     void initialize();
-    void drift_particle(particle_amc& p, double dt);
-    void scatter_particle(particle_amc& p, double dt);
     void run();
-
-    std::vector<scattering_channel> build_scattering_channels(const particle_amc& p) const;
-    double                          total_scattering_rate(const particle_amc& p) const;
-    void                            apply_scattering_channel(particle_amc& p, const scattering_channel& channel);
-
-    double             sample_free_flight_time();
-    scattering_channel select_scattering_channel(const particle_amc& p);
-    void               run_self_scattering_emc();
+    void run_self_scattering_emc();
 
     void export_particles_history_to_csv(const std::string& prefix_name) const;
     void accumulate_observables(double dt);

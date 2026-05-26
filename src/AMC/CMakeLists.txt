@@ -6,6 +6,9 @@ set(HEADER_FILES_LIBAMC
     intervalley_phonon.hpp
     scattering_channels.hpp
     device_amc_simulation.hpp
+    amc_transport_kernel.hpp
+    amc_material_model.hpp
+    amc_scattering_model.hpp
   )
 
 
@@ -15,6 +18,9 @@ set(SOURCE_FILES_LIBAMC
     valley_model.cpp
     intervalley_phonon.cpp
     device_amc_simulation.cpp
+    amc_transport_kernel.cpp
+    amc_material_model.cpp
+    amc_scattering_model.cpp
 )
 
 add_library(lib_amc STATIC ${SOURCE_FILES_LIBAMC} ${HEADER_FILES_LIBAMC})
