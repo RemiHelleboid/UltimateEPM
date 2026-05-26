@@ -55,6 +55,8 @@ const amc_transport_kernel &device_amc_simulation::transport_for(particle_type t
     return m_hole_transport;
 }
 
+
+
 void device_amc_simulation::initialize_particle_transport_state(particle_amc &particle) {
     auto &transport = transport_for(particle.type());
 
@@ -233,11 +235,15 @@ void device_amc_simulation::transport_particles_one_time_step() {
     for (auto &p_particle : m_list_particles) {
         auto &particle = *p_particle;
 
+        particle.state().previous_position = particle.state().position;
+
         particle.set_data_from_device(m_dimension);
 
         auto &transport = transport_for(particle.type());
 
-        transport.drift_particle(particle, particle.state().electric_field, dt);
+        // Electric field is in V/cm, but we need it in V/m for the transport kernel, so we convert it here.
+        constexpr double cm_to_m = 1.0e2;
+        transport.drift_particle(particle, particle.state().electric_field * cm_to_m, dt);
         transport.scatter_particle(particle, dt);
 
         if (m_simulation_options.m_keep_particles_history) {
@@ -261,33 +267,57 @@ void device_amc_simulation::set_particles_transport_data_from_device() {
     }
 }
 
+void reflect_particle_to_previous_position(particle_amc &particle) {
+    auto &state = particle.state();
+
+    state.position = state.previous_position;
+
+    state.velocity *= -1.0;
+    state.local_k *= -1.0;
+}
+
+
 void device_amc_simulation::update_element_and_check_boundary() {
     const bool is_2d = m_dimension == 2;
+
     for (auto &p_particle : m_list_particles) {
-        const mesh::element *old_element      = p_particle->get_containing_element();
-        mesh::vector3        current_position = p_particle->state().position;
+        auto &particle = *p_particle;
+
+        const mesh::element *old_element = particle.get_containing_element();
+
+        if (old_element == nullptr) {
+            particle.set_crossed_contact(true);
+            continue;
+        }
+
+        mesh::vector3 current_position = particle.state().position;
+
         if (is_2d) {
             current_position.to_2d_inplace();
         }
+
         if (old_element->is_location_inside_element(current_position)) {
             continue;
         }
+
         if (m_device.check_enters_contact(current_position)) {
-            p_particle->set_crossed_contact(true);
+            particle.set_crossed_contact(true);
             continue;
         }
+
         auto *new_element = m_device.find_element_at_location(current_position);
+
         if (new_element == nullptr) {
-            // p_particle->reset_to_previous_position();
-            // TODO IMPLEMEMENT
+            reflect_particle_to_previous_position(particle);
             continue;
-        } else if (m_device.get_material_name_at_element(new_element) != "Silicon") {
-            // p_particle->reset_to_previous_position();
-            // TODO IMPLEMEMENT
-            continue;
-        } else {
-            p_particle->set_containing_element(new_element);
         }
+
+        if (m_device.get_material_name_at_element(new_element) != "Silicon") {
+            reflect_particle_to_previous_position(particle);
+            continue;
+        }
+
+        particle.set_containing_element(new_element);
     }
 }
 
@@ -308,6 +338,10 @@ void device_amc_simulation::remove_collected_particles() {
         std::erase_if(m_list_particles, [](auto &&p_part) { return p_part->state().m_crossed_contact; });
     }
     std::vector<double> currents = m_device.get_electrode_currents();
+    // CHECK SIZE OF CURRENTS VECTOR
+    if (currents.size() < 2) {
+        throw std::runtime_error("Error: currents vector should have at least 2 elements (anode and cathode currents)");
+    }
     m_anode_current              = uepm::constants::q_e * currents[0] / m_simulation_options.m_time_step;
     m_cathode_current            = uepm::constants::q_e * currents[1] / m_simulation_options.m_time_step;
 }
@@ -403,26 +437,94 @@ std::pair<double, double> device_amc_simulation::compute_depletion_region() cons
 }
 
 void device_amc_simulation::export_current_time_step_as_csv(const std::string &prefix_filename) const {
+    std::vector<double> particle_indices;
+    std::vector<double> particle_types;
+    std::vector<double> particle_times;
+
     std::vector<double> x_positions;
     std::vector<double> y_positions;
     std::vector<double> z_positions;
-    std::vector<double> particles_times;
+
+    std::vector<double> kx_values;
+    std::vector<double> ky_values;
+    std::vector<double> kz_values;
+
+    std::vector<double> vx_values;
+    std::vector<double> vy_values;
+    std::vector<double> vz_values;
+
+    std::vector<double> particle_energies;
     std::vector<double> particle_electric_field;
-    std::vector<double> particles_charge;
-    for (auto &&p_particle : m_list_particles) {
-        x_positions.push_back(p_particle->state().position.x());
-        y_positions.push_back(p_particle->state().position.y());
-        z_positions.push_back(p_particle->state().position.z());
-        particles_times.push_back(p_particle->state().time);
-        particle_electric_field.push_back(p_particle->state().electric_field.norm());
-        particles_charge.push_back(p_particle->get_signed_charge());
+    std::vector<double> particle_weights;
+    std::vector<double> particle_valleys;
+    std::vector<double> particle_signed_charge;
+
+    for (const auto &p_particle : m_list_particles) {
+        const auto &particle = *p_particle;
+        const auto &state    = particle.state();
+
+        particle_indices.push_back(static_cast<double>(particle.index()));
+        particle_types.push_back(static_cast<double>(particle.type()));
+        particle_times.push_back(state.time);
+
+        x_positions.push_back(state.position.x());
+        y_positions.push_back(state.position.y());
+        z_positions.push_back(state.position.z());
+
+        kx_values.push_back(state.local_k.x());
+        ky_values.push_back(state.local_k.y());
+        kz_values.push_back(state.local_k.z());
+
+        vx_values.push_back(state.velocity.x());
+        vy_values.push_back(state.velocity.y());
+        vz_values.push_back(state.velocity.z());
+
+        particle_energies.push_back(state.kinetic_energy);
+        particle_electric_field.push_back(state.electric_field.norm());
+        particle_weights.push_back(particle.weight());
+        particle_valleys.push_back(static_cast<double>(state.valley_index));
+        particle_signed_charge.push_back(particle.get_signed_charge());
     }
-    std::vector<std::string> list_column_names  = {"time", "X", "Y", "Z", "electric field", "type"};
-    std::string              iteration_filename = fmt::format("{}.{:09d}.csv", prefix_filename, m_iteration);
-    utils::export_multiple_vector_to_csv(
-        iteration_filename,
-        list_column_names,
-        {particles_times, x_positions, y_positions, z_positions, particle_electric_field, particles_charge});
+
+    const std::vector<std::string> list_column_names = {"particle_index",
+                                                        "type",
+                                                        "time",
+                                                        "X",
+                                                        "Y",
+                                                        "Z",
+                                                        "kx",
+                                                        "ky",
+                                                        "kz",
+                                                        "vx",
+                                                        "vy",
+                                                        "vz",
+                                                        "energy_eV",
+                                                        "electric_field_norm",
+                                                        "weight",
+                                                        "valley_index",
+                                                        "signed_charge"};
+
+    const std::string iteration_filename = fmt::format("{}.{:09d}.csv", prefix_filename, m_iteration);
+
+    utils::export_multiple_vector_to_csv(iteration_filename,
+                                         list_column_names,
+                                         {particle_indices,
+                                          particle_types,
+                                          particle_times,
+                                          x_positions,
+                                          y_positions,
+                                          z_positions,
+                                          kx_values,
+                                          ky_values,
+                                          kz_values,
+                                          vx_values,
+                                          vy_values,
+                                          vz_values,
+                                          particle_energies,
+                                          particle_electric_field,
+                                          particle_weights,
+                                          particle_valleys,
+                                          particle_signed_charge});
 }
 
 void device_amc_simulation::export_all_trajectories_as_csv(const std::string &prefix_filename) const {

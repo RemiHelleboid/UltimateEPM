@@ -20,6 +20,7 @@
 #include "device_amc_simulation.hpp"
 #include "materials.hpp"
 #include "poisson_solver_3d.hpp"
+#include "vtkWriter.hpp"
 
 namespace uepm::amc {
 
@@ -42,11 +43,12 @@ class self_consistent_device_amc_simulation_3d : public device_amc_simulation {
     std::vector<double>                         m_list_element_contact_equilibrium_charge;
 
     std::minstd_rand m_contact_rng;
-    
 
     void validate_self_consistent_options() const;
     void initialize_poisson_solver();
     void compute_unitary_potential();
+
+    void place_initial_charges_according_to_doping(double particle_weight = 1.0);
     void initialize_contact_elements();
     void add_charges_at_contacts(std::size_t poisson_frequency);
     void update_self_consistent_potential();
@@ -74,6 +76,8 @@ class self_consistent_device_amc_simulation_3d : public device_amc_simulation {
     void add_particle_charges_to_elements();
     void reset_element_charges();
     void recompute_vertex_space_charge_from_element_charges(std::size_t accumulation_steps);
+
+    void export_current_state();
 };
 
 }  // namespace uepm::amc

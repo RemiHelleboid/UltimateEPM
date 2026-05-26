@@ -49,7 +49,7 @@ class amc_transport_kernel {
 
     void scatter_particle(particle_amc& p, double dt);
 
-    void drift_particle(particle_amc& p, const mesh::vector3& electric_field, double dt);
+    void drift_particle(particle_amc& p, const mesh::vector3& electric_field_Vm, double dt);
 
     std::vector<scattering_channel> build_scattering_channels(const particle_amc& p) const;
 

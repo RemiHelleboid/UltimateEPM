@@ -52,6 +52,8 @@ struct particle_state {
      *
      */
     bool m_crossed_contact = false;
+
+    vector3 previous_position{};
 };
 
 struct particle_snapshot {

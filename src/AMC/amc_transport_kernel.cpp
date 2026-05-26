@@ -138,7 +138,8 @@ double amc_transport_kernel::uniform01() {
     return dist(m_rng);
 }
 
-void amc_transport_kernel::drift_particle(particle_amc& p, const mesh::vector3& electric_field, double dt) {
+void amc_transport_kernel::drift_particle(particle_amc& p, const mesh::vector3& electric_field_Vm, double dt) {
+
     if (dt < 0.0) {
         throw std::invalid_argument("drift time step must be non-negative");
     }
@@ -149,7 +150,7 @@ void amc_transport_kernel::drift_particle(particle_amc& p, const mesh::vector3& 
     }
 
     const auto&   valley                = m_valleys[valley_index];
-    const vector3 electric_field_valley = valley.to_valley_frame(electric_field);
+    const vector3 electric_field_valley = valley.to_valley_frame(electric_field_Vm);
 
     const double  prefactor    = p.get_signed_charge() / uepm::constants::h_bar;
     const vector3 old_velocity = p.state().velocity;
@@ -158,10 +159,15 @@ void amc_transport_kernel::drift_particle(particle_amc& p, const mesh::vector3& 
 
     p.state().gamma          = valley.gamma_from_k_valley(p.state().local_k);
     p.state().kinetic_energy = valley.kinetic_energy_from_gamma(p.state().gamma);
-    p.state().velocity       = valley.velocity_from_k_valley(p.state().local_k);
+
+    const vector3 velocity_valley = valley.velocity_from_k_valley(p.state().local_k);
+
+    p.state().velocity = valley.to_global_frame(velocity_valley);
 
     const vector3 avg_velocity = 0.5 * (old_velocity + p.state().velocity);
-    p.state().position += avg_velocity * dt;
+
+    constexpr double meter_to_micron = 1.0e6;
+    p.state().position += avg_velocity * dt * meter_to_micron;
     p.state().time += dt;
 }
 

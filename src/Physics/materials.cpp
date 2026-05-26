@@ -15,6 +15,8 @@
 #include "mobility_model.hpp"
 #include "physical_constants.hpp"
 #include "yaml-cpp/yaml.h"
+#include <filesystem>
+#include <stdexcept>
 
 namespace uepm {
 
@@ -32,6 +34,10 @@ static const std::vector<std::string> list_optional_parameters = {"lattice_const
  * @param filename
  */
 void list_materials::load_materials_from_file(const std::string& filename) {
+    if (!std::filesystem::exists(filename)) {
+        throw std::runtime_error("Material file " + filename + " does not exist.");
+    }
+
     YAML::Node materials_file = YAML::LoadFile(filename);
     for (const auto& material_node : materials_file) {
         std::string material_name = material_node["name"].as<std::string>();

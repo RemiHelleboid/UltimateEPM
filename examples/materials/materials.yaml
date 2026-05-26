@@ -1,0 +1,30 @@
+# Materials basic parameters, from http://matprop.ru/
+# If not mentionned, values are given at 300K.
+---
+- name: Silicon
+  symbol: Si
+  lattice-constant: 5.43
+  dielectric-constant: 11.7
+  e-ionization-threshold: 1.2
+  h-ionization-threshold: 1.4
+  
+- name: Germanium
+  symbol: Ge
+  lattice-constant: 5.658
+  dielectric-constant: 16.2
+  e-ionization-threshold: 0.0
+  h-ionization-threshold: 0.0
+  
+- name: Gallium Arsenide
+  symbol: GaAs
+  lattice-constant: 5.65325 
+  dielectric-constant: 12.9
+  e-ionization-threshold: 0
+  h-ionization-threshold: 0
+
+- name: SiliconDiOxide
+  symbol: SiO2
+  lattice-constant: 0
+  dielectric-constant: 3.9
+  e-ionization-threshold: 0
+  h-ionization-threshold: 0

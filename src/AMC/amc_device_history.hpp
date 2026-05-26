@@ -58,6 +58,7 @@ struct history_device_amc {
         m_list_nb_impact_ionization.push_back(nb_impact_ionization);
         m_list_anode_current.push_back(anode_current);
         m_list_cathode_current.push_back(cathode_current);
+        m_max_electric_field.push_back(max_electric_field);
     }
 
     void print_header_csv(const std::string &filename) {

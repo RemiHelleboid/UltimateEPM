@@ -74,6 +74,113 @@ void self_consistent_device_amc_simulation_3d::initialize_contact_elements() {
     }
 }
 
+void self_consistent_device_amc_simulation_3d::place_initial_charges_according_to_doping(double particle_weight) {
+    if (particle_weight <= 0.0) {
+        throw std::invalid_argument("particle_weight must be positive.");
+    }
+
+    constexpr double micron3_to_cm3 = 1.0e-12;
+
+    const std::string donor_field_name    = "DonorConcentration";
+    const std::string acceptor_field_name = "AcceptorConcentration";
+
+    auto* mesh = m_device.get_p_mesh();
+
+    const double total_donor_charge = micron3_to_cm3 * mesh->integrate_over_mesh(donor_field_name);
+
+    const double total_acceptor_charge = micron3_to_cm3 * mesh->integrate_over_mesh(acceptor_field_name);
+
+    const std::size_t number_electrons = static_cast<std::size_t>(std::floor(total_donor_charge / particle_weight));
+
+    const std::size_t number_holes = static_cast<std::size_t>(std::floor(total_acceptor_charge / particle_weight));
+
+    fmt::print("Initial doping charge:\n");
+    fmt::print("  donor carriers:    {:.6e}\n", total_donor_charge);
+    fmt::print("  acceptor carriers: {:.6e}\n", total_acceptor_charge);
+    fmt::print("Initial numerical particles:\n");
+    fmt::print("  particle weight: {:.6e}\n", particle_weight);
+    fmt::print("  electrons: {}\n", number_electrons);
+    fmt::print("  holes:     {}\n", number_holes);
+
+    if (number_electrons == 0 && number_holes == 0) {
+        fmt::print("No initial doping particles created. Decrease particle weight.\n");
+        return;
+    }
+
+    std::vector<mesh::vector3> electron_positions;
+    std::vector<mesh::vector3> hole_positions;
+
+    electron_positions.reserve(number_electrons);
+    hole_positions.reserve(number_holes);
+
+    std::uniform_real_distribution<double> uniform01(0.0, 1.0);
+
+    const double max_donor_concentration = mesh->get_argmax_max_of_function(donor_field_name).second;
+
+    const double max_acceptor_concentration = mesh->get_argmax_max_of_function(acceptor_field_name).second;
+
+    if (number_electrons > 0 && max_donor_concentration <= 0.0) {
+        throw std::runtime_error("Donor concentration maximum is non-positive.");
+    }
+
+    if (number_holes > 0 && max_acceptor_concentration <= 0.0) {
+        throw std::runtime_error("Acceptor concentration maximum is non-positive.");
+    }
+
+    const mesh::bbox device_bbox = mesh->get_bounding_box();
+
+    while (electron_positions.size() < number_electrons) {
+        const mesh::vector3 position = device_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
+
+        const double donor_density = mesh->interpolate_scalar_at_location(donor_field_name, position);
+
+        const double acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
+
+        if (acceptor_density > donor_density) {
+            continue;
+        }
+
+        const double probability = donor_density / max_donor_concentration;
+
+        if (uniform01(m_contact_rng) < probability) {
+            electron_positions.push_back(position);
+        }
+    }
+
+    while (hole_positions.size() < number_holes) {
+        const mesh::vector3 position = device_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
+
+        const double acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
+
+        const double donor_density = mesh->interpolate_scalar_at_location(donor_field_name, position);
+
+        if (donor_density > acceptor_density) {
+            continue;
+        }
+
+        const double probability = acceptor_density / max_acceptor_concentration;
+
+        if (uniform01(m_contact_rng) < probability) {
+            hole_positions.push_back(position);
+        }
+    }
+
+    m_list_particles.clear();
+    m_list_particles.reserve(electron_positions.size() + hole_positions.size());
+
+    add_particles_at_positions(electron_positions, particle_type::electron, particle_weight);
+
+    add_particles_at_positions(hole_positions, particle_type::hole, particle_weight);
+
+    reset_element_charges();
+    add_particle_charges_to_elements();
+    recompute_vertex_space_charge_from_element_charges(1);
+    update_self_consistent_potential();
+    reset_element_charges();
+
+    fmt::print("Initial particles placed according to doping.\n");
+}
+
 /**
  * @brief We compute the charge to add at each contact-adjacent element based on the difference between the equilibrium charge (computed
  * from the doping concentration) and the current accumulated charge in the element, and we draw particles accordingly to add this charge at
@@ -197,6 +304,7 @@ self_consistent_device_amc_simulation_3d::self_consistent_device_amc_simulation_
     validate_self_consistent_options();
     initialize_contact_elements();
     initialize_poisson_solver();
+    place_initial_charges_according_to_doping();
 }
 
 self_consistent_device_amc_simulation_3d::self_consistent_device_amc_simulation_3d(
@@ -222,6 +330,7 @@ self_consistent_device_amc_simulation_3d::self_consistent_device_amc_simulation_
     validate_self_consistent_options();
     initialize_contact_elements();
     initialize_poisson_solver();
+    place_initial_charges_according_to_doping();
 }
 
 void self_consistent_device_amc_simulation_3d::add_particle_charges_to_elements() {
@@ -293,10 +402,9 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
             reset_element_charges();
         }
 
-        
         m_time += m_simulation_options.m_time_step;
         ++m_iteration;
-        
+
         m_simulation_history.add_data_to_history(m_time,
                                                  get_number_electrons(),
                                                  get_number_holes(),
@@ -304,9 +412,27 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
                                                  m_anode_current,
                                                  m_cathode_current,
                                                  0.0);
+
+        if (m_simulation_options.m_export_time_step &&
+            m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0) {
+            export_current_time_step_as_csv(m_prefix_export_filename);
+            export_current_state();
+            fmt::print("\rExported iteration at time {:<10.3e}ps - {:>9d} / {} ({:.1f}%) ",
+                       m_time * 1e12,
+                       m_iteration,
+                       total_iterations,
+                       static_cast<double>(m_iteration) / static_cast<double>(total_iterations) * 100.0);
+            std::fflush(stdout);
+        }
     }
 
     fmt::print("END 3D SELF-CONSISTENT AMC SIMULATION\n");
+}
+
+void self_consistent_device_amc_simulation_3d::export_current_state() {
+    const std::string FileName = fmt::format("{}_poisson_time.vtk.{:09d}", m_prefix_export_filename, m_iteration);
+    file::export_as_vtk(*(m_device.get_p_mesh()), FileName, {}, {}, true);
+    export_current_time_step_as_csv(m_prefix_export_filename);
 }
 
 }  // namespace uepm::amc
