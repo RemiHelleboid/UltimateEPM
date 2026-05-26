@@ -105,6 +105,9 @@ struct options_device_amc {
      */
     int m_nb_threads = 1;
 
+    
+    options_device_amc() = default;
+
     options_device_amc(double      t_max,
                         double      time_step,
                         std::size_t max_number_particle,
