@@ -9,6 +9,7 @@ set(HEADER_FILES_LIBAMC
     amc_transport_kernel.hpp
     amc_material_model.hpp
     amc_scattering_model.hpp
+    amc_device_history.hpp
   )
 
 
