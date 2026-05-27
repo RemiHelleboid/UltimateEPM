@@ -1,14 +1,13 @@
 /**
  * @file device_analytic_mc.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-05-26
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
-
 
 #include <fmt/chrono.h>
 #include <fmt/core.h>
@@ -20,6 +19,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "amc_self_consistent_device_simulation_2d.hpp"
 #include "amc_self_consistent_device_simulation_3d.hpp"
 #include "device.hpp"
 #include "materials.hpp"
@@ -90,12 +90,13 @@ void validate_self_consistent_options(const uepm::amc::options_self_consistent_d
 }
 
 std::string make_default_output_directory(const std::string& mesh_file) {
-    return fmt::format("self_consistent_amc_3d_{}", std::filesystem::path(mesh_file).stem().string());
+    return fmt::format("self_consistent_amc_{}", std::filesystem::path(mesh_file).stem().string());
 }
 
 void add_default_contacts(uepm::device::device& simulation_device, uepm::mesh::mesh& mesh) {
-    constexpr double eps_electrode    = 0.001;
-    constexpr double ohmic_resistance = 0.0;
+    constexpr double contact_collection_depth = 0.001;  // µm
+    constexpr double contact_margin           = 10.0;   // µm
+    constexpr double ohmic_resistance         = 0.0;
 
     const double min_x = mesh.get_bounding_box().get_x_min();
     const double max_x = mesh.get_bounding_box().get_x_max();
@@ -104,34 +105,41 @@ void add_default_contacts(uepm::device::device& simulation_device, uepm::mesh::m
     const double min_z = mesh.get_bounding_box().get_z_min();
     const double max_z = mesh.get_bounding_box().get_z_max();
 
-    const uepm::mesh::vector3 anode_corner1(min_x - eps_electrode, min_y - eps_electrode, min_z - eps_electrode);
-    const uepm::mesh::vector3 anode_corner2(min_x + eps_electrode, max_y + eps_electrode, max_z + eps_electrode);
-    simulation_device.add_contact("anode", anode_corner1, anode_corner2, ohmic_resistance);
+    const uepm::mesh::vector3 anode_corner1(min_x - contact_margin, min_y - contact_margin, min_z - contact_margin);
+    const uepm::mesh::vector3 anode_corner2(min_x + contact_collection_depth,
+                                            max_y + contact_margin,
+                                            max_z + contact_margin);
 
-    const uepm::mesh::vector3 cathode_corner1(max_x - eps_electrode, min_y - eps_electrode, min_z - eps_electrode);
-    const uepm::mesh::vector3 cathode_corner2(max_x + eps_electrode, max_y + eps_electrode, max_z + eps_electrode);
+    simulation_device.add_contact("anode", anode_corner1, anode_corner2, ohmic_resistance);
+    const uepm::mesh::vector3 cathode_corner1(max_x - contact_collection_depth,
+                                              min_y - contact_margin,
+                                              min_z - contact_margin);
+
+    const uepm::mesh::vector3 cathode_corner2(max_x + contact_margin, max_y + contact_margin, max_z + contact_margin);
     simulation_device.add_contact("cathode", cathode_corner1, cathode_corner2, ohmic_resistance);
 
     fmt::print("Added device contacts:\n");
     fmt::print("  anode   x in [{:.6e}, {:.6e}]\n", anode_corner1.x(), anode_corner2.x());
     fmt::print("  cathode x in [{:.6e}, {:.6e}]\n", cathode_corner1.x(), cathode_corner2.x());
 }
-
 }  // namespace
 
 int main(int argc, const char** argv) {
     try {
-        TCLAP::CmdLine cmd("3D self-consistent analytical Monte Carlo device simulation.", ' ', "1.0");
-
-        TCLAP::ValueArg<std::string> arg_device_mesh("", "device-mesh", "Path to the 3D device mesh file.", true, "", "path");
-
-        TCLAP::ValueArg<std::string> arg_material_file("",
-                                                       "material-file",
-                                                       "Path to the material parameter file used by the Poisson solver.",
-                                                       false,
-                                                       std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml",
-                                                       "path");
-
+        TCLAP::CmdLine               cmd("Self-consistent analytical Monte Carlo device simulation.", ' ', "1.0");
+        TCLAP::ValueArg<std::string> arg_device_mesh("",
+                                                     "device-mesh",
+                                                     "Path to the device mesh file.",
+                                                     true,
+                                                     "",
+                                                     "path");
+        TCLAP::ValueArg<std::string> arg_material_file(
+            "",
+            "material-file",
+            "Path to the material parameter file used by the Poisson solver.",
+            false,
+            std::string(PROJECT_SRC_DIR) + "/examples/materials/materials.yaml",
+            "path");
         TCLAP::ValueArg<std::string> arg_material("m",
                                                   "material",
                                                   "AMC transport material. Currently only Si is supported.",
@@ -140,15 +148,20 @@ int main(int argc, const char** argv) {
                                                   "string");
 
         TCLAP::ValueArg<std::string> arg_output_dir("d", "outdir", "Output directory.", false, "", "path");
-
-        TCLAP::ValueArg<std::string> arg_simulation_name("", "name", "Simulation name.", false, "self_consistent_amc_3d", "string");
-
-        TCLAP::ValueArg<double> arg_time("t", "time", "Final simulation time in seconds.", false, 1.0e-12, "s");
-
-        TCLAP::ValueArg<double> arg_dt("", "dt", "Synchronized device Monte Carlo time step in seconds.", false, 1.0e-15, "s");
-
+        TCLAP::ValueArg<std::string> arg_simulation_name("",
+                                                         "name",
+                                                         "Simulation name.",
+                                                         false,
+                                                         "self_consistent_amc",
+                                                         "string");
+        TCLAP::ValueArg<double>      arg_time("t", "time", "Final simulation time in seconds.", false, 1.0e-12, "s");
+        TCLAP::ValueArg<double>      arg_dt("",
+                                            "dt",
+                                            "Synchronized device Monte Carlo time step in seconds.",
+                                            false,
+                                            1.0e-15,
+                                            "s");
         TCLAP::ValueArg<double> arg_temperature("T", "temperature", "Lattice temperature in K.", false, 300.0, "K");
-
         TCLAP::ValueArg<double> arg_max_energy("e",
                                                "max-energy",
                                                "Maximum carrier energy in eV used to precompute gamma_max.",
@@ -156,7 +169,12 @@ int main(int argc, const char** argv) {
                                                10.0,
                                                "eV");
 
-        TCLAP::ValueArg<double> arg_gamma_safety("", "gamma-safety", "Safety factor applied to gamma_max.", false, 1.2, "double");
+        TCLAP::ValueArg<double> arg_gamma_safety("",
+                                                 "gamma-safety",
+                                                 "Safety factor applied to gamma_max.",
+                                                 false,
+                                                 1.2,
+                                                 "double");
 
         TCLAP::ValueArg<std::size_t> arg_gamma_samples("",
                                                        "gamma-samples",
@@ -172,20 +190,43 @@ int main(int argc, const char** argv) {
                                                            10,
                                                            "integer");
 
-        TCLAP::ValueArg<double> arg_anode_voltage("", "anode-voltage", "Dirichlet voltage applied to the anode.", false, 0.0, "V");
-
-        TCLAP::ValueArg<double> arg_cathode_voltage("", "cathode-voltage", "Dirichlet voltage applied to the cathode.", false, 0.0, "V");
-
-        TCLAP::ValueArg<double> arg_start_x("", "x0", "Initial particle x position in mesh units.", true, 0.0, "double");
-
-        TCLAP::ValueArg<double> arg_start_y("", "y0", "Initial particle y position in mesh units.", false, 0.0, "double");
-
-        TCLAP::ValueArg<double> arg_start_z("", "z0", "Initial particle z position in mesh units.", false, 0.0, "double");
-
-        TCLAP::ValueArg<std::size_t> arg_number_electrons("", "nelectrons", "Initial number of electrons.", false, 1, "integer");
-
+        TCLAP::ValueArg<double>      arg_anode_voltage("",
+                                                       "anode-voltage",
+                                                       "Dirichlet voltage applied to the anode.",
+                                                       false,
+                                                       0.0,
+                                                       "V");
+        TCLAP::ValueArg<double>      arg_cathode_voltage("",
+                                                         "cathode-voltage",
+                                                         "Dirichlet voltage applied to the cathode.",
+                                                         false,
+                                                         0.0,
+                                                         "V");
+        TCLAP::ValueArg<double>      arg_start_x("",
+                                                 "x0",
+                                                 "Initial particle x position in mesh units.",
+                                                 true,
+                                                 0.0,
+                                                 "double");
+        TCLAP::ValueArg<double>      arg_start_y("",
+                                                 "y0",
+                                                 "Initial particle y position in mesh units.",
+                                                 false,
+                                                 0.0,
+                                                 "double");
+        TCLAP::ValueArg<double>      arg_start_z("",
+                                                 "z0",
+                                                 "Initial particle z position in mesh units.",
+                                                 false,
+                                                 0.0,
+                                                 "double");
+        TCLAP::ValueArg<std::size_t> arg_number_electrons("",
+                                                          "nelectrons",
+                                                          "Initial number of electrons.",
+                                                          false,
+                                                          1,
+                                                          "integer");
         TCLAP::ValueArg<std::size_t> arg_number_holes("", "nholes", "Initial number of holes.", false, 0, "integer");
-
         TCLAP::ValueArg<std::size_t> arg_max_particles("",
                                                        "max-particles",
                                                        "Hard maximum number of active particles.",
@@ -199,33 +240,52 @@ int main(int argc, const char** argv) {
                                                              false,
                                                              1000,
                                                              "integer");
-
-        TCLAP::ValueArg<int> arg_nb_threads("j", "nthreads", "Number of threads requested by the simulation.", false, 1, "integer");
+        TCLAP::ValueArg<int>         arg_nb_threads("j",
+                                                    "nthreads",
+                                                    "Number of threads requested by the simulation.",
+                                                    false,
+                                                    1,
+                                                    "integer");
 
         TCLAP::ValueArg<int> arg_seed("", "seed", "Random seed.", false, 0, "integer");
-
-        TCLAP::SwitchArg arg_disable_impact_ionization("", "disable-impact-ionization", "Disable impact-ionization computation.", false);
-
-        TCLAP::SwitchArg arg_disable_particle_creation("",
-                                                       "disable-particle-creation",
-                                                       "Compute impact ionization but do not create electron-hole pairs.",
-                                                       false);
-
-        TCLAP::SwitchArg arg_keep_particle_history("H", "keep-particle-history", "Store full particle trajectories.", false);
+        TCLAP::SwitchArg     arg_disable_impact_ionization("",
+                                                           "disable-impact-ionization",
+                                                           "Disable impact-ionization computation.",
+                                                           false);
+        TCLAP::SwitchArg     arg_disable_particle_creation(
+            "",
+            "disable-particle-creation",
+            "Compute impact ionization but do not create electron-hole pairs.",
+            false);
+        TCLAP::SwitchArg arg_keep_particle_history("H",
+                                                   "keep-particle-history",
+                                                   "Store full particle trajectories.",
+                                                   false);
 
         TCLAP::SwitchArg arg_export_time_steps("E", "export-time-steps", "Export particle state periodically.", false);
-
-        TCLAP::ValueArg<int> arg_export_frequency("",
-                                                  "export-frequency",
-                                                  "Export one time step every N iterations.",
-                                                  false,
-                                                  100,
-                                                  "integer");
-
-        TCLAP::SwitchArg arg_keep_going_without_electrons("",
-                                                          "keep-going-without-electrons",
-                                                          "Do not stop when no electrons remain in the device.",
-                                                          false);
+        TCLAP::ValueArg<int>    arg_export_frequency("",
+                                                     "export-frequency",
+                                                     "Export one time step every N iterations.",
+                                                     false,
+                                                     100,
+                                                     "integer");
+        TCLAP::SwitchArg        arg_keep_going_without_electrons("",
+                                                                 "keep-going-without-electrons",
+                                                                 "Do not stop when no electrons remain in the device.",
+                                                                 false);
+        TCLAP::ValueArg<double> arg_effective_depth(
+            "",
+            "effective-depth",
+            "Effective physical depth represented by a 2D simulation, in microns.",
+            false,
+            1.0,
+            "um");
+        TCLAP::ValueArg<double> arg_particle_z_period("",
+                                                      "particle-z-period",
+                                                      "Numerical periodic z length used by 2D particles, in microns.",
+                                                      false,
+                                                      1.0,
+                                                      "um");
 
         cmd.add(arg_device_mesh);
         cmd.add(arg_material_file);
@@ -241,6 +301,8 @@ int main(int argc, const char** argv) {
         cmd.add(arg_poisson_frequency);
         cmd.add(arg_anode_voltage);
         cmd.add(arg_cathode_voltage);
+        cmd.add(arg_effective_depth);
+        cmd.add(arg_particle_z_period);
         cmd.add(arg_start_x);
         cmd.add(arg_start_y);
         cmd.add(arg_start_z);
@@ -281,13 +343,30 @@ int main(int argc, const char** argv) {
         device_options.m_export_time_step                     = arg_export_time_steps.getValue();
         device_options.m_frequency_export_trajectory          = arg_export_frequency.getValue();
 
-        uepm::amc::options_self_consistent_device_amc_3d self_consistent_options;
-        self_consistent_options.m_poisson_frequency = arg_poisson_frequency.getValue();
-        self_consistent_options.m_anode_voltage     = arg_anode_voltage.getValue();
-        self_consistent_options.m_cathode_voltage   = arg_cathode_voltage.getValue();
+        uepm::amc::options_self_consistent_device_amc_2d self_consistent_options_2d;
+        self_consistent_options_2d.m_poisson_frequency    = arg_poisson_frequency.getValue();
+        self_consistent_options_2d.m_anode_voltage        = arg_anode_voltage.getValue();
+        self_consistent_options_2d.m_cathode_voltage      = arg_cathode_voltage.getValue();
+        self_consistent_options_2d.m_effective_depth_um   = arg_effective_depth.getValue();
+        self_consistent_options_2d.m_particle_z_period_um = arg_particle_z_period.getValue();
 
-        validate_device_options(device_options);
-        validate_self_consistent_options(self_consistent_options);
+        uepm::amc::options_self_consistent_device_amc_3d self_consistent_options_3d;
+        self_consistent_options_3d.m_poisson_frequency = arg_poisson_frequency.getValue();
+        self_consistent_options_3d.m_anode_voltage     = arg_anode_voltage.getValue();
+        self_consistent_options_3d.m_cathode_voltage   = arg_cathode_voltage.getValue();
+
+        if (self_consistent_options_2d.m_poisson_frequency == 0 ||
+            self_consistent_options_3d.m_poisson_frequency == 0) {
+            throw std::invalid_argument("--poisson-frequency must be positive.");
+        }
+
+        if (self_consistent_options_2d.m_effective_depth_um <= 0.0) {
+            throw std::invalid_argument("--effective-depth must be positive.");
+        }
+
+        if (self_consistent_options_2d.m_particle_z_period_um <= 0.0) {
+            throw std::invalid_argument("--particle-z-period must be positive.");
+        }
 
         const std::string output_dir =
             arg_output_dir.getValue().empty() ? make_default_output_directory(mesh_file) : arg_output_dir.getValue();
@@ -312,67 +391,109 @@ int main(int argc, const char** argv) {
             throw std::runtime_error("Mesh loading failed.");
         }
 
-        if (mesh->get_dimension() != 3) {
-            throw std::runtime_error("This app requires a 3D mesh.");
+        const int mesh_dimension = mesh->get_dimension();
+
+        if (mesh_dimension != 2 && mesh_dimension != 3) {
+            throw std::runtime_error("Only 2D and 3D meshes are supported.");
         }
 
-        fmt::print("Loading materials: {}\n", arg_material_file.getValue());
-        std::string material_file = PROJECT_SRC_DIR + std::string("/examples/materials/materials.yaml");
+        fmt::print("Mesh dimension: {}D\n", mesh_dimension);
+        const std::string material_file = arg_material_file.getValue();
+        fmt::print("Loading materials: {}\n", material_file);
         uepm::physic::material::list_materials list_of_materials;
         list_of_materials.load_materials_from_file(material_file);
         uepm::device::device simulation_device(mesh);
         add_default_contacts(simulation_device, *mesh);
 
-        const auto starting_position = make_vector3(arg_start_x.getValue(), arg_start_y.getValue(), arg_start_z.getValue());
-        fmt::print("Self-consistent AMC 3D simulation\n");
+        const auto starting_position =
+            make_vector3(arg_start_x.getValue(), arg_start_y.getValue(), arg_start_z.getValue());
+
+        fmt::print("Self-consistent AMC {}D simulation\n", mesh_dimension);
         fmt::print("  mesh vertices: {}\n", mesh->get_nb_vertices());
         fmt::print("  output directory: {}\n", output_dir);
         fmt::print("  material: {}\n", material_symbol);
         fmt::print("  final time: {:.6e} s\n", device_options.m_t_max);
         fmt::print("  time step: {:.6e} s\n", device_options.m_time_step);
-        fmt::print("  Poisson frequency: {}\n", self_consistent_options.m_poisson_frequency);
-        fmt::print("  anode voltage: {:.6e} V\n", self_consistent_options.m_anode_voltage);
-        fmt::print("  cathode voltage: {:.6e} V\n", self_consistent_options.m_cathode_voltage);
+        fmt::print("  Poisson frequency: {}\n", arg_poisson_frequency.getValue());
+        fmt::print("  anode voltage: {:.6e} V\n", arg_anode_voltage.getValue());
+        fmt::print("  cathode voltage: {:.6e} V\n", arg_cathode_voltage.getValue());
+
+        if (mesh_dimension == 2) {
+            fmt::print("  effective depth: {:.6e} um\n", self_consistent_options_2d.m_effective_depth_um);
+            fmt::print("  particle z period: {:.6e} um\n", self_consistent_options_2d.m_particle_z_period_um);
+        }
+
         fmt::print("  initial electrons: {}\n", arg_number_electrons.getValue());
         fmt::print("  initial holes: {}\n", arg_number_holes.getValue());
-        fmt::print("  initial position: ({:.6e}, {:.6e}, {:.6e})\n", starting_position.x(), starting_position.y(), starting_position.z());
-
-        uepm::amc::self_consistent_device_amc_simulation_3d simulation(simulation_device,
-                                                                       device_options,
-                                                                       self_consistent_options,
-                                                                       list_of_materials,
-                                                                       arg_simulation_name.getValue(),
-                                                                       starting_position,
-                                                                       arg_number_electrons.getValue(),
-                                                                       arg_number_holes.getValue(),
-                                                                       arg_seed.getValue());
-
-        simulation.set_prefix_export_trajectory_filename(fmt::format("{}/time_step", trajectory_dir));
+        fmt::print("  initial position: ({:.6e}, {:.6e}, {:.6e})\n",
+                   starting_position.x(),
+                   starting_position.y(),
+                   starting_position.z());
 
         const auto start = std::chrono::high_resolution_clock::now();
 
-        simulation.run_self_consistent_transport_simulation();
+        if (mesh_dimension == 2) {
+            uepm::amc::self_consistent_device_amc_simulation_2d simulation(simulation_device,
+                                                                           device_options,
+                                                                           self_consistent_options_2d,
+                                                                           list_of_materials,
+                                                                           arg_simulation_name.getValue(),
+                                                                           starting_position,
+                                                                           arg_number_electrons.getValue(),
+                                                                           arg_number_holes.getValue(),
+                                                                           arg_seed.getValue());
+
+            simulation.set_prefix_export_trajectory_filename(fmt::format("{}/time_step", trajectory_dir));
+
+            simulation.run_self_consistent_transport_simulation();
+
+            const std::string history_file = fmt::format("{}/device_history.csv", output_dir);
+            simulation.export_history_to_csv(history_file);
+
+            fmt::print("Wrote {}\n", history_file);
+
+            if (device_options.m_keep_particles_history) {
+                const std::string trajectory_prefix = fmt::format("{}/particle_", trajectory_dir);
+                simulation.export_all_trajectories_as_csv(trajectory_prefix);
+                fmt::print("Wrote particle trajectories to {}\n", trajectory_dir);
+            }
+
+            fmt::print("Remaining electrons: {}\n", simulation.get_number_electrons());
+            fmt::print("Remaining holes: {}\n", simulation.get_number_holes());
+        } else {
+            uepm::amc::self_consistent_device_amc_simulation_3d simulation(simulation_device,
+                                                                           device_options,
+                                                                           self_consistent_options_3d,
+                                                                           list_of_materials,
+                                                                           arg_simulation_name.getValue(),
+                                                                           starting_position,
+                                                                           arg_number_electrons.getValue(),
+                                                                           arg_number_holes.getValue(),
+                                                                           arg_seed.getValue());
+
+            simulation.set_prefix_export_trajectory_filename(fmt::format("{}/time_step", trajectory_dir));
+
+            simulation.run_self_consistent_transport_simulation();
+
+            const std::string history_file = fmt::format("{}/device_history.csv", output_dir);
+            simulation.export_history_to_csv(history_file);
+
+            fmt::print("Wrote {}\n", history_file);
+
+            if (device_options.m_keep_particles_history) {
+                const std::string trajectory_prefix = fmt::format("{}/particle_", trajectory_dir);
+                simulation.export_all_trajectories_as_csv(trajectory_prefix);
+                fmt::print("Wrote particle trajectories to {}\n", trajectory_dir);
+            }
+
+            fmt::print("Remaining electrons: {}\n", simulation.get_number_electrons());
+            fmt::print("Remaining holes: {}\n", simulation.get_number_holes());
+        }
 
         const auto                          stop    = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> elapsed = stop - start;
 
         fmt::print("Simulation completed in {:.3f} s\n", elapsed.count());
-        fmt::print("Remaining electrons: {}\n", simulation.get_number_electrons());
-        fmt::print("Remaining holes: {}\n", simulation.get_number_holes());
-
-        const std::string history_file = fmt::format("{}/device_history.csv", output_dir);
-
-        simulation.export_history_to_csv(history_file);
-
-        fmt::print("Wrote {}\n", history_file);
-
-        if (device_options.m_keep_particles_history) {
-            const std::string trajectory_prefix = fmt::format("{}/particle_", trajectory_dir);
-
-            simulation.export_all_trajectories_as_csv(trajectory_prefix);
-
-            fmt::print("Wrote particle trajectories to {}\n", trajectory_dir);
-        }
 
         return 0;
     } catch (const TCLAP::ArgException& error) {

@@ -112,6 +112,8 @@ class device_amc_simulation {
     const amc_transport_kernel &transport_for(particle_type type) const;
     void                        initialize_particle_transport_state(particle_amc &particle);
 
+    virtual void apply_z_periodicity_to_particles();
+
  public:
     /**
      * @brief Construct an ampty simulation object.

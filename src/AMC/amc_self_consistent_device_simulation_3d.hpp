@@ -41,6 +41,7 @@ class self_consistent_device_amc_simulation_3d : public device_amc_simulation {
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
     std::vector<double>                         m_list_element_contact_equilibrium_charge;
+    std::vector<double>                         m_list_element_contact_residual_charge;
 
     std::minstd_rand m_contact_rng;
 
@@ -51,6 +52,7 @@ class self_consistent_device_amc_simulation_3d : public device_amc_simulation {
     void place_initial_charges_according_to_doping(double particle_weight = 1.0);
     void initialize_contact_elements();
     void add_charges_at_contacts(std::size_t poisson_frequency);
+    void add_missing_contact_charge_to_poisson_reservoir(std::size_t accumulation_steps);
     void update_self_consistent_potential();
 
  public:

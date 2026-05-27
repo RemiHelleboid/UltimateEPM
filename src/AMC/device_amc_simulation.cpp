@@ -73,6 +73,11 @@ void device_amc_simulation::initialize_particle_transport_state(particle_amc &pa
     }
 }
 
+void device_amc_simulation::apply_z_periodicity_to_particles() {
+    // No-op by default.
+    // Only 2D self-consistent simulations override this.
+}
+
 device_amc_simulation::device_amc_simulation(const device::device     &simulation_device,
                                              const options_device_amc &simulation_option,
                                              const std::string        &simulation_name,
@@ -250,7 +255,7 @@ void device_amc_simulation::transport_particles_one_time_step() {
             particle.record_state();
         }
     }
-
+    apply_z_periodicity_to_particles(); // In 3D, this does nothing.
     update_element_and_check_boundary();
     remove_collected_particles();
 }
