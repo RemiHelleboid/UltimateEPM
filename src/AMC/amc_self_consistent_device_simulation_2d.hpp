@@ -31,6 +31,8 @@ struct options_self_consistent_device_amc_2d {
     double m_anode_voltage   = 0.0;
     double m_cathode_voltage = 0.0;
 
+    double m_contact_injection_particle_weight = 1.0;
+
     // Physical depth represented by the 2D mesh.
     // Used for doping integration, charge deposition, contact injection.
     double m_effective_depth_um = 1.0;
@@ -53,6 +55,7 @@ class self_consistent_device_amc_simulation_2d : public device_amc_simulation {
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
     std::vector<double>                         m_list_element_contact_equilibrium_charge;
+    
 
     std::minstd_rand m_contact_rng;
 
@@ -63,6 +66,7 @@ class self_consistent_device_amc_simulation_2d : public device_amc_simulation {
     void place_initial_charges_according_to_doping(double particle_weight = 1.0);
     void initialize_contact_elements();
     void add_charges_at_contacts(std::size_t poisson_frequency);
+    void add_missing_contact_charge_to_poisson_reservoir(std::size_t accumulation_steps);
     void update_self_consistent_potential();
 
     // 2D-specific methods

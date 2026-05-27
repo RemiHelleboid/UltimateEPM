@@ -23,7 +23,9 @@ namespace uepm::amc {
 
 double self_consistent_device_amc_simulation_2d::scale_integrated_2d_doping_to_carriers(
     double integrated_doping) const {
-    return integrated_doping * m_self_consistent_options.m_effective_depth_um * uepm::units::micron3_to_cm3;
+    constexpr double micron_to_cm = 1.0e-4;
+
+    return integrated_doping * m_self_consistent_options.m_effective_depth_um * micron_to_cm;
 }
 
 double self_consistent_device_amc_simulation_2d::charge_deposition_factor(std::size_t accumulation_steps) const {
@@ -102,10 +104,20 @@ void self_consistent_device_amc_simulation_2d::place_initial_charges_according_t
 
     auto* mesh = m_device.get_p_mesh();
 
-    const double total_donor_charge =
-        scale_integrated_2d_doping_to_carriers(mesh->integrate_over_mesh(donor_field_name));
-    const double total_acceptor_charge =
-        scale_integrated_2d_doping_to_carriers(mesh->integrate_over_mesh(acceptor_field_name));
+    const auto integrate_carriers_over_2d_mesh = [&](const std::string& field_name) {
+        double total_charge = 0.0;
+
+        for (const auto& element : mesh->get_list_bulk_element()) {
+            total_charge += scale_integrated_2d_doping_to_carriers(element->integrate_scalar(field_name));
+        }
+
+        return total_charge;
+    };
+
+    const double total_donor_charge = integrate_carriers_over_2d_mesh(donor_field_name);
+
+    const double total_acceptor_charge = integrate_carriers_over_2d_mesh(acceptor_field_name);
+
     const std::size_t number_electrons = static_cast<std::size_t>(std::floor(total_donor_charge / particle_weight));
     const std::size_t number_holes     = static_cast<std::size_t>(std::floor(total_acceptor_charge / particle_weight));
 
@@ -189,147 +201,120 @@ void self_consistent_device_amc_simulation_2d::place_initial_charges_according_t
     fmt::print("Initial particles placed according to doping.\n");
 }
 
-// /**
-//  * @brief We compute the charge to add at each contact-adjacent element based on the difference between the
-//  equilibrium charge (computed
-//  * from the doping concentration) and the current accumulated charge in the element, and we draw particles
-//  accordingly to add this charge at
-//  * the contacts.
-//  *
-//  * @param poisson_frequency
-//  */
-// void self_consistent_device_amc_simulation_2d::add_charges_at_contacts(std::size_t poisson_frequency) {
-//     if (poisson_frequency == 0) {
-//         throw std::invalid_argument("Poisson frequency must be positive.");
-//     }
-
-//     const std::size_t number_contact_elements = m_list_element_contact_ptr.size();
-
-//     std::vector<mesh::vector3> electron_positions;
-//     std::vector<mesh::vector3> hole_positions;
-
-//     std::vector<double> electron_charge_to_add(number_contact_elements, 0.0);
-//     std::vector<double> hole_charge_to_add(number_contact_elements, 0.0);
-
-//     double total_electron_charge_to_add = 0.0;
-//     double total_hole_charge_to_add     = 0.0;
-
-//     for (std::size_t i = 0; i < number_contact_elements; ++i) {
-//         auto& element = m_list_element_contact_ptr[i];
-
-//         const double element_charge             = element->get_n_charge() - element->get_p_charge();
-//         const double accumulated_element_charge = element_charge / static_cast<double>(poisson_frequency);
-//         const double equilibrium_charge         = m_list_element_contact_equilibrium_charge[i];
-//         const double charge_to_add              = equilibrium_charge - accumulated_element_charge;
-
-//         if (equilibrium_charge > 0.0) {
-//             electron_charge_to_add[i] = charge_to_add;
-//             total_electron_charge_to_add += charge_to_add;
-//         } else {
-//             hole_charge_to_add[i] = charge_to_add;
-//             total_hole_charge_to_add += charge_to_add;
-//         }
-//     }
-
-//     const auto draw_contact_index = [&](const std::vector<double>& charge) {
-//         std::vector<std::size_t> candidates;
-//         candidates.reserve(charge.size());
-
-//         for (std::size_t i = 0; i < charge.size(); ++i) {
-//             if (charge[i] != 0.0) {
-//                 candidates.push_back(i);
-//             }
-//         }
-
-//         if (candidates.empty()) {
-//             return std::optional<std::size_t>{};
-//         }
-
-//         std::uniform_int_distribution<std::size_t> distribution(0, candidates.size() - 1);
-//         return std::optional<std::size_t>{candidates[distribution(m_contact_rng)]};
-//     };
-
-//     std::size_t number_electrons_to_place = static_cast<std::size_t>(std::max(0.0, total_electron_charge_to_add));
-//     std::size_t number_holes_to_place     = static_cast<std::size_t>(std::max(0.0, -total_hole_charge_to_add));
-
-//     while (electron_positions.size() < number_electrons_to_place) {
-//         const auto index = draw_contact_index(electron_charge_to_add);
-//         if (!index.has_value()) {
-//             break;
-//         }
-//         const std::size_t i = index.value();
-//         if (electron_charge_to_add[i] <= 0.0) {
-//             electron_charge_to_add[i] = 0.0;
-//             continue;
-//         }
-//         electron_positions.push_back(m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
-//         electron_charge_to_add[i] -= 1.0;
-//     }
-
-//     while (hole_positions.size() < number_holes_to_place) {
-//         const auto index = draw_contact_index(hole_charge_to_add);
-//         if (!index.has_value()) {
-//             break;
-//         }
-//         const std::size_t i = index.value();
-//         if (hole_charge_to_add[i] >= 0.0) {
-//             hole_charge_to_add[i] = 0.0;
-//             continue;
-//         }
-//         hole_positions.push_back(m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
-//         hole_charge_to_add[i] += 1.0;
-//     }
-
-//     add_particles_at_positions(electron_positions, particle_type::electron);
-//     add_particles_at_positions(hole_positions, particle_type::hole);
-// }
-
 void self_consistent_device_amc_simulation_2d::add_charges_at_contacts(std::size_t poisson_frequency) {
     if (poisson_frequency == 0) {
         throw std::invalid_argument("Poisson frequency must be positive.");
     }
-
-    const double particle_weight =
-        1.0;  // We add one elementary charge per particle, so the weight is 1.0 (in units of elementary charge)
-
+    const double particle_weight = m_self_consistent_options.m_contact_injection_particle_weight;
     if (particle_weight <= 0.0) {
         throw std::invalid_argument("Contact injection particle weight must be positive.");
     }
+    const std::size_t number_contact_elements = m_list_element_contact_ptr.size();
+    if (number_contact_elements == 0) {
+        return;
+    }
+
+    std::vector<double> electron_charge_to_add(number_contact_elements, 0.0);
+    std::vector<double> hole_charge_to_add(number_contact_elements, 0.0);
+    double              total_electron_charge_to_add = 0.0;
+    double              total_hole_charge_to_add     = 0.0;
+
+    for (std::size_t i = 0; i < number_contact_elements; ++i) {
+        auto& element = m_list_element_contact_ptr[i];
+
+        const double element_charge          = element->get_n_charge() - element->get_p_charge();
+        const double averaged_element_charge = element_charge / static_cast<double>(poisson_frequency);
+        const double equilibrium_charge      = m_list_element_contact_equilibrium_charge[i];
+        const double charge_to_add           = equilibrium_charge - averaged_element_charge;
+
+        if (equilibrium_charge > 0.0 && charge_to_add > 0.0) {
+            electron_charge_to_add[i] = charge_to_add;
+            total_electron_charge_to_add += charge_to_add;
+        } else if (equilibrium_charge < 0.0 && charge_to_add < 0.0) {
+            hole_charge_to_add[i] = -charge_to_add;
+            total_hole_charge_to_add += -charge_to_add;
+        }
+    }
+
+    const std::size_t number_electrons_to_place =
+        static_cast<std::size_t>(std::floor(total_electron_charge_to_add / particle_weight));
+
+    const std::size_t number_holes_to_place =
+        static_cast<std::size_t>(std::floor(total_hole_charge_to_add / particle_weight));
 
     std::vector<mesh::vector3> electron_positions;
     std::vector<mesh::vector3> hole_positions;
+
+    electron_positions.reserve(number_electrons_to_place);
+    hole_positions.reserve(number_holes_to_place);
 
     const auto has_capacity = [&]() {
         return m_list_particles.size() + electron_positions.size() + hole_positions.size() <
                m_simulation_options.m_max_number_particle;
     };
 
-    for (std::size_t i = 0; i < m_list_element_contact_ptr.size(); ++i) {
-        auto&        element                 = m_list_element_contact_ptr[i];
-        const double element_charge          = element->get_n_charge() - element->get_p_charge();
-        const double averaged_element_charge = element_charge / static_cast<double>(poisson_frequency);
-        const double equilibrium_charge      = m_list_element_contact_equilibrium_charge[i];
-        const double charge_to_add           = equilibrium_charge - averaged_element_charge;
+    std::uniform_int_distribution<std::size_t> contact_index_distribution(0, number_contact_elements - 1);
 
-        if (equilibrium_charge > 0.0) {
-            const double      missing_electron_charge = std::max(0.0, charge_to_add);
-            const std::size_t number_electrons =
-                static_cast<std::size_t>(std::floor(missing_electron_charge / particle_weight));
-            for (std::size_t n = 0; n < number_electrons && has_capacity(); ++n) {
-                electron_positions.push_back(element->draw_uniform_random_point_inside_element(m_contact_rng));
-            }
-        } else if (equilibrium_charge < 0.0) {
-            const double      missing_hole_charge = std::max(0.0, -charge_to_add);
-            const std::size_t number_holes =
-                static_cast<std::size_t>(std::floor(missing_hole_charge / particle_weight));
-            for (std::size_t n = 0; n < number_holes && has_capacity(); ++n) {
-                hole_positions.push_back(element->draw_uniform_random_point_inside_element(m_contact_rng));
-            }
+    while (electron_positions.size() < number_electrons_to_place && has_capacity()) {
+        const std::size_t i = contact_index_distribution(m_contact_rng);
+
+        if (electron_charge_to_add[i] <= 0.0) {
+            continue;
         }
+
+        electron_positions.push_back(
+            m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
+
+        electron_charge_to_add[i] -= particle_weight;
+    }
+
+    while (hole_positions.size() < number_holes_to_place && has_capacity()) {
+        const std::size_t i = contact_index_distribution(m_contact_rng);
+
+        if (hole_charge_to_add[i] <= 0.0) {
+            continue;
+        }
+
+        hole_positions.push_back(
+            m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
+
+        hole_charge_to_add[i] -= particle_weight;
     }
 
     add_particles_at_positions(electron_positions, particle_type::electron, particle_weight);
     add_particles_at_positions(hole_positions, particle_type::hole, particle_weight);
+}
+
+void self_consistent_device_amc_simulation_2d::add_missing_contact_charge_to_poisson_reservoir(
+    std::size_t accumulation_steps) {
+    if (accumulation_steps == 0) {
+        throw std::invalid_argument("accumulation_steps must be positive.");
+    }
+
+    const double accumulation_factor = static_cast<double>(accumulation_steps);
+
+    for (std::size_t i = 0; i < m_list_element_contact_ptr.size(); ++i) {
+        auto& element = m_list_element_contact_ptr[i];
+
+        const double equilibrium_charge        = m_list_element_contact_equilibrium_charge[i];
+        const double accumulated_mobile_charge = element->get_n_charge() - element->get_p_charge();
+        const double target_accumulated_charge = equilibrium_charge * accumulation_factor;
+        const double correction                = target_accumulated_charge - accumulated_mobile_charge;
+        // fmt::print(
+        //     "Contact element {}: equilibrium charge = {:.3e}, accumulated mobile charge = {:.3e}, target accumulated "
+        //     "charge = {:.3e}, correction = {:.3e}\n",
+        //     m_list_element_contact[i],
+        //     equilibrium_charge,
+        //     accumulated_mobile_charge,
+        //     target_accumulated_charge,
+        //     correction);
+
+        if (correction > 0.0) {
+            element->add_n_charge(correction);
+        } else if (correction < 0.0) {
+            element->add_p_charge(-correction);
+        }
+    }
 }
 
 void self_consistent_device_amc_simulation_2d::compute_unitary_potential() {
@@ -477,9 +462,11 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
             (m_iteration % m_self_consistent_options.m_poisson_frequency == 0) && (m_iteration != 0);
 
         if (should_update_poisson) {
-            add_charges_at_contacts(m_self_consistent_options.m_poisson_frequency);
+            const std::size_t poisson_frequency = m_self_consistent_options.m_poisson_frequency;
+            add_charges_at_contacts(poisson_frequency);
             add_particle_charges_to_elements();
-            recompute_vertex_space_charge_from_element_charges(m_self_consistent_options.m_poisson_frequency + 1);
+            add_missing_contact_charge_to_poisson_reservoir(poisson_frequency + 1);
+            recompute_vertex_space_charge_from_element_charges(poisson_frequency + 1);
             update_self_consistent_potential();
             reset_element_charges();
         }

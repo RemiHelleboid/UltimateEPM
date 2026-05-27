@@ -18,6 +18,8 @@ namespace uepm::units {
 inline constexpr double electric_field_V_per_cm_to_V_per_m = 1.0e2;
 inline constexpr double meter_to_micron                    = 1.0e6;
 inline constexpr double micron3_to_cm3                     = 1.0e-12;
+inline constexpr double micron_to_cm                       = 1.0e-4;
+inline constexpr double micron2_to_cm2                     = 1.0e-8;
 inline constexpr double cm_to_micron                       = 1.0e4;
 
 }  // namespace uepm::units

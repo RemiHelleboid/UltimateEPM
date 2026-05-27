@@ -31,6 +31,8 @@ struct options_self_consistent_device_amc_3d {
     double m_cathode_voltage = 0.0;
 
     bool m_export_state = false;
+
+    double m_contact_injection_particle_weight = 1.0;
 };
 
 class self_consistent_device_amc_simulation_3d : public device_amc_simulation {
