@@ -18,6 +18,16 @@
 
 namespace uepm::amc {
 
+struct impact_ionization_parameters {
+    double m_threshold_eV  = 1.1;
+    double m_prefactor_s_1 = 1.0e11;
+    double m_exponent      = 4.6;
+};
+
+struct carrier_impact_ionization_parameters {
+    impact_ionization_parameters m_electron;
+    impact_ionization_parameters m_hole;
+};
 struct hole_optical_transition {
     const char* name                           = "";
     std::size_t initial_band                   = 0;
@@ -30,5 +40,6 @@ struct hole_optical_transition {
 std::vector<valley_model>            make_silicon_delta_valleys();
 std::vector<valley_model>            make_silicon_hole_bands();
 std::vector<hole_optical_transition> make_silicon_hole_optical_transitions();
+carrier_impact_ionization_parameters make_silicon_impact_ionization_parameters();
 
 }  // namespace uepm::amc

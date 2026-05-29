@@ -29,6 +29,20 @@ valley_model::mat3 rotation_local_z_to_global_y() { return {{{{1.0, 0.0, 0.0}}, 
 
 } // namespace
 
+carrier_impact_ionization_parameters make_silicon_impact_ionization_parameters() {
+    carrier_impact_ionization_parameters parameters;
+
+    parameters.m_electron.m_threshold_eV  = 1.2;
+    parameters.m_electron.m_prefactor_s_1 = 1.0e11;
+    parameters.m_electron.m_exponent      = 6.0;
+
+    parameters.m_hole.m_threshold_eV  = 1.49;
+    parameters.m_hole.m_prefactor_s_1 = 1.4e12;
+    parameters.m_hole.m_exponent      = 3.4;
+
+    return parameters;
+}
+
 std::vector<valley_model> make_silicon_delta_valleys() {
     std::vector<valley_model> valleys;
     valleys.reserve(6);

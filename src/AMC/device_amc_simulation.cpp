@@ -29,13 +29,20 @@
 
 namespace uepm::amc {
 
-amc_transport_config device_amc_simulation::make_transport_config(const options_device_amc &options, particle_type carrier_type) {
+struct impact_ionization_pair_seed {
+    mesh::vector3 position;
+    double        weight = 1.0;
+};
+
+amc_transport_config device_amc_simulation::make_transport_config(const options_device_amc &options,
+                                                                  particle_type             carrier_type) {
     amc_transport_config cfg;
     cfg.m_carrier_type                  = carrier_type;
     cfg.m_lattice_temperature           = options.m_lattice_temperature;
     cfg.m_max_energy_eV                 = options.m_max_energy_eV;
     cfg.m_self_scattering_safety_factor = options.m_self_scattering_safety_factor;
     cfg.m_gamma_max_energy_samples      = options.m_gamma_max_energy_samples;
+    cfg.m_enable_impact_ionization      = options.m_activate_impact_ionization;
     return cfg;
 }
 
@@ -54,8 +61,6 @@ const amc_transport_kernel &device_amc_simulation::transport_for(particle_type t
 
     return m_hole_transport;
 }
-
-
 
 void device_amc_simulation::initialize_particle_transport_state(particle_amc &particle) {
     auto &transport = transport_for(particle.type());
@@ -78,6 +83,64 @@ void device_amc_simulation::apply_z_periodicity_to_particles() {
     // Only 2D self-consistent simulations override this.
 }
 
+void device_amc_simulation::initialize_scheduled_particle_injection() {
+    m_scheduled_particle_injection_done = !m_simulation_options.m_enable_scheduled_particle_injection;
+    if (!m_simulation_options.m_enable_scheduled_particle_injection) {
+        return;
+    }
+    const auto &injection = m_simulation_options.m_scheduled_particle_injection;
+    if (injection.m_time_s < 0.0) {
+        throw std::invalid_argument("Scheduled particle injection time must be non-negative.");
+    }
+    if (injection.m_weight <= 0.0) {
+        throw std::invalid_argument("Scheduled particle injection weight must be positive.");
+    }
+}
+
+bool device_amc_simulation::has_pending_scheduled_particle_injection() const {
+    if (!m_simulation_options.m_enable_scheduled_particle_injection) {
+        return false;
+    }
+    if (m_scheduled_particle_injection_done) {
+        return false;
+    }
+    return m_simulation_options.m_scheduled_particle_injection.m_time_s <= m_simulation_options.m_t_max;
+}
+
+void device_amc_simulation::inject_scheduled_particle_if_due() {
+    if (!has_pending_scheduled_particle_injection()) {
+        return;
+    }
+
+    const auto &injection = m_simulation_options.m_scheduled_particle_injection;
+
+    const double dt = m_simulation_options.m_time_step;
+
+    // Inject during the timestep that reaches the requested time.
+    if (m_time + dt < injection.m_time_s) {
+        return;
+    }
+
+    if (m_list_particles.size() >= m_simulation_options.m_max_number_particle) {
+        fmt::print(stderr,
+                   "Warning: scheduled particle injection skipped at t={:.6e} s "
+                   "because max particle count was reached.\n",
+                   injection.m_time_s);
+
+        m_scheduled_particle_injection_done = true;
+        return;
+    }
+    add_particle_at_position(injection.m_position_um, injection.m_particle_type, injection.m_weight);
+    m_scheduled_particle_injection_done = true;
+    fmt::print("Scheduled particle injected at t={:.6e} s, "
+               "position=({:.6e}, {:.6e}, {:.6e}) um, weight={:.6e}\n",
+               injection.m_time_s,
+               injection.m_position_um.x(),
+               injection.m_position_um.y(),
+               injection.m_position_um.z(),
+               injection.m_weight);
+}
+
 device_amc_simulation::device_amc_simulation(const device::device     &simulation_device,
                                              const options_device_amc &simulation_option,
                                              const std::string        &simulation_name,
@@ -88,10 +151,11 @@ device_amc_simulation::device_amc_simulation(const device::device     &simulatio
       m_dimension(m_device.get_dimension()),
       m_simulation_options(simulation_option),
       m_simulation_name(simulation_name),
-      m_iteration{0}{
+      m_iteration{0} {
     m_simulation_history.m_initial_seed_rng = seed_random_generator;
     m_electron_transport.initialize();
     m_hole_transport.initialize();
+    initialize_scheduled_particle_injection();
 }
 
 device_amc_simulation::device_amc_simulation(const device::device     &device_simulation,
@@ -117,7 +181,8 @@ device_amc_simulation::device_amc_simulation(const device::device     &device_si
         first_element = m_device.find_element_at_location(starting_position);
     }
     if (first_element == nullptr) {
-        std::cout << "Error : particle can't find its first element. No particle created.    " << starting_position << std::endl;
+        std::cout << "Error : particle can't find its first element. No particle created.    " << starting_position
+                  << std::endl;
         return;
     }
     // Creation of electrons and then holes
@@ -143,9 +208,12 @@ device_amc_simulation::device_amc_simulation(const device::device     &device_si
     }
 
     m_simulation_history.m_initial_seed_rng = seed_random_generator;
+    initialize_scheduled_particle_injection();
 }
 
-void device_amc_simulation::add_particle_at_position(const mesh::vector3 &location, particle_type type_of_particle, double weight) {
+void device_amc_simulation::add_particle_at_position(const mesh::vector3 &location,
+                                                     particle_type        type_of_particle,
+                                                     double               weight) {
     mesh::element *first_element{nullptr};
     if (m_dimension == 2) {
         first_element = m_device.find_element_at_location(location.to_2d());
@@ -160,9 +228,11 @@ void device_amc_simulation::add_particle_at_position(const mesh::vector3 &locati
     particle_state    initial_state{};
     initial_state.position = location;
     if (type_of_particle == particle_type::electron) {
-        m_list_particles.push_back(std::make_unique<particle_amc>(idx_particle, particle_type::electron, initial_state, weight));
+        m_list_particles.push_back(
+            std::make_unique<particle_amc>(idx_particle, particle_type::electron, initial_state, weight));
     } else {
-        m_list_particles.push_back(std::make_unique<particle_amc>(idx_particle, particle_type::hole, initial_state, weight));
+        m_list_particles.push_back(
+            std::make_unique<particle_amc>(idx_particle, particle_type::hole, initial_state, weight));
     }
     auto &particle = *m_list_particles.back();
 
@@ -186,17 +256,20 @@ void device_amc_simulation::add_particles_at_positions(const std::vector<mesh::v
         }
 
         if (first_element == nullptr) {
-            std::cout << "Error : particle can't find its first element. No particle created.    " << location << std::endl;
+            std::cout << "Error : particle can't find its first element. No particle created.    " << location
+                      << std::endl;
             continue;
         }
 
-        const std::size_t idx_particle       = m_list_particles.size();
+        const std::size_t idx_particle = m_list_particles.size();
         particle_state    initial_state{};
         initial_state.position = location;
         if (type_of_particle == particle_type::electron) {
-            m_list_particles.push_back(std::make_unique<particle_amc>(idx_particle, particle_type::electron, initial_state, weight));
+            m_list_particles.push_back(
+                std::make_unique<particle_amc>(idx_particle, particle_type::electron, initial_state, weight));
         } else {
-            m_list_particles.push_back(std::make_unique<particle_amc>(idx_particle, particle_type::hole, initial_state, weight));
+            m_list_particles.push_back(
+                std::make_unique<particle_amc>(idx_particle, particle_type::hole, initial_state, weight));
         }
         auto &particle = *m_list_particles.back();
 
@@ -209,17 +282,23 @@ void device_amc_simulation::add_particles_at_positions(const std::vector<mesh::v
 
 std::size_t device_amc_simulation::get_number_electrons() const {
     std::size_t nb_electron =
-        std::accumulate(m_list_particles.begin(), m_list_particles.end(), 0, [](const std::size_t nb_part, const auto &p_part) {
-            return nb_part + static_cast<std::size_t>(p_part->type() == particle_type::electron);
-        });
+        std::accumulate(m_list_particles.begin(),
+                        m_list_particles.end(),
+                        0,
+                        [](const std::size_t nb_part, const auto &p_part) {
+                            return nb_part + static_cast<std::size_t>(p_part->type() == particle_type::electron);
+                        });
     return nb_electron;
 }
 
 std::size_t device_amc_simulation::get_number_holes() const {
     std::size_t nb_hole =
-        std::accumulate(m_list_particles.begin(), m_list_particles.end(), 0, [](const std::size_t nb_part, const auto &p_part_2) {
-            return nb_part + static_cast<std::size_t>(p_part_2->type() == particle_type::hole);
-        });
+        std::accumulate(m_list_particles.begin(),
+                        m_list_particles.end(),
+                        0,
+                        [](const std::size_t nb_part, const auto &p_part_2) {
+                            return nb_part + static_cast<std::size_t>(p_part_2->type() == particle_type::hole);
+                        });
     return nb_hole;
 }
 
@@ -235,29 +314,59 @@ double device_amc_simulation::compute_ramo_current() const {
 }
 
 void device_amc_simulation::transport_particles_one_time_step() {
-    const double dt = m_simulation_options.m_time_step;
-
+    inject_scheduled_particle_if_due();
+    const double                             dt = m_simulation_options.m_time_step;
+    std::vector<impact_ionization_pair_seed> impact_pair_seeds;
     for (auto &p_particle : m_list_particles) {
         auto &particle = *p_particle;
 
         particle.state().previous_position = particle.state().position;
-
         particle.set_data_from_device(m_dimension);
-
         auto &transport = transport_for(particle.type());
-
         // Electric field is in V/cm, but we need it in V/m for the transport kernel, so we convert it here.
         constexpr double cm_to_m = 1.0e2;
         transport.drift_particle(particle, particle.state().electric_field * cm_to_m, dt);
-        transport.scatter_particle(particle, dt);
+
+        // Scattering
+        const auto event = transport.scatter_particle(particle, dt);
+        if (event == scattering_event::impact_ionization) {
+            m_simulation_history.m_last_impact_ionization_position = particle.state().position;
+
+            m_simulation_history.m_impact_ionization_positions.push_back(particle.state().position);
+            // Debug print for impact ionization event
+            fmt::print("Impact ionization at position ({:.3e}, {:.3e}, {:.3e}) um\n",
+                       particle.state().position.x(),
+                       particle.state().position.y(),
+                       particle.state().position.z());
+
+            if (m_simulation_options.m_particle_creation_activated) {
+                const std::size_t queued_particles = 2 * impact_pair_seeds.size();
+
+                if (m_list_particles.size() + queued_particles + 2 <= m_simulation_options.m_max_number_particle) {
+                    impact_pair_seeds.push_back(impact_ionization_pair_seed{.position = particle.state().position,
+                                                                            .weight   = particle.weight()});
+                }
+            }
+        }
 
         if (m_simulation_options.m_keep_particles_history) {
             particle.record_state();
         }
     }
-    apply_z_periodicity_to_particles(); // In 3D, this does nothing.
+    apply_z_periodicity_to_particles();  // In 3D, this does nothing.
     update_element_and_check_boundary();
     remove_collected_particles();
+
+    for (const auto &seed : impact_pair_seeds) {
+        add_particle_at_position(seed.position, particle_type::electron, seed.weight);
+        add_particle_at_position(seed.position, particle_type::hole, seed.weight);
+    }
+
+    if (!impact_pair_seeds.empty()) {
+        apply_z_periodicity_to_particles();
+        update_element_and_check_boundary();
+        remove_collected_particles();
+    }
 }
 
 void device_amc_simulation::advance_particles_one_time_step() {
@@ -280,7 +389,6 @@ void reflect_particle_to_previous_position(particle_amc &particle) {
     state.velocity *= -1.0;
     state.local_k *= -1.0;
 }
-
 
 void device_amc_simulation::update_element_and_check_boundary() {
     const bool is_2d = m_dimension == 2;
@@ -347,8 +455,8 @@ void device_amc_simulation::remove_collected_particles() {
     if (currents.size() < 2) {
         throw std::runtime_error("Error: currents vector should have at least 2 elements (anode and cathode currents)");
     }
-    m_anode_current              = uepm::constants::q_e * currents[0] / m_simulation_options.m_time_step;
-    m_cathode_current            = uepm::constants::q_e * currents[1] / m_simulation_options.m_time_step;
+    m_anode_current   = uepm::constants::q_e * currents[0] / m_simulation_options.m_time_step;
+    m_cathode_current = uepm::constants::q_e * currents[1] / m_simulation_options.m_time_step;
 }
 
 void device_amc_simulation::run() {
@@ -371,8 +479,13 @@ void device_amc_simulation::run() {
         const auto nb_holes             = get_number_holes();
         const auto nb_impact_ionization = m_simulation_history.m_impact_ionization_positions.size();
 
-        m_simulation_history
-            .add_data_to_history(m_time, nb_electrons, nb_holes, nb_impact_ionization, m_anode_current, m_cathode_current, 0.0);
+        m_simulation_history.add_data_to_history(m_time,
+                                                 nb_electrons,
+                                                 nb_holes,
+                                                 nb_impact_ionization,
+                                                 m_anode_current,
+                                                 m_cathode_current,
+                                                 0.0);
 
         if (m_simulation_options.m_export_time_step &&
             m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0) {
@@ -399,7 +512,8 @@ std::vector<mesh::vector3> device_amc_simulation::get_all_particles_position() c
 
 // std::vector<std::size_t> device_amc_simulation::get_all_number_impact_ionization() const {
 //     std::vector<std::size_t> all_number_impact_ionization(m_list_particles.size());
-//     std::transform(m_list_particles.begin(), m_list_particles.end(), all_number_impact_ionization.begin(), [](auto &&p_particle) {
+//     std::transform(m_list_particles.begin(), m_list_particles.end(), all_number_impact_ionization.begin(), [](auto
+//     &&p_particle) {
 //         return p_particle->get_total_number_impact_ionization();
 //     });
 //     return all_number_impact_ionization;
@@ -424,10 +538,11 @@ std::vector<mesh::vector3> device_amc_simulation::get_all_particles_position() c
 std::pair<double, double> device_amc_simulation::compute_depletion_region() const {
     double x_min = std::numeric_limits<double>::max();
     double x_max = std::numeric_limits<double>::max();
-    // Compute the distance of the particles to the center of the device. xmin is the maximal distance to the center towards the anode
-    // and xmax is the maximal distance to the center towards the cathode.
+    // Compute the distance of the particles to the center of the device. xmin is the maximal distance to the center
+    // towards the anode and xmax is the maximal distance to the center towards the cathode.
     double center_x = m_device.get_p_mesh()->get_bounding_box().get_x_min() +
-                      0.5 * (m_device.get_p_mesh()->get_bounding_box().get_x_max() - m_device.get_p_mesh()->get_bounding_box().get_x_min());
+                      0.5 * (m_device.get_p_mesh()->get_bounding_box().get_x_max() -
+                             m_device.get_p_mesh()->get_bounding_box().get_x_min());
     for (const auto &p_particle : m_list_particles) {
         double distance_to_center = p_particle->state().position.x() - center_x;
         if (distance_to_center < 0) {

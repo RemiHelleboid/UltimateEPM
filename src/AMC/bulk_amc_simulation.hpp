@@ -36,9 +36,46 @@ struct bulk_amc_simulation_config {
     double              m_time_step                = 5.0e-15;
     double              m_warmup_fraction          = 0.2;
 
+    bool m_enable_impact_ionization = true;
+
     double      m_max_energy_eV                 = 2.0;
     double      m_self_scattering_safety_factor = 1.2;
     std::size_t m_gamma_max_energy_samples      = 1000;
+};
+
+struct impact_ionization_coefficient_statistics {
+    std::size_t m_events = 0;
+
+    double m_carrier_time_s                               = 0.0;
+    double m_drift_velocity_time_integral_m_per_s_times_s = 0.0;
+    double m_sampling_time_s                              = 0.0;
+
+    double event_rate_per_carrier_s_1() const {
+        if (m_carrier_time_s <= 0.0) {
+            return 0.0;
+        }
+        return static_cast<double>(m_events) / m_carrier_time_s;
+    }
+
+    double average_drift_velocity_m_per_s() const {
+        if (m_sampling_time_s <= 0.0) {
+            return 0.0;
+        }
+        return m_drift_velocity_time_integral_m_per_s_times_s / m_sampling_time_s;
+    }
+
+    double ionization_coefficient_cm_1() const {
+        constexpr double meter_per_second_to_centimeter_per_second = 1.0e2;
+
+        const double drift_velocity_cm_per_s =
+            average_drift_velocity_m_per_s() * meter_per_second_to_centimeter_per_second;
+
+        if (drift_velocity_cm_per_s <= 0.0) {
+            return 0.0;
+        }
+
+        return event_rate_per_carrier_s_1() / drift_velocity_cm_per_s;
+    }
 };
 
 struct bulk_observables {
@@ -55,6 +92,8 @@ class bulk_amc_simulation {
     std::vector<particle_amc>  m_particles;
     bulk_observables           m_observables;
 
+    impact_ionization_coefficient_statistics m_impact_ionization_coefficient_statistics;
+
     static amc_transport_config make_transport_config(const bulk_amc_simulation_config& cfg);
 
  public:
@@ -65,6 +104,8 @@ class bulk_amc_simulation {
     void run();
     void run_self_scattering_emc();
 
+    std::size_t count_scattering_events(scattering_event event) const;
+    double      average_drift_velocity_along_field_m_per_s() const;
     void export_particles_history_to_csv(const std::string& prefix_name) const;
     void accumulate_observables(double dt);
     void accumulate_particle_observables(const particle_amc& p, double dt);

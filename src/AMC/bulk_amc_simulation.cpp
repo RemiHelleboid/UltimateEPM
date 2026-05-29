@@ -21,6 +21,33 @@
 
 namespace uepm::amc {
 
+namespace {
+
+std::size_t particle_scattering_event_count(const particle_amc& particle, scattering_event event) {
+    const std::size_t event_index = static_cast<std::size_t>(event);
+    return particle.history().scattering_events()[event_index];
+}
+
+double particle_drift_velocity_along_field_m_per_s(const particle_amc& particle, const mesh::vector3& electric_field) {
+    const double field_norm = electric_field.norm();
+
+    if (field_norm <= 0.0) {
+        return 0.0;
+    }
+
+    const mesh::vector3 field_direction = electric_field / field_norm;
+    return std::abs(particle.state().velocity.dot(field_direction));
+}
+
+double sampled_time_after_warmup(double time_before_s, double time_after_s, double warmup_time_s, double final_time_s) {
+    const double sample_start = std::max(time_before_s, warmup_time_s);
+    const double sample_stop  = std::min(time_after_s, final_time_s);
+
+    return std::max(0.0, sample_stop - sample_start);
+}
+
+}  // namespace
+
 amc_transport_config bulk_amc_simulation::make_transport_config(const bulk_amc_simulation_config& cfg) {
     amc_transport_config transport_cfg;
 
@@ -29,8 +56,41 @@ amc_transport_config bulk_amc_simulation::make_transport_config(const bulk_amc_s
     transport_cfg.m_max_energy_eV                 = cfg.m_max_energy_eV;
     transport_cfg.m_self_scattering_safety_factor = cfg.m_self_scattering_safety_factor;
     transport_cfg.m_gamma_max_energy_samples      = cfg.m_gamma_max_energy_samples;
+    transport_cfg.m_enable_impact_ionization      = cfg.m_enable_impact_ionization;
 
     return transport_cfg;
+}
+
+std::size_t bulk_amc_simulation::count_scattering_events(scattering_event event) const {
+    std::size_t total = 0;
+
+    const std::size_t event_index = static_cast<std::size_t>(event);
+
+    for (const auto& particle : m_particles) {
+        total += particle.history().scattering_events()[event_index];
+    }
+
+    return total;
+}
+
+double bulk_amc_simulation::average_drift_velocity_along_field_m_per_s() const {
+    const double field_norm = m_cfg.m_electric_field.norm();
+
+    if (field_norm <= 0.0 || m_particles.empty()) {
+        return 0.0;
+    }
+
+    const mesh::vector3 field_direction = m_cfg.m_electric_field / field_norm;
+
+    double velocity_sum = 0.0;
+
+    for (const auto& particle : m_particles) {
+        velocity_sum += particle.state().velocity.dot(field_direction);
+    }
+
+    const double mean_parallel_velocity = velocity_sum / static_cast<double>(m_particles.size());
+
+    return std::abs(mean_parallel_velocity);
 }
 
 void bulk_amc_simulation::initialize() {
@@ -56,8 +116,7 @@ void bulk_amc_simulation::initialize() {
     }
 
     fmt::print("Computed max self-scattering rate: {:.6e} s^-1\n", m_transport.gamma_max());
-
-    std::cout << "Initialized " << m_particles.size() << " particles\n";
+    fmt::print("Initialized {} particles\n", m_particles.size());
 }
 
 void bulk_amc_simulation::accumulate_observables(double dt) {
@@ -88,11 +147,26 @@ void bulk_amc_simulation::run() {
         throw std::runtime_error("simulation not initialized");
     }
 
+    if (m_cfg.m_time_step <= 0.0) {
+        throw std::invalid_argument("time step must be > 0");
+    }
+
+    if (m_cfg.m_final_time <= 0.0) {
+        throw std::invalid_argument("final time must be > 0");
+    }
+
+    if (m_cfg.m_warmup_fraction < 0.0 || m_cfg.m_warmup_fraction >= 1.0) {
+        throw std::invalid_argument("warmup fraction must be in [0, 1)");
+    }
+
     const double      dt           = m_cfg.m_time_step;
     const std::size_t n_steps      = static_cast<std::size_t>(std::ceil(m_cfg.m_final_time / dt));
-    const std::size_t warmup_steps = static_cast<std::size_t>(m_cfg.m_warmup_fraction * n_steps);
+    const std::size_t warmup_steps = static_cast<std::size_t>(m_cfg.m_warmup_fraction * static_cast<double>(n_steps));
 
-    m_observables = {};
+    m_observables                              = {};
+    m_impact_ionization_coefficient_statistics = {};
+
+    std::size_t previous_impact_ionization_events = count_scattering_events(scattering_event::impact_ionization);
 
     for (std::size_t step = 0; step < n_steps; ++step) {
         for (auto& p : m_particles) {
@@ -104,8 +178,28 @@ void bulk_amc_simulation::run() {
             }
         }
 
-        if (step >= warmup_steps) {
+        const std::size_t current_impact_ionization_events =
+            count_scattering_events(scattering_event::impact_ionization);
+
+        const std::size_t new_impact_ionization_events =
+            current_impact_ionization_events - previous_impact_ionization_events;
+
+        previous_impact_ionization_events = current_impact_ionization_events;
+
+        const bool collect_statistics = step >= warmup_steps;
+
+        if (collect_statistics) {
             accumulate_observables(dt);
+
+            auto& stats = m_impact_ionization_coefficient_statistics;
+
+            stats.m_events += new_impact_ionization_events;
+
+            stats.m_carrier_time_s += static_cast<double>(m_particles.size()) * dt;
+
+            stats.m_drift_velocity_time_integral_m_per_s_times_s += average_drift_velocity_along_field_m_per_s() * dt;
+
+            stats.m_sampling_time_s += dt;
         }
     }
 
@@ -123,26 +217,46 @@ void bulk_amc_simulation::run() {
     avg_velocity /= static_cast<double>(m_particles.size());
 
     fmt::print("Average kinetic energy: {:.6f} eV\n", avg_energy);
-    fmt::print("Average velocity: ({:.6e}, {:.6e}, {:.6e}) m/s\n", avg_velocity.x(), avg_velocity.y(), avg_velocity.z());
+    fmt::print("Average velocity: ({:.6e}, {:.6e}, {:.6e}) m/s\n",
+               avg_velocity.x(),
+               avg_velocity.y(),
+               avg_velocity.z());
 
     std::size_t total_acoustic_events               = 0;
     std::size_t total_intervalley_absorption_events = 0;
     std::size_t total_intervalley_emission_events   = 0;
+    std::size_t total_impact_ionization_events      = 0;
     std::size_t total_self_scattering_events        = 0;
 
     for (const auto& p : m_particles) {
         const auto& events = p.history().scattering_events();
 
         total_acoustic_events += events[static_cast<std::size_t>(scattering_event::acoustic)];
-        total_intervalley_absorption_events += events[static_cast<std::size_t>(scattering_event::intervalley_absorption)];
+
+        total_intervalley_absorption_events +=
+            events[static_cast<std::size_t>(scattering_event::intervalley_absorption)];
+
         total_intervalley_emission_events += events[static_cast<std::size_t>(scattering_event::intervalley_emission)];
+
+        total_impact_ionization_events += events[static_cast<std::size_t>(scattering_event::impact_ionization)];
+
         total_self_scattering_events += events[static_cast<std::size_t>(scattering_event::self_scattering)];
     }
 
-    fmt::print("Total acoustic events: {}\n", total_acoustic_events);
+    fmt::print("\nTotal acoustic events: {}\n", total_acoustic_events);
     fmt::print("Total intervalley absorption events: {}\n", total_intervalley_absorption_events);
     fmt::print("Total intervalley emission events: {}\n", total_intervalley_emission_events);
-    fmt::print("Total self-scattering events: {}\n", total_self_scattering_events);
+    fmt::print("Total impact ionization events: {}\n", total_impact_ionization_events);
+    fmt::print("Total self-scattering events: {}\n\n", total_self_scattering_events);
+
+    const auto& ii_stats = m_impact_ionization_coefficient_statistics;
+
+    fmt::print("Impact ionization coefficient statistics:\n");
+    fmt::print("  sampled II events: {}\n", ii_stats.m_events);
+    fmt::print("  carrier-time: {:.6e} particle.s\n", ii_stats.m_carrier_time_s);
+    fmt::print("  event rate per carrier: {:.6e} s^-1\n", ii_stats.event_rate_per_carrier_s_1());
+    fmt::print("  drift velocity along field: {:.6e} m/s\n", ii_stats.average_drift_velocity_m_per_s());
+    fmt::print("  ionization coefficient: {:.6e} cm^-1\n\n", ii_stats.ionization_coefficient_cm_1());
 
     m_observables.electric_field_V_per_m = m_cfg.m_electric_field.norm();
 
@@ -175,25 +289,44 @@ void bulk_amc_simulation::run_self_scattering_emc() {
         throw std::invalid_argument("max self-scattering rate must be > 0");
     }
 
-    m_observables = {};
+    m_observables                              = {};
+    m_impact_ionization_coefficient_statistics = {};
 
-    const double warmup_time             = m_cfg.m_warmup_fraction * m_cfg.m_final_time;
-    double       max_observed_total_rate = 0.0;
+    const double warmup_time = m_cfg.m_warmup_fraction * m_cfg.m_final_time;
+
+    double max_observed_total_rate = 0.0;
 
     for (auto& p : m_particles) {
+        std::size_t previous_particle_impact_ionization_events =
+            particle_scattering_event_count(p, scattering_event::impact_ionization);
+
         while (p.state().time < m_cfg.m_final_time) {
+            const double time_before_drift = p.state().time;
+
             const double tau            = m_transport.sample_free_flight_time();
             const double remaining_time = m_cfg.m_final_time - p.state().time;
             const double drift_time     = std::min(tau, remaining_time);
 
             m_transport.drift_particle(p, m_cfg.m_electric_field, drift_time);
 
-            if (m_cfg.m_record_history) {
-                p.record_state();
+            const double sampled_drift_time =
+                sampled_time_after_warmup(time_before_drift, p.state().time, warmup_time, m_cfg.m_final_time);
+
+            if (sampled_drift_time > 0.0) {
+                accumulate_particle_observables(p, sampled_drift_time);
+
+                auto& stats = m_impact_ionization_coefficient_statistics;
+
+                stats.m_carrier_time_s += sampled_drift_time;
+
+                stats.m_drift_velocity_time_integral_m_per_s_times_s +=
+                    particle_drift_velocity_along_field_m_per_s(p, m_cfg.m_electric_field) * sampled_drift_time;
+
+                stats.m_sampling_time_s += sampled_drift_time;
             }
 
-            if (p.state().time >= warmup_time) {
-                accumulate_particle_observables(p, drift_time);
+            if (m_cfg.m_record_history) {
+                p.record_state();
             }
 
             if (drift_time < tau) {
@@ -201,6 +334,7 @@ void bulk_amc_simulation::run_self_scattering_emc() {
             }
 
             const double total_rate = m_transport.total_scattering_rate(p);
+
             max_observed_total_rate = std::max(max_observed_total_rate, total_rate);
 
             m_transport.ensure_gamma_max_covers(total_rate);
@@ -209,10 +343,23 @@ void bulk_amc_simulation::run_self_scattering_emc() {
 
             if (u < total_rate / m_transport.gamma_max()) {
                 const auto channel = m_transport.select_scattering_channel(p);
+
                 m_transport.apply_scattering_channel(p, channel);
             } else {
                 p.increment_scattering_event_count();
                 p.add_scattering_event(scattering_event::self_scattering);
+            }
+
+            const std::size_t current_particle_impact_ionization_events =
+                particle_scattering_event_count(p, scattering_event::impact_ionization);
+
+            const std::size_t new_particle_impact_ionization_events =
+                current_particle_impact_ionization_events - previous_particle_impact_ionization_events;
+
+            previous_particle_impact_ionization_events = current_particle_impact_ionization_events;
+
+            if (p.state().time >= warmup_time) {
+                m_impact_ionization_coefficient_statistics.m_events += new_particle_impact_ionization_events;
             }
 
             if (m_cfg.m_record_history) {
@@ -236,26 +383,46 @@ void bulk_amc_simulation::run_self_scattering_emc() {
     avg_velocity /= static_cast<double>(m_particles.size());
 
     fmt::print("Average kinetic energy: {:.6f} eV\n", avg_energy);
-    fmt::print("Average velocity: ({:.6e}, {:.6e}, {:.6e}) m/s\n", avg_velocity.x(), avg_velocity.y(), avg_velocity.z());
+    fmt::print("Average velocity: ({:.6e}, {:.6e}, {:.6e}) m/s\n",
+               avg_velocity.x(),
+               avg_velocity.y(),
+               avg_velocity.z());
 
     std::size_t total_acoustic_events               = 0;
     std::size_t total_intervalley_absorption_events = 0;
     std::size_t total_intervalley_emission_events   = 0;
+    std::size_t total_impact_ionization_events      = 0;
     std::size_t total_self_scattering_events        = 0;
 
     for (const auto& p : m_particles) {
         const auto& events = p.history().scattering_events();
 
         total_acoustic_events += events[static_cast<std::size_t>(scattering_event::acoustic)];
-        total_intervalley_absorption_events += events[static_cast<std::size_t>(scattering_event::intervalley_absorption)];
+
+        total_intervalley_absorption_events +=
+            events[static_cast<std::size_t>(scattering_event::intervalley_absorption)];
+
         total_intervalley_emission_events += events[static_cast<std::size_t>(scattering_event::intervalley_emission)];
+
+        total_impact_ionization_events += events[static_cast<std::size_t>(scattering_event::impact_ionization)];
+
         total_self_scattering_events += events[static_cast<std::size_t>(scattering_event::self_scattering)];
     }
 
-    fmt::print("Total acoustic events: {}\n", total_acoustic_events);
+    fmt::print("\nTotal acoustic events: {}\n", total_acoustic_events);
     fmt::print("Total intervalley absorption events: {}\n", total_intervalley_absorption_events);
     fmt::print("Total intervalley emission events: {}\n", total_intervalley_emission_events);
-    fmt::print("Total self-scattering events: {}\n", total_self_scattering_events);
+    fmt::print("Total impact ionization events: {}\n", total_impact_ionization_events);
+    fmt::print("Total self-scattering events: {}\n\n", total_self_scattering_events);
+
+    const auto& ii_stats = m_impact_ionization_coefficient_statistics;
+
+    fmt::print("Impact ionization coefficient statistics:\n");
+    fmt::print("  sampled II events: {}\n", ii_stats.m_events);
+    fmt::print("  carrier-time: {:.6e} particle.s\n", ii_stats.m_carrier_time_s);
+    fmt::print("  event rate per carrier: {:.6e} s^-1\n", ii_stats.event_rate_per_carrier_s_1());
+    fmt::print("  drift velocity along field: {:.6e} m/s\n", ii_stats.average_drift_velocity_m_per_s());
+    fmt::print("  ionization coefficient: {:.6e} cm^-1\n\n", ii_stats.ionization_coefficient_cm_1());
 
     m_observables.electric_field_V_per_m = m_cfg.m_electric_field.norm();
 
@@ -271,45 +438,59 @@ void bulk_amc_simulation::run_self_scattering_emc() {
     fmt::print("Steady-state average energy: {:.6f} eV\n", avg_energy_eV);
 }
 
-/**
- * @brief Append the current observables to a CSV file. If the file does not exist, it will be created with a header. If it already exists,
- * a new line will be appended with the current observables values.
- *
- * @param filename
- */
 void bulk_amc_simulation::export_observables_to_csv(const std::string& filename) const {
     std::ofstream file(filename, std::ios::app);
     if (!file.is_open()) {
         fmt::print(stderr, "Failed to open file for writing: {}\n", filename);
         return;
     }
-    // Check if the file is empty to write the header
+
     if (file.tellp() == 0) {
-        file << "electric_field_V_per_m,mean_velocity_x_m_per_s,mean_kinetic_energy_eV,sample_count\n";
+        file << "electric_field_V_per_m,"
+                "mean_velocity_x_m_per_s,"
+                "mean_kinetic_energy_eV,"
+                "sample_count,"
+                "impact_ionization_events,"
+                "impact_ionization_rate_per_carrier_s_1,"
+                "impact_ionization_drift_velocity_m_per_s,"
+                "impact_ionization_coefficient_cm_1\n";
     }
-    file << fmt::format("{},{},{},{}\n",
+
+    if (m_observables.accumulated_time_s <= 0.0) {
+        fmt::print(stderr, "No observables accumulated; skipping CSV export.\n");
+        return;
+    }
+
+    const auto& ii_stats = m_impact_ionization_coefficient_statistics;
+
+    file << fmt::format("{},{},{},{},{},{},{},{}\n",
                         m_observables.electric_field_V_per_m,
                         m_observables.weighted_velocity_x_m2_per_s2 / m_observables.accumulated_time_s,
                         m_observables.weighted_kinetic_energy_eV_s / m_observables.accumulated_time_s,
-                        m_observables.accumulated_time_s);
+                        m_observables.accumulated_time_s,
+                        ii_stats.m_events,
+                        ii_stats.event_rate_per_carrier_s_1(),
+                        ii_stats.average_drift_velocity_m_per_s(),
+                        ii_stats.ionization_coefficient_cm_1());
 }
 
 void bulk_amc_simulation::export_particles_history_to_csv(const std::string& prefix_name) const {
-    // Implementation for exporting particle history to CSV
     for (const auto& p : m_particles) {
         const auto&       history  = p.history();
         const std::string filename = fmt::format("{}_particle_{}.csv", prefix_name, p.index());
         std::ofstream     file(filename);
+
         if (!file.is_open()) {
             fmt::print(stderr, "Failed to open file for writing: {}\n", filename);
             continue;
         }
 
-        // Write CSV header
-        file << "time,position_x,position_y,position_z,local_k_x,local_k_y,local_k_z,velocity_x,velocity_y,velocity_z,kinetic_energy,gamma,"
-                "valley_index\n";
+        file << "time,"
+                "position_x,position_y,position_z,"
+                "local_k_x,local_k_y,local_k_z,"
+                "velocity_x,velocity_y,velocity_z,"
+                "kinetic_energy,gamma,valley_index\n";
 
-        // Write particle history
         for (const auto& snapshot : history.snapshots()) {
             file << fmt::format("{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
                                 snapshot.time,

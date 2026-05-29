@@ -10,6 +10,7 @@
  */
 
 #include "amc_scattering_model.hpp"
+#include "physical_constants.hpp"
 
 namespace uepm::amc {
 

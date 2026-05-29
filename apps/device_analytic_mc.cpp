@@ -31,6 +31,18 @@ namespace {
 
 uepm::mesh::vector3 make_vector3(double x, double y, double z) { return uepm::mesh::vector3{x, y, z}; }
 
+uepm::amc::particle_type parse_particle_type(const std::string& text) {
+    if (text == "electron" || text == "e") {
+        return uepm::amc::particle_type::electron;
+    }
+
+    if (text == "hole" || text == "h") {
+        return uepm::amc::particle_type::hole;
+    }
+
+    throw std::invalid_argument("Invalid --inject-type. Expected one of: electron, e, hole, h.");
+}
+
 void validate_material_symbol(const std::string& material_symbol) {
     if (material_symbol != "Si") {
         throw std::invalid_argument("Only Si is currently supported by the analytical AMC transport model.");
@@ -80,6 +92,21 @@ void validate_device_options(const uepm::amc::options_device_amc& options) {
 
     if (options.m_nb_threads <= 0) {
         throw std::invalid_argument("--nthreads must be positive.");
+    }
+    if (options.m_enable_scheduled_particle_injection) {
+        const auto& injection = options.m_scheduled_particle_injection;
+
+        if (injection.m_time_s < 0.0) {
+            throw std::invalid_argument("--inject-time must be non-negative.");
+        }
+
+        if (injection.m_time_s > options.m_t_max) {
+            throw std::invalid_argument("--inject-time cannot be larger than --time.");
+        }
+
+        if (injection.m_weight <= 0.0) {
+            throw std::invalid_argument("--inject-weight must be positive.");
+        }
     }
 }
 
@@ -287,6 +314,53 @@ int main(int argc, const char** argv) {
                                                       1.0,
                                                       "um");
 
+        TCLAP::SwitchArg arg_inject_particle("",
+                                             "inject-particle",
+                                             "Inject one scheduled particle during the simulation.",
+                                             false);
+
+        TCLAP::ValueArg<double> arg_inject_time("",
+                                                "inject-time",
+                                                "Scheduled injection time, in seconds.",
+                                                false,
+                                                0.0,
+                                                "s");
+
+        TCLAP::ValueArg<double> arg_inject_x("",
+                                             "inject-x",
+                                             "Scheduled injection x position, in microns.",
+                                             false,
+                                             0.0,
+                                             "um");
+
+        TCLAP::ValueArg<double> arg_inject_y("",
+                                             "inject-y",
+                                             "Scheduled injection y position, in microns.",
+                                             false,
+                                             0.0,
+                                             "um");
+
+        TCLAP::ValueArg<double> arg_inject_z("",
+                                             "inject-z",
+                                             "Scheduled injection z position, in microns.",
+                                             false,
+                                             0.0,
+                                             "um");
+
+        TCLAP::ValueArg<std::string> arg_inject_type("",
+                                                     "inject-type",
+                                                     "Scheduled injected particle type: electron, e, hole, or h.",
+                                                     false,
+                                                     "electron",
+                                                     "type");
+
+        TCLAP::ValueArg<double> arg_inject_weight("",
+                                                  "inject-weight",
+                                                  "Scheduled injected particle numerical weight.",
+                                                  false,
+                                                  1.0,
+                                                  "weight");
+
         cmd.add(arg_device_mesh);
         cmd.add(arg_material_file);
         cmd.add(arg_material);
@@ -318,6 +392,13 @@ int main(int argc, const char** argv) {
         cmd.add(arg_export_time_steps);
         cmd.add(arg_export_frequency);
         cmd.add(arg_keep_going_without_electrons);
+        cmd.add(arg_inject_particle);
+        cmd.add(arg_inject_time);
+        cmd.add(arg_inject_x);
+        cmd.add(arg_inject_y);
+        cmd.add(arg_inject_z);
+        cmd.add(arg_inject_type);
+        cmd.add(arg_inject_weight);
 
         cmd.parse(argc, argv);
 
@@ -342,6 +423,15 @@ int main(int argc, const char** argv) {
         device_options.m_keep_particles_history               = arg_keep_particle_history.getValue();
         device_options.m_export_time_step                     = arg_export_time_steps.getValue();
         device_options.m_frequency_export_trajectory          = arg_export_frequency.getValue();
+        device_options.m_enable_scheduled_particle_injection  = arg_inject_particle.getValue();
+        if (device_options.m_enable_scheduled_particle_injection) {
+            auto& injection = device_options.m_scheduled_particle_injection;
+            injection.m_time_s = arg_inject_time.getValue();
+            injection.m_position_um =
+                make_vector3(arg_inject_x.getValue(), arg_inject_y.getValue(), arg_inject_z.getValue());
+            injection.m_particle_type = parse_particle_type(arg_inject_type.getValue());
+            injection.m_weight = arg_inject_weight.getValue();
+        }
 
         uepm::amc::options_self_consistent_device_amc_2d self_consistent_options_2d;
         self_consistent_options_2d.m_poisson_frequency    = arg_poisson_frequency.getValue();
@@ -488,6 +578,20 @@ int main(int argc, const char** argv) {
 
             fmt::print("Remaining electrons: {}\n", simulation.get_number_electrons());
             fmt::print("Remaining holes: {}\n", simulation.get_number_holes());
+
+            if (device_options.m_enable_scheduled_particle_injection) {
+                const auto& injection = device_options.m_scheduled_particle_injection;
+
+                fmt::print("  scheduled injection: enabled\n");
+                fmt::print("    time: {:.6e} s\n", injection.m_time_s);
+                fmt::print("    position: ({:.6e}, {:.6e}, {:.6e}) um\n",
+                           injection.m_position_um.x(),
+                           injection.m_position_um.y(),
+                           injection.m_position_um.z());
+                fmt::print("    type: {}\n",
+                           injection.m_particle_type == uepm::amc::particle_type::electron ? "electron" : "hole");
+                fmt::print("    weight: {:.6e}\n", injection.m_weight);
+            }
         }
 
         const auto                          stop    = std::chrono::high_resolution_clock::now();
