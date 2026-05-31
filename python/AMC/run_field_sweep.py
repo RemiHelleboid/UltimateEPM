@@ -13,6 +13,24 @@ import numpy as np
 import pandas as pd
 
 
+
+def van_overstraeten_de_man_alpha_n(electric_field_V_per_m, temperature_K=300.0):
+    electric_field_V_per_cm = np.asarray(electric_field_V_per_m) / 100.0
+
+    a_inf = 7.03e5  # cm^-1
+    b = 1.231e6     # V/cm
+
+    hbar_omega_op_eV = 0.063
+    k_B_eV_per_K = 8.617333262145e-5
+    T0 = 300.0
+
+    gamma = np.tanh(hbar_omega_op_eV / (2.0 * k_B_eV_per_K * T0)) / \
+            np.tanh(hbar_omega_op_eV / (2.0 * k_B_eV_per_K * temperature_K))
+
+    return gamma * a_inf * np.exp(-gamma * b / electric_field_V_per_cm)
+
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run a bulk AMC electric-field sweep and extract low-field mobility."
