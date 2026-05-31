@@ -25,6 +25,8 @@
 namespace uepm::amc {
 
 struct options_self_consistent_device_amc_3d {
+    // Poisson solver options
+    bool        m_frozen_field_mode = false;
     std::size_t m_poisson_frequency = 10;
 
     double m_anode_voltage   = 0.0;

@@ -1,14 +1,13 @@
 /**
  * @file amc_self_consistent_device_simulation_2d.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-05-27
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
-
 
 #pragma once
 
@@ -26,11 +25,14 @@
 namespace uepm::amc {
 
 struct options_self_consistent_device_amc_2d {
+    // Poisson solver options
+    bool        m_frozen_field_mode = false;
     std::size_t m_poisson_frequency = 10;
 
     double m_anode_voltage   = 0.0;
     double m_cathode_voltage = 0.0;
 
+    // Weight of particles injected at contacts.
     double m_contact_injection_particle_weight = 1.0;
 
     // Physical depth represented by the 2D mesh.
@@ -55,7 +57,6 @@ class self_consistent_device_amc_simulation_2d : public device_amc_simulation {
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
     std::vector<double>                         m_list_element_contact_equilibrium_charge;
-    
 
     std::minstd_rand m_contact_rng;
 

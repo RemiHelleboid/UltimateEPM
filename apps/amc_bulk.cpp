@@ -150,56 +150,49 @@ int main(int argc, const char** argv) {
         if (number_particles <= 0) {
             throw std::invalid_argument("number of particles must be positive");
         }
-
         const int gamma_samples = arg_gamma_samples.getValue();
         if (gamma_samples < 2) {
             throw std::invalid_argument("gamma-samples must be at least 2");
         }
-
         const double final_time = arg_final_time.getValue();
         if (final_time <= 0.0) {
             throw std::invalid_argument("simulation final time must be positive");
         }
-
         const double time_step = arg_time_step.getValue();
         if (time_step <= 0.0) {
             throw std::invalid_argument("time step must be positive");
         }
-
         const double temperature = arg_temperature.getValue();
         if (temperature < 0.0) {
             throw std::invalid_argument("temperature must be non-negative");
         }
-
         const double max_energy_eV = arg_max_energy.getValue();
         if (max_energy_eV <= 0.0) {
             throw std::invalid_argument("max energy must be positive");
         }
-
         const double warmup_fraction = arg_warmup_fraction.getValue();
         if (warmup_fraction < 0.0 || warmup_fraction >= 1.0) {
             throw std::invalid_argument("warmup fraction must be in [0, 1)");
         }
-
         const double gamma_safety = arg_gamma_safety.getValue();
         if (gamma_safety <= 0.0) {
             throw std::invalid_argument("gamma safety factor must be positive");
         }
-
+        const std::size_t nb_threads = static_cast<std::size_t>(arg_number_threads.getValue());
+        if (nb_threads == 0) {
+            throw std::invalid_argument("number of threads must be positive");
+        }
         const std::string output_dir = [&] {
             const std::string requested_output_dir = arg_output_dir.getValue();
-
             if (!requested_output_dir.empty()) {
                 return requested_output_dir;
             }
-
             return fmt::format("bulk_amc_{}_{}_T{:.1f}_Ex{:.3e}",
                                material_symbol,
                                particle_type_string,
                                temperature,
                                arg_electric_field_x.getValue());
         }();
-
         std::filesystem::create_directories(output_dir);
 
         constexpr double V_per_cm_to_V_per_m = 100.0;
@@ -216,6 +209,7 @@ int main(int argc, const char** argv) {
         config.m_warmup_fraction               = warmup_fraction;
         config.m_self_scattering_safety_factor = gamma_safety;
         config.m_gamma_max_energy_samples      = static_cast<std::size_t>(gamma_samples);
+        config.m_nb_threads                   = nb_threads;
 
         fmt::print("Running bulk AMC simulation\n");
         fmt::print("Material: {}\n", material_symbol);

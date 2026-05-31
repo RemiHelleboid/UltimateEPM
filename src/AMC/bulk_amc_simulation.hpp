@@ -41,6 +41,8 @@ struct bulk_amc_simulation_config {
     double      m_max_energy_eV                 = 2.0;
     double      m_self_scattering_safety_factor = 1.2;
     std::size_t m_gamma_max_energy_samples      = 1000;
+
+    std::size_t m_nb_threads = 1;
 };
 
 struct impact_ionization_coefficient_statistics {
@@ -98,7 +100,9 @@ class bulk_amc_simulation {
 
  public:
     bulk_amc_simulation() : m_transport(make_transport_config(m_cfg)) {}
-    explicit bulk_amc_simulation(const bulk_amc_simulation_config& cfg) : m_cfg(cfg), m_transport(make_transport_config(m_cfg)) {}
+    explicit bulk_amc_simulation(const bulk_amc_simulation_config& cfg)
+        : m_cfg(cfg),
+          m_transport(make_transport_config(m_cfg)) {}
 
     void initialize();
     void run();
@@ -106,10 +110,10 @@ class bulk_amc_simulation {
 
     std::size_t count_scattering_events(scattering_event event) const;
     double      average_drift_velocity_along_field_m_per_s() const;
-    void export_particles_history_to_csv(const std::string& prefix_name) const;
-    void accumulate_observables(double dt);
-    void accumulate_particle_observables(const particle_amc& p, double dt);
-    void export_observables_to_csv(const std::string& filename) const;
+    void        export_particles_history_to_csv(const std::string& prefix_name) const;
+    void        accumulate_observables(double dt);
+    void        accumulate_particle_observables(const particle_amc& p, double dt);
+    void        export_observables_to_csv(const std::string& filename) const;
 };
 
 }  // namespace uepm::amc

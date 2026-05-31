@@ -12,6 +12,7 @@
 
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <omp.h>
 
 #include <algorithm>
 #include <cmath>
@@ -276,53 +277,92 @@ void bulk_amc_simulation::run_self_scattering_emc() {
     if (m_particles.empty()) {
         throw std::runtime_error("simulation not initialized");
     }
-
     if (m_cfg.m_final_time <= 0.0) {
         throw std::invalid_argument("final time must be > 0");
     }
-
     if (m_cfg.m_warmup_fraction < 0.0 || m_cfg.m_warmup_fraction >= 1.0) {
         throw std::invalid_argument("warmup fraction must be in [0, 1)");
     }
-
     if (m_transport.gamma_max() <= 0.0) {
         throw std::invalid_argument("max self-scattering rate must be > 0");
     }
-
     m_observables                              = {};
     m_impact_ionization_coefficient_statistics = {};
+    const double warmup_time                   = m_cfg.m_warmup_fraction * m_cfg.m_final_time;
 
-    const double warmup_time = m_cfg.m_warmup_fraction * m_cfg.m_final_time;
+    std::size_t number_threads = 1;
+    number_threads             = static_cast<std::size_t>(std::max(number_threads, m_cfg.m_nb_threads));
+
+    std::vector<amc_transport_kernel> thread_transports;
+    thread_transports.reserve(number_threads);
+
+    for (std::size_t i = 0; i < number_threads; ++i) {
+        auto transport_cfg = make_transport_config(m_cfg);
+
+        amc_transport_kernel transport(transport_cfg, static_cast<std::uint64_t>(1234 + 7919 * i));
+
+        transport.initialize();
+
+        thread_transports.push_back(std::move(transport));
+    }
 
     double max_observed_total_rate = 0.0;
 
-    for (auto& p : m_particles) {
+    double reduced_weighted_velocity_x = 0.0;
+    double reduced_weighted_energy     = 0.0;
+    double reduced_accumulated_time    = 0.0;
+
+    std::size_t reduced_ii_events                 = 0;
+    double      reduced_ii_carrier_time           = 0.0;
+    double      reduced_ii_velocity_time_integral = 0.0;
+    double      reduced_ii_sampling_time          = 0.0;
+
+#pragma omp parallel for if (m_cfg.m_nb_threads > 1) num_threads(m_cfg.m_nb_threads)          \
+    reduction(max : max_observed_total_rate) reduction(+ : reduced_weighted_velocity_x,       \
+                                                           reduced_weighted_energy,           \
+                                                           reduced_accumulated_time,          \
+                                                           reduced_ii_events,                 \
+                                                           reduced_ii_carrier_time,           \
+                                                           reduced_ii_velocity_time_integral, \
+                                                           reduced_ii_sampling_time)
+    for (std::int64_t idx_particle = 0; idx_particle < static_cast<std::int64_t>(m_particles.size()); ++idx_particle) {
+#ifdef _OPENMP
+        const int thread_id = omp_get_thread_num();
+#else
+        const int thread_id = 0;
+#endif
+
+        auto& transport = thread_transports[static_cast<std::size_t>(thread_id)];
+        auto& p         = m_particles[static_cast<std::size_t>(idx_particle)];
+
         std::size_t previous_particle_impact_ionization_events =
             particle_scattering_event_count(p, scattering_event::impact_ionization);
 
         while (p.state().time < m_cfg.m_final_time) {
             const double time_before_drift = p.state().time;
 
-            const double tau            = m_transport.sample_free_flight_time();
+            const double tau            = transport.sample_free_flight_time();
             const double remaining_time = m_cfg.m_final_time - p.state().time;
             const double drift_time     = std::min(tau, remaining_time);
 
-            m_transport.drift_particle(p, m_cfg.m_electric_field, drift_time);
+            transport.drift_particle(p, m_cfg.m_electric_field, drift_time);
 
             const double sampled_drift_time =
                 sampled_time_after_warmup(time_before_drift, p.state().time, warmup_time, m_cfg.m_final_time);
 
             if (sampled_drift_time > 0.0) {
-                accumulate_particle_observables(p, sampled_drift_time);
+                reduced_weighted_velocity_x += p.state().velocity.x() * sampled_drift_time;
 
-                auto& stats = m_impact_ionization_coefficient_statistics;
+                reduced_weighted_energy += p.state().kinetic_energy * sampled_drift_time;
 
-                stats.m_carrier_time_s += sampled_drift_time;
+                reduced_accumulated_time += sampled_drift_time;
 
-                stats.m_drift_velocity_time_integral_m_per_s_times_s +=
+                reduced_ii_carrier_time += sampled_drift_time;
+
+                reduced_ii_velocity_time_integral +=
                     particle_drift_velocity_along_field_m_per_s(p, m_cfg.m_electric_field) * sampled_drift_time;
 
-                stats.m_sampling_time_s += sampled_drift_time;
+                reduced_ii_sampling_time += sampled_drift_time;
             }
 
             if (m_cfg.m_record_history) {
@@ -333,18 +373,20 @@ void bulk_amc_simulation::run_self_scattering_emc() {
                 break;
             }
 
-            const double total_rate = m_transport.total_scattering_rate(p);
+            const double total_rate = transport.total_scattering_rate(p);
 
             max_observed_total_rate = std::max(max_observed_total_rate, total_rate);
 
-            m_transport.ensure_gamma_max_covers(total_rate);
+            // Do not call ensure_gamma_max_covers() in parallel on shared m_transport.
+            // This local transport is thread-private, so this is safe.
+            transport.ensure_gamma_max_covers(total_rate);
 
-            const double u = m_transport.uniform01();
+            const double u = transport.uniform01();
 
-            if (u < total_rate / m_transport.gamma_max()) {
-                const auto channel = m_transport.select_scattering_channel(p);
+            if (u < total_rate / transport.gamma_max()) {
+                const auto channel = transport.select_scattering_channel(p);
 
-                m_transport.apply_scattering_channel(p, channel);
+                transport.apply_scattering_channel(p, channel);
             } else {
                 p.increment_scattering_event_count();
                 p.add_scattering_event(scattering_event::self_scattering);
@@ -359,7 +401,7 @@ void bulk_amc_simulation::run_self_scattering_emc() {
             previous_particle_impact_ionization_events = current_particle_impact_ionization_events;
 
             if (p.state().time >= warmup_time) {
-                m_impact_ionization_coefficient_statistics.m_events += new_particle_impact_ionization_events;
+                reduced_ii_events += new_particle_impact_ionization_events;
             }
 
             if (m_cfg.m_record_history) {
@@ -367,6 +409,16 @@ void bulk_amc_simulation::run_self_scattering_emc() {
             }
         }
     }
+
+    m_observables.weighted_velocity_x_m2_per_s2 += reduced_weighted_velocity_x;
+    m_observables.weighted_kinetic_energy_eV_s += reduced_weighted_energy;
+    m_observables.accumulated_time_s += reduced_accumulated_time;
+
+    m_impact_ionization_coefficient_statistics.m_events += reduced_ii_events;
+    m_impact_ionization_coefficient_statistics.m_carrier_time_s += reduced_ii_carrier_time;
+    m_impact_ionization_coefficient_statistics.m_drift_velocity_time_integral_m_per_s_times_s +=
+        reduced_ii_velocity_time_integral;
+    m_impact_ionization_coefficient_statistics.m_sampling_time_s += reduced_ii_sampling_time;
 
     fmt::print("Completed self-scattering EMC run with {} particles\n", m_particles.size());
     fmt::print("Maximum observed total scattering rate: {:.6e} s^-1\n", max_observed_total_rate);

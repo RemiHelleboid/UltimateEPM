@@ -23,11 +23,11 @@ add_executable(fbmc.epm fbmc.cpp)
 target_link_libraries(fbmc.epm PRIVATE libepp lib_bzmesh lib_fbmc)
 target_compile_features(fbmc.epm PRIVATE cxx_std_20)
 
-add_executable(amc.epm analytic_mc.cpp)
+add_executable(amc.epm amc_bulk.cpp)
 target_link_libraries(amc.epm PRIVATE libepp lib_amc)
 target_compile_features(amc.epm PRIVATE cxx_std_20)
 
-add_executable(device_amc.epm device_analytic_mc.cpp)
+add_executable(device_amc.epm amc_device.cpp)
 target_link_libraries(device_amc.epm PRIVATE libepp uepm::amc uepm::mesh libfile)
 target_compile_features(device_amc.epm PRIVATE cxx_std_20)
 
