@@ -53,13 +53,13 @@ std::vector<valley_model> make_silicon_delta_valleys() {
 
     // Keep this simple for now.
     // Use parabolic first; switch to Kane once the loop works.
-    p.dispersion = valley_model::band_type::parabolic;
+    p.dispersion = valley_model::band_type::kane;
 
     // If you want Kane immediately, set:
     // p.dispersion = valley_model::band_type::kane;
     // p.non_parabolicity = ...; // in 1/eV or 1/J depending on your convention
 
-    p.non_parabolicity        = 0.0;
+    p.non_parabolicity        = 0.5;
     p.energy_offset           = 0.0;
     p.phonon_reference_energy = 0.0;
     p.degeneracy              = 1;
