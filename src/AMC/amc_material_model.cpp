@@ -33,7 +33,7 @@ carrier_impact_ionization_parameters make_silicon_impact_ionization_parameters()
     carrier_impact_ionization_parameters parameters;
 
     parameters.m_electron.m_threshold_eV  = 1.1;
-    parameters.m_electron.m_prefactor_s_1 = 1.0e11;
+    parameters.m_electron.m_prefactor_s_1 = 1.0e14;
     parameters.m_electron.m_exponent      = 4.6;
 
     parameters.m_hole.m_threshold_eV  = 1.49;
@@ -51,13 +51,7 @@ std::vector<valley_model> make_silicon_delta_valleys() {
     p.transverse_effective_mass   = 0.19 * m0;
     p.longitudinal_effective_mass = 0.916 * m0;
 
-    // Keep this simple for now.
-    // Use parabolic first; switch to Kane once the loop works.
     p.dispersion = valley_model::band_type::kane;
-
-    // If you want Kane immediately, set:
-    // p.dispersion = valley_model::band_type::kane;
-    // p.non_parabolicity = ...; // in 1/eV or 1/J depending on your convention
 
     p.non_parabolicity        = 0.5;
     p.energy_offset           = 0.0;
