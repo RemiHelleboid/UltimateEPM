@@ -272,6 +272,10 @@ def read_last_observable_row(path: Path) -> dict[str, float]:
         "mean_velocity_x_m_per_s",
         "mean_kinetic_energy_eV",
         "sample_count",
+        "impact_ionization_events",
+        "impact_ionization_rate_per_carrier_s_1",
+        "impact_ionization_drift_velocity_m_per_s",
+        "impact_ionization_coefficient_cm_1",
     ]
 
     for column in required_columns:
@@ -283,6 +287,10 @@ def read_last_observable_row(path: Path) -> dict[str, float]:
         "mean_velocity_x_m_per_s": float(row["mean_velocity_x_m_per_s"]),
         "mean_kinetic_energy_eV": float(row["mean_kinetic_energy_eV"]),
         "sample_count": float(row["sample_count"]),
+        "impact_ionization_events": float(row["impact_ionization_events"]),
+        "impact_ionization_rate_per_carrier_s_1": float(row["impact_ionization_rate_per_carrier_s_1"]),
+        "impact_ionization_drift_velocity_m_per_s": float(row["impact_ionization_drift_velocity_m_per_s"]),
+        "impact_ionization_coefficient_cm_1": float(row["impact_ionization_coefficient_cm_1"]),
     }
 
 
@@ -316,6 +324,11 @@ def build_sweep_dataframe(args: argparse.Namespace) -> pd.DataFrame:
                 "mobility_cm2_per_V_s": mobility_m2_per_v_s * 1.0e4,
                 "mean_kinetic_energy_eV": row["mean_kinetic_energy_eV"],
                 "sample_count": row["sample_count"],
+                "impact_ionization_events": row["impact_ionization_events"],
+                "impact_ionization_rate_per_carrier_s_1": row["impact_ionization_rate_per_carrier_s_1"],
+                "impact_ionization_drift_velocity_m_per_s": row["impact_ionization_drift_velocity_m_per_s"],
+                "impact_ionization_coefficient_cm_1": row["impact_ionization_coefficient_cm_1"],
+                "inverse_field_cm_per_V": 1.0 / abs(field_v_per_cm) if field_v_per_cm != 0.0 else float("nan"),
                 "runtime_s": elapsed,
                 "observables_file": str(observables_file),
             }
@@ -528,6 +541,90 @@ def plot_energy(
     plt.close(fig)
 
 
+def plot_impact_ionization_coefficient(
+    df: pd.DataFrame,
+    particle: str,
+    temperature_K: float,
+    outdir: Path,
+    show: bool,
+) -> None:
+    data = df.copy()
+    data = data.replace([np.inf, -np.inf], np.nan)
+    data = data.dropna(
+        subset=[
+            "inverse_field_cm_per_V",
+            "impact_ionization_coefficient_cm_1",
+        ]
+    )
+
+    positive_data = data[
+        (data["inverse_field_cm_per_V"] > 0.0)
+        & (data["impact_ionization_coefficient_cm_1"] > 0.0)
+    ].copy()
+
+    fig, ax = plt.subplots()
+
+    if not positive_data.empty:
+        positive_data = positive_data.sort_values("inverse_field_cm_per_V")
+
+        ax.plot(
+            positive_data["inverse_field_cm_per_V"],
+            positive_data["impact_ionization_coefficient_cm_1"],
+            marker="o",
+            label="AMC data",
+        )
+
+    if particle == "electron":
+        field_data = data[data["field_V_per_m"].abs() > 0.0].copy()
+
+        if not field_data.empty:
+            min_field = float(field_data["field_V_per_m"].abs().min())
+            max_field = float(field_data["field_V_per_m"].abs().max())
+
+            if min_field > 0.0 and max_field > min_field:
+                field_reference_V_per_m = np.logspace(
+                    np.log10(min_field),
+                    np.log10(max_field),
+                    300,
+                )
+                inverse_field_reference_cm_per_V = 1.0 / (field_reference_V_per_m / 100.0)
+                alpha_reference_cm_1 = van_overstraeten_de_man_alpha_n(
+                    field_reference_V_per_m,
+                    temperature_K,
+                )
+
+                positive_reference = alpha_reference_cm_1 > 0.0
+
+                ax.plot(
+                    inverse_field_reference_cm_per_V[positive_reference],
+                    alpha_reference_cm_1[positive_reference],
+                    linestyle="--",
+                    label="Van Overstraeten-de Man electron",
+                )
+
+    ax.set_yscale("log")
+    ax.set_xlabel("1 / electric field (cm/V)")
+    ax.set_ylabel("Impact ionization coefficient (cm$^{-1}$)")
+    ax.set_title("Bulk AMC impact ionization coefficient")
+    ax.grid(True, which="both")
+    ax.legend()
+
+    fig.tight_layout()
+    fig.savefig(outdir / "impact_ionization_coefficient_vs_inverse_field.png", dpi=200)
+    fig.savefig(outdir / "impact_ionization_coefficient_vs_inverse_field.pdf")
+
+    if show:
+        plt.show()
+
+    plt.close(fig)
+
+    if positive_data.empty:
+        print(
+            "Warning: no positive impact-ionization coefficients were available; "
+            "the log-scale ionization plot contains no AMC points."
+        )
+
+
 def write_summary(
     outdir: Path,
     mobility_m2_per_v_s: float,
@@ -615,6 +712,14 @@ def main() -> int:
         args.show,
     )
 
+    plot_impact_ionization_coefficient(
+        df,
+        args.particle,
+        args.temperature,
+        args.outdir,
+        args.show,
+    )
+
     print(f"Extracted low-field mobility: {mobility_cm2_per_v_s:.3f} cm²/V/s")
     print(f"Linear-fit intercept: {intercept_m_per_s:.6e} m/s")
     print(f"Wrote {results_csv}")
@@ -624,6 +729,7 @@ def main() -> int:
     print(f"Wrote {args.outdir / 'velocity_vs_field.png'}")
     print(f"Wrote {args.outdir / 'mobility_vs_field.png'}")
     print(f"Wrote {args.outdir / 'energy_vs_field.png'}")
+    print(f"Wrote {args.outdir / 'impact_ionization_coefficient_vs_inverse_field.png'}")
 
     return 0
 
