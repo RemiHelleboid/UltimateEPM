@@ -119,11 +119,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mobility-fit-max-field",
         type=float,
-        default=None,
+        default=2e3,
         help=(
             "Maximum electric field in V/cm used for low-field mobility extraction. "
             "If omitted, the lowest third of non-zero field points is used."
         ),
+    )
+    
+    parser.add_argument(
+        "--nbthreads",
+        type=int,
+        default=1,
+        help="Number of threads for parallel execution.",
     )
 
     parser.add_argument(
@@ -202,6 +209,8 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
         str(args.dt),
         "--outdir",
         str(run_dir),
+        "-j",
+        str(args.nbthreads)
     ]
 
     log_file = run_dir / "stdout.log"
