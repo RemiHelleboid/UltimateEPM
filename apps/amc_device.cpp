@@ -361,6 +361,11 @@ int main(int argc, const char** argv) {
                                                   1.0,
                                                   "weight");
 
+        TCLAP::SwitchArg arg_disable_doping_init_particles("",
+                                                           "disable-doping-init-particles",
+                                                           "Disable initialization of particles from doping.",
+                                                           false);
+
         cmd.add(arg_device_mesh);
         cmd.add(arg_material_file);
         cmd.add(arg_material);
@@ -399,6 +404,7 @@ int main(int argc, const char** argv) {
         cmd.add(arg_inject_z);
         cmd.add(arg_inject_type);
         cmd.add(arg_inject_weight);
+        cmd.add(arg_disable_doping_init_particles);
 
         cmd.parse(argc, argv);
 
@@ -425,25 +431,27 @@ int main(int argc, const char** argv) {
         device_options.m_frequency_export_trajectory          = arg_export_frequency.getValue();
         device_options.m_enable_scheduled_particle_injection  = arg_inject_particle.getValue();
         if (device_options.m_enable_scheduled_particle_injection) {
-            auto& injection = device_options.m_scheduled_particle_injection;
+            auto& injection    = device_options.m_scheduled_particle_injection;
             injection.m_time_s = arg_inject_time.getValue();
             injection.m_position_um =
                 make_vector3(arg_inject_x.getValue(), arg_inject_y.getValue(), arg_inject_z.getValue());
             injection.m_particle_type = parse_particle_type(arg_inject_type.getValue());
-            injection.m_weight = arg_inject_weight.getValue();
+            injection.m_weight        = arg_inject_weight.getValue();
         }
 
         uepm::amc::options_self_consistent_device_amc_2d self_consistent_options_2d;
-        self_consistent_options_2d.m_poisson_frequency    = arg_poisson_frequency.getValue();
-        self_consistent_options_2d.m_anode_voltage        = arg_anode_voltage.getValue();
-        self_consistent_options_2d.m_cathode_voltage      = arg_cathode_voltage.getValue();
-        self_consistent_options_2d.m_effective_depth_um   = arg_effective_depth.getValue();
-        self_consistent_options_2d.m_particle_z_period_um = arg_particle_z_period.getValue();
+        self_consistent_options_2d.m_poisson_frequency                = arg_poisson_frequency.getValue();
+        self_consistent_options_2d.m_anode_voltage                    = arg_anode_voltage.getValue();
+        self_consistent_options_2d.m_cathode_voltage                  = arg_cathode_voltage.getValue();
+        self_consistent_options_2d.m_effective_depth_um               = arg_effective_depth.getValue();
+        self_consistent_options_2d.m_particle_z_period_um             = arg_particle_z_period.getValue();
+        self_consistent_options_2d.m_initialize_particles_from_doping = !arg_disable_doping_init_particles.getValue();
 
         uepm::amc::options_self_consistent_device_amc_3d self_consistent_options_3d;
         self_consistent_options_3d.m_poisson_frequency = arg_poisson_frequency.getValue();
         self_consistent_options_3d.m_anode_voltage     = arg_anode_voltage.getValue();
         self_consistent_options_3d.m_cathode_voltage   = arg_cathode_voltage.getValue();
+        self_consistent_options_3d.m_initialize_particles_from_doping = !arg_disable_doping_init_particles.getValue();
 
         if (self_consistent_options_2d.m_poisson_frequency == 0 ||
             self_consistent_options_3d.m_poisson_frequency == 0) {

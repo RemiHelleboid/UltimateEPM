@@ -114,10 +114,8 @@ void self_consistent_device_amc_simulation_2d::place_initial_charges_according_t
         return total_charge;
     };
 
-    const double total_donor_charge = integrate_carriers_over_2d_mesh(donor_field_name);
-
-    const double total_acceptor_charge = integrate_carriers_over_2d_mesh(acceptor_field_name);
-
+    const double      total_donor_charge    = integrate_carriers_over_2d_mesh(donor_field_name);
+    const double      total_acceptor_charge = integrate_carriers_over_2d_mesh(acceptor_field_name);
     const std::size_t number_electrons = static_cast<std::size_t>(std::floor(total_donor_charge / particle_weight));
     const std::size_t number_holes     = static_cast<std::size_t>(std::floor(total_acceptor_charge / particle_weight));
 
@@ -301,10 +299,8 @@ void self_consistent_device_amc_simulation_2d::add_missing_contact_charge_to_poi
         const double target_accumulated_charge = equilibrium_charge * accumulation_factor;
         const double correction                = target_accumulated_charge - accumulated_mobile_charge;
         // fmt::print(
-        //     "Contact element {}: equilibrium charge = {:.3e}, accumulated mobile charge = {:.3e}, target accumulated "
-        //     "charge = {:.3e}, correction = {:.3e}\n",
-        //     m_list_element_contact[i],
-        //     equilibrium_charge,
+        //     "Contact element {}: equilibrium charge = {:.3e}, accumulated mobile charge = {:.3e}, target accumulated
+        //     " "charge = {:.3e}, correction = {:.3e}\n", m_list_element_contact[i], equilibrium_charge,
         //     accumulated_mobile_charge,
         //     target_accumulated_charge,
         //     correction);
@@ -347,7 +343,9 @@ self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_
     validate_self_consistent_options();
     initialize_contact_elements();
     initialize_poisson_solver();
-    place_initial_charges_according_to_doping();
+    if (m_self_consistent_options.m_initialize_particles_from_doping) {
+        place_initial_charges_according_to_doping();
+    }
 }
 
 self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_2d(
@@ -373,7 +371,9 @@ self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_
     validate_self_consistent_options();
     initialize_contact_elements();
     initialize_poisson_solver();
-    place_initial_charges_according_to_doping();
+    if (m_self_consistent_options.m_initialize_particles_from_doping) {
+        place_initial_charges_according_to_doping();
+    }
 }
 
 void self_consistent_device_amc_simulation_2d::add_particle_charges_to_elements() {

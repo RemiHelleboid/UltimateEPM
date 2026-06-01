@@ -43,7 +43,7 @@ struct options_self_consistent_device_amc_2d {
     // Does not affect Poisson charge normalization.
     double m_particle_z_period_um = 1.0;
 
-    bool   m_initialize_particles_from_doping = false;
+    bool   m_initialize_particles_from_doping = true;
     double m_initial_particle_weight          = 1.0;
 
     bool m_export_state = false;
