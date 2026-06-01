@@ -33,7 +33,7 @@ carrier_impact_ionization_parameters make_silicon_impact_ionization_parameters()
     carrier_impact_ionization_parameters parameters;
 
     parameters.m_electron.m_threshold_eV  = 1.1;
-    parameters.m_electron.m_prefactor_s_1 = 1.0e14;
+    parameters.m_electron.m_prefactor_s_1 = 1.0e11;
     parameters.m_electron.m_exponent      = 4.6;
 
     parameters.m_hole.m_threshold_eV  = 1.49;

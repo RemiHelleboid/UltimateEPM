@@ -336,14 +336,14 @@ std::vector<scattering_channel> amc_transport_kernel::build_scattering_channels(
                                               .branch          = nullptr,
                                               .process         = intervalley_process::none});
     }
-
+    const double optical_boost = 1.0;
     for (const auto& branch : m_intervalley_branches) {
         const double rate_abs =
             intervalley_scattering_rate(current_band, branch, energy_eV, true, m_cfg.m_lattice_temperature);
 
         if (rate_abs > 0.0) {
             channels.push_back(scattering_channel{.mechanism       = scattering_mechanism::intervalley,
-                                                  .rate_s_1        = rate_abs,
+                                                  .rate_s_1        = rate_abs * optical_boost,
                                                   .final_energy_eV = energy_eV + branch.m_phonon_energy_eV,
                                                   .branch          = &branch,
                                                   .process         = intervalley_process::absorption});
@@ -355,7 +355,7 @@ std::vector<scattering_channel> amc_transport_kernel::build_scattering_channels(
         const double final_energy_emission_eV = energy_eV - branch.m_phonon_energy_eV;
         if (rate_em > 0.0 && final_energy_emission_eV >= 0.0) {
             channels.push_back(scattering_channel{.mechanism       = scattering_mechanism::intervalley,
-                                                  .rate_s_1        = rate_em,
+                                                  .rate_s_1        = rate_em * optical_boost,
                                                   .final_energy_eV = final_energy_emission_eV,
                                                   .branch          = &branch,
                                                   .process         = intervalley_process::emission});
