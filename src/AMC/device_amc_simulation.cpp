@@ -43,7 +43,7 @@ void device_amc_simulation::export_current_time_step_particles_as_vtp(const std:
     const std::filesystem::path prefix_path(prefix_filename);
 
     std::filesystem::path vtp_path = prefix_path;
-    vtp_path += fmt::format(".{:09d}.vtp", m_iteration);
+    vtp_path += fmt::format(".{:09d}.vtp", m_state.m_iteration);
 
     std::filesystem::path pvd_path = prefix_path;
     pvd_path += ".pvd";
@@ -206,7 +206,7 @@ void device_amc_simulation::export_current_time_step_particles_as_vtp(const std:
 
     if (already_recorded == m_particle_vtp_export_records.end()) {
         m_particle_vtp_export_records.push_back(
-            particle_vtp_export_record{.m_time_s = m_time, .m_filename = vtp_filename});
+            particle_vtp_export_record{.m_time_s = m_state.m_time_s, .m_filename = vtp_filename});
     }
 
     write_particle_vtp_time_collection(pvd_path.string());
@@ -292,7 +292,7 @@ void device_amc_simulation::apply_z_periodicity_to_particles() {
 }
 
 void device_amc_simulation::initialize_scheduled_particle_injection() {
-    m_scheduled_particle_injection_done = !m_simulation_options.m_enable_scheduled_particle_injection;
+    m_state.m_scheduled_particle_injection_done = !m_simulation_options.m_enable_scheduled_particle_injection;
     if (!m_simulation_options.m_enable_scheduled_particle_injection) {
         return;
     }
@@ -309,7 +309,7 @@ bool device_amc_simulation::has_pending_scheduled_particle_injection() const {
     if (!m_simulation_options.m_enable_scheduled_particle_injection) {
         return false;
     }
-    if (m_scheduled_particle_injection_done) {
+    if (m_state.m_scheduled_particle_injection_done) {
         return false;
     }
     return m_simulation_options.m_scheduled_particle_injection.m_time_s <= m_simulation_options.m_t_max;
@@ -325,7 +325,7 @@ void device_amc_simulation::inject_scheduled_particle_if_due() {
     const double dt = m_simulation_options.m_time_step;
 
     // Inject during the timestep that reaches the requested time.
-    if (m_time + dt < injection.m_time_s) {
+    if (m_state.m_time_s + dt < injection.m_time_s) {
         return;
     }
 
@@ -335,11 +335,11 @@ void device_amc_simulation::inject_scheduled_particle_if_due() {
                    "because max particle count was reached.\n",
                    injection.m_time_s);
 
-        m_scheduled_particle_injection_done = true;
+        m_state.m_scheduled_particle_injection_done = true;
         return;
     }
     add_particle_at_position(injection.m_position_um, injection.m_particle_type, injection.m_weight);
-    m_scheduled_particle_injection_done = true;
+    m_state.m_scheduled_particle_injection_done = true;
     fmt::print("Scheduled particle injected at t={:.6e} s, "
                "position=({:.6e}, {:.6e}, {:.6e}) um, weight={:.6e}\n",
                injection.m_time_s,
@@ -356,8 +356,7 @@ device_amc_simulation::device_amc_simulation(const device::device     &simulatio
       m_electron_transport(make_transport_config(simulation_option, particle_type::electron), seed_random_generator),
       m_hole_transport(make_transport_config(simulation_option, particle_type::hole), seed_random_generator + 1),
       m_dimension(m_device.get_dimension()),
-      m_simulation_options(simulation_option),
-      m_iteration{0} {
+      m_simulation_options(simulation_option) {
     m_simulation_history.m_initial_seed_rng = seed_random_generator;
     m_electron_transport.initialize();
     m_hole_transport.initialize();
@@ -374,8 +373,7 @@ device_amc_simulation::device_amc_simulation(const device::device     &device_si
       m_electron_transport(make_transport_config(simulation_option, particle_type::electron), seed_random_generator),
       m_hole_transport(make_transport_config(simulation_option, particle_type::hole), seed_random_generator + 1),
       m_dimension(m_device.get_dimension()),
-      m_simulation_options(simulation_option),
-      m_iteration{0} {
+      m_simulation_options(simulation_option) {
     m_electron_transport.initialize();
     m_hole_transport.initialize();
     mesh::element *first_element{nullptr};
@@ -393,12 +391,12 @@ device_amc_simulation::device_amc_simulation(const device::device     &device_si
     m_list_particles.reserve(number_electrons_start + number_holes_start);
 
     for (std::size_t i = 0; i < number_electrons_start; ++i) {
-        const std::size_t particle_index = m_list_particles.size();
+        const std::size_t particle_index = m_state.m_counter_particles_created++;
         m_list_particles.push_back(std::make_unique<particle_amc>(particle_index, particle_type::electron));
     }
 
     for (std::size_t i = 0; i < number_holes_start; ++i) {
-        const std::size_t particle_index = m_list_particles.size();
+        const std::size_t particle_index = m_state.m_counter_particles_created++;
         m_list_particles.push_back(std::make_unique<particle_amc>(particle_index, particle_type::hole));
     }
 
@@ -428,7 +426,7 @@ void device_amc_simulation::add_particle_at_position(const mesh::vector3 &locati
         std::cout << "Error : particle can't find its first element. No particle created.    " << location << std::endl;
         return;
     }
-    const std::size_t idx_particle = m_list_particles.size();
+    const std::size_t idx_particle = m_state.m_counter_particles_created++;
     particle_state    initial_state{};
     initial_state.position = location;
     if (type_of_particle == particle_type::electron) {
@@ -465,7 +463,7 @@ void device_amc_simulation::add_particles_at_positions(const std::vector<mesh::v
             continue;
         }
 
-        const std::size_t idx_particle = m_list_particles.size();
+        const std::size_t idx_particle = m_state.m_counter_particles_created++;
         particle_state    initial_state{};
         initial_state.position = location;
         if (type_of_particle == particle_type::electron) {
@@ -508,8 +506,9 @@ std::size_t device_amc_simulation::get_number_holes() const {
 
 double device_amc_simulation::ramo_current_scale_factor() const { return 1.0; }
 
-double device_amc_simulation::compute_ramo_current() const {
-    double total_current = 0.0;
+std::pair<double, double> device_amc_simulation::compute_ramo_current() const {
+    double total_electron_current = 0.0;
+    double total_hole_current     = 0.0;
 
     const auto  *mesh_ptr     = m_device.get_p_mesh();
     const double scale_factor = ramo_current_scale_factor();
@@ -525,11 +524,16 @@ double device_amc_simulation::compute_ramo_current() const {
             -uepm::units::electric_field_V_per_cm_to_V_per_m *
             mesh_ptr->interpolate_vector_at_location("RamoUnitaryPotential_gradient", position);
 
-        total_current += scale_factor * particle->weight() * particle->get_signed_charge() *
-                         particle->state().velocity.dot(weighting_field_m);
+        if (particle->type() == particle_type::electron) {
+            total_electron_current += scale_factor * particle->weight() * particle->get_signed_charge() *
+                                      particle->state().velocity.dot(weighting_field_m);
+        } else {
+            total_hole_current += scale_factor * particle->weight() * particle->get_signed_charge() *
+                                  particle->state().velocity.dot(weighting_field_m);
+        }
     }
 
-    return total_current;
+    return std::make_pair(total_electron_current, total_hole_current);
 }
 
 void device_amc_simulation::transport_particles_one_time_step() {
@@ -590,8 +594,8 @@ void device_amc_simulation::transport_particles_one_time_step() {
 
 void device_amc_simulation::advance_particles_one_time_step() {
     transport_particles_one_time_step();
-    m_time += m_simulation_options.m_time_step;
-    ++m_iteration;
+    m_state.m_time_s += m_simulation_options.m_time_step;
+    ++m_state.m_iteration;
 }
 
 void device_amc_simulation::set_particles_transport_data_from_device() {
@@ -654,8 +658,6 @@ void device_amc_simulation::update_element_and_check_boundary() {
 }
 
 void device_amc_simulation::remove_collected_particles() {
-    m_anode_current      = 0.0;
-    m_cathode_current    = 0.0;
     bool remove_particle = false;
     int  nb_part_erased  = 0;
     for (const auto &p_particle : m_list_particles) {
@@ -674,12 +676,10 @@ void device_amc_simulation::remove_collected_particles() {
     if (currents.size() < 2) {
         throw std::runtime_error("Error: currents vector should have at least 2 elements (anode and cathode currents)");
     }
-    m_anode_current   = uepm::constants::q_e * currents[0] / m_simulation_options.m_time_step;
-    m_cathode_current = uepm::constants::q_e * currents[1] / m_simulation_options.m_time_step;
 }
 
 void device_amc_simulation::run() {
-    while (m_time < m_simulation_options.m_t_max) {
+    while (m_state.m_time_s < m_simulation_options.m_t_max) {
         if (m_list_particles.empty()) {
             break;
         }
@@ -698,20 +698,20 @@ void device_amc_simulation::run() {
         const auto nb_holes             = get_number_holes();
         const auto nb_impact_ionization = m_simulation_history.m_impact_ionization_positions.size();
 
-        const double ramo_current = 0.0;
+        double dumb_ramo_current_e_h_total = 0.0;
 
-        m_simulation_history.add_data_to_history(m_time,
+        m_simulation_history.add_data_to_history(m_state.m_time_s,
                                                  nb_electrons,
                                                  nb_holes,
                                                  nb_impact_ionization,
-                                                 m_anode_current,
-                                                 m_cathode_current,
-                                                 ramo_current,
+                                                 dumb_ramo_current_e_h_total,
+                                                 dumb_ramo_current_e_h_total,
+                                                 dumb_ramo_current_e_h_total,
                                                  0.0);
 
         if (m_simulation_options.m_export_time_step &&
-            m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0) {
-            export_current_time_step_as_csv(m_prefix_export_filename);
+            m_state.m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0) {
+            export_current_time_step_as_csv(m_simulation_options.m_prefix_export_filename);
         }
     }
 }
@@ -724,38 +724,6 @@ std::vector<mesh::vector3> device_amc_simulation::get_all_particles_position() c
     return all_positions;
 }
 
-// std::vector<mesh::vector3> device_amc_simulation::get_all_global_velocities() const {
-//     std::vector<mesh::vector3> all_velocities(m_list_particles.size());
-//     std::transform(m_list_particles.begin(), m_list_particles.end(), all_velocities.begin(), [](auto &&p_particle) {
-//         return p_particle->compute_global_velocities();
-//     });
-//     return all_velocities;
-// }
-
-// std::vector<std::size_t> device_amc_simulation::get_all_number_impact_ionization() const {
-//     std::vector<std::size_t> all_number_impact_ionization(m_list_particles.size());
-//     std::transform(m_list_particles.begin(), m_list_particles.end(), all_number_impact_ionization.begin(), [](auto
-//     &&p_particle) {
-//         return p_particle->get_total_number_impact_ionization();
-//     });
-//     return all_number_impact_ionization;
-// }
-
-// std::vector<mesh::vector3> device_amc_simulation::get_all_positions_impact_ionization() const {
-//     return m_simulation_history.m_impact_ionization_positions;
-// }
-
-// std::vector<mesh::vector3> device_amc_simulation::get_all_first_impact_ionization_position() const {
-//     std::vector<mesh::vector3> all_impact_ionization_position;
-//     for (const auto &p_particle : m_list_particles) {
-//         auto impact_ionization_position = p_particle->get_first_impact_ionization_position();
-//         if (impact_ionization_position.has_value()) {
-//             mesh::vector3 first_i_position = impact_ionization_position.value();
-//             all_impact_ionization_position.push_back(first_i_position);
-//         }
-//     }
-//     return all_impact_ionization_position;
-// }
 
 std::pair<double, double> device_amc_simulation::compute_depletion_region() const {
     double x_min = std::numeric_limits<double>::max();
@@ -804,7 +772,7 @@ std::string device_amc_simulation::initialize_simulation_history_file() const {
 }
 
 void device_amc_simulation::export_current_time_step_as_csv(const std::string &prefix_filename) const {
-    const std::string iteration_filename = fmt::format("{}.{:09d}.csv", prefix_filename, m_iteration);
+    const std::string iteration_filename = fmt::format("{}.{:09d}.csv", prefix_filename, m_state.m_iteration);
 
     std::ofstream stream(iteration_filename);
 

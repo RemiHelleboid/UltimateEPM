@@ -27,8 +27,8 @@ struct history_device_amc {
     std::vector<std::size_t>   m_list_nb_electrons{};
     std::vector<std::size_t>   m_list_nb_holes{};
     std::vector<std::size_t>   m_list_nb_impact_ionization{};
-    std::vector<double>        m_list_anode_current{};
-    std::vector<double>        m_list_cathode_current{};
+    std::vector<double>        m_list_ramo_current_electron{};
+    std::vector<double>        m_list_ramo_current_hole{};
     std::vector<double>        m_list_ramo_current{};
     std::vector<mesh::vector3> m_impact_ionization_positions{};
     std::vector<double>        m_max_electric_field{};
@@ -41,8 +41,8 @@ struct history_device_amc {
         m_list_nb_electrons.reserve(size);
         m_list_nb_holes.reserve(size);
         m_list_nb_impact_ionization.reserve(size);
-        m_list_anode_current.reserve(size);
-        m_list_cathode_current.reserve(size);
+        m_list_ramo_current_electron.reserve(size);
+        m_list_ramo_current_hole.reserve(size);
         m_list_ramo_current.reserve(size);
         m_max_electric_field.reserve(size);
     }
@@ -59,21 +59,21 @@ struct history_device_amc {
         m_list_nb_electrons.push_back(nb_electrons);
         m_list_nb_holes.push_back(nb_holes);
         m_list_nb_impact_ionization.push_back(nb_impact_ionization);
-        m_list_anode_current.push_back(anode_current);
-        m_list_cathode_current.push_back(cathode_current);
+        m_list_ramo_current_electron.push_back(anode_current);
+        m_list_ramo_current_hole.push_back(cathode_current);
         m_list_ramo_current.push_back(ramo_current);
         m_max_electric_field.push_back(max_electric_field);
     }
 
     void print_header_csv(const std::string &filename) {
         std::ofstream file(filename);
-        file << "time,nb_electrons,nb_holes,nb_impact_ionization,anode_current,cathode_current,ramo_current,max_electric_field\n";
+        file << "time,nb_electrons,nb_holes,nb_impact_ionization,ramo_current_electron,ramo_current_hole,ramo_current,max_electric_field\n";
         file.close();
     }
 
     void append_last_iter_to_csv(std::fstream &file) {
         file << m_list_times.back() << ',' << m_list_nb_electrons.back() << ',' << m_list_nb_holes.back() << ','
-             << m_list_nb_impact_ionization.back() << ',' << m_list_anode_current.back() << ',' << m_list_cathode_current.back() << ','
+             << m_list_nb_impact_ionization.back() << ',' << m_list_ramo_current_electron.back() << ',' << m_list_ramo_current_hole.back() << ','
              << m_list_ramo_current.back() << ',' << m_max_electric_field.back() << '\n';
     }
 
@@ -82,8 +82,8 @@ struct history_device_amc {
         std::vector<double> double_list_nb_electrons;
         std::vector<double> double_list_nb_hole;
         std::vector<double> double_list_nb_impact_ionization;
-        std::vector<double> double_list_anode_current;
-        std::vector<double> double_list_cathode_current;
+        std::vector<double> double_list_ramo_current_electron;
+        std::vector<double> double_list_ramo_current_hole;
         std::vector<double> double_list_ramo_current;
         std::vector<double> double_list_max_electric_field;
         for (std::size_t iter_nb = 0; iter_nb < m_list_times.size() - 1; iter_nb++) {
@@ -91,8 +91,8 @@ struct history_device_amc {
             double_list_nb_electrons.push_back(m_list_nb_electrons[iter_nb]);
             double_list_nb_hole.push_back(m_list_nb_holes[iter_nb]);
             double_list_nb_impact_ionization.push_back(m_list_nb_impact_ionization[iter_nb]);
-            double_list_anode_current.push_back(m_list_anode_current[iter_nb]);
-            double_list_cathode_current.push_back(m_list_cathode_current[iter_nb]);
+            double_list_ramo_current_electron.push_back(m_list_ramo_current_electron[iter_nb]);
+            double_list_ramo_current_hole.push_back(m_list_ramo_current_hole[iter_nb]);
             double_list_ramo_current.push_back(m_list_ramo_current[iter_nb]);
             double_list_max_electric_field.push_back(m_max_electric_field[iter_nb]);
         }
@@ -101,21 +101,21 @@ struct history_device_amc {
         double_list_nb_electrons.push_back(m_list_nb_electrons[m_list_nb_electrons.size() - 1]);
         double_list_nb_hole.push_back(m_list_nb_holes[m_list_nb_electrons.size() - 1]);
         double_list_nb_impact_ionization.push_back(m_list_nb_impact_ionization[m_list_nb_electrons.size() - 1]);
-        double_list_anode_current.push_back(m_list_anode_current[m_list_nb_electrons.size() - 1]);
-        double_list_cathode_current.push_back(m_list_cathode_current[m_list_nb_electrons.size() - 1]);
+        double_list_ramo_current_electron.push_back(m_list_ramo_current_electron[m_list_nb_electrons.size() - 1]);
+        double_list_ramo_current_hole.push_back(m_list_ramo_current_hole[m_list_nb_electrons.size() - 1]);
         double_list_ramo_current.push_back(m_list_ramo_current[m_list_nb_electrons.size() - 1]);
         double_list_max_electric_field.push_back(m_max_electric_field[m_list_nb_electrons.size() - 1]);
 
         std::vector<std::string> header_csv =
-            {"time", "nb_electrons", "nb_holes", "nb_impact_ionization", "anode_current", "cathode_current", "ramo_current", "max_electric_field"};
+            {"time", "nb_electrons", "nb_holes", "nb_impact_ionization", "ramo_current_electron", "ramo_current_hole", "ramo_current", "max_electric_field"};
         utils::export_multiple_vector_to_csv(filename,
                                              header_csv,
                                              {double_list_time,
                                               double_list_nb_electrons,
                                               double_list_nb_hole,
                                               double_list_nb_impact_ionization,
-                                              double_list_anode_current,
-                                              double_list_cathode_current,
+                                              double_list_ramo_current_electron,
+                                              double_list_ramo_current_hole,
                                               double_list_ramo_current,
                                               double_list_max_electric_field});
     }

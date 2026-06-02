@@ -397,10 +397,13 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
     fmt::print("Total iterations: {}\n", total_iterations);
     fmt::print("Poisson frequency: {}\n", m_self_consistent_options.m_poisson_frequency);
 
-    double accumulator_ramo_current = 0.0;
-    double ramo_current = 0.0;
+    double accumulator_ramo_current_electron = 0.0;
+    double accumulator_ramo_current_hole     = 0.0;
+    double ramo_current_electron             = 0.0;
+    double ramo_current_hole                 = 0.0;
+    double ramo_current                      = 0.0;
 
-    while (m_time <= m_simulation_options.m_t_max && !m_list_particles.empty()) {
+    while (m_state.m_time_s <= m_simulation_options.m_t_max && !m_list_particles.empty()) {
         if (m_simulation_options.m_stop_simu_when_no_electron_remaining && get_number_electrons() == 0) {
             fmt::print("Stop: no electrons remaining in device.\n");
             break;
@@ -413,10 +416,12 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
 
         transport_particles_one_time_step();
         add_particle_charges_to_elements();
-        accumulator_ramo_current += compute_ramo_current();
+        const auto [electron_current, hole_current] = compute_ramo_current();
+        accumulator_ramo_current_electron += electron_current;
+        accumulator_ramo_current_hole += hole_current;
 
         const bool should_update_poisson =
-            (m_iteration % m_self_consistent_options.m_poisson_frequency == 0) && (m_iteration != 0);
+            (m_state.m_iteration % m_self_consistent_options.m_poisson_frequency == 0) && (m_state.m_iteration != 0);
 
         if (should_update_poisson) {
             const std::size_t poisson_frequency = m_self_consistent_options.m_poisson_frequency;
@@ -426,31 +431,34 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
             recompute_vertex_space_charge_from_element_charges(poisson_frequency + 1);
             update_self_consistent_potential();
             reset_element_charges();
-            ramo_current = accumulator_ramo_current / static_cast<double>(poisson_frequency);
-            accumulator_ramo_current = 0.0;
+            ramo_current_electron = accumulator_ramo_current_electron / static_cast<double>(poisson_frequency);
+            ramo_current_hole     = accumulator_ramo_current_hole / static_cast<double>(poisson_frequency);
+            ramo_current          = ramo_current_electron + ramo_current_hole;
+            accumulator_ramo_current_electron = 0.0;
+            accumulator_ramo_current_hole     = 0.0;
         }
 
-        m_time += m_simulation_options.m_time_step;
-        ++m_iteration;
+        m_state.m_time_s += m_simulation_options.m_time_step;
+        ++m_state.m_iteration;
 
-        m_simulation_history.add_data_to_history(m_time,
+        m_simulation_history.add_data_to_history(m_state.m_time_s,
                                                  get_number_electrons(),
                                                  get_number_holes(),
                                                  m_simulation_history.m_impact_ionization_positions.size(),
-                                                 m_anode_current,
-                                                 m_cathode_current,
-                                                    ramo_current,
+                                                 ramo_current_electron,
+                                                 ramo_current_hole,
+                                                 ramo_current,
                                                  0.0);
 
-        if (m_iteration == 1 ||
+        if (m_state.m_iteration == 1 ||
             (m_simulation_options.m_export_time_step &&
-             m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0)) {
+             m_state.m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0)) {
             export_current_state();
             fmt::print("\rExported iteration at time {:<10.3e}ps - {:>9d} / {} ({:.1f}%) ",
-                       m_time * 1e12,
-                       m_iteration,
+                       m_state.m_time_s * 1e12,
+                       m_state.m_iteration,
                        total_iterations,
-                       static_cast<double>(m_iteration) / static_cast<double>(total_iterations) * 100.0);
+                       static_cast<double>(m_state.m_iteration) / static_cast<double>(total_iterations) * 100.0);
             std::fflush(stdout);
         }
     }
@@ -459,9 +467,9 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
 }
 
 void self_consistent_device_amc_simulation_3d::export_current_state() {
-    const std::string FileName = fmt::format("{}_poisson_time.vtk.{:09d}", m_prefix_export_filename, m_iteration);
+    const std::string FileName = fmt::format("{}_poisson_time.vtk.{:09d}", m_simulation_options.m_prefix_export_filename, m_state.m_iteration);
     file::export_as_vtk(*(m_device.get_p_mesh()), FileName, {}, {}, true);
-    export_current_time_step_as_csv(m_prefix_export_filename);
+    export_current_time_step_particles_as_vtp(m_simulation_options.m_prefix_export_filename);
 }
 
 }  // namespace uepm::amc

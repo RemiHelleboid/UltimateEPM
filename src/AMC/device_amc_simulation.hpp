@@ -52,6 +52,7 @@ struct options_device_amc {
     bool        m_export_time_step                     = false;
     int         m_frequency_export_trajectory          = 10;
     int         m_nb_threads                           = 1;
+    std::string m_prefix_export_filename               = "trajectory/time_step.csv";
 
     bool                         m_enable_scheduled_particle_injection = false;
     scheduled_particle_injection m_scheduled_particle_injection{};
@@ -98,6 +99,13 @@ struct options_device_amc {
     }
 };
 
+struct state_device_amc_simulation {
+    double      m_time_s = 0.0;
+    std::size_t m_iteration = 0;
+    std::size_t m_counter_particles_created = 0;
+
+    bool m_scheduled_particle_injection_done = true;
+};
 
 /**
  * @brief Device amc simulation class. This class contains the main loop of the simulation and the list of particles.
@@ -105,36 +113,25 @@ struct options_device_amc {
  */
 class device_amc_simulation {
  protected:
-    device::device       m_device;
-    amc_transport_kernel m_electron_transport;
-    amc_transport_kernel m_hole_transport;
-    int                  m_dimension;
-    options_device_amc   m_simulation_options;
-    history_device_amc   m_simulation_history{};
-    double               m_time = 0.0;
-    std::size_t          m_iteration;
+    state_device_amc_simulation m_state;
+    device::device              m_device;
+    amc_transport_kernel        m_electron_transport;
+    amc_transport_kernel        m_hole_transport;
+    int                         m_dimension;
+    options_device_amc          m_simulation_options;
+    history_device_amc          m_simulation_history{};
 
     std::vector<std::unique_ptr<particle_amc>> m_list_particles;
 
-    double m_anode_current{0.0};
-    double m_cathode_current{0.0};
-
-    std::string m_prefix_export_filename = "trajectory/time_step.csv";
-
-    bool m_scheduled_particle_injection_done = true;
-
-    void initialize_scheduled_particle_injection();
-    bool has_pending_scheduled_particle_injection() const;
-    void inject_scheduled_particle_if_due();
-
+    void                        initialize_scheduled_particle_injection();
+    bool                        has_pending_scheduled_particle_injection() const;
+    void                        inject_scheduled_particle_if_due();
     static amc_transport_config make_transport_config(const options_device_amc &options, particle_type carrier_type);
     amc_transport_kernel       &transport_for(particle_type type);
     const amc_transport_kernel &transport_for(particle_type type) const;
     void                        initialize_particle_transport_state(particle_amc &particle);
-
-    std::string initialize_simulation_history_file() const;
-
-    virtual void apply_z_periodicity_to_particles();
+    std::string                 initialize_simulation_history_file() const;
+    virtual void                apply_z_periodicity_to_particles();
 
     // Export functions
     struct particle_vtp_export_record {
@@ -184,9 +181,9 @@ class device_amc_simulation {
     void set_particles_transport_data_from_device();
     void update_element_and_check_boundary();
 
-    void           remove_collected_particles();
-    double         compute_ramo_current() const;
-    virtual double ramo_current_scale_factor() const;
+    void                      remove_collected_particles();
+    std::pair<double, double> compute_ramo_current() const;
+    virtual double            ramo_current_scale_factor() const;
 
     void run();
 
@@ -194,23 +191,19 @@ class device_amc_simulation {
     void set_keep_particles_history(bool new_value) { m_simulation_options.m_keep_particles_history = new_value; }
     void set_exporting_iterations(bool new_value) { m_simulation_options.m_export_time_step = new_value; }
     void set_exporting_frequency(int new_value) { m_simulation_options.m_frequency_export_trajectory = new_value; }
-    void set_prefix_export_trajectory_filename(const std::string &new_prefix) { m_prefix_export_filename = new_prefix; }
+    void set_prefix_export_trajectory_filename(const std::string &new_prefix) {
+        m_simulation_options.m_prefix_export_filename = new_prefix;
+    }
     void set_stop_simulation_without_electron(bool new_value) {
         m_simulation_options.m_stop_simu_when_no_electron_remaining = new_value;
     }
     bool has_reached_avalanche() const { return m_list_particles.size() >= m_simulation_options.m_max_number_particle; }
 
-    /**
-     * @brief Return a const reference to the simulation history.
-     *
-     * @return const history_device_amc&
-     */
     const history_device_amc &get_simulation_history() const { return m_simulation_history; }
 
-    std::size_t           get_number_electrons() const;
-    std::size_t           get_number_holes() const;
-    std::optional<double> get_current_time() const { return m_time; }
-
+    std::size_t                get_number_electrons() const;
+    std::size_t                get_number_holes() const;
+    std::optional<double>      get_current_time() const { return m_state.m_time_s; }
     std::vector<mesh::vector3> get_all_particles_position() const;
 
     /**
