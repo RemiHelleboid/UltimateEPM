@@ -1626,7 +1626,7 @@ std::pair<vector3, double> mesh::get_argmax_max_of_function(const std::string &f
     vector3 position_max{};
     double  max_function = -std::numeric_limits<double>::infinity();
     for (const auto &vtx : m_ListVertices) {
-        double value_at_vtx = vtx.get_scalar_data(fieldname);
+        const double value_at_vtx = vtx.get_scalar_data(fieldname);
         if (value_at_vtx > max_function) {
             position_max = vtx;
             max_function = value_at_vtx;
@@ -1637,10 +1637,10 @@ std::pair<vector3, double> mesh::get_argmax_max_of_function(const std::string &f
 
 std::pair<vector3, double> mesh::get_argmin_min_of_function(const std::string &fieldname) const {
     vector3 position_min{};
-    double  min_function = std::numeric_limits<double>::max();
+    double  min_function = std::numeric_limits<double>::infinity();
     for (const auto &vtx : m_ListVertices) {
-        double value_at_vtx = vtx.get_scalar_data(fieldname);
-        if (value_at_vtx > min_function) {
+        const double value_at_vtx = vtx.get_scalar_data(fieldname);
+        if (value_at_vtx < min_function) {
             position_min = vtx;
             min_function = value_at_vtx;
         }

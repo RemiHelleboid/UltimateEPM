@@ -39,207 +39,13 @@ struct impact_ionization_pair_seed {
     double        weight = 1.0;
 };
 
-void device_amc_simulation::export_current_time_step_particles_as_vtp(const std::string &prefix_filename) const {
-    const std::filesystem::path prefix_path(prefix_filename);
-
-    std::filesystem::path vtp_path = prefix_path;
-    vtp_path += fmt::format(".{:09d}.vtp", m_state.m_iteration);
-
-    std::filesystem::path pvd_path = prefix_path;
-    pvd_path += ".pvd";
-
-    std::ofstream stream(vtp_path);
-
-    if (!stream.is_open()) {
-        throw std::runtime_error(fmt::format("Could not open particle VTP file '{}'", vtp_path.string()));
+vector3 device_amc_simulation::get_RamoUnitaryElectricField_at_position(const mesh::vector3 &position) const {
+    if (m_state.m_use_constant_RamoUnitaryElectricField) {
+        return m_state.m_RamoUnitaryElectricField_Vm_per_cm;
     }
 
-    const std::size_t number_particles = m_list_particles.size();
-
-    stream << std::setprecision(std::numeric_limits<double>::max_digits10);
-
-    stream << "<?xml version=\"1.0\"?>\n";
-    stream << "<VTKFile type=\"PolyData\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
-    stream << "  <PolyData>\n";
-    stream << "    <Piece NumberOfPoints=\"" << number_particles << "\" NumberOfVerts=\"" << number_particles
-           << "\" NumberOfLines=\"0\" NumberOfStrips=\"0\" NumberOfPolys=\"0\">\n";
-
-    stream << "      <PointData Scalars=\"energy_eV\" Vectors=\"velocity_m_per_s\">\n";
-
-    stream << "        <DataArray type=\"Int64\" Name=\"particle_index\" format=\"ascii\">\n";
-    stream << "          ";
-    for (const auto &p_particle : m_list_particles) {
-        stream << static_cast<long long>(p_particle->index()) << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream << "        <DataArray type=\"Int32\" Name=\"particle_type\" format=\"ascii\">\n";
-    stream << "          ";
-    for (const auto &p_particle : m_list_particles) {
-        stream << static_cast<int>(p_particle->type()) << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream << "        <DataArray type=\"Float64\" Name=\"time_s\" format=\"ascii\">\n";
-    stream << "          ";
-    for (const auto &p_particle : m_list_particles) {
-        stream << p_particle->state().time << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream << "        <DataArray type=\"Float64\" Name=\"energy_eV\" format=\"ascii\">\n";
-    stream << "          ";
-    for (const auto &p_particle : m_list_particles) {
-        stream << p_particle->state().kinetic_energy << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream << "        <DataArray type=\"Float64\" Name=\"weight\" format=\"ascii\">\n";
-    stream << "          ";
-    for (const auto &p_particle : m_list_particles) {
-        stream << p_particle->weight() << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream << "        <DataArray type=\"Int32\" Name=\"valley_index\" format=\"ascii\">\n";
-    stream << "          ";
-    for (const auto &p_particle : m_list_particles) {
-        stream << static_cast<int>(p_particle->state().valley_index) << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream << "        <DataArray type=\"Float64\" Name=\"signed_charge_C\" format=\"ascii\">\n";
-    stream << "          ";
-    for (const auto &p_particle : m_list_particles) {
-        stream << p_particle->get_signed_charge() << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream << "        <DataArray type=\"Float64\" Name=\"electric_field_norm_V_per_cm\" format=\"ascii\">\n";
-    stream << "          ";
-    for (const auto &p_particle : m_list_particles) {
-        stream << p_particle->state().electric_field.norm() << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream
-        << "        <DataArray type=\"Float64\" Name=\"velocity_m_per_s\" NumberOfComponents=\"3\" format=\"ascii\">\n";
-    stream << "          ";
-    for (const auto &p_particle : m_list_particles) {
-        const auto &velocity = p_particle->state().velocity;
-        stream << velocity.x() << ' ' << velocity.y() << ' ' << velocity.z() << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream
-        << "        <DataArray type=\"Float64\" Name=\"local_k_1_per_m\" NumberOfComponents=\"3\" format=\"ascii\">\n";
-    stream << "          ";
-    for (const auto &p_particle : m_list_particles) {
-        const auto &local_k = p_particle->state().local_k;
-        stream << local_k.x() << ' ' << local_k.y() << ' ' << local_k.z() << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream << "        <DataArray type=\"Float64\" Name=\"electric_field_V_per_cm\" NumberOfComponents=\"3\" "
-              "format=\"ascii\">\n";
-    stream << "          ";
-    for (const auto &p_particle : m_list_particles) {
-        const auto &electric_field = p_particle->state().electric_field;
-        stream << electric_field.x() << ' ' << electric_field.y() << ' ' << electric_field.z() << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream << "      </PointData>\n";
-
-    stream << "      <Points>\n";
-    stream << "        <DataArray type=\"Float64\" Name=\"position_um\" NumberOfComponents=\"3\" format=\"ascii\">\n";
-    stream << "          ";
-    for (const auto &p_particle : m_list_particles) {
-        const auto &position = p_particle->state().position;
-        stream << position.x() << ' ' << position.y() << ' ' << position.z() << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-    stream << "      </Points>\n";
-
-    stream << "      <Verts>\n";
-
-    stream << "        <DataArray type=\"Int64\" Name=\"connectivity\" format=\"ascii\">\n";
-    stream << "          ";
-    for (std::size_t i = 0; i < number_particles; ++i) {
-        stream << static_cast<long long>(i) << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream << "        <DataArray type=\"Int64\" Name=\"offsets\" format=\"ascii\">\n";
-    stream << "          ";
-    for (std::size_t i = 0; i < number_particles; ++i) {
-        stream << static_cast<long long>(i + 1) << ' ';
-    }
-    stream << "\n";
-    stream << "        </DataArray>\n";
-
-    stream << "      </Verts>\n";
-
-    stream << "    </Piece>\n";
-    stream << "  </PolyData>\n";
-    stream << "</VTKFile>\n";
-
-    const std::string vtp_filename = vtp_path.filename().generic_string();
-
-    const auto already_recorded =
-        std::find_if(m_particle_vtp_export_records.begin(),
-                     m_particle_vtp_export_records.end(),
-                     [&](const particle_vtp_export_record &record) { return record.m_filename == vtp_filename; });
-
-    if (already_recorded == m_particle_vtp_export_records.end()) {
-        m_particle_vtp_export_records.push_back(
-            particle_vtp_export_record{.m_time_s = m_state.m_time_s, .m_filename = vtp_filename});
-    }
-
-    write_particle_vtp_time_collection(pvd_path.string());
-}
-
-void device_amc_simulation::write_particle_vtp_time_collection(const std::string &pvd_filename) const {
-    std::ofstream stream(pvd_filename);
-
-    if (!stream.is_open()) {
-        throw std::runtime_error(fmt::format("Could not open particle PVD file '{}'", pvd_filename));
-    }
-
-    auto records = m_particle_vtp_export_records;
-
-    std::sort(records.begin(),
-              records.end(),
-              [](const particle_vtp_export_record &lhs, const particle_vtp_export_record &rhs) {
-                  return lhs.m_time_s < rhs.m_time_s;
-              });
-
-    stream << std::setprecision(std::numeric_limits<double>::max_digits10);
-
-    stream << "<?xml version=\"1.0\"?>\n";
-    stream << "<VTKFile type=\"Collection\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
-    stream << "  <Collection>\n";
-
-    for (const auto &record : records) {
-        stream << "    <DataSet timestep=\"" << record.m_time_s << "\" group=\"\" part=\"0\" file=\""
-               << record.m_filename << "\"/>\n";
-    }
-
-    stream << "  </Collection>\n";
-    stream << "</VTKFile>\n";
+    vector3 ramo_unitary_electric_field = m_device.interpolate_vector_at_location("RamoUnitaryElectricField", position);
+    return ramo_unitary_electric_field;
 }
 
 amc_transport_config device_amc_simulation::make_transport_config(const options_device_amc &options,
@@ -520,9 +326,7 @@ std::pair<double, double> device_amc_simulation::compute_ramo_current() const {
             position.to_2d_inplace();
         }
 
-        const auto weighting_field_m =
-            -uepm::units::electric_field_V_per_cm_to_V_per_m *
-            mesh_ptr->interpolate_vector_at_location("RamoUnitaryPotential_gradient", position);
+        const auto weighting_field_m = get_RamoUnitaryElectricField_at_position(position);
 
         if (particle->type() == particle_type::electron) {
             total_electron_current += scale_factor * particle->weight() * particle->get_signed_charge() *
@@ -724,7 +528,6 @@ std::vector<mesh::vector3> device_amc_simulation::get_all_particles_position() c
     return all_positions;
 }
 
-
 std::pair<double, double> device_amc_simulation::compute_depletion_region() const {
     double x_min = std::numeric_limits<double>::max();
     double x_max = std::numeric_limits<double>::max();
@@ -772,7 +575,7 @@ std::string device_amc_simulation::initialize_simulation_history_file() const {
 }
 
 void device_amc_simulation::export_current_time_step_as_csv(const std::string &prefix_filename) const {
-    const std::string iteration_filename = fmt::format("{}.{:09d}.csv", prefix_filename, m_state.m_iteration);
+    const std::string iteration_filename = fmt::format("{}.{:012d}.csv", prefix_filename, m_state.m_iteration);
 
     std::ofstream stream(iteration_filename);
 
@@ -827,6 +630,209 @@ void device_amc_simulation::export_all_trajectories_as_csv(const std::string &pr
         p_particle->export_trajectory_as_csv(filename);
     }
     // std::cout << std::endl;
+}
+
+void device_amc_simulation::export_current_time_step_particles_as_vtp(const std::string &prefix_filename) const {
+    const std::filesystem::path prefix_path(prefix_filename);
+
+    std::filesystem::path vtp_path = prefix_path;
+    vtp_path += fmt::format(".{:012d}.vtp", m_state.m_iteration);
+
+    std::filesystem::path pvd_path = prefix_path;
+    pvd_path += ".pvd";
+
+    std::ofstream stream(vtp_path);
+
+    if (!stream.is_open()) {
+        throw std::runtime_error(fmt::format("Could not open particle VTP file '{}'", vtp_path.string()));
+    }
+
+    const std::size_t number_particles = m_list_particles.size();
+
+    stream << std::setprecision(std::numeric_limits<double>::max_digits10);
+
+    stream << "<?xml version=\"1.0\"?>\n";
+    stream << "<VTKFile type=\"PolyData\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+    stream << "  <PolyData>\n";
+    stream << "    <Piece NumberOfPoints=\"" << number_particles << "\" NumberOfVerts=\"" << number_particles
+           << "\" NumberOfLines=\"0\" NumberOfStrips=\"0\" NumberOfPolys=\"0\">\n";
+
+    stream << "      <PointData Scalars=\"energy_eV\" Vectors=\"velocity_m_per_s\">\n";
+
+    stream << "        <DataArray type=\"Int64\" Name=\"particle_index\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << static_cast<long long>(p_particle->index()) << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Int32\" Name=\"particle_type\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << static_cast<int>(p_particle->type()) << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"time_s\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << p_particle->state().time << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"energy_eV\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << p_particle->state().kinetic_energy << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"weight\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << p_particle->weight() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Int32\" Name=\"valley_index\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << static_cast<int>(p_particle->state().valley_index) << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"signed_charge_C\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << p_particle->get_signed_charge() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"electric_field_norm_V_per_cm\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << p_particle->state().electric_field.norm() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream
+        << "        <DataArray type=\"Float64\" Name=\"velocity_m_per_s\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        const auto &velocity = p_particle->state().velocity;
+        stream << velocity.x() << ' ' << velocity.y() << ' ' << velocity.z() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream
+        << "        <DataArray type=\"Float64\" Name=\"local_k_1_per_m\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        const auto &local_k = p_particle->state().local_k;
+        stream << local_k.x() << ' ' << local_k.y() << ' ' << local_k.z() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"electric_field_V_per_cm\" NumberOfComponents=\"3\" "
+              "format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        const auto &electric_field = p_particle->state().electric_field;
+        stream << electric_field.x() << ' ' << electric_field.y() << ' ' << electric_field.z() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "      </PointData>\n";
+
+    stream << "      <Points>\n";
+    stream << "        <DataArray type=\"Float64\" Name=\"position_um\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        const auto &position = p_particle->state().position;
+        stream << position.x() << ' ' << position.y() << ' ' << position.z() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+    stream << "      </Points>\n";
+
+    stream << "      <Verts>\n";
+
+    stream << "        <DataArray type=\"Int64\" Name=\"connectivity\" format=\"ascii\">\n";
+    stream << "          ";
+    for (std::size_t i = 0; i < number_particles; ++i) {
+        stream << static_cast<long long>(i) << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Int64\" Name=\"offsets\" format=\"ascii\">\n";
+    stream << "          ";
+    for (std::size_t i = 0; i < number_particles; ++i) {
+        stream << static_cast<long long>(i + 1) << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "      </Verts>\n";
+
+    stream << "    </Piece>\n";
+    stream << "  </PolyData>\n";
+    stream << "</VTKFile>\n";
+
+    const std::string vtp_filename = vtp_path.filename().generic_string();
+
+    const auto already_recorded =
+        std::find_if(m_particle_vtp_export_records.begin(),
+                     m_particle_vtp_export_records.end(),
+                     [&](const particle_vtp_export_record &record) { return record.m_filename == vtp_filename; });
+
+    if (already_recorded == m_particle_vtp_export_records.end()) {
+        m_particle_vtp_export_records.push_back(
+            particle_vtp_export_record{.m_time_s = m_state.m_time_s, .m_filename = vtp_filename});
+    }
+
+    write_particle_vtp_time_collection(pvd_path.string());
+}
+
+void device_amc_simulation::write_particle_vtp_time_collection(const std::string &pvd_filename) const {
+    std::ofstream stream(pvd_filename);
+
+    if (!stream.is_open()) {
+        throw std::runtime_error(fmt::format("Could not open particle PVD file '{}'", pvd_filename));
+    }
+
+    auto records = m_particle_vtp_export_records;
+
+    std::sort(records.begin(),
+              records.end(),
+              [](const particle_vtp_export_record &lhs, const particle_vtp_export_record &rhs) {
+                  return lhs.m_time_s < rhs.m_time_s;
+              });
+
+    stream << std::setprecision(std::numeric_limits<double>::max_digits10);
+
+    stream << "<?xml version=\"1.0\"?>\n";
+    stream << "<VTKFile type=\"Collection\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+    stream << "  <Collection>\n";
+
+    for (const auto &record : records) {
+        stream << "    <DataSet timestep=\"" << record.m_time_s << "\" group=\"\" part=\"0\" file=\""
+               << record.m_filename << "\"/>\n";
+    }
+
+    stream << "  </Collection>\n";
+    stream << "</VTKFile>\n";
 }
 
 }  // namespace uepm::amc

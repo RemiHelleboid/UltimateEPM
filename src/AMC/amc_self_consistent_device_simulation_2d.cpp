@@ -326,6 +326,20 @@ void self_consistent_device_amc_simulation_2d::compute_unitary_potential() {
 
     constexpr bool add_gradient = true;
     m_poisson_solver.add_solution_to_mesh_functions("RamoUnitaryPotential", add_gradient);
+
+    // Check if the Unitary is constant everywhere.
+    const double unitary_potential_max = m_device.get_p_mesh()->get_argmax_max_of_function("RamoUnitaryPotential_gradient_norm").second;
+    const double unitary_potential_min = m_device.get_p_mesh()->get_argmin_min_of_function("RamoUnitaryPotential_gradient_norm").second;
+    if (std::abs(unitary_potential_max - unitary_potential_min) < 1e-6) {
+        fmt::print(
+            "INFO : Unitary potential is constant across the device (max = {:.6e}, min = {:.6e}). The Constant Unitary Electric Field will be used.\n",
+            unitary_potential_max, unitary_potential_min);
+        m_state.m_use_constant_RamoUnitaryElectricField = true;
+        m_state.m_RamoUnitaryElectricField_Vm_per_cm =
+            m_device.get_p_mesh()->interpolate_vector_at_location("RamoUnitaryPotential_gradient", {1e-3, 1e-3, 0.0});
+    } else {
+        fmt::print("Unitary potential computed. Max value: {:.6e}, Min value: {:.6e}\n", unitary_potential_max, unitary_potential_min);
+    }
 }
 
 void self_consistent_device_amc_simulation_2d::initialize_poisson_solver() {

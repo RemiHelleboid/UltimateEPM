@@ -100,11 +100,13 @@ struct options_device_amc {
 };
 
 struct state_device_amc_simulation {
-    double      m_time_s = 0.0;
-    std::size_t m_iteration = 0;
+    double      m_time_s                    = 0.0;
+    std::size_t m_iteration                 = 0;
     std::size_t m_counter_particles_created = 0;
 
-    bool m_scheduled_particle_injection_done = true;
+    bool    m_scheduled_particle_injection_done     = true;
+    bool    m_use_constant_RamoUnitaryElectricField = false;
+    vector3 m_RamoUnitaryElectricField_Vm_per_cm{0.0, 0.0, 0.0};
 };
 
 /**
@@ -141,6 +143,8 @@ class device_amc_simulation {
     mutable std::vector<particle_vtp_export_record> m_particle_vtp_export_records;
     void export_current_time_step_particles_as_vtp(const std::string &prefix_filename) const;
     void write_particle_vtp_time_collection(const std::string &pvd_filename) const;
+
+    vector3 get_RamoUnitaryElectricField_at_position(const mesh::vector3 &position) const;
 
  public:
     /**
