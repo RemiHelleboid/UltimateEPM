@@ -46,7 +46,6 @@ struct options_self_consistent_device_amc_2d {
     bool   m_initialize_particles_from_doping = true;
     double m_initial_particle_weight          = 1.0;
 
-    bool m_export_state = false;
 };
 
 class self_consistent_device_amc_simulation_2d : public device_amc_simulation {
@@ -74,20 +73,19 @@ class self_consistent_device_amc_simulation_2d : public device_amc_simulation {
     double scale_integrated_2d_doping_to_carriers(double integrated_doping) const;
     double charge_deposition_factor(std::size_t accumulation_steps) const;
     void   apply_z_periodicity_to_particles() override;
+    double ramo_current_scale_factor() const override;
 
  public:
     self_consistent_device_amc_simulation_2d(const device::device&                        simulation_device,
                                              const options_device_amc&                    simulation_options,
                                              const options_self_consistent_device_amc_2d& self_consistent_options,
                                              const physic::material::list_materials&      list_materials,
-                                             const std::string&                           simulation_name       = "",
                                              int                                          seed_random_generator = 0);
 
     self_consistent_device_amc_simulation_2d(const device::device&                        simulation_device,
                                              const options_device_amc&                    simulation_options,
                                              const options_self_consistent_device_amc_2d& self_consistent_options,
                                              const physic::material::list_materials&      list_materials,
-                                             const std::string&                           simulation_name,
                                              const mesh::vector3&                         starting_position,
                                              std::size_t                                  number_electrons_start,
                                              std::size_t                                  number_holes_start,

@@ -34,6 +34,9 @@ struct scheduled_particle_injection {
  *
  */
 struct options_device_amc {
+    std::string m_simulation_name  = "";
+    std::string m_output_directory = "./";
+
     double      m_lattice_temperature                  = 300.0;
     double      m_max_energy_eV                        = 2.0;
     double      m_self_scattering_safety_factor        = 1.2;
@@ -96,7 +99,6 @@ struct options_device_amc {
 };
 
 
-
 /**
  * @brief Device amc simulation class. This class contains the main loop of the simulation and the list of particles.
  *
@@ -106,7 +108,6 @@ class device_amc_simulation {
     device::device       m_device;
     amc_transport_kernel m_electron_transport;
     amc_transport_kernel m_hole_transport;
-    std::string          m_simulation_name = "";
     int                  m_dimension;
     options_device_amc   m_simulation_options;
     history_device_amc   m_simulation_history{};
@@ -131,7 +132,18 @@ class device_amc_simulation {
     const amc_transport_kernel &transport_for(particle_type type) const;
     void                        initialize_particle_transport_state(particle_amc &particle);
 
+    std::string initialize_simulation_history_file() const;
+
     virtual void apply_z_periodicity_to_particles();
+
+    // Export functions
+    struct particle_vtp_export_record {
+        double      m_time_s = 0.0;
+        std::string m_filename;
+    };
+    mutable std::vector<particle_vtp_export_record> m_particle_vtp_export_records;
+    void export_current_time_step_particles_as_vtp(const std::string &prefix_filename) const;
+    void write_particle_vtp_time_collection(const std::string &pvd_filename) const;
 
  public:
     /**
@@ -139,10 +151,10 @@ class device_amc_simulation {
      *
      * @param simulation_device
      * @param simulation_option
+     * @param seed_random_generator
      */
     device_amc_simulation(const device::device     &simulation_device,
                           const options_device_amc &simulation_option,
-                          const std::string        &simulation_name       = "",
                           int                       seed_random_generator = 0);
 
     /**
@@ -156,14 +168,10 @@ class device_amc_simulation {
      */
     device_amc_simulation(const device::device     &simulation_device,
                           const options_device_amc &simulation_option,
-                          const std::string        &simulation_name,
                           const mesh::vector3      &starting_position,
                           std::size_t               number_electrons_start,
                           std::size_t               number_holes_start,
                           int                       seed_random_generator = 0);
-
-    void               set_simulation_name(const std::string &new_name) { m_simulation_name = new_name; }
-    const std::string &get_simulation_name() const { return m_simulation_name; }
 
     void add_particle_at_position(const mesh::vector3 &location, particle_type type_of_particle, double weight = 1.0);
     void add_particles_at_positions(const std::vector<mesh::vector3> &positions,
@@ -176,8 +184,9 @@ class device_amc_simulation {
     void set_particles_transport_data_from_device();
     void update_element_and_check_boundary();
 
-    void   remove_collected_particles();
-    double compute_ramo_current() const;
+    void           remove_collected_particles();
+    double         compute_ramo_current() const;
+    virtual double ramo_current_scale_factor() const;
 
     void run();
 

@@ -17,15 +17,20 @@
 #include <fmt/ranges.h>
 #include <fmt/xchar.h>
 
+#include <algorithm>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <random>
 #include <string>
 #include <vector>
 
 #include "physical_constants.hpp"
+#include "unit_conversion.hpp"
 
 namespace uepm::amc {
 
@@ -33,6 +38,209 @@ struct impact_ionization_pair_seed {
     mesh::vector3 position;
     double        weight = 1.0;
 };
+
+void device_amc_simulation::export_current_time_step_particles_as_vtp(const std::string &prefix_filename) const {
+    const std::filesystem::path prefix_path(prefix_filename);
+
+    std::filesystem::path vtp_path = prefix_path;
+    vtp_path += fmt::format(".{:09d}.vtp", m_iteration);
+
+    std::filesystem::path pvd_path = prefix_path;
+    pvd_path += ".pvd";
+
+    std::ofstream stream(vtp_path);
+
+    if (!stream.is_open()) {
+        throw std::runtime_error(fmt::format("Could not open particle VTP file '{}'", vtp_path.string()));
+    }
+
+    const std::size_t number_particles = m_list_particles.size();
+
+    stream << std::setprecision(std::numeric_limits<double>::max_digits10);
+
+    stream << "<?xml version=\"1.0\"?>\n";
+    stream << "<VTKFile type=\"PolyData\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+    stream << "  <PolyData>\n";
+    stream << "    <Piece NumberOfPoints=\"" << number_particles << "\" NumberOfVerts=\"" << number_particles
+           << "\" NumberOfLines=\"0\" NumberOfStrips=\"0\" NumberOfPolys=\"0\">\n";
+
+    stream << "      <PointData Scalars=\"energy_eV\" Vectors=\"velocity_m_per_s\">\n";
+
+    stream << "        <DataArray type=\"Int64\" Name=\"particle_index\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << static_cast<long long>(p_particle->index()) << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Int32\" Name=\"particle_type\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << static_cast<int>(p_particle->type()) << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"time_s\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << p_particle->state().time << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"energy_eV\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << p_particle->state().kinetic_energy << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"weight\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << p_particle->weight() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Int32\" Name=\"valley_index\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << static_cast<int>(p_particle->state().valley_index) << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"signed_charge_C\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << p_particle->get_signed_charge() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"electric_field_norm_V_per_cm\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << p_particle->state().electric_field.norm() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream
+        << "        <DataArray type=\"Float64\" Name=\"velocity_m_per_s\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        const auto &velocity = p_particle->state().velocity;
+        stream << velocity.x() << ' ' << velocity.y() << ' ' << velocity.z() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream
+        << "        <DataArray type=\"Float64\" Name=\"local_k_1_per_m\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        const auto &local_k = p_particle->state().local_k;
+        stream << local_k.x() << ' ' << local_k.y() << ' ' << local_k.z() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"electric_field_V_per_cm\" NumberOfComponents=\"3\" "
+              "format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        const auto &electric_field = p_particle->state().electric_field;
+        stream << electric_field.x() << ' ' << electric_field.y() << ' ' << electric_field.z() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "      </PointData>\n";
+
+    stream << "      <Points>\n";
+    stream << "        <DataArray type=\"Float64\" Name=\"position_um\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        const auto &position = p_particle->state().position;
+        stream << position.x() << ' ' << position.y() << ' ' << position.z() << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+    stream << "      </Points>\n";
+
+    stream << "      <Verts>\n";
+
+    stream << "        <DataArray type=\"Int64\" Name=\"connectivity\" format=\"ascii\">\n";
+    stream << "          ";
+    for (std::size_t i = 0; i < number_particles; ++i) {
+        stream << static_cast<long long>(i) << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Int64\" Name=\"offsets\" format=\"ascii\">\n";
+    stream << "          ";
+    for (std::size_t i = 0; i < number_particles; ++i) {
+        stream << static_cast<long long>(i + 1) << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "      </Verts>\n";
+
+    stream << "    </Piece>\n";
+    stream << "  </PolyData>\n";
+    stream << "</VTKFile>\n";
+
+    const std::string vtp_filename = vtp_path.filename().generic_string();
+
+    const auto already_recorded =
+        std::find_if(m_particle_vtp_export_records.begin(),
+                     m_particle_vtp_export_records.end(),
+                     [&](const particle_vtp_export_record &record) { return record.m_filename == vtp_filename; });
+
+    if (already_recorded == m_particle_vtp_export_records.end()) {
+        m_particle_vtp_export_records.push_back(
+            particle_vtp_export_record{.m_time_s = m_time, .m_filename = vtp_filename});
+    }
+
+    write_particle_vtp_time_collection(pvd_path.string());
+}
+
+void device_amc_simulation::write_particle_vtp_time_collection(const std::string &pvd_filename) const {
+    std::ofstream stream(pvd_filename);
+
+    if (!stream.is_open()) {
+        throw std::runtime_error(fmt::format("Could not open particle PVD file '{}'", pvd_filename));
+    }
+
+    auto records = m_particle_vtp_export_records;
+
+    std::sort(records.begin(),
+              records.end(),
+              [](const particle_vtp_export_record &lhs, const particle_vtp_export_record &rhs) {
+                  return lhs.m_time_s < rhs.m_time_s;
+              });
+
+    stream << std::setprecision(std::numeric_limits<double>::max_digits10);
+
+    stream << "<?xml version=\"1.0\"?>\n";
+    stream << "<VTKFile type=\"Collection\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+    stream << "  <Collection>\n";
+
+    for (const auto &record : records) {
+        stream << "    <DataSet timestep=\"" << record.m_time_s << "\" group=\"\" part=\"0\" file=\""
+               << record.m_filename << "\"/>\n";
+    }
+
+    stream << "  </Collection>\n";
+    stream << "</VTKFile>\n";
+}
 
 amc_transport_config device_amc_simulation::make_transport_config(const options_device_amc &options,
                                                                   particle_type             carrier_type) {
@@ -143,14 +351,12 @@ void device_amc_simulation::inject_scheduled_particle_if_due() {
 
 device_amc_simulation::device_amc_simulation(const device::device     &simulation_device,
                                              const options_device_amc &simulation_option,
-                                             const std::string        &simulation_name,
                                              int                       seed_random_generator)
     : m_device(simulation_device),
       m_electron_transport(make_transport_config(simulation_option, particle_type::electron), seed_random_generator),
       m_hole_transport(make_transport_config(simulation_option, particle_type::hole), seed_random_generator + 1),
       m_dimension(m_device.get_dimension()),
       m_simulation_options(simulation_option),
-      m_simulation_name(simulation_name),
       m_iteration{0} {
     m_simulation_history.m_initial_seed_rng = seed_random_generator;
     m_electron_transport.initialize();
@@ -160,7 +366,6 @@ device_amc_simulation::device_amc_simulation(const device::device     &simulatio
 
 device_amc_simulation::device_amc_simulation(const device::device     &device_simulation,
                                              const options_device_amc &simulation_option,
-                                             const std::string        &simulation_name,
                                              const mesh::vector3      &starting_position,
                                              std::size_t               number_electrons_start,
                                              std::size_t               number_holes_start,
@@ -170,7 +375,6 @@ device_amc_simulation::device_amc_simulation(const device::device     &device_si
       m_hole_transport(make_transport_config(simulation_option, particle_type::hole), seed_random_generator + 1),
       m_dimension(m_device.get_dimension()),
       m_simulation_options(simulation_option),
-      m_simulation_name(simulation_name),
       m_iteration{0} {
     m_electron_transport.initialize();
     m_hole_transport.initialize();
@@ -302,15 +506,30 @@ std::size_t device_amc_simulation::get_number_holes() const {
     return nb_hole;
 }
 
+double device_amc_simulation::ramo_current_scale_factor() const { return 1.0; }
+
 double device_amc_simulation::compute_ramo_current() const {
-    double current = 0.0;
-    for (const auto &p_particle : m_list_particles) {
-        // current += p_particle->get_signed_charge() * p_particle->state().velocity.dot(p_particle->state().);
-        current += 0.0;  // TODO : compute the weighting field and use it to compute the Ramo current
+    double total_current = 0.0;
+
+    const auto  *mesh_ptr     = m_device.get_p_mesh();
+    const double scale_factor = ramo_current_scale_factor();
+
+    for (const auto &particle : m_list_particles) {
+        auto position = particle->state().position;
+
+        if (m_dimension == 2) {
+            position.to_2d_inplace();
+        }
+
+        const auto weighting_field_m =
+            -uepm::units::electric_field_V_per_cm_to_V_per_m *
+            mesh_ptr->interpolate_vector_at_location("RamoUnitaryPotential_gradient", position);
+
+        total_current += scale_factor * particle->weight() * particle->get_signed_charge() *
+                         particle->state().velocity.dot(weighting_field_m);
     }
 
-    current /= static_cast<double>(m_list_particles.size());
-    return current;
+    return total_current;
 }
 
 void device_amc_simulation::transport_particles_one_time_step() {
@@ -479,12 +698,15 @@ void device_amc_simulation::run() {
         const auto nb_holes             = get_number_holes();
         const auto nb_impact_ionization = m_simulation_history.m_impact_ionization_positions.size();
 
+        const double ramo_current = 0.0;
+
         m_simulation_history.add_data_to_history(m_time,
                                                  nb_electrons,
                                                  nb_holes,
                                                  nb_impact_ionization,
                                                  m_anode_current,
                                                  m_cathode_current,
+                                                 ramo_current,
                                                  0.0);
 
         if (m_simulation_options.m_export_time_step &&
@@ -556,97 +778,80 @@ std::pair<double, double> device_amc_simulation::compute_depletion_region() cons
     return {x_min, x_max};
 }
 
+std::string device_amc_simulation::initialize_simulation_history_file() const {
+    std::string simulation_name_for_file =
+        m_simulation_options.m_simulation_name.empty() ? "simulation" : m_simulation_options.m_simulation_name;
+    const std::string history_filename =
+        fmt::format("{}/{}_history.csv", m_simulation_options.m_output_directory, simulation_name_for_file);
+    // Create output directory if it doesn't exist
+    fmt::print("Initializing simulation history file at '{}'\n", history_filename);
+    std::filesystem::create_directories(m_simulation_options.m_output_directory);
+    std::ofstream stream(history_filename);
+    if (!stream.is_open()) {
+        throw std::runtime_error(fmt::format("Could not open simulation history CSV file '{}'", history_filename));
+    }
+    stream << "time_s,"
+           << "nb_electrons,"
+           << "nb_holes,"
+           << "nb_impact_ionization,"
+           << "anode_current_A,"
+           << "cathode_current_A,"
+           << "ramo_current_A,"
+           << "depletion_x_min_um,"
+           << "depletion_x_max_um\n";
+    stream.close();
+    return history_filename;
+}
+
 void device_amc_simulation::export_current_time_step_as_csv(const std::string &prefix_filename) const {
-    std::vector<double> particle_indices;
-    std::vector<double> particle_types;
-    std::vector<double> particle_times;
+    const std::string iteration_filename = fmt::format("{}.{:09d}.csv", prefix_filename, m_iteration);
 
-    std::vector<double> x_positions;
-    std::vector<double> y_positions;
-    std::vector<double> z_positions;
+    std::ofstream stream(iteration_filename);
 
-    std::vector<double> kx_values;
-    std::vector<double> ky_values;
-    std::vector<double> kz_values;
+    if (!stream.is_open()) {
+        throw std::runtime_error(fmt::format("Could not open particle CSV file '{}'", iteration_filename));
+    }
 
-    std::vector<double> vx_values;
-    std::vector<double> vy_values;
-    std::vector<double> vz_values;
+    stream << std::setprecision(std::numeric_limits<double>::max_digits10);
 
-    std::vector<double> particle_energies;
-    std::vector<double> particle_electric_field;
-    std::vector<double> particle_weights;
-    std::vector<double> particle_valleys;
-    std::vector<double> particle_signed_charge;
+    stream << "particle_index,"
+           << "type,"
+           << "time_s,"
+           << "x_um,"
+           << "y_um,"
+           << "z_um,"
+           << "local_kx_1_per_m,"
+           << "local_ky_1_per_m,"
+           << "local_kz_1_per_m,"
+           << "vx_m_per_s,"
+           << "vy_m_per_s,"
+           << "vz_m_per_s,"
+           << "energy_eV,"
+           << "electric_field_x_V_per_cm,"
+           << "electric_field_y_V_per_cm,"
+           << "electric_field_z_V_per_cm,"
+           << "electric_field_norm_V_per_cm,"
+           << "weight,"
+           << "valley_index,"
+           << "signed_charge_C\n";
 
     for (const auto &p_particle : m_list_particles) {
         const auto &particle = *p_particle;
         const auto &state    = particle.state();
 
-        particle_indices.push_back(static_cast<double>(particle.index()));
-        particle_types.push_back(static_cast<double>(particle.type()));
-        particle_times.push_back(state.time);
+        const auto &position       = state.position;
+        const auto &local_k        = state.local_k;
+        const auto &velocity       = state.velocity;
+        const auto &electric_field = state.electric_field;
 
-        x_positions.push_back(state.position.x());
-        y_positions.push_back(state.position.y());
-        z_positions.push_back(state.position.z());
-
-        kx_values.push_back(state.local_k.x());
-        ky_values.push_back(state.local_k.y());
-        kz_values.push_back(state.local_k.z());
-
-        vx_values.push_back(state.velocity.x());
-        vy_values.push_back(state.velocity.y());
-        vz_values.push_back(state.velocity.z());
-
-        particle_energies.push_back(state.kinetic_energy);
-        particle_electric_field.push_back(state.electric_field.norm());
-        particle_weights.push_back(particle.weight());
-        particle_valleys.push_back(static_cast<double>(state.valley_index));
-        particle_signed_charge.push_back(particle.get_signed_charge());
+        stream << particle.index() << ',' << static_cast<int>(particle.type()) << ',' << state.time << ','
+               << position.x() << ',' << position.y() << ',' << position.z() << ',' << local_k.x() << ',' << local_k.y()
+               << ',' << local_k.z() << ',' << velocity.x() << ',' << velocity.y() << ',' << velocity.z() << ','
+               << state.kinetic_energy << ',' << electric_field.x() << ',' << electric_field.y() << ','
+               << electric_field.z() << ',' << electric_field.norm() << ',' << particle.weight() << ','
+               << state.valley_index << ',' << particle.get_signed_charge() << '\n';
     }
-
-    const std::vector<std::string> list_column_names = {"particle_index",
-                                                        "type",
-                                                        "time",
-                                                        "X",
-                                                        "Y",
-                                                        "Z",
-                                                        "kx",
-                                                        "ky",
-                                                        "kz",
-                                                        "vx",
-                                                        "vy",
-                                                        "vz",
-                                                        "energy_eV",
-                                                        "electric_field_norm",
-                                                        "weight",
-                                                        "valley_index",
-                                                        "signed_charge"};
-
-    const std::string iteration_filename = fmt::format("{}.{:09d}.csv", prefix_filename, m_iteration);
-
-    utils::export_multiple_vector_to_csv(iteration_filename,
-                                         list_column_names,
-                                         {particle_indices,
-                                          particle_types,
-                                          particle_times,
-                                          x_positions,
-                                          y_positions,
-                                          z_positions,
-                                          kx_values,
-                                          ky_values,
-                                          kz_values,
-                                          vx_values,
-                                          vy_values,
-                                          vz_values,
-                                          particle_energies,
-                                          particle_electric_field,
-                                          particle_weights,
-                                          particle_valleys,
-                                          particle_signed_charge});
 }
-
 void device_amc_simulation::export_all_trajectories_as_csv(const std::string &prefix_filename) const {
     for (auto &&p_particle : m_list_particles) {
         // std::cout << "\rExporting trajectory of particle " << p_particle->get_index() << std::flush;

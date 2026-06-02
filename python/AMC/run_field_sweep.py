@@ -450,6 +450,7 @@ def plot_velocity(
     )
 
     ax.set_xscale("log")
+    ax.set_yscale("log")
     ax.set_xlabel("Electric field (V/cm)")
     ax.set_ylabel("|Mean drift velocity x| (m/s)")
     ax.set_title("Bulk AMC drift velocity versus electric field")
@@ -603,6 +604,8 @@ def plot_impact_ionization_coefficient(
                 )
 
     ax.set_yscale("log")
+    # ax.set_xlim(xmax=
+    # ax.set_xlim(1.0e-4, 7.0e-4)
     ax.set_xlabel("1 / electric field (cm/V)")
     ax.set_ylabel("Impact ionization coefficient (cm$^{-1}$)")
     ax.set_title("Bulk AMC impact ionization coefficient")

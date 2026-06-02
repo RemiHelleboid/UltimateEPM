@@ -32,8 +32,6 @@ struct options_self_consistent_device_amc_3d {
     double m_anode_voltage   = 0.0;
     double m_cathode_voltage = 0.0;
 
-    bool m_export_state = false;
-
     double m_contact_injection_particle_weight = 1.0;
 
     bool m_initialize_particles_from_doping = true;
@@ -66,14 +64,12 @@ class self_consistent_device_amc_simulation_3d : public device_amc_simulation {
                                              const options_device_amc&                    simulation_options,
                                              const options_self_consistent_device_amc_3d& self_consistent_options,
                                              const physic::material::list_materials&      list_materials,
-                                             const std::string&                           simulation_name       = "",
                                              int                                          seed_random_generator = 0);
 
     self_consistent_device_amc_simulation_3d(const device::device&                        simulation_device,
                                              const options_device_amc&                    simulation_options,
                                              const options_self_consistent_device_amc_3d& self_consistent_options,
                                              const physic::material::list_materials&      list_materials,
-                                             const std::string&                           simulation_name,
                                              const mesh::vector3&                         starting_position,
                                              std::size_t                                  number_electrons_start,
                                              std::size_t                                  number_holes_start,

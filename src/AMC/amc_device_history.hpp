@@ -29,6 +29,7 @@ struct history_device_amc {
     std::vector<std::size_t>   m_list_nb_impact_ionization{};
     std::vector<double>        m_list_anode_current{};
     std::vector<double>        m_list_cathode_current{};
+    std::vector<double>        m_list_ramo_current{};
     std::vector<mesh::vector3> m_impact_ionization_positions{};
     std::vector<double>        m_max_electric_field{};
     std::size_t                m_initial_seed_rng{0};
@@ -42,6 +43,7 @@ struct history_device_amc {
         m_list_nb_impact_ionization.reserve(size);
         m_list_anode_current.reserve(size);
         m_list_cathode_current.reserve(size);
+        m_list_ramo_current.reserve(size);
         m_max_electric_field.reserve(size);
     }
 
@@ -51,6 +53,7 @@ struct history_device_amc {
                              std::size_t nb_impact_ionization,
                              double      anode_current,
                              double      cathode_current,
+                             double      ramo_current,
                              double      max_electric_field) {
         m_list_times.push_back(time);
         m_list_nb_electrons.push_back(nb_electrons);
@@ -58,19 +61,20 @@ struct history_device_amc {
         m_list_nb_impact_ionization.push_back(nb_impact_ionization);
         m_list_anode_current.push_back(anode_current);
         m_list_cathode_current.push_back(cathode_current);
+        m_list_ramo_current.push_back(ramo_current);
         m_max_electric_field.push_back(max_electric_field);
     }
 
     void print_header_csv(const std::string &filename) {
         std::ofstream file(filename);
-        file << "time,nb_electrons,nb_holes,nb_impact_ionization,anode_current,cathode_current,max_electric_field\n";
+        file << "time,nb_electrons,nb_holes,nb_impact_ionization,anode_current,cathode_current,ramo_current,max_electric_field\n";
         file.close();
     }
 
     void append_last_iter_to_csv(std::fstream &file) {
         file << m_list_times.back() << ',' << m_list_nb_electrons.back() << ',' << m_list_nb_holes.back() << ','
              << m_list_nb_impact_ionization.back() << ',' << m_list_anode_current.back() << ',' << m_list_cathode_current.back() << ','
-             << m_max_electric_field.back() << '\n';
+             << m_list_ramo_current.back() << ',' << m_max_electric_field.back() << '\n';
     }
 
     void export_to_csv(const std::string &filename, std::size_t frequency = 1) {
@@ -80,6 +84,7 @@ struct history_device_amc {
         std::vector<double> double_list_nb_impact_ionization;
         std::vector<double> double_list_anode_current;
         std::vector<double> double_list_cathode_current;
+        std::vector<double> double_list_ramo_current;
         std::vector<double> double_list_max_electric_field;
         for (std::size_t iter_nb = 0; iter_nb < m_list_times.size() - 1; iter_nb++) {
             double_list_time.push_back(m_list_times[iter_nb]);
@@ -88,6 +93,7 @@ struct history_device_amc {
             double_list_nb_impact_ionization.push_back(m_list_nb_impact_ionization[iter_nb]);
             double_list_anode_current.push_back(m_list_anode_current[iter_nb]);
             double_list_cathode_current.push_back(m_list_cathode_current[iter_nb]);
+            double_list_ramo_current.push_back(m_list_ramo_current[iter_nb]);
             double_list_max_electric_field.push_back(m_max_electric_field[iter_nb]);
         }
         // Always add the last iteration
@@ -97,10 +103,11 @@ struct history_device_amc {
         double_list_nb_impact_ionization.push_back(m_list_nb_impact_ionization[m_list_nb_electrons.size() - 1]);
         double_list_anode_current.push_back(m_list_anode_current[m_list_nb_electrons.size() - 1]);
         double_list_cathode_current.push_back(m_list_cathode_current[m_list_nb_electrons.size() - 1]);
+        double_list_ramo_current.push_back(m_list_ramo_current[m_list_nb_electrons.size() - 1]);
         double_list_max_electric_field.push_back(m_max_electric_field[m_list_nb_electrons.size() - 1]);
 
         std::vector<std::string> header_csv =
-            {"time", "nb_electrons", "nb_holes", "nb_impact_ionization", "anode_current", "cathode_current", "max_electric_field"};
+            {"time", "nb_electrons", "nb_holes", "nb_impact_ionization", "anode_current", "cathode_current", "ramo_current", "max_electric_field"};
         utils::export_multiple_vector_to_csv(filename,
                                              header_csv,
                                              {double_list_time,
@@ -109,6 +116,7 @@ struct history_device_amc {
                                               double_list_nb_impact_ionization,
                                               double_list_anode_current,
                                               double_list_cathode_current,
+                                              double_list_ramo_current,
                                               double_list_max_electric_field});
     }
 

@@ -430,6 +430,7 @@ int main(int argc, const char** argv) {
         device_options.m_export_time_step                     = arg_export_time_steps.getValue();
         device_options.m_frequency_export_trajectory          = arg_export_frequency.getValue();
         device_options.m_enable_scheduled_particle_injection  = arg_inject_particle.getValue();
+        device_options.m_output_directory                     = arg_output_dir.getValue();
         if (device_options.m_enable_scheduled_particle_injection) {
             auto& injection    = device_options.m_scheduled_particle_injection;
             injection.m_time_s = arg_inject_time.getValue();
@@ -515,6 +516,7 @@ int main(int argc, const char** argv) {
         fmt::print("  Poisson frequency: {}\n", arg_poisson_frequency.getValue());
         fmt::print("  anode voltage: {:.6e} V\n", arg_anode_voltage.getValue());
         fmt::print("  cathode voltage: {:.6e} V\n", arg_cathode_voltage.getValue());
+        fmt::print("  export time steps: {}\n", device_options.m_export_time_step ? "enabled" : "disabled");
 
         if (mesh_dimension == 2) {
             fmt::print("  effective depth: {:.6e} um\n", self_consistent_options_2d.m_effective_depth_um);
@@ -535,7 +537,6 @@ int main(int argc, const char** argv) {
                                                                            device_options,
                                                                            self_consistent_options_2d,
                                                                            list_of_materials,
-                                                                           arg_simulation_name.getValue(),
                                                                            starting_position,
                                                                            arg_number_electrons.getValue(),
                                                                            arg_number_holes.getValue(),
@@ -563,7 +564,6 @@ int main(int argc, const char** argv) {
                                                                            device_options,
                                                                            self_consistent_options_3d,
                                                                            list_of_materials,
-                                                                           arg_simulation_name.getValue(),
                                                                            starting_position,
                                                                            arg_number_electrons.getValue(),
                                                                            arg_number_holes.getValue(),

@@ -657,13 +657,6 @@ void mesh::add_electric_field_to_vertices(const std::string &electric_field_fiel
     }
 }
 
-void mesh::add_diffusion_gradient_to_vertices(const std::string &e_gradient_fieldname, const std::string &h_gradient_fieldname) {
-    for (auto &&vtx : m_ListVertices) {
-        vtx.set_e_grad_diffusion(vtx.get_vector_data(e_gradient_fieldname));
-        vtx.set_h_grad_diffusion(vtx.get_vector_data(h_gradient_fieldname));
-    }
-}
-
 void mesh::add_space_charge_to_vertices(const std::string &space_charge_fieldname) {
     for (auto &&vtx : m_ListVertices) {
         // DEBUG

@@ -202,10 +202,10 @@ void self_consistent_device_amc_simulation_3d::add_charges_at_contacts(std::size
     for (std::size_t i = 0; i < number_contact_elements; ++i) {
         auto& element = m_list_element_contact_ptr[i];
 
-        const double element_charge = element->get_n_charge() - element->get_p_charge();
+        const double element_charge          = element->get_n_charge() - element->get_p_charge();
         const double averaged_element_charge = element_charge / static_cast<double>(poisson_frequency);
-        const double equilibrium_charge = m_list_element_contact_equilibrium_charge[i];
-        const double charge_to_add = equilibrium_charge - averaged_element_charge;
+        const double equilibrium_charge      = m_list_element_contact_equilibrium_charge[i];
+        const double charge_to_add           = equilibrium_charge - averaged_element_charge;
 
         if (equilibrium_charge > 0.0 && charge_to_add > 0.0) {
             electron_charge_to_add[i] = charge_to_add;
@@ -265,7 +265,6 @@ void self_consistent_device_amc_simulation_3d::add_charges_at_contacts(std::size
     add_particles_at_positions(hole_positions, particle_type::hole, particle_weight);
 }
 
-
 void self_consistent_device_amc_simulation_3d::add_missing_contact_charge_to_poisson_reservoir(
     std::size_t accumulation_steps) {
     if (accumulation_steps == 0) {
@@ -277,15 +276,13 @@ void self_consistent_device_amc_simulation_3d::add_missing_contact_charge_to_poi
     for (std::size_t i = 0; i < m_list_element_contact_ptr.size(); ++i) {
         auto& element = m_list_element_contact_ptr[i];
 
-        const double equilibrium_charge = m_list_element_contact_equilibrium_charge[i];
+        const double equilibrium_charge        = m_list_element_contact_equilibrium_charge[i];
         const double accumulated_mobile_charge = element->get_n_charge() - element->get_p_charge();
         const double target_accumulated_charge = equilibrium_charge * accumulation_factor;
-        const double correction = target_accumulated_charge - accumulated_mobile_charge;
+        const double correction                = target_accumulated_charge - accumulated_mobile_charge;
         // fmt::print(
-        //     "Contact element {}: equilibrium charge = {:.3e}, accumulated mobile charge = {:.3e}, target accumulated "
-        //     "charge = {:.3e}, correction = {:.3e}\n",
-        //     m_list_element_contact[i],
-        //     equilibrium_charge,
+        //     "Contact element {}: equilibrium charge = {:.3e}, accumulated mobile charge = {:.3e}, target accumulated
+        //     " "charge = {:.3e}, correction = {:.3e}\n", m_list_element_contact[i], equilibrium_charge,
         //     accumulated_mobile_charge,
         //     target_accumulated_charge,
         //     correction);
@@ -297,7 +294,6 @@ void self_consistent_device_amc_simulation_3d::add_missing_contact_charge_to_poi
         }
     }
 }
-
 
 void self_consistent_device_amc_simulation_3d::compute_unitary_potential() {
     m_poisson_solver.compute_second_member(0.0);
@@ -320,9 +316,8 @@ self_consistent_device_amc_simulation_3d::self_consistent_device_amc_simulation_
     const options_device_amc&                    simulation_options,
     const options_self_consistent_device_amc_3d& self_consistent_options,
     const physic::material::list_materials&      list_materials,
-    const std::string&                           simulation_name,
     int                                          seed_random_generator)
-    : device_amc_simulation(simulation_device, simulation_options, simulation_name, seed_random_generator),
+    : device_amc_simulation(simulation_device, simulation_options, seed_random_generator),
       m_self_consistent_options(self_consistent_options),
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), list_materials),
       m_contact_rng(seed_random_generator + 1) {
@@ -337,14 +332,12 @@ self_consistent_device_amc_simulation_3d::self_consistent_device_amc_simulation_
     const options_device_amc&                    simulation_options,
     const options_self_consistent_device_amc_3d& self_consistent_options,
     const physic::material::list_materials&      list_materials,
-    const std::string&                           simulation_name,
     const mesh::vector3&                         starting_position,
     std::size_t                                  number_electrons_start,
     std::size_t                                  number_holes_start,
     int                                          seed_random_generator)
     : device_amc_simulation(simulation_device,
                             simulation_options,
-                            simulation_name,
                             starting_position,
                             number_electrons_start,
                             number_holes_start,
@@ -404,6 +397,9 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
     fmt::print("Total iterations: {}\n", total_iterations);
     fmt::print("Poisson frequency: {}\n", m_self_consistent_options.m_poisson_frequency);
 
+    double accumulator_ramo_current = 0.0;
+    double ramo_current = 0.0;
+
     while (m_time <= m_simulation_options.m_t_max && !m_list_particles.empty()) {
         if (m_simulation_options.m_stop_simu_when_no_electron_remaining && get_number_electrons() == 0) {
             fmt::print("Stop: no electrons remaining in device.\n");
@@ -417,6 +413,7 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
 
         transport_particles_one_time_step();
         add_particle_charges_to_elements();
+        accumulator_ramo_current += compute_ramo_current();
 
         const bool should_update_poisson =
             (m_iteration % m_self_consistent_options.m_poisson_frequency == 0) && (m_iteration != 0);
@@ -425,10 +422,12 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
             const std::size_t poisson_frequency = m_self_consistent_options.m_poisson_frequency;
             add_charges_at_contacts(poisson_frequency);
             add_particle_charges_to_elements();
-            add_missing_contact_charge_to_poisson_reservoir(poisson_frequency+1);
-            recompute_vertex_space_charge_from_element_charges(poisson_frequency+1);
+            add_missing_contact_charge_to_poisson_reservoir(poisson_frequency + 1);
+            recompute_vertex_space_charge_from_element_charges(poisson_frequency + 1);
             update_self_consistent_potential();
             reset_element_charges();
+            ramo_current = accumulator_ramo_current / static_cast<double>(poisson_frequency);
+            accumulator_ramo_current = 0.0;
         }
 
         m_time += m_simulation_options.m_time_step;
@@ -440,6 +439,7 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
                                                  m_simulation_history.m_impact_ionization_positions.size(),
                                                  m_anode_current,
                                                  m_cathode_current,
+                                                    ramo_current,
                                                  0.0);
 
         if (m_iteration == 1 ||

@@ -22,10 +22,6 @@ class vertex : public geometry_entity, public vector3 {
     vector3 m_e_drift_velocity{0.0, 0.0, 0.0};
     vector3 m_h_drift_velocity{0.0, 0.0, 0.0};
 
-
-    vector3 m_e_grad_diffusion;
-    vector3 m_h_grad_diffusion;
-
  public:
     // Constructors
     vertex() = default;
@@ -58,18 +54,6 @@ class vertex : public geometry_entity, public vector3 {
     inline void set_doping_concentration(double new_doping_concentration) noexcept { 
         m_doping_concentration = new_doping_concentration; 
     }
-
-    // Gradient diffusion accessors
-    inline vector3 get_e_grad_diffusion() const noexcept { return m_e_grad_diffusion; }
-    inline void set_e_grad_diffusion(const vector3& new_e_grad_diffusion) noexcept { 
-        m_e_grad_diffusion = new_e_grad_diffusion; 
-    }
-
-    inline vector3 get_h_grad_diffusion() const noexcept { return m_h_grad_diffusion; }
-    inline void set_h_grad_diffusion(const vector3& new_h_grad_diffusion) noexcept { 
-        m_h_grad_diffusion = new_h_grad_diffusion; 
-    }
-
 
     // Friend functions to compute the distance between two vertices.
     friend inline double distance_between(const vertex& vtx_1, const vertex& vtx_2) noexcept {

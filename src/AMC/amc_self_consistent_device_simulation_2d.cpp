@@ -44,6 +44,10 @@ void self_consistent_device_amc_simulation_2d::validate_self_consistent_options(
     }
 }
 
+double self_consistent_device_amc_simulation_2d::ramo_current_scale_factor() const {
+    return 1.0 / m_self_consistent_options.m_effective_depth_um;
+}
+
 /**
  * @brief We need to identify the elements adjacent to the contacts, and compute their equilibrium charge (integral of
  * doping concentration) to be able to properly update their charge during the simulation (so that they are not fixed at
@@ -327,6 +331,13 @@ void self_consistent_device_amc_simulation_2d::compute_unitary_potential() {
 void self_consistent_device_amc_simulation_2d::initialize_poisson_solver() {
     m_poisson_solver.compute_stiffness_matrix();
     compute_unitary_potential();
+    // CHECK
+    double  unitary_potential_max = m_device.get_p_mesh()->get_argmax_max_of_function("RamoUnitaryPotential").second;
+    vector3 testvector            = {1e-3, 1e-3, 1e-3};
+    if (unitary_potential_max <= 0.0) {
+        throw std::runtime_error("Unitary potential maximum is non-positive.");
+    }
+    fmt::print("Unitary potential computed. Max value: {:.6e}\n", unitary_potential_max);
 }
 
 self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_2d(
@@ -334,9 +345,8 @@ self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_
     const options_device_amc&                    simulation_options,
     const options_self_consistent_device_amc_2d& self_consistent_options,
     const physic::material::list_materials&      list_materials,
-    const std::string&                           simulation_name,
     int                                          seed_random_generator)
-    : device_amc_simulation(simulation_device, simulation_options, simulation_name, seed_random_generator),
+    : device_amc_simulation(simulation_device, simulation_options, seed_random_generator),
       m_self_consistent_options(self_consistent_options),
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), list_materials),
       m_contact_rng(seed_random_generator + 1) {
@@ -353,14 +363,12 @@ self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_
     const options_device_amc&                    simulation_options,
     const options_self_consistent_device_amc_2d& self_consistent_options,
     const physic::material::list_materials&      list_materials,
-    const std::string&                           simulation_name,
     const mesh::vector3&                         starting_position,
     std::size_t                                  number_electrons_start,
     std::size_t                                  number_holes_start,
     int                                          seed_random_generator)
     : device_amc_simulation(simulation_device,
                             simulation_options,
-                            simulation_name,
                             starting_position,
                             number_electrons_start,
                             number_holes_start,
@@ -440,9 +448,15 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
     const std::size_t total_iterations =
         static_cast<std::size_t>(std::ceil(m_simulation_options.m_t_max / m_simulation_options.m_time_step));
 
+    std::string  history_filename = initialize_simulation_history_file();
+    std::fstream stream(history_filename, std::ios::app);
+
     fmt::print("START 2D SELF-CONSISTENT AMC SIMULATION\n");
     fmt::print("Total iterations: {}\n", total_iterations);
     fmt::print("Poisson frequency: {}\n", m_self_consistent_options.m_poisson_frequency);
+
+    double accumulator_ramo_current = 0.0;
+    double ramo_current             = 0.0;
 
     while (m_time <= m_simulation_options.m_t_max && !m_list_particles.empty()) {
         if (m_simulation_options.m_stop_simu_when_no_electron_remaining && get_number_electrons() == 0) {
@@ -457,6 +471,7 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
 
         transport_particles_one_time_step();
         add_particle_charges_to_elements();
+        accumulator_ramo_current += compute_ramo_current();
 
         const bool should_update_poisson =
             (m_iteration % m_self_consistent_options.m_poisson_frequency == 0) && (m_iteration != 0);
@@ -469,6 +484,10 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
             recompute_vertex_space_charge_from_element_charges(poisson_frequency + 1);
             update_self_consistent_potential();
             reset_element_charges();
+
+            // Recompute Ramo current with updated potential
+            ramo_current             = accumulator_ramo_current / static_cast<double>(poisson_frequency);
+            accumulator_ramo_current = 0.0;
         }
 
         m_time += m_simulation_options.m_time_step;
@@ -480,20 +499,26 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
                                                  m_simulation_history.m_impact_ionization_positions.size(),
                                                  m_anode_current,
                                                  m_cathode_current,
+                                                 ramo_current,
                                                  0.0);
 
+        m_simulation_history.append_last_iter_to_csv(stream);
         if (m_iteration == 1 ||
-            (m_simulation_options.m_export_time_step &&
-             m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0)) {
-            export_current_state();
+            m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0) {
             fmt::print("\rExported iteration at time {:<10.3e}ps - {:>9d} / {} ({:.1f}%) ",
                        m_time * 1e12,
                        m_iteration,
                        total_iterations,
                        static_cast<double>(m_iteration) / static_cast<double>(total_iterations) * 100.0);
             std::fflush(stdout);
+            stream.flush();
+            if (m_simulation_options.m_export_time_step) {
+                export_current_state();
+            }
         }
     }
+
+    stream.close();
 
     fmt::print("END 2D SELF-CONSISTENT AMC SIMULATION\n");
 }
@@ -501,7 +526,8 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
 void self_consistent_device_amc_simulation_2d::export_current_state() {
     const std::string FileName = fmt::format("{}_poisson_time.vtk.{:09d}", m_prefix_export_filename, m_iteration);
     file::export_as_vtk(*(m_device.get_p_mesh()), FileName, {}, {}, true);
-    export_current_time_step_as_csv(m_prefix_export_filename);
+    // export_current_time_step_as_csv(m_prefix_export_filename);
+    export_current_time_step_particles_as_vtp(m_prefix_export_filename);
 }
 
 }  // namespace uepm::amc

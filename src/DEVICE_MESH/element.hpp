@@ -112,8 +112,6 @@ class element : public geometry_entity {
     virtual vector3             interpolate_vector_at_location(const std::string &name, const vector3 &location) const;
     virtual double              interpolate_doping_at_location(const vector3 &location) const;
     virtual vector3             interpolate_electric_field_at_location(const vector3 &location) const;
-    virtual vector3             interpolate_e_grad_diffusion_at_location(const vector3 &location) const;
-    virtual vector3             interpolate_h_grad_diffusion_at_location(const vector3 &location) const;
     virtual vector3             compute_gradient(const std::string &scalar_field_name) const                            = 0;
     virtual std::map<std::shared_ptr<element>, vector3> compute_element_line_intersection(const vector3 &point_A,
                                                                                           const vector3 &point_B) const = 0;
