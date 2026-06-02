@@ -368,7 +368,7 @@ self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_
     initialize_contact_elements();
     initialize_poisson_solver();
     if (m_self_consistent_options.m_initialize_particles_from_doping) {
-        place_initial_charges_according_to_doping();
+        place_initial_charges_according_to_doping(m_self_consistent_options.m_initial_particle_weight);
     }
 }
 
@@ -394,7 +394,7 @@ self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_
     initialize_contact_elements();
     initialize_poisson_solver();
     if (m_self_consistent_options.m_initialize_particles_from_doping) {
-        place_initial_charges_according_to_doping();
+        place_initial_charges_according_to_doping(m_self_consistent_options.m_initial_particle_weight);
     }
 }
 

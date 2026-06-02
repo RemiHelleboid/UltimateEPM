@@ -43,9 +43,28 @@ vector3 device_amc_simulation::get_RamoUnitaryElectricField_at_position(const me
     if (m_state.m_use_constant_RamoUnitaryElectricField) {
         return m_state.m_RamoUnitaryElectricField_Vm_per_cm;
     }
-
     vector3 ramo_unitary_electric_field = m_device.interpolate_vector_at_location("RamoUnitaryElectricField", position);
     return ramo_unitary_electric_field;
+}
+
+double device_amc_simulation::get_total_electron_weight() const {
+    double total = 0.0;
+    for (const auto &particle : m_list_particles) {
+        if (particle->type() == particle_type::electron) {
+            total += particle->weight();
+        }
+    }
+    return total;
+}
+
+double device_amc_simulation::get_total_hole_weight() const {
+    double total = 0.0;
+    for (const auto &particle : m_list_particles) {
+        if (particle->type() == particle_type::hole) {
+            total += particle->weight();
+        }
+    }
+    return total;
 }
 
 amc_transport_config device_amc_simulation::make_transport_config(const options_device_amc &options,

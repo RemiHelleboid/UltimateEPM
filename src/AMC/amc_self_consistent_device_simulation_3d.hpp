@@ -32,7 +32,7 @@ struct options_self_consistent_device_amc_3d {
     double m_anode_voltage   = 0.0;
     double m_cathode_voltage = 0.0;
 
-    double m_contact_injection_particle_weight = 1.0;
+    double m_contact_injection_particle_weight = 2.0;
     bool   m_initialize_particles_from_doping  = true;
 };
 

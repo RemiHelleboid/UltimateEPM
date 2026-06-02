@@ -51,16 +51,16 @@ struct history_device_amc {
                              std::size_t nb_electrons,
                              std::size_t nb_holes,
                              std::size_t nb_impact_ionization,
-                             double      anode_current,
-                             double      cathode_current,
+                             double      ramo_current_electron,
+                             double      ramo_current_hole,
                              double      ramo_current,
                              double      max_electric_field) {
         m_list_times.push_back(time);
         m_list_nb_electrons.push_back(nb_electrons);
         m_list_nb_holes.push_back(nb_holes);
         m_list_nb_impact_ionization.push_back(nb_impact_ionization);
-        m_list_ramo_current_electron.push_back(anode_current);
-        m_list_ramo_current_hole.push_back(cathode_current);
+        m_list_ramo_current_electron.push_back(ramo_current_electron);
+        m_list_ramo_current_hole.push_back(ramo_current_hole);
         m_list_ramo_current.push_back(ramo_current);
         m_max_electric_field.push_back(max_electric_field);
     }

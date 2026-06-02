@@ -207,6 +207,8 @@ class device_amc_simulation {
 
     std::size_t                get_number_electrons() const;
     std::size_t                get_number_holes() const;
+    double                     get_total_electron_weight() const;
+    double                     get_total_hole_weight() const;
     std::optional<double>      get_current_time() const { return m_state.m_time_s; }
     std::vector<mesh::vector3> get_all_particles_position() const;
 

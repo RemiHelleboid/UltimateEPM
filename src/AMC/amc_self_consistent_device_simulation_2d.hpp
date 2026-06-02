@@ -33,7 +33,7 @@ struct options_self_consistent_device_amc_2d {
     double m_cathode_voltage = 0.0;
 
     // Weight of particles injected at contacts.
-    double m_contact_injection_particle_weight = 1.0;
+    double m_contact_injection_particle_weight = 2.0;
 
     // Physical depth represented by the 2D mesh.
     // Used for doping integration, charge deposition, contact injection.
@@ -44,7 +44,7 @@ struct options_self_consistent_device_amc_2d {
     double m_particle_z_period_um = 1.0;
 
     bool   m_initialize_particles_from_doping = true;
-    double m_initial_particle_weight          = 1.0;
+    double m_initial_particle_weight          = 2.0;
 
 };
 
