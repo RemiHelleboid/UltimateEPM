@@ -132,18 +132,18 @@ void add_default_contacts(uepm::device::device& simulation_device, uepm::mesh::m
     const double min_z = mesh.get_bounding_box().get_z_min();
     const double max_z = mesh.get_bounding_box().get_z_max();
 
-    const uepm::mesh::vector3 anode_corner1(min_x - contact_margin, min_y - contact_margin, min_z - contact_margin);
-    const uepm::mesh::vector3 anode_corner2(min_x + contact_collection_depth,
-                                            max_y + contact_margin,
-                                            max_z + contact_margin);
+    const uepm::mesh::vector3 cathode_corner1(min_x - contact_margin, min_y - contact_margin, min_z - contact_margin);
+    const uepm::mesh::vector3 cathode_corner2(min_x + contact_collection_depth,
+                                              max_y + contact_margin,
+                                              max_z + contact_margin);
 
-    simulation_device.add_contact("anode", anode_corner1, anode_corner2, ohmic_resistance);
-    const uepm::mesh::vector3 cathode_corner1(max_x - contact_collection_depth,
-                                              min_y - contact_margin,
-                                              min_z - contact_margin);
-
-    const uepm::mesh::vector3 cathode_corner2(max_x + contact_margin, max_y + contact_margin, max_z + contact_margin);
     simulation_device.add_contact("cathode", cathode_corner1, cathode_corner2, ohmic_resistance);
+    const uepm::mesh::vector3 anode_corner1(max_x - contact_collection_depth,
+                                            min_y - contact_margin,
+                                            min_z - contact_margin);
+
+    const uepm::mesh::vector3 anode_corner2(max_x + contact_margin, max_y + contact_margin, max_z + contact_margin);
+    simulation_device.add_contact("anode", anode_corner1, anode_corner2, ohmic_resistance);
 
     fmt::print("Added device contacts:\n");
     fmt::print("  anode   x in [{:.6e}, {:.6e}]\n", anode_corner1.x(), anode_corner2.x());
@@ -232,7 +232,7 @@ int main(int argc, const char** argv) {
         TCLAP::ValueArg<double>      arg_start_x("",
                                                  "x0",
                                                  "Initial particle x position in mesh units.",
-                                                 true,
+                                                 false,
                                                  0.0,
                                                  "double");
         TCLAP::ValueArg<double>      arg_start_y("",
@@ -449,9 +449,9 @@ int main(int argc, const char** argv) {
         self_consistent_options_2d.m_initialize_particles_from_doping = !arg_disable_doping_init_particles.getValue();
 
         uepm::amc::options_self_consistent_device_amc_3d self_consistent_options_3d;
-        self_consistent_options_3d.m_poisson_frequency = arg_poisson_frequency.getValue();
-        self_consistent_options_3d.m_anode_voltage     = arg_anode_voltage.getValue();
-        self_consistent_options_3d.m_cathode_voltage   = arg_cathode_voltage.getValue();
+        self_consistent_options_3d.m_poisson_frequency                = arg_poisson_frequency.getValue();
+        self_consistent_options_3d.m_anode_voltage                    = arg_anode_voltage.getValue();
+        self_consistent_options_3d.m_cathode_voltage                  = arg_cathode_voltage.getValue();
         self_consistent_options_3d.m_initialize_particles_from_doping = !arg_disable_doping_init_particles.getValue();
 
         if (self_consistent_options_2d.m_poisson_frequency == 0 ||

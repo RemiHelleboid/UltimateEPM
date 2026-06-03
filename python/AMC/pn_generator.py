@@ -216,14 +216,14 @@ def create_geometry(dimension, length, width):
 
     add_physical_group(bulk_dim, [bulk_tag], "Silicon_1")
 
-    anode_entities = find_entities_at_x(
+    cathode_entities = find_entities_at_x(
         entity_dim=contact_dim,
         x_target=0.0,
         length=length,
         width=width,
     )
 
-    cathode_entities = find_entities_at_x(
+    anode_entities = find_entities_at_x(
         entity_dim=contact_dim,
         x_target=length,
         length=length,
@@ -236,8 +236,8 @@ def create_geometry(dimension, length, width):
     if len(cathode_entities) != 1:
         raise RuntimeError(f"Expected one cathode entity, found {len(cathode_entities)}.")
 
-    add_physical_group(contact_dim, anode_entities, "anode")
     add_physical_group(contact_dim, cathode_entities, "cathode")
+    add_physical_group(contact_dim, anode_entities, "anode")
 
 
 def generate_mesh(
