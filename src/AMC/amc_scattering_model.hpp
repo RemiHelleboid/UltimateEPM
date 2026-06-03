@@ -13,6 +13,7 @@
 
 #include "amc_material_model.hpp"
 #include "intervalley_phonon.hpp"
+#include "particle_amc.hpp"
 #include "valley_model.hpp"
 
 namespace uepm::amc {
@@ -48,5 +49,13 @@ double optical_scattering_rate_silicon_holes(const valley_model&            fina
                                              double                         initial_energy_eV,
                                              bool                           absorption,
                                              double                         temperature_K);
+
+double caughey_thomas_mobility_cm2_per_V_s(double                              impurity_density_cm_3,
+                                           const impurity_mobility_parameters& parameters);
+
+double impurity_momentum_relaxation_rate_silicon(const valley_model&                         band_or_valley,
+                                                 particle_type                               carrier_type,
+                                                 double                                      impurity_density_cm_3,
+                                                 const carrier_impurity_mobility_parameters& parameters);
 
 };  // namespace uepm::amc

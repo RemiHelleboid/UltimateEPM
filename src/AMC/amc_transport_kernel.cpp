@@ -94,6 +94,13 @@ std::size_t draw_intervalley_destination_valley(const intervalley_phonon_branch&
     }
 }
 
+double local_impurity_density_cm_3(const particle_amc& particle, const amc_transport_config& cfg) {
+    if (particle.state().impurity_concentration_cm_3 > 0.0) {
+        return particle.state().impurity_concentration_cm_3;
+    }
+    return cfg.m_background_impurity_density_cm_3;
+}
+
 }  // namespace
 
 amc_transport_kernel::amc_transport_kernel() : m_cfg{}, m_rng(std::random_device{}()) {}
@@ -116,7 +123,9 @@ void amc_transport_kernel::initialize() {
         m_intervalley_branches.clear();
         m_hole_optical_transitions = make_silicon_hole_optical_transitions();
     }
+
     m_impact_ionization_parameters = make_silicon_impact_ionization_parameters();
+    m_impurity_mobility_parameters = make_silicon_impurity_mobility_parameters();
 
     m_gamma_max_s_1 = compute_max_self_scattering_rate(m_cfg.m_max_energy_eV, m_cfg.m_gamma_max_energy_samples);
 }
@@ -309,17 +318,38 @@ std::vector<scattering_channel> amc_transport_kernel::build_scattering_channels(
                                                       .process           = intervalley_process::emission});
             }
         }
-        const double impact_rate = impact_ionization_rate(energy_eV);
 
-        if (impact_rate > 0.0) {
-            const auto& impact_parameters = impact_ionization_parameters_for_carrier();
+        if (m_cfg.m_enable_impurity_scattering) {
+            const double impurity_density_cm_3 = local_impurity_density_cm_3(p, m_cfg);
 
-            channels.push_back(scattering_channel{.mechanism         = scattering_mechanism::impact_ionization,
-                                                  .rate_s_1          = impact_rate,
-                                                  .final_energy_eV   = energy_eV - impact_parameters.m_threshold_eV,
-                                                  .destination_index = current_band_index,
-                                                  .branch            = nullptr,
-                                                  .process           = intervalley_process::none});
+            const double rate_impurity = impurity_momentum_relaxation_rate_silicon(current_band,
+                                                                                   particle_type::hole,
+                                                                                   impurity_density_cm_3,
+                                                                                   m_impurity_mobility_parameters);
+
+            if (rate_impurity > 0.0) {
+                channels.push_back(scattering_channel{
+                    .mechanism         = scattering_mechanism::impurity,
+                    .rate_s_1          = rate_impurity,
+                    .final_energy_eV   = energy_eV,
+                    .destination_index = current_band_index,
+                });
+            }
+        }
+
+        if (m_cfg.m_enable_impact_ionization) {
+            const double impact_rate = impact_ionization_rate(energy_eV);
+
+            if (impact_rate > 0.0) {
+                const auto& impact_parameters = impact_ionization_parameters_for_carrier();
+
+                channels.push_back(scattering_channel{.mechanism         = scattering_mechanism::impact_ionization,
+                                                      .rate_s_1          = impact_rate,
+                                                      .final_energy_eV   = energy_eV - impact_parameters.m_threshold_eV,
+                                                      .destination_index = current_band_index,
+                                                      .branch            = nullptr,
+                                                      .process           = intervalley_process::none});
+            }
         }
 
         return channels;
@@ -361,17 +391,38 @@ std::vector<scattering_channel> amc_transport_kernel::build_scattering_channels(
                                                   .process         = intervalley_process::emission});
         }
     }
-    const double impact_rate = impact_ionization_rate(energy_eV);
 
-    if (impact_rate > 0.0) {
-        const auto& impact_parameters = impact_ionization_parameters_for_carrier();
+    if (m_cfg.m_enable_impurity_scattering) {
+        const double impurity_density_cm_3 = local_impurity_density_cm_3(p, m_cfg);
 
-        channels.push_back(scattering_channel{.mechanism         = scattering_mechanism::impact_ionization,
-                                              .rate_s_1          = impact_rate,
-                                              .final_energy_eV   = energy_eV - impact_parameters.m_threshold_eV,
-                                              .destination_index = current_band_index,
-                                              .branch            = nullptr,
-                                              .process           = intervalley_process::none});
+        const double rate_impurity = impurity_momentum_relaxation_rate_silicon(current_band,
+                                                                               particle_type::electron,
+                                                                               impurity_density_cm_3,
+                                                                               m_impurity_mobility_parameters);
+
+        if (rate_impurity > 0.0) {
+            channels.push_back(scattering_channel{
+                .mechanism         = scattering_mechanism::impurity,
+                .rate_s_1          = rate_impurity,
+                .final_energy_eV   = energy_eV,
+                .destination_index = current_band_index,
+            });
+        }
+    }
+
+    if (m_cfg.m_enable_impact_ionization) {
+        const double impact_rate = impact_ionization_rate(energy_eV);
+
+        if (impact_rate > 0.0) {
+            const auto& impact_parameters = impact_ionization_parameters_for_carrier();
+
+            channels.push_back(scattering_channel{.mechanism         = scattering_mechanism::impact_ionization,
+                                                  .rate_s_1          = impact_rate,
+                                                  .final_energy_eV   = energy_eV - impact_parameters.m_threshold_eV,
+                                                  .destination_index = current_band_index,
+                                                  .branch            = nullptr,
+                                                  .process           = intervalley_process::none});
+        }
     }
 
     return channels;
@@ -419,7 +470,17 @@ double amc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_o
                                                                 false,
                                                                 m_cfg.m_lattice_temperature);
         }
-        total_rate += impact_ionization_rate(energy_eV);
+
+        if (m_cfg.m_enable_impurity_scattering && m_cfg.m_background_impurity_density_cm_3 > 0.0) {
+            total_rate += impurity_momentum_relaxation_rate_silicon(m_valleys[band_or_valley_index],
+                                                                    particle_type::hole,
+                                                                    m_cfg.m_background_impurity_density_cm_3,
+                                                                    m_impurity_mobility_parameters);
+        }
+
+        if (m_cfg.m_enable_impact_ionization) {
+            total_rate += impact_ionization_rate(energy_eV);
+        }
 
         return total_rate;
     }
@@ -431,7 +492,16 @@ double amc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_o
         total_rate +=
             intervalley_scattering_rate(band_or_valley, branch, energy_eV, false, m_cfg.m_lattice_temperature);
     }
-    total_rate += impact_ionization_rate(energy_eV);
+
+    if (m_cfg.m_enable_impurity_scattering && m_cfg.m_background_impurity_density_cm_3 > 0.0) {
+        total_rate += impurity_momentum_relaxation_rate_silicon(m_valleys[band_or_valley_index],
+                                                                particle_type::electron,
+                                                                m_cfg.m_background_impurity_density_cm_3,
+                                                                m_impurity_mobility_parameters);
+    }
+    if (m_cfg.m_enable_impact_ionization) {
+        total_rate += impact_ionization_rate(energy_eV);
+    }
     return total_rate;
 }
 
@@ -507,76 +577,83 @@ scattering_event amc_transport_kernel::apply_scattering_channel(particle_amc& p,
                 if (channel.destination_index >= m_valleys.size()) {
                     throw std::out_of_range("invalid destination band in apply_scattering_channel for holes");
                 }
-
                 const auto& dst_band     = m_valleys[channel.destination_index];
                 p.state().valley_index   = channel.destination_index;
                 p.state().local_k        = dst_band.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
                 p.state().gamma          = dst_band.gamma_from_k_valley(p.state().local_k);
                 p.state().kinetic_energy = dst_band.kinetic_energy_from_gamma(p.state().gamma);
                 p.state().velocity       = dst_band.to_global_frame(dst_band.velocity_from_k_valley(p.state().local_k));
-
                 p.increment_scattering_event_count();
-
                 if (channel.process == intervalley_process::absorption) {
                     p.add_scattering_event(scattering_event::intervalley_absorption);
                     return scattering_event::intervalley_absorption;
                 }
-
                 if (channel.process == intervalley_process::emission) {
                     p.add_scattering_event(scattering_event::intervalley_emission);
                     return scattering_event::intervalley_emission;
                 }
-
                 throw std::runtime_error("hole optical channel missing absorption/emission tag");
             }
 
             if (channel.branch == nullptr) {
                 throw std::runtime_error("electron intervalley channel missing branch");
             }
-
             const auto current_valley_index = p.state().valley_index;
             if (current_valley_index >= m_valleys.size()) {
                 throw std::out_of_range("invalid current valley index in apply_scattering_channel for electrons");
             }
-
             const std::size_t destination_valley =
                 draw_intervalley_destination_valley(*channel.branch, current_valley_index, m_rng);
-
             if (destination_valley >= m_valleys.size()) {
                 throw std::out_of_range("invalid destination valley in apply_scattering_channel for electrons");
             }
 
-            const auto& dst_valley = m_valleys[destination_valley];
+            const auto& dst_valley   = m_valleys[destination_valley];
             p.state().valley_index   = destination_valley;
             p.state().local_k        = dst_valley.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
             p.state().gamma          = dst_valley.gamma_from_k_valley(p.state().local_k);
             p.state().kinetic_energy = dst_valley.kinetic_energy_from_gamma(p.state().gamma);
             p.state().velocity       = dst_valley.to_global_frame(dst_valley.velocity_from_k_valley(p.state().local_k));
-
             p.increment_scattering_event_count();
-
             if (channel.process == intervalley_process::absorption) {
                 p.add_scattering_event(scattering_event::intervalley_absorption);
                 return scattering_event::intervalley_absorption;
             }
-
             if (channel.process == intervalley_process::emission) {
                 p.add_scattering_event(scattering_event::intervalley_emission);
                 return scattering_event::intervalley_emission;
             }
             throw std::runtime_error("electron intervalley channel missing absorption/emission tag");
+        }
+        case scattering_mechanism::impurity: {
+            const auto band_or_valley_index = p.state().valley_index;
 
+            if (band_or_valley_index >= m_valleys.size()) {
+                throw std::out_of_range("invalid band/valley index in apply_scattering_channel impurity");
+            }
+            const auto& band_or_valley = m_valleys[band_or_valley_index];
+            // Elastic impurity scattering:
+            // same band/valley, same kinetic energy, randomized direction.
+            p.state().local_k = band_or_valley.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
+            p.state().gamma = band_or_valley.gamma_from_k_valley(p.state().local_k);
+            p.state().kinetic_energy = band_or_valley.kinetic_energy_from_gamma(p.state().gamma);
+            p.state().velocity =
+                band_or_valley.to_global_frame(band_or_valley.velocity_from_k_valley(p.state().local_k));
+            p.increment_scattering_event_count();
+            p.add_scattering_event(scattering_event::impurity);
+
+            return scattering_event::impurity;
         }
         case scattering_mechanism::impact_ionization: {
             const auto band_or_valley_index = p.state().valley_index;
             if (band_or_valley_index >= m_valleys.size()) {
                 throw std::out_of_range("invalid band/valley index in apply_scattering_channel impact ionization");
             }
-            const auto& band_or_valley = m_valleys[band_or_valley_index];
+            const auto&  band_or_valley  = m_valleys[band_or_valley_index];
             const double final_energy_eV = std::max(0.0, channel.final_energy_eV);
-            p.state().local_k = band_or_valley.draw_random_k_valley_at_energy(final_energy_eV, m_rng);
-            p.state().gamma = band_or_valley.gamma_from_k_valley(p.state().local_k);
-            p.state().kinetic_energy = band_or_valley.kinetic_energy_from_gamma(p.state().gamma);
+            p.state().local_k            = band_or_valley.draw_random_k_valley_at_energy(final_energy_eV, m_rng);
+            p.state().gamma              = band_or_valley.gamma_from_k_valley(p.state().local_k);
+            p.state().kinetic_energy     = band_or_valley.kinetic_energy_from_gamma(p.state().gamma);
             p.state().velocity =
                 band_or_valley.to_global_frame(band_or_valley.velocity_from_k_valley(p.state().local_k));
             p.increment_scattering_event_count();

@@ -24,6 +24,18 @@ struct impact_ionization_parameters {
     double m_exponent      = 4.6;
 };
 
+struct impurity_mobility_parameters {
+    double m_mu0_cm2_per_V_s    = 1400.0;
+    double m_mu_min_cm2_per_V_s = 50.0;
+    double m_n_ref_cm_3         = 1.0e17;
+    double m_alpha              = 0.7;
+};
+
+struct carrier_impurity_mobility_parameters {
+    impurity_mobility_parameters m_electron;
+    impurity_mobility_parameters m_hole;
+};
+
 struct carrier_impact_ionization_parameters {
     impact_ionization_parameters m_electron;
     impact_ionization_parameters m_hole;
@@ -37,6 +49,7 @@ struct hole_optical_transition {
     double      overlap_factor                 = 1.0;
 };
 
+carrier_impurity_mobility_parameters make_silicon_impurity_mobility_parameters();
 std::vector<valley_model>            make_silicon_delta_valleys();
 std::vector<valley_model>            make_silicon_hole_bands();
 std::vector<hole_optical_transition> make_silicon_hole_optical_transitions();

@@ -32,7 +32,10 @@ struct amc_transport_config {
     double        m_self_scattering_safety_factor = 1.2;
     std::size_t   m_gamma_max_energy_samples      = 1000;
 
-    bool m_enable_impact_ionization = false;
+    double m_background_impurity_density_cm_3 = 0.0;
+
+    bool m_enable_impact_ionization   = false;
+    bool m_enable_impurity_scattering = false;
 };
 
 class amc_transport_kernel {
@@ -67,6 +70,8 @@ class amc_transport_kernel {
     std::vector<hole_optical_transition>   m_hole_optical_transitions;
 
     carrier_impact_ionization_parameters m_impact_ionization_parameters;
+
+    carrier_impurity_mobility_parameters m_impurity_mobility_parameters;
 
     std::mt19937_64 m_rng;
     double          m_gamma_max_s_1 = 0.0;

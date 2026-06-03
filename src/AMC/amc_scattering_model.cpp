@@ -206,4 +206,46 @@ double optical_scattering_rate_silicon_holes(const valley_model&            fina
     return prefactor * phonon_factor * std::sqrt(std::max(0.0, gamma_final)) * (1.0 + 2.0 * alpha_per_J * final_energy_J);
 }
 
+double caughey_thomas_mobility_cm2_per_V_s(double                              impurity_density_cm_3,
+                                           const impurity_mobility_parameters& parameters) {
+    if (impurity_density_cm_3 <= 0.0) {
+        return parameters.m_mu0_cm2_per_V_s;
+    }
+
+    const double ratio = impurity_density_cm_3 / parameters.m_n_ref_cm_3;
+
+    return parameters.m_mu_min_cm2_per_V_s + (parameters.m_mu0_cm2_per_V_s - parameters.m_mu_min_cm2_per_V_s) /
+                                                 (1.0 + std::pow(ratio, parameters.m_alpha));
+}
+
+double impurity_momentum_relaxation_rate_silicon(const valley_model&                         band_or_valley,
+                                                 particle_type                               carrier_type,
+                                                 double                                      impurity_density_cm_3,
+                                                 const carrier_impurity_mobility_parameters& parameters) {
+    if (impurity_density_cm_3 <= 0.0) {
+        return 0.0;
+    }
+
+    const auto& mobility_parameters =
+        (carrier_type == particle_type::electron) ? parameters.m_electron : parameters.m_hole;
+
+    const double mu_doped_cm2_per_V_s = caughey_thomas_mobility_cm2_per_V_s(impurity_density_cm_3, mobility_parameters);
+    const double mu_lattice_cm2_per_V_s = mobility_parameters.m_mu0_cm2_per_V_s;
+    const double inv_mu_impurity = 1.0 / mu_doped_cm2_per_V_s - 1.0 / mu_lattice_cm2_per_V_s;
+
+    if (inv_mu_impurity <= 0.0) {
+        return 0.0;
+    }
+
+    const double mu_impurity_cm2_per_V_s = 1.0 / inv_mu_impurity;
+    const double mu_impurity_m2_per_V_s  = mu_impurity_cm2_per_V_s * 1.0e-4;
+    const double mt = band_or_valley.transverse_effective_mass();
+    const double ml = band_or_valley.longitudinal_effective_mass();
+
+    // Scalar approximation for the momentum relaxation mass.
+    const double m_eff = std::cbrt(mt * mt * ml);
+
+    return uepm::constants::q_e / (m_eff * mu_impurity_m2_per_V_s);
+}
+
 } // namespace uepm::amc

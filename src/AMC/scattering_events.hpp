@@ -19,6 +19,7 @@ enum class scattering_event : std::size_t {
     acoustic = 0,
     intervalley_absorption,
     intervalley_emission,
+    impurity,
     impact_ionization,
     self_scattering,
     count

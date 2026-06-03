@@ -59,9 +59,19 @@ int main(int argc, const char** argv) {
                                                   "Si",
                                                   "string");
 
-        TCLAP::ValueArg<std::string> arg_output_dir("d", "outdir", "Output directory for results.", false, "", "string");
+        TCLAP::ValueArg<std::string> arg_output_dir("d",
+                                                    "outdir",
+                                                    "Output directory for results.",
+                                                    false,
+                                                    "",
+                                                    "string");
 
-        TCLAP::ValueArg<std::string> arg_particle_type("p", "part-type", "Carrier type: electron or hole.", false, "electron", "string");
+        TCLAP::ValueArg<std::string> arg_particle_type("p",
+                                                       "part-type",
+                                                       "Carrier type: electron or hole.",
+                                                       false,
+                                                       "electron",
+                                                       "string");
 
         TCLAP::ValueArg<std::string> arg_runner("",
                                                 "runner",
@@ -74,7 +84,12 @@ int main(int argc, const char** argv) {
 
         TCLAP::ValueArg<int> arg_number_threads("j", "nthreads", "Number of threads to use.", false, 1, "int");
 
-        TCLAP::ValueArg<double> arg_final_time("t", "time", "Simulation final time in seconds.", false, 1.0e-12, "double");
+        TCLAP::ValueArg<double> arg_final_time("t",
+                                               "time",
+                                               "Simulation final time in seconds.",
+                                               false,
+                                               1.0e-12,
+                                               "double");
 
         TCLAP::ValueArg<double> arg_time_step("",
                                               "dt",
@@ -83,9 +98,36 @@ int main(int argc, const char** argv) {
                                               5.0e-15,
                                               "double");
 
-        TCLAP::ValueArg<double> arg_temperature("T", "temperature", "Lattice temperature in kelvin.", false, 300.0, "double");
+        TCLAP::ValueArg<double> arg_temperature("T",
+                                                "temperature",
+                                                "Lattice temperature in kelvin.",
+                                                false,
+                                                300.0,
+                                                "double");
 
-        TCLAP::ValueArg<double> arg_electric_field_x("", "Ex", "Electric field in x direction in V/cm.", false, 0.0, "double");
+        TCLAP::ValueArg<double> arg_electric_field_x("",
+                                                     "Ex",
+                                                     "Electric field in x direction in V/cm.",
+                                                     false,
+                                                     0.0,
+                                                     "double");
+
+        TCLAP::ValueArg<double> arg_impurity_density(
+            "",
+            "impurity-density",
+            "Background impurity density in cm^-3, used to compute impurity scattering rates.",
+            false,
+            1.0e10,
+            "double");
+
+        TCLAP::SwitchArg arg_enable_impact_ionization("",
+                                                      "enable-impact-ionization",
+                                                      "Enable impact ionization scattering.",
+                                                      false);
+        TCLAP::SwitchArg arg_enable_impurity_scattering("",
+                                                        "enable-impurity-scattering",
+                                                        "Enable impurity scattering.",
+                                                        false);
 
         TCLAP::ValueArg<double> arg_max_energy("e",
                                                "max-energy",
@@ -129,6 +171,9 @@ int main(int argc, const char** argv) {
         cmd.add(arg_time_step);
         cmd.add(arg_temperature);
         cmd.add(arg_electric_field_x);
+        cmd.add(arg_impurity_density);
+        cmd.add(arg_enable_impact_ionization);
+        cmd.add(arg_enable_impurity_scattering);
         cmd.add(arg_max_energy);
         cmd.add(arg_warmup_fraction);
         cmd.add(arg_gamma_safety);
@@ -182,6 +227,10 @@ int main(int argc, const char** argv) {
         if (nb_threads == 0) {
             throw std::invalid_argument("number of threads must be positive");
         }
+        const double impurity_density_cm_3 = arg_impurity_density.getValue();
+        if (impurity_density_cm_3 < 0.0) {
+            throw std::invalid_argument("impurity density must be non-negative");
+        }
         const std::string output_dir = [&] {
             const std::string requested_output_dir = arg_output_dir.getValue();
             if (!requested_output_dir.empty()) {
@@ -209,7 +258,10 @@ int main(int argc, const char** argv) {
         config.m_warmup_fraction               = warmup_fraction;
         config.m_self_scattering_safety_factor = gamma_safety;
         config.m_gamma_max_energy_samples      = static_cast<std::size_t>(gamma_samples);
-        config.m_nb_threads                   = nb_threads;
+        config.m_nb_threads                    = nb_threads;
+        config.m_enable_impact_ionization      = arg_enable_impact_ionization.getValue();
+        config.m_enable_impurity_scattering    = arg_enable_impurity_scattering.getValue();
+        config.m_impurity_density_cm_3         = impurity_density_cm_3;
 
         fmt::print("Running bulk AMC simulation\n");
         fmt::print("Material: {}\n", material_symbol);
@@ -223,6 +275,8 @@ int main(int argc, const char** argv) {
                    config.m_electric_field.x(),
                    config.m_electric_field.y(),
                    config.m_electric_field.z());
+        fmt::print("  impurity scattering: {}\n", config.m_enable_impurity_scattering ? "enabled" : "disabled");
+        fmt::print("  impurity density: {:.6e} cm^-3\n", config.m_impurity_density_cm_3);
         fmt::print("Gamma max energy: {:.6f} eV\n", config.m_max_energy_eV);
         fmt::print("Gamma safety factor: {:.6f}\n", config.m_self_scattering_safety_factor);
         fmt::print("Gamma samples: {}\n", config.m_gamma_max_energy_samples);

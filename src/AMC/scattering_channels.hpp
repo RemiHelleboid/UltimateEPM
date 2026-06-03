@@ -17,7 +17,7 @@ namespace uepm::amc {
 
 struct intervalley_phonon_branch;
 
-enum class scattering_mechanism : std::uint8_t { acoustic, intervalley, impact_ionization };
+enum class scattering_mechanism : std::uint8_t { acoustic, intervalley, impurity, impact_ionization };
 
 enum class intervalley_process : std::uint8_t { none, absorption, emission };
 

@@ -29,6 +29,22 @@ valley_model::mat3 rotation_local_z_to_global_y() { return {{{{1.0, 0.0, 0.0}}, 
 
 } // namespace
 
+carrier_impurity_mobility_parameters make_silicon_impurity_mobility_parameters() {
+    carrier_impurity_mobility_parameters parameters;
+
+    parameters.m_electron.m_mu0_cm2_per_V_s    = 1417.0;
+    parameters.m_electron.m_mu_min_cm2_per_V_s = 52.2;
+    parameters.m_electron.m_n_ref_cm_3         = 9.68e16;
+    parameters.m_electron.m_alpha              = 0.68;
+
+    parameters.m_hole.m_mu0_cm2_per_V_s    = 470.5;
+    parameters.m_hole.m_mu_min_cm2_per_V_s = 44.9;
+    parameters.m_hole.m_n_ref_cm_3         = 2.23e17;
+    parameters.m_hole.m_alpha              = 0.70;
+
+    return parameters;
+}
+
 carrier_impact_ionization_parameters make_silicon_impact_ionization_parameters() {
     carrier_impact_ionization_parameters parameters;
 

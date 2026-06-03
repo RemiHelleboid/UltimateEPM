@@ -34,15 +34,16 @@ struct particle_state {
     vector3     position{};
     vector3     local_k{};
     vector3     velocity{};
-    vector3     electric_field{};            // in V/m
-    double      doping_concentration = 0.0;  // in m^-3
-    double      kinetic_energy       = 0.0;  // in eV
-    double      gamma                = 0.0;  // gamma = E for parabolic, gamma = E * (1 + alpha * E) for Kane (in eV)
-    std::size_t valley_index         = 0;
+    vector3     electric_field{};                   // in V/m
+    double      doping_concentration_cm_3   = 0.0;  // signed or net doping
+    double      impurity_concentration_cm_3 = 0.0;  // positive scattering-center density
+    double      kinetic_energy              = 0.0;  // in eV
+    double      gamma        = 0.0;  // gamma = E for parabolic, gamma = E * (1 + alpha * E) for Kane (in eV)
+    std::size_t valley_index = 0;
 
     /**
-     * @brief Pointer to the element containing the particle. This is used to avoid having to search for the containing element at each
-     * step, which can be costly. It is updated after each scattering event and after each free flight.
+     * @brief Pointer to the element containing the particle. This is used to avoid having to search for the containing
+     * element at each step, which can be costly. It is updated after each scattering event and after each free flight.
      *
      */
     element* m_containing_element = nullptr;
@@ -81,19 +82,14 @@ class particle_history {
     particle_history() = default;
 
     explicit particle_history(std::size_t particle_index) : m_particle_index(particle_index) {}
-
     std::size_t particle_index() const noexcept { return m_particle_index; }
-
     std::size_t total_scattering_event_count() const noexcept { return m_total_scattering_events; }
-
     std::size_t recorded_number_of_steps() const noexcept { return m_snapshots.size(); }
-
-    const std::vector<particle_snapshot>& snapshots() const noexcept { return m_snapshots; }
-
-    const std::array<std::size_t, num_scattering_channels>& scattering_events() const noexcept { return m_scattering_events; }
-
+    const std::vector<particle_snapshot>&                   snapshots() const noexcept { return m_snapshots; }
+    const std::array<std::size_t, num_scattering_channels>& scattering_events() const noexcept {
+        return m_scattering_events;
+    }
     void reserve(std::size_t n_steps) { m_snapshots.reserve(n_steps); }
-
     void clear() noexcept {
         m_total_scattering_events = 0;
         m_snapshots.clear();
@@ -101,9 +97,7 @@ class particle_history {
     }
 
     void set_particle_index(std::size_t particle_index) noexcept { m_particle_index = particle_index; }
-
     void increment_scattering_event_count() noexcept { ++m_total_scattering_events; }
-
     void record(const particle_state& state) {
         m_snapshots.push_back(particle_snapshot{.time           = state.time,
                                                 .position       = state.position,
@@ -113,14 +107,12 @@ class particle_history {
                                                 .gamma          = state.gamma,
                                                 .valley_index   = state.valley_index});
     }
-
     void add_event(scattering_event event) noexcept {
         const auto index = static_cast<std::size_t>(event);
         if (index < m_scattering_events.size()) {
             ++m_scattering_events[index];
         }
     }
-
     void export_trajectory_as_csv(const std::string& filename) const;
 };
 
@@ -156,30 +148,21 @@ class particle_amc {
         }
     }
 
-    std::size_t index() const noexcept { return m_index; }
-
+    std::size_t   index() const noexcept { return m_index; }
     particle_type type() const noexcept { return m_type; }
-
-    double weight() const noexcept { return m_weight; }
-
-    double get_signed_charge() const noexcept {
+    double        weight() const noexcept { return m_weight; }
+    double        get_signed_charge() const noexcept {
         constexpr double q = 1.602176634e-19;
         return (m_type == particle_type::electron) ? -q : q;
     }
-
-    const particle_state& state() const noexcept { return m_state; }
-
-    particle_state& state() noexcept { return m_state; }
-
+    const particle_state&   state() const noexcept { return m_state; }
+    particle_state&         state() noexcept { return m_state; }
     const particle_history& history() const noexcept { return m_history; }
-
-    particle_history& history() noexcept { return m_history; }
-
-    void set_index(std::size_t index) noexcept {
+    particle_history&       history() noexcept { return m_history; }
+    void                    set_index(std::size_t index) noexcept {
         m_index = index;
         m_history.set_particle_index(index);
     }
-
     void set_weight(double weight) {
         if (weight <= 0.0) {
             throw std::invalid_argument("particle weight must be > 0");
@@ -188,9 +171,7 @@ class particle_amc {
     }
 
     void set_type(particle_type type) noexcept { m_type = type; }
-
     void set_state(const particle_state& state) noexcept { m_state = state; }
-
     void advance_time(double dt) {
         if (dt < 0.0) {
             throw std::invalid_argument("time step must be >= 0");
@@ -199,13 +180,9 @@ class particle_amc {
     }
 
     void set_position(const vector3& position) noexcept { m_state.position = position; }
-
     void translate(const vector3& dr) noexcept { m_state.position += dr; }
-
     void set_local_k(const vector3& local_k) noexcept { m_state.local_k = local_k; }
-
     void set_velocity(const vector3& velocity) noexcept { m_state.velocity = velocity; }
-
     void set_kinetic_energy(double energy) {
         if (energy < 0.0) {
             throw std::invalid_argument("kinetic energy must be >= 0");
@@ -220,27 +197,18 @@ class particle_amc {
         m_state.gamma = gamma;
     }
 
-    void set_crossed_contact(bool crossed) noexcept { m_state.m_crossed_contact = crossed; }
-
-    void set_valley_index(std::size_t valley_index) noexcept { m_state.valley_index = valley_index; }
-
+    void     set_crossed_contact(bool crossed) noexcept { m_state.m_crossed_contact = crossed; }
+    void     set_valley_index(std::size_t valley_index) noexcept { m_state.valley_index = valley_index; }
     void     set_containing_element(mesh::element* element) noexcept { m_state.m_containing_element = element; }
     element* get_containing_element() const noexcept { return m_state.m_containing_element; }
-
-    void increment_scattering_event_count() noexcept { m_history.increment_scattering_event_count(); }
-
-    void record_state() { m_history.record(m_state); }
-
-    void add_scattering_event(scattering_event event) noexcept { m_history.add_event(event); }
-
-    void reset_history() noexcept { m_history.clear(); }
-
-    void set_data_from_device(int m_dimension);
-
-    void print_info() const;
-
-    void export_trajectory_as_csv(const std::string& filename) const {
-        m_history.export_trajectory_as_csv(filename);}
+    void     increment_scattering_event_count() noexcept { m_history.increment_scattering_event_count(); }
+    void     record_state() { m_history.record(m_state); }
+    void     add_scattering_event(scattering_event event) noexcept { m_history.add_event(event); }
+    void     reset_history() noexcept { m_history.clear(); }
+    void     set_data_from_device(int m_dimension);
+    void     print_info() const;
+    double   compute_raw_impact_ionization_coefficient() const;
+    void export_trajectory_as_csv(const std::string& filename) const { m_history.export_trajectory_as_csv(filename); }
 };
 
 }  // namespace uepm::amc
