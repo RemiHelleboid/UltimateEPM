@@ -236,11 +236,9 @@ int main(int argc, const char** argv) {
             if (!requested_output_dir.empty()) {
                 return requested_output_dir;
             }
-            return fmt::format("bulk_amc_{}_{}_T{:.1f}_Ex{:.3e}",
+            return std::string(fmt::format("bulk_amc_{}_{}",
                                material_symbol,
-                               particle_type_string,
-                               temperature,
-                               arg_electric_field_x.getValue());
+                               particle_type_string));
         }();
         std::filesystem::create_directories(output_dir);
 

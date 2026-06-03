@@ -77,6 +77,19 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Electric fields in V/cm.",
     )
+    
+    parser.add_argument(
+        "--enable-impurity-scattering",
+        action="store_true",
+        help="Enable impurity scattering in the bulk AMC executable.",
+    )
+
+    parser.add_argument(
+        "--impurity-density",
+        type=float,
+        default=0.0,
+        help="Uniform ionized impurity density in cm^-3.",
+    )
 
     parser.add_argument(
         "--npart",
@@ -163,6 +176,15 @@ def parse_args() -> argparse.Namespace:
 def validate_args(args: argparse.Namespace) -> None:
     if not args.exe.exists():
         raise FileNotFoundError(f"Executable not found: {args.exe}")
+    
+    if args.impurity_density < 0.0:
+        raise ValueError("--impurity-density must be non-negative.")
+
+    if args.impurity_density > 0.0 and not args.enable_impurity_scattering:
+        print(
+            "Warning: --impurity-density is positive but "
+            "--enable-impurity-scattering was not provided."
+        )
 
     if args.npart <= 0:
         raise ValueError("--npart must be positive.")
@@ -215,6 +237,8 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
         str(args.temperature),
         "--Ex",
         str(field_v_per_cm),
+        "--impurity-density",
+        str(args.impurity_density),
         "--max-energy",
         str(args.max_energy),
         "--gamma-safety",
@@ -230,6 +254,8 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
         "-j",
         str(args.nbthreads)
     ]
+    if args.enable_impurity_scattering:
+        command.append("--enable-impurity-scattering")
 
     log_file = run_dir / "stdout.log"
 
@@ -318,6 +344,8 @@ def build_sweep_dataframe(args: argparse.Namespace) -> pd.DataFrame:
             {
                 "field_V_per_cm": field_v_per_cm,
                 "field_V_per_m": field_v_per_m,
+                "enable_impurity_scattering": args.enable_impurity_scattering,
+                "impurity_density_cm_3": args.impurity_density,
                 "mean_velocity_x_m_per_s": velocity_x_m_per_s,
                 "mean_velocity_abs_m_per_s": abs(velocity_x_m_per_s),
                 "mobility_m2_per_V_s": mobility_m2_per_v_s,
@@ -502,6 +530,8 @@ def plot_mobility(
     ax.set_title("Bulk AMC mobility versus electric field")
     ax.grid(True, which="both")
     ax.legend()
+    
+    print(f"Mobility : {mobility_cm2_per_v_s:.1f} cm²/V/s")
 
     fig.tight_layout()
     fig.savefig(outdir / "mobility_vs_field.png", dpi=200)
@@ -653,11 +683,8 @@ def write_summary(
 def main() -> int:
     args = parse_args()
     validate_args(args)
-
     args.outdir.mkdir(parents=True, exist_ok=True)
-
     df = build_sweep_dataframe(args)
-
     mobility_m2_per_v_s, mobility_cm2_per_v_s, intercept_m_per_s, fit_data = (
         extract_low_field_mobility(
             df,
@@ -723,16 +750,16 @@ def main() -> int:
         args.show,
     )
 
-    print(f"Extracted low-field mobility: {mobility_cm2_per_v_s:.3f} cm²/V/s")
-    print(f"Linear-fit intercept: {intercept_m_per_s:.6e} m/s")
-    print(f"Wrote {results_csv}")
-    print(f"Wrote {fit_csv}")
-    print(f"Wrote {fit_curve_csv}")
-    print(f"Wrote {args.outdir / 'mobility_summary.txt'}")
-    print(f"Wrote {args.outdir / 'velocity_vs_field.png'}")
-    print(f"Wrote {args.outdir / 'mobility_vs_field.png'}")
-    print(f"Wrote {args.outdir / 'energy_vs_field.png'}")
-    print(f"Wrote {args.outdir / 'impact_ionization_coefficient_vs_inverse_field.png'}")
+    # print(f"Extracted low-field mobility: {mobility_cm2_per_v_s:.3f} cm²/V/s")
+    # print(f"Linear-fit intercept: {intercept_m_per_s:.6e} m/s")
+    # print(f"Wrote {results_csv}")
+    # print(f"Wrote {fit_csv}")
+    # print(f"Wrote {fit_curve_csv}")
+    # print(f"Wrote {args.outdir / 'mobility_summary.txt'}")
+    # print(f"Wrote {args.outdir / 'velocity_vs_field.png'}")
+    # print(f"Wrote {args.outdir / 'mobility_vs_field.png'}")
+    # print(f"Wrote {args.outdir / 'energy_vs_field.png'}")
+    # print(f"Wrote {args.outdir / 'impact_ionization_coefficient_vs_inverse_field.png'}")
 
     return 0
 

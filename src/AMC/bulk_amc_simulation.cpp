@@ -60,8 +60,8 @@ amc_transport_config bulk_amc_simulation::make_transport_config(const bulk_amc_s
     transport_cfg.m_enable_impact_ionization      = cfg.m_enable_impact_ionization;
 
     transport_cfg.m_enable_impurity_scattering = cfg.m_enable_impurity_scattering;
-    transport_cfg.m_background_impurity_density_cm_3 = cfg.m_enable_impurity_scattering ? cfg.m_impurity_density_cm_3
-                                                        : 0.0;
+    transport_cfg.m_background_impurity_density_cm_3 =
+        cfg.m_enable_impurity_scattering ? cfg.m_impurity_density_cm_3 : 0.0;
 
     return transport_cfg;
 }
@@ -413,7 +413,7 @@ void bulk_amc_simulation::run_self_scattering_emc() {
     std::size_t total_acoustic_events               = 0;
     std::size_t total_intervalley_absorption_events = 0;
     std::size_t total_intervalley_emission_events   = 0;
-    std::size_t total_impurity_events                = 0;
+    std::size_t total_impurity_events               = 0;
     std::size_t total_impact_ionization_events      = 0;
     std::size_t total_self_scattering_events        = 0;
 
@@ -443,7 +443,8 @@ void bulk_amc_simulation::run_self_scattering_emc() {
     fmt::print("  event rate per carrier: {:.6e} s^-1\n", ii_stats.event_rate_per_carrier_s_1());
     fmt::print("  drift velocity along field: {:.6e} m/s\n", ii_stats.average_drift_velocity_m_per_s());
     fmt::print("  ionization coefficient: {:.6e} cm^-1\n\n", ii_stats.ionization_coefficient_cm_1());
-    fmt::print("  raw ionization coefficient (from particle data): {:.6e} cm^-1\n", ii_stats.m_raw_ii_coefficient_cm_1 / static_cast<double>(m_particles.size()));
+    fmt::print("  raw ionization coefficient (from particle data): {:.6e} cm^-1\n",
+               ii_stats.m_raw_ii_coefficient_cm_1 / static_cast<double>(m_particles.size()));
 
     const double impurity_rate_per_carrier_s_1 =
         reduced_impurity_carrier_time > 0.0
@@ -475,7 +476,9 @@ void bulk_amc_simulation::export_observables_to_csv(const std::string& filename)
     }
 
     if (file.tellp() == 0) {
-        file << "electric_field_V_per_m,"
+        file << "charge_C,"
+                "temperature_K,"
+                "electric_field_V_per_m,"
                 "impurity_density_cm_3,"
                 "mean_velocity_x_m_per_s,"
                 "mean_kinetic_energy_eV,"
@@ -493,7 +496,9 @@ void bulk_amc_simulation::export_observables_to_csv(const std::string& filename)
 
     const auto& ii_stats = m_impact_ionization_coefficient_statistics;
 
-    file << fmt::format("{},{},{},{},{},{},{},{},{}\n",
+    file << fmt::format("{},{},{},{},{},{},{},{},{},{},{}\n",
+                        signed_charge_C(m_cfg.m_carrier_type),
+                        m_cfg.m_lattice_temperature,
                         m_observables.electric_field_V_per_m,
                         m_cfg.m_impurity_density_cm_3,
                         m_observables.weighted_velocity_x_m2_per_s2 / m_observables.accumulated_time_s,

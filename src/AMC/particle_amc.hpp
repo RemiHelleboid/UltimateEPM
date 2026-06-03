@@ -26,6 +26,9 @@ namespace uepm::amc {
 
 enum class particle_type : std::int8_t { electron, hole };
 
+std::string_view carrier_type_to_string(particle_type type);
+double signed_charge_C(particle_type type);
+
 using vector3 = uepm::mesh::vector3;
 using element = uepm::mesh::element;
 

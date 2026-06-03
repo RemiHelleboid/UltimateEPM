@@ -9,6 +9,7 @@
  */
 
 #include "particle_amc.hpp"
+#include "physical_constants.hpp"
 
 #include <cmath>
 #include <fstream>
@@ -16,9 +17,32 @@
 
 namespace uepm::amc {
 
+std::string_view carrier_type_to_string(particle_type type) {
+    switch (type) {
+        case particle_type::electron:
+            return "electron";
+        case particle_type::hole:
+            return "hole";
+        default:
+            return "unknown";
+    }
+}
+
+double signed_charge_C(particle_type type) {
+    constexpr double q = uepm::constants::q_e;
+    switch (type) {
+        case particle_type::electron:
+            return -q;
+        case particle_type::hole:
+            return q;
+        default:
+            throw std::invalid_argument("invalid particle type");
+    }
+}
+
 void particle_amc::print_info() const {
     std::cout << "Particle index: " << m_index << "\n";
-    std::cout << "Type: " << (m_type == particle_type::electron ? "Electron" : "Hole") << "\n";
+    std::cout << "Type: " << carrier_type_to_string(m_type) << "\n";
     std::cout << "State:\n";
     std::cout << "  Time: " << m_state.time << " s\n";
     std::cout << "  Position: (" << m_state.position.x() << ", " << m_state.position.y() << ", " << m_state.position.z()
