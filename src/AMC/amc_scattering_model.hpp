@@ -58,4 +58,11 @@ double impurity_momentum_relaxation_rate_silicon(const valley_model&            
                                                  double                                      impurity_density_cm_3,
                                                  const carrier_impurity_mobility_parameters& parameters);
 
+double screened_coulomb_impurity_momentum_relaxation_rate_silicon(const valley_model& band_or_valley,
+                                                                  particle_type       carrier_type,
+                                                                  double              energy_eV,
+                                                                  double              impurity_density_cm_3,
+                                                                  double              screening_density_cm_3,
+                                                                  double              temperature_K);
+
 };  // namespace uepm::amc

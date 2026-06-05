@@ -18,6 +18,10 @@
 
 namespace uepm::amc {
 
+struct dielectric_properties {
+    double epsilon_r = 1.0;
+};
+
 struct impact_ionization_parameters {
     double m_threshold_eV  = 1.1;
     double m_prefactor_s_1 = 1.0e11;
@@ -49,6 +53,7 @@ struct hole_optical_transition {
     double      overlap_factor                 = 1.0;
 };
 
+dielectric_properties                make_silicon_dielectric_properties();
 carrier_impurity_mobility_parameters make_silicon_impurity_mobility_parameters();
 std::vector<valley_model>            make_silicon_delta_valleys();
 std::vector<valley_model>            make_silicon_hole_bands();

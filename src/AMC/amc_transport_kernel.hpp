@@ -25,6 +25,7 @@
 
 namespace uepm::amc {
 
+enum class impurity_scattering_model { mobility_empirical, screened_coulomb };
 struct amc_transport_config {
     particle_type m_carrier_type                  = particle_type::electron;
     double        m_lattice_temperature           = 300.0;
@@ -34,8 +35,10 @@ struct amc_transport_config {
 
     double m_background_impurity_density_cm_3 = 0.0;
 
-    bool m_enable_impact_ionization   = false;
-    bool m_enable_impurity_scattering = false;
+    bool                      m_enable_impact_ionization   = false;
+    bool                      m_enable_impurity_scattering = false;
+    impurity_scattering_model m_impurity_scattering_model =
+        impurity_scattering_model::screened_coulomb;
 };
 
 class amc_transport_kernel {
@@ -48,13 +51,17 @@ class amc_transport_kernel {
     void                                initialize();
     const impact_ionization_parameters& impact_ionization_parameters_for_carrier() const;
     double                              impact_ionization_rate(double energy_eV) const;
-    const std::vector<valley_model>&    valleys() const noexcept { return m_valleys; }
-    double                              gamma_max() const noexcept { return m_gamma_max_s_1; }
-    void                                initialize_particle_state(particle_amc& p);
-    std::optional<scattering_event>     scatter_particle(particle_amc& p, double dt);
-    void                            drift_particle(particle_amc& p, const mesh::vector3& electric_field_Vm, double dt);
-    std::vector<scattering_channel> build_scattering_channels(const particle_amc& p) const;
-    double                          total_scattering_rate(const particle_amc& p) const;
+
+    double impurity_rate_for_particle(const particle_amc& p, const valley_model& current_band, double energy_eV) const;
+    double impurity_rate_for_energy(const valley_model& band_or_valley, double energy_eV) const;
+
+    const std::vector<valley_model>& valleys() const noexcept { return m_valleys; }
+    double                           gamma_max() const noexcept { return m_gamma_max_s_1; }
+    void                             initialize_particle_state(particle_amc& p);
+    std::optional<scattering_event>  scatter_particle(particle_amc& p, double dt);
+    void                             drift_particle(particle_amc& p, const mesh::vector3& electric_field_Vm, double dt);
+    std::vector<scattering_channel>  build_scattering_channels(const particle_amc& p) const;
+    double                           total_scattering_rate(const particle_amc& p) const;
     double             total_scattering_rate_for_energy(std::size_t band_or_valley_index, double energy_eV) const;
     double             compute_max_self_scattering_rate(double max_energy_eV, std::size_t n_samples) const;
     double             sample_free_flight_time();

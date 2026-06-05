@@ -29,6 +29,12 @@ valley_model::mat3 rotation_local_z_to_global_y() { return {{{{1.0, 0.0, 0.0}}, 
 
 } // namespace
 
+dielectric_properties make_silicon_dielectric_properties() {
+    dielectric_properties props;
+    props.epsilon_r = 11.7;
+    return props;
+}
+
 carrier_impurity_mobility_parameters make_silicon_impurity_mobility_parameters() {
     carrier_impurity_mobility_parameters parameters;
 

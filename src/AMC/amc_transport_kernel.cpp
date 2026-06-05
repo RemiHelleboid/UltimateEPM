@@ -254,6 +254,60 @@ scattering_channel amc_transport_kernel::select_scattering_channel(const particl
     throw std::runtime_error("failed to select a real scattering channel");
 }
 
+double amc_transport_kernel::impurity_rate_for_particle(const particle_amc& p,
+                                                        const valley_model& current_band,
+                                                        double              energy_eV) const {
+    const double impurity_density_cm_3 = local_impurity_density_cm_3(p, m_cfg);
+
+    if (impurity_density_cm_3 <= 0.0) {
+        return 0.0;
+    }
+
+    switch (m_cfg.m_impurity_scattering_model) {
+        case impurity_scattering_model::mobility_empirical:
+            return impurity_momentum_relaxation_rate_silicon(current_band,
+                                                             p.type(),
+                                                             impurity_density_cm_3,
+                                                             m_impurity_mobility_parameters);
+
+        case impurity_scattering_model::screened_coulomb:
+            return screened_coulomb_impurity_momentum_relaxation_rate_silicon(current_band,
+                                                                              p.type(),
+                                                                              energy_eV,
+                                                                              impurity_density_cm_3,
+                                                                              impurity_density_cm_3,
+                                                                              m_cfg.m_lattice_temperature);
+    }
+
+    throw std::runtime_error("unknown impurity scattering model");
+}
+
+double amc_transport_kernel::impurity_rate_for_energy(const valley_model& band_or_valley, double energy_eV) const {
+    const double impurity_density_cm_3 = m_cfg.m_background_impurity_density_cm_3;
+
+    if (impurity_density_cm_3 <= 0.0) {
+        return 0.0;
+    }
+
+    switch (m_cfg.m_impurity_scattering_model) {
+        case impurity_scattering_model::mobility_empirical:
+            return impurity_momentum_relaxation_rate_silicon(band_or_valley,
+                                                             m_cfg.m_carrier_type,
+                                                             impurity_density_cm_3,
+                                                             m_impurity_mobility_parameters);
+
+        case impurity_scattering_model::screened_coulomb:
+            return screened_coulomb_impurity_momentum_relaxation_rate_silicon(band_or_valley,
+                                                                              m_cfg.m_carrier_type,
+                                                                              energy_eV,
+                                                                              impurity_density_cm_3,
+                                                                              impurity_density_cm_3,
+                                                                              m_cfg.m_lattice_temperature);
+    }
+
+    throw std::runtime_error("unknown impurity scattering model");
+}
+
 std::vector<scattering_channel> amc_transport_kernel::build_scattering_channels(const particle_amc& p) const {
     const auto current_band_index = p.state().valley_index;
     if (current_band_index >= m_valleys.size()) {
@@ -320,12 +374,7 @@ std::vector<scattering_channel> amc_transport_kernel::build_scattering_channels(
         }
 
         if (m_cfg.m_enable_impurity_scattering) {
-            const double impurity_density_cm_3 = local_impurity_density_cm_3(p, m_cfg);
-
-            const double rate_impurity = impurity_momentum_relaxation_rate_silicon(current_band,
-                                                                                   particle_type::hole,
-                                                                                   impurity_density_cm_3,
-                                                                                   m_impurity_mobility_parameters);
+            const double rate_impurity = impurity_rate_for_particle(p, current_band, energy_eV);
 
             if (rate_impurity > 0.0) {
                 channels.push_back(scattering_channel{
@@ -393,12 +442,7 @@ std::vector<scattering_channel> amc_transport_kernel::build_scattering_channels(
     }
 
     if (m_cfg.m_enable_impurity_scattering) {
-        const double impurity_density_cm_3 = local_impurity_density_cm_3(p, m_cfg);
-
-        const double rate_impurity = impurity_momentum_relaxation_rate_silicon(current_band,
-                                                                               particle_type::electron,
-                                                                               impurity_density_cm_3,
-                                                                               m_impurity_mobility_parameters);
+        const double rate_impurity = impurity_rate_for_particle(p, current_band, energy_eV);
 
         if (rate_impurity > 0.0) {
             channels.push_back(scattering_channel{
@@ -472,10 +516,7 @@ double amc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_o
         }
 
         if (m_cfg.m_enable_impurity_scattering && m_cfg.m_background_impurity_density_cm_3 > 0.0) {
-            total_rate += impurity_momentum_relaxation_rate_silicon(m_valleys[band_or_valley_index],
-                                                                    particle_type::hole,
-                                                                    m_cfg.m_background_impurity_density_cm_3,
-                                                                    m_impurity_mobility_parameters);
+            total_rate += total_rate += impurity_rate_for_energy(band_or_valley, energy_eV);
         }
 
         if (m_cfg.m_enable_impact_ionization) {
@@ -494,10 +535,7 @@ double amc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_o
     }
 
     if (m_cfg.m_enable_impurity_scattering && m_cfg.m_background_impurity_density_cm_3 > 0.0) {
-        total_rate += impurity_momentum_relaxation_rate_silicon(m_valleys[band_or_valley_index],
-                                                                particle_type::electron,
-                                                                m_cfg.m_background_impurity_density_cm_3,
-                                                                m_impurity_mobility_parameters);
+        total_rate += impurity_rate_for_energy(band_or_valley, energy_eV);
     }
     if (m_cfg.m_enable_impact_ionization) {
         total_rate += impact_ionization_rate(energy_eV);
@@ -634,8 +672,8 @@ scattering_event amc_transport_kernel::apply_scattering_channel(particle_amc& p,
             const auto& band_or_valley = m_valleys[band_or_valley_index];
             // Elastic impurity scattering:
             // same band/valley, same kinetic energy, randomized direction.
-            p.state().local_k = band_or_valley.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
-            p.state().gamma = band_or_valley.gamma_from_k_valley(p.state().local_k);
+            p.state().local_k        = band_or_valley.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
+            p.state().gamma          = band_or_valley.gamma_from_k_valley(p.state().local_k);
             p.state().kinetic_energy = band_or_valley.kinetic_energy_from_gamma(p.state().gamma);
             p.state().velocity =
                 band_or_valley.to_global_frame(band_or_valley.velocity_from_k_valley(p.state().local_k));

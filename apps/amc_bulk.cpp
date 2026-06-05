@@ -128,6 +128,12 @@ int main(int argc, const char** argv) {
                                                         "enable-impurity-scattering",
                                                         "Enable impurity scattering.",
                                                         false);
+        TCLAP::ValueArg<std::string> arg_impurity_model("",
+                                                        "impurity-model",
+                                                        "Impurity scattering model: mobility or screened-coulomb.",
+                                                        false,
+                                                        "mobility",
+                                                        "string");
 
         TCLAP::ValueArg<double> arg_max_energy("e",
                                                "max-energy",
@@ -174,6 +180,7 @@ int main(int argc, const char** argv) {
         cmd.add(arg_impurity_density);
         cmd.add(arg_enable_impact_ionization);
         cmd.add(arg_enable_impurity_scattering);
+        cmd.add(arg_impurity_model);
         cmd.add(arg_max_energy);
         cmd.add(arg_warmup_fraction);
         cmd.add(arg_gamma_safety);
@@ -231,6 +238,15 @@ int main(int argc, const char** argv) {
         if (impurity_density_cm_3 < 0.0) {
             throw std::invalid_argument("impurity density must be non-negative");
         }
+        const std::string impurity_model = arg_impurity_model.getValue();
+        uepm::amc::impurity_scattering_model parsed_impurity_model;
+        if (impurity_model == "mobility") {
+            parsed_impurity_model = uepm::amc::impurity_scattering_model::mobility_empirical;
+        } else if (impurity_model == "screened-coulomb") {
+            parsed_impurity_model = uepm::amc::impurity_scattering_model::screened_coulomb;
+        } else {
+            throw std::invalid_argument("--impurity-model must be either 'mobility' or 'screened-coulomb'");
+        }
         const std::string output_dir = [&] {
             const std::string requested_output_dir = arg_output_dir.getValue();
             if (!requested_output_dir.empty()) {
@@ -260,6 +276,7 @@ int main(int argc, const char** argv) {
         config.m_enable_impact_ionization      = arg_enable_impact_ionization.getValue();
         config.m_enable_impurity_scattering    = arg_enable_impurity_scattering.getValue();
         config.m_impurity_density_cm_3         = impurity_density_cm_3;
+        config.m_impurity_scattering_model     = parsed_impurity_model;
 
         fmt::print("Running bulk AMC simulation\n");
         fmt::print("Material: {}\n", material_symbol);
@@ -275,6 +292,12 @@ int main(int argc, const char** argv) {
                    config.m_electric_field.z());
         fmt::print("  impurity scattering: {}\n", config.m_enable_impurity_scattering ? "enabled" : "disabled");
         fmt::print("  impurity density: {:.6e} cm^-3\n", config.m_impurity_density_cm_3);
+        fmt::print("  impurity model: {}\n",
+                   config.m_enable_impurity_scattering
+                       ? (config.m_impurity_scattering_model == uepm::amc::impurity_scattering_model::mobility_empirical
+                              ? "mobility-empirical"
+                              : "screened-coulomb")
+                       : "N/A");
         fmt::print("Gamma max energy: {:.6f} eV\n", config.m_max_energy_eV);
         fmt::print("Gamma safety factor: {:.6f}\n", config.m_self_scattering_safety_factor);
         fmt::print("Gamma samples: {}\n", config.m_gamma_max_energy_samples);

@@ -25,18 +25,21 @@
 namespace uepm::amc {
 
 struct bulk_amc_simulation_config {
-    particle_type       m_carrier_type               = particle_type::electron;
-    std::size_t         m_number_of_particles        = 10000;
-    uepm::mesh::vector3 m_electric_field             = {0.0, 0.0, 0.0};  // V/m
-    double              m_lattice_temperature        = 300.0;            // K
-    double              m_final_time                 = 5.0e-12;          // s
-    double              m_doping_concentration       = 1.0e16;           // m^-3
-    bool                m_enable_impurity_scattering = false;
-    double              m_impurity_density_cm_3      = 0.0;     // cm^-3, positive scattering center density
-    double              m_max_self_scattering_rate   = 1.0e15;  // s^-1
-    bool                m_record_history             = true;
-    double              m_time_step                  = 5.0e-15;
-    double              m_warmup_fraction            = 0.2;
+    particle_type             m_carrier_type               = particle_type::electron;
+    std::size_t               m_number_of_particles        = 10000;
+    uepm::mesh::vector3       m_electric_field             = {0.0, 0.0, 0.0};  // V/m
+    double                    m_lattice_temperature        = 300.0;            // K
+    double                    m_final_time                 = 5.0e-12;          // s
+    
+    double                    m_doping_concentration       = 1.0e16;           // m^-3
+    bool                      m_enable_impurity_scattering = false;
+    impurity_scattering_model m_impurity_scattering_model  = impurity_scattering_model::screened_coulomb;
+    double                    m_impurity_density_cm_3      = 0.0;     // cm^-3, positive scattering center density
+    
+    double                    m_max_self_scattering_rate   = 1.0e15;  // s^-1
+    bool                      m_record_history             = true;
+    double                    m_time_step                  = 5.0e-15;
+    double                    m_warmup_fraction            = 0.2;
 
     bool m_enable_impact_ionization = true;
 

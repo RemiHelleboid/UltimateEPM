@@ -17,76 +17,138 @@
 #include "statistics_functions.hpp"
 namespace uepm::fbmc {
 
-particle::particle(std::size_t index, particle_type arg_particle_type, uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz)
-    : m_index(index),
-      m_type(arg_particle_type),
-      m_mesh_bz(ptr_mesh_bz) {}
+// particle::particle(std::size_t index, particle_type arg_particle_type, uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz)
+//     : m_index(index),
+//       m_type(arg_particle_type),
+//       m_mesh_bz(ptr_mesh_bz),
+//       m_history(index) {}
 
-/**
- * @brief Draw a new free flight time for the particle.
- *
- * @param p_gamma
- */
+// /**
+//  * @brief Draw a new free flight time for the particle.
+//  *
+//  * @param p_gamma
+//  */
+
+// void particle::draw_free_flight_time(double p_gamma) {
+//     if (!(p_gamma > 0.0) || !std::isfinite(p_gamma)) {
+//         throw std::runtime_error("draw_free_flight_time: invalid p_gamma");
+//     }
+//     auto&  state               = this->state();
+//     double u                   = m_random_distribution(m_random_generator);
+//     state.m_free_flight_time = -std::log(u) / p_gamma;
+//     state.m_time += state.m_free_flight_time;
+//     state.m_iter += 1;
+//     m_history.m_total_nb_steps += 1;
+//     update_position();
+// }
+
+// /**
+//  * @brief Update the k-vector of the particle based on the electric field.
+//  *
+//  * @param v_electric_field The electric field vector.
+//  */
+// void particle::update_k_vector(const vector3& v_electric_field) {
+//     auto&  state               = this->state();
+//     state.m_k_vector += (get_signed_charge() * uepm::constants::q_e / uepm::constants::h_bar) * v_electric_field *
+//                   state.m_free_flight_time;
+// }
+
+// void particle::update_group_velocity() {
+//     auto&  state               = this->state();
+//     state.m_velocity = m_containing_bz_mesh_tetra->interpolate_gradient_energy_at_band(state.m_k_vector,
+//     state.m_band_index); state.m_velocity *= (1.0 / uepm::constants::h_bar_eV);
+// }
+
+// void particle::update_position() {
+//     auto&  state               = this->state();
+//     state.m_position += state.m_velocity * state.m_free_flight_time;
+// }
+
+// void particle::update_energy() {
+//     auto&  state               = this->state();
+//     state.m_energy = m_containing_bz_mesh_tetra->interpolate_energy_at_band(state.m_k_vector, state.m_band_index);
+// }
+
+particle::particle(std::size_t index, particle_type arg_particle_type, uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz)
+    : m_mesh_bz(ptr_mesh_bz),
+      m_index(index),
+      m_type(arg_particle_type),
+      m_history(index) {}
 
 void particle::draw_free_flight_time(double p_gamma) {
     if (!(p_gamma > 0.0) || !std::isfinite(p_gamma)) {
         throw std::runtime_error("draw_free_flight_time: invalid p_gamma");
     }
-    double u                   = m_random_distribution(m_random_generator);
-    m_current_free_flight_time = -std::log(u) / p_gamma;
-    m_time += m_current_free_flight_time;
-    m_iter += 1;
-    m_history.m_total_nb_steps += 1;
-    update_position();
+
+    double u = m_random_distribution(m_random_generator);
+    while (!(u > 0.0)) {
+        u = m_random_distribution(m_random_generator);
+    }
+
+    m_state.m_gamma            = p_gamma;
+    m_state.m_free_flight_time = -std::log(u) / p_gamma;
 }
 
-/**
- * @brief Update the k-vector of the particle based on the electric field.
- *
- * @param v_electric_field The electric field vector.
- */
+void particle::advance_time_by_free_flight() {
+    m_state.m_time += m_state.m_free_flight_time;
+    ++m_state.m_iter;
+    ++m_history.m_total_nb_steps;
+}
+
 void particle::update_k_vector(const vector3& v_electric_field) {
-    m_k_vector += (get_signed_charge() * uepm::constants::q_e / uepm::constants::h_bar) * v_electric_field * m_current_free_flight_time;
+    m_state.m_k_vector += (get_signed_charge() * uepm::constants::q_e / uepm::constants::h_bar) * v_electric_field *
+                          m_state.m_free_flight_time;
 }
 
 void particle::update_group_velocity() {
-    m_velocity = m_containing_bz_mesh_tetra->interpolate_gradient_energy_at_band(m_k_vector, m_band_index);
-    m_velocity *= (1.0 / uepm::constants::h_bar_eV);
+    m_state.m_velocity =
+        m_containing_bz_mesh_tetra->interpolate_gradient_energy_at_band(m_state.m_k_vector, m_state.m_band_index);
+    m_state.m_velocity *= 1.0 / uepm::constants::h_bar_eV;
 }
 
-void particle::update_position() { m_position += m_velocity * m_current_free_flight_time; }
+void particle::update_energy() {
+    m_state.m_energy = m_containing_bz_mesh_tetra->interpolate_energy_at_band(m_state.m_k_vector, m_state.m_band_index);
+}
+
+void particle::update_position() { m_state.m_position += m_state.m_velocity * m_state.m_free_flight_time; }
+
+void particle::update_position(const vector3& velocity, double dt) { m_state.m_position += velocity * dt; }
 
 std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(const vector3& location) {
-    return m_containing_bz_mesh_tetra->interpolate_phonon_scattering_rate_at_location(location, m_band_index);
+    auto& state = this->state();
+    return m_containing_bz_mesh_tetra->interpolate_phonon_scattering_rate_at_location(location, state.m_band_index);
 }
 
-void particle::update_energy() { m_energy = m_containing_bz_mesh_tetra->interpolate_energy_at_band(m_k_vector, m_band_index); }
-
 void particle::select_final_state_after_phonon_scattering(std::size_t idx_phonon_branch) {
-    uepm::mesh_bz::SelectedFinalState Sf =
-        m_mesh_bz->select_electron_phonon_final_state(m_band_index, m_k_vector, idx_phonon_branch, m_random_generator);
-    m_k_vector                 = Sf.k_final;
-    m_energy                   = Sf.E_final_eV;
+    uepm::mesh_bz::SelectedFinalState Sf = m_mesh_bz->select_electron_phonon_final_state(m_state.m_band_index,
+                                                                                         m_state.m_k_vector,
+                                                                                         idx_phonon_branch,
+                                                                                         m_random_generator);
+    m_state.m_k_vector         = Sf.k_final;
+    m_state.m_energy           = Sf.E_final_eV;
     m_containing_bz_mesh_tetra = Sf.ptr_final_tetra;
-    m_band_index               = Sf.idx_final_band;
+    m_state.m_band_index       = Sf.idx_final_band;
 
     update_group_velocity();
 }
 
 void particle::select_final_state_after_impact_ionization() {
     constexpr double energy_threshold_ionization = 1.20;  // eV, TODO: make this a parameter
-    if (m_energy < energy_threshold_ionization) {
+    auto&            state                       = this->state();
+    if (state.m_energy < energy_threshold_ionization) {
         fmt::print(stderr,
-                   "Warning: particle energy ({:.6f} eV) is below the ionization threshold ({:.2f} eV). No ionization will occur.\n",
-                   m_energy,
+                   "Warning: particle energy ({:.6f} eV) is below the ionization threshold ({:.2f} eV). No ionization "
+                   "will occur.\n",
+                   state.m_energy,
                    energy_threshold_ionization);
-        throw std::runtime_error("select_final_state_after_impact_ionization: particle energy is below the ionization threshold");
+        throw std::runtime_error(
+            "select_final_state_after_impact_ionization: particle energy is below the ionization threshold");
     }
-    m_energy -= energy_threshold_ionization;  // lose energy due to ionization
-    auto [k_final, idx_band_final] = m_mesh_bz->draw_random_k_point_at_energy(m_energy, m_random_generator);
-    m_k_vector                     = k_final;
-    m_containing_bz_mesh_tetra     = m_mesh_bz->find_tetra_at_location(m_k_vector);
-    m_band_index                   = idx_band_final;
+    state.m_energy -= energy_threshold_ionization;  // lose energy due to ionization
+    auto [k_final, idx_band_final] = m_mesh_bz->draw_random_k_point_at_energy(state.m_energy, m_random_generator);
+    state.m_k_vector               = k_final;
+    m_containing_bz_mesh_tetra     = m_mesh_bz->find_tetra_at_location(state.m_k_vector);
+    state.m_band_index             = idx_band_final;
 }
 
 double particle::compute_mean_energy() const {
@@ -103,9 +165,9 @@ double particle::compute_mean_energy() const {
 
 /**
  * @brief Extract an estimate of the impact ionization coefficient from the particle history.
- * The impact ionization coefficient is defined as the number of ionization events per unit length traveled by the particle.
- * (For now we only take the number of impact ionization events divided by the total length traveled, but we could refine this by only
- * considering the length traveled (Xf -X0).
+ * The impact ionization coefficient is defined as the number of ionization events per unit length traveled by the
+ * particle. (For now we only take the number of impact ionization events divided by the total length traveled, but we
+ * could refine this by only considering the length traveled (Xf -X0).
  *
  * @return double
  */
@@ -122,12 +184,11 @@ double particle::extract_impact_ionization_coeff() const {
 }
 
 double particle::extract_global_average_velocity() const {
-    vector3 initial_position     = m_history.m_positions[0];
+    vector3 initial_position      = m_history.m_positions[0];
     vector3 current_position      = m_history.m_positions.back();
     double  total_length_traveled = (current_position.x() - initial_position.x());
 
     return total_length_traveled / (m_history.m_time_history.back() - m_history.m_time_history[0]);
-
 }
 
 void particle::print_history_summary() const {
@@ -136,7 +197,8 @@ void particle::print_history_summary() const {
     std::size_t            nb_events_type    = m_history.m_scattering_events.size();
     std::array<double, 10> event_fractions   = {0.0};
     for (std::size_t i = 0; i < nb_events_type; ++i) {
-        event_fractions[i] = 100.0 * static_cast<double>(m_history.m_scattering_events[i]) / static_cast<double>(total_real_events);
+        event_fractions[i] =
+            100.0 * static_cast<double>(m_history.m_scattering_events[i]) / static_cast<double>(total_real_events);
     }
     fmt::print("Particle {} history summary:\n", m_index);
     fmt::print("  Total recorded events: {}\n", total_events);
@@ -163,11 +225,12 @@ void particle::export_history_to_csv(const std::string& filename) const {
     }
     file << "time,gamma,x,y,z,kx,ky,kz,vx,vy,vz,energy,band_occupation\n";
     for (std::size_t i = 0; i < m_history.get_number_of_steps(); ++i) {
-        file << m_history.m_time_history[i] << "," << m_history.m_gammas[i] << "," << m_history.m_positions[i].x() << ","
-             << m_history.m_positions[i].y() << "," << m_history.m_positions[i].z() << "," << m_history.m_k_vectors[i].x() << ","
-             << m_history.m_k_vectors[i].y() << "," << m_history.m_k_vectors[i].z() << "," << m_history.m_velocities[i].x() << ","
-             << m_history.m_velocities[i].y() << "," << m_history.m_velocities[i].z() << "," << m_history.m_energies[i] << ","
-             << m_history.m_band_occupations[i] << "\n";
+        file << m_history.m_time_history[i] << "," << m_history.m_gammas[i] << "," << m_history.m_positions[i].x()
+             << "," << m_history.m_positions[i].y() << "," << m_history.m_positions[i].z() << ","
+             << m_history.m_k_vectors[i].x() << "," << m_history.m_k_vectors[i].y() << ","
+             << m_history.m_k_vectors[i].z() << "," << m_history.m_velocities[i].x() << ","
+             << m_history.m_velocities[i].y() << "," << m_history.m_velocities[i].z() << "," << m_history.m_energies[i]
+             << "," << m_history.m_band_occupations[i] << "\n";
     }
     file.close();
 }

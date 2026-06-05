@@ -25,21 +25,6 @@ enum class scattering_event : std::size_t {
     count
 };
 
-// std::string to_string(scattering_event event) {
-//     switch (event) {
-//         case scattering_event::acoustic:
-//             return "acoustic";
-//         case scattering_event::intervalley_absorption:
-//             return "intervalley_absorption";
-//         case scattering_event::intervalley_emission:
-//             return "intervalley_emission";
-//         case scattering_event::impact_ionization:
-//             return "impact_ionization";
-//         case scattering_event::self_scattering:
-//             return "self_scattering";
-//         default:
-//             return "unknown";
-//     }
-// }
+
 
 }  // namespace uepm::amc

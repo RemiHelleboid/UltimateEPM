@@ -90,6 +90,19 @@ def parse_args() -> argparse.Namespace:
         default=0.0,
         help="Uniform ionized impurity density in cm^-3.",
     )
+    
+    parser.add_argument(
+        "--impurity-model",
+        type=str,
+        default="mobility",
+        choices=["mobility", "screened-coulomb"],
+        help=(
+            "Model for impurity scattering. "
+            "'mobility' uses an empirical mobility-based model, while "
+            "'screened-coulomb' uses a screened Coulomb potential model. "
+            "Ignored if --enable-impurity-scattering is not set."
+        ),
+    )
 
     parser.add_argument(
         "--npart",
@@ -216,6 +229,8 @@ def validate_args(args: argparse.Namespace) -> None:
     if args.mobility_fit_max_field is not None and args.mobility_fit_max_field <= 0.0:
         raise ValueError("--mobility-fit-max-field must be positive.")
 
+    if args.impurity_model not in ["mobility", "screened-coulomb"]:
+        raise ValueError("--impurity-model must be either 'mobility' or 'screened-coulomb'.")
 
 def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
     run_dir = args.outdir / f"Ex_{field_v_per_cm:.6e}_Vcm"
@@ -239,6 +254,8 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
         str(field_v_per_cm),
         "--impurity-density",
         str(args.impurity_density),
+        "--impurity-model",
+        str(args.impurity_model),
         "--max-energy",
         str(args.max_energy),
         "--gamma-safety",
