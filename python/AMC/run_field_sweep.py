@@ -71,12 +71,10 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--fields",
-        type=float,
-        nargs="+",
-        required=True,
-        help="Electric fields in V/cm.",
-    )
+    "--fields",
+    required=True,
+    help="Electric fields in V/cm. Use comma-separated values, e.g. -1000,1000 or -1000,-600,-300,300,600,1000.",
+)
     
     parser.add_argument(
         "--enable-impurity-scattering",
@@ -182,8 +180,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Show plots interactively after saving them.",
     )
-
-    return parser.parse_args()
+    
+    args = parser.parse_args()
+    args.fields = [float(x) for x in args.fields.split(",") if x.strip()]
+    
+    return args
 
 
 def validate_args(args: argparse.Namespace) -> None:
@@ -275,6 +276,8 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
         command.append("--enable-impurity-scattering")
 
     log_file = run_dir / "stdout.log"
+    
+    print(f"Running command: {' '.join(command)}")
 
     with log_file.open("w", encoding="utf-8") as stream:
         completed = subprocess.run(
@@ -349,31 +352,43 @@ def build_sweep_dataframe(args: argparse.Namespace) -> pd.DataFrame:
 
         row = read_last_observable_row(observables_file)
 
-        field_v_per_m = row["electric_field_V_per_m"]
+        # Use the requested field as the signed field for mobility extraction.
+        # Some simulator outputs store electric_field_V_per_m as a magnitude, which
+        # destroys the sign needed for signed vx-versus-Ex fits.
+        requested_field_v_per_m = field_v_per_cm * 100.0
+        reported_field_v_per_m = row["electric_field_V_per_m"]
+        field_v_per_m = requested_field_v_per_m
         velocity_x_m_per_s = row["mean_velocity_x_m_per_s"]
 
         if field_v_per_m != 0.0:
-            mobility_m2_per_v_s = abs(velocity_x_m_per_s) / abs(field_v_per_m)
+            mobility_m2_per_v_s = velocity_x_m_per_s / field_v_per_m
+            pointwise_mobility_cm2_per_v_s = abs(mobility_m2_per_v_s) * 1.0e4
         else:
             mobility_m2_per_v_s = float("nan")
+            pointwise_mobility_cm2_per_v_s = float("nan")
 
         records.append(
             {
                 "field_V_per_cm": field_v_per_cm,
                 "field_V_per_m": field_v_per_m,
+                "reported_field_V_per_m": reported_field_v_per_m,
+                "field_abs_V_per_cm": abs(field_v_per_cm),
+                "field_abs_V_per_m": abs(field_v_per_m),
                 "enable_impurity_scattering": args.enable_impurity_scattering,
                 "impurity_density_cm_3": args.impurity_density,
                 "mean_velocity_x_m_per_s": velocity_x_m_per_s,
                 "mean_velocity_abs_m_per_s": abs(velocity_x_m_per_s),
-                "mobility_m2_per_V_s": mobility_m2_per_v_s,
-                "mobility_cm2_per_V_s": mobility_m2_per_v_s * 1.0e4,
+                "signed_mobility_m2_per_V_s": mobility_m2_per_v_s,
+                "signed_mobility_cm2_per_V_s": mobility_m2_per_v_s * 1.0e4,
+                "mobility_m2_per_V_s": abs(mobility_m2_per_v_s),
+                "mobility_cm2_per_V_s": pointwise_mobility_cm2_per_v_s,
                 "mean_kinetic_energy_eV": row["mean_kinetic_energy_eV"],
                 "sample_count": row["sample_count"],
                 "impact_ionization_events": row["impact_ionization_events"],
                 "impact_ionization_rate_per_carrier_s_1": row["impact_ionization_rate_per_carrier_s_1"],
                 "impact_ionization_drift_velocity_m_per_s": row["impact_ionization_drift_velocity_m_per_s"],
                 "impact_ionization_coefficient_cm_1": row["impact_ionization_coefficient_cm_1"],
-                "inverse_field_cm_per_V": 1.0 / abs(field_v_per_cm) if field_v_per_cm != 0.0 else float("nan"),
+                "inverse_field_cm_per_V": 1.0 / field_v_per_cm if field_v_per_cm != 0.0 else float("nan"),
                 "runtime_s": elapsed,
                 "observables_file": str(observables_file),
             }
@@ -414,24 +429,29 @@ def extract_low_field_mobility(
 ) -> tuple[float, float, float, pd.DataFrame]:
     fit_data = select_fit_data(df, max_field_v_per_cm)
 
-    field = fit_data["field_V_per_m"].abs().to_numpy(dtype=float)
-    velocity = fit_data["mean_velocity_abs_m_per_s"].to_numpy(dtype=float)
+    # Signed low-field fit.  Use signed requested Ex and signed vx.
+    field = fit_data["field_V_per_m"].to_numpy(dtype=float)
+    velocity = fit_data["mean_velocity_x_m_per_s"].to_numpy(dtype=float)
 
-    mobility_m2_per_v_s, intercept_m_per_s = np.polyfit(field, velocity, deg=1)
+    denominator = float(np.sum(field * field))
+    if denominator <= 0.0:
+        raise RuntimeError("Cannot extract mobility: zero field denominator.")
 
-    mobility_m2_per_v_s = float(mobility_m2_per_v_s)
-    intercept_m_per_s = float(intercept_m_per_s)
-    mobility_cm2_per_v_s = mobility_m2_per_v_s * 1.0e4
+    # Physical bulk constraint: v(E=0) = 0.
+    mobility_m2_per_v_s = float(np.sum(field * velocity) / denominator)
+    intercept_m_per_s = 0.0
+    mobility_cm2_per_v_s = abs(mobility_m2_per_v_s) * 1.0e4
 
-    fit_data["fitted_velocity_abs_m_per_s"] = (
-        mobility_m2_per_v_s * fit_data["field_V_per_m"].abs()
-        + intercept_m_per_s
-    )
+    # Diagnostic free-intercept fit only, useful to detect statistical offset.
+    free_slope_m2_per_v_s, free_intercept_m_per_s = np.polyfit(field, velocity, deg=1)
+
+    fit_data["fitted_velocity_x_m_per_s"] = mobility_m2_per_v_s * fit_data["field_V_per_m"]
     fit_data["fitted_mobility_cm2_per_V_s"] = mobility_cm2_per_v_s
     fit_data["fit_intercept_m_per_s"] = intercept_m_per_s
+    fit_data["free_slope_diagnostic_cm2_per_V_s"] = abs(float(free_slope_m2_per_v_s)) * 1.0e4
+    fit_data["free_intercept_diagnostic_m_per_s"] = float(free_intercept_m_per_s)
 
     return mobility_m2_per_v_s, mobility_cm2_per_v_s, intercept_m_per_s, fit_data
-
 
 def build_fit_curve(
     fit_data: pd.DataFrame,
@@ -441,11 +461,10 @@ def build_fit_curve(
     min_field = float(fit_data["field_V_per_cm"].min())
     max_field = float(fit_data["field_V_per_cm"].max())
 
-    field_v_per_cm = np.logspace(
-        np.log10(min_field),
-        np.log10(max_field),
-        200,
-    )
+    if min_field == max_field:
+        field_v_per_cm = np.array([min_field])
+    else:
+        field_v_per_cm = np.linspace(min_field, max_field, 200)
 
     field_v_per_m = field_v_per_cm * 100.0
     velocity = mobility_m2_per_v_s * field_v_per_m + intercept_m_per_s
@@ -454,10 +473,9 @@ def build_fit_curve(
         {
             "field_V_per_cm": field_v_per_cm,
             "field_V_per_m": field_v_per_m,
-            "fitted_velocity_abs_m_per_s": velocity,
+            "fitted_velocity_x_m_per_s": velocity,
         }
     )
-
 
 def plot_velocity(
     df: pd.DataFrame,
@@ -472,33 +490,33 @@ def plot_velocity(
 
     ax.plot(
         df["field_V_per_cm"],
-        df["mean_velocity_abs_m_per_s"],
+        df["mean_velocity_x_m_per_s"],
         marker="o",
-        label="AMC data",
+        label="AMC signed vx data",
     )
 
     ax.plot(
         fit_curve["field_V_per_cm"],
-        fit_curve["fitted_velocity_abs_m_per_s"],
+        fit_curve["fitted_velocity_x_m_per_s"],
         linestyle="--",
         label=(
-            f"Linear fit: μ = {mobility_cm2_per_v_s:.1f} cm²/V/s, "
+            f"zero-intercept fit: μ = {mobility_cm2_per_v_s:.1f} cm²/V/s, "
             f"b = {intercept_m_per_s:.2e} m/s"
         ),
     )
 
     ax.scatter(
         fit_data["field_V_per_cm"],
-        fit_data["mean_velocity_abs_m_per_s"],
+        fit_data["mean_velocity_x_m_per_s"],
         marker="s",
         label="Fit points",
     )
 
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel("Electric field (V/cm)")
-    ax.set_ylabel("|Mean drift velocity x| (m/s)")
-    ax.set_title("Bulk AMC drift velocity versus electric field")
+    ax.axhline(0.0, linewidth=0.8)
+    ax.axvline(0.0, linewidth=0.8)
+    ax.set_xlabel("Electric field Ex (V/cm)")
+    ax.set_ylabel("Mean drift velocity vx (m/s)")
+    ax.set_title("Bulk AMC signed drift velocity versus electric field")
     ax.grid(True, which="both")
     ax.legend()
 
@@ -531,7 +549,7 @@ def plot_mobility(
     ax.axhline(
         mobility_cm2_per_v_s,
         linestyle="--",
-        label=f"Linear-fit μ = {mobility_cm2_per_v_s:.1f} cm²/V/s",
+        label=f"zero-intercept fit μ = {mobility_cm2_per_v_s:.1f} cm²/V/s",
     )
 
     ax.scatter(
@@ -541,8 +559,7 @@ def plot_mobility(
         label="Fit points",
     )
 
-    ax.set_xscale("log")
-    ax.set_xlabel("Electric field (V/cm)")
+    ax.set_xlabel("Electric field Ex (V/cm)")
     ax.set_ylabel("Mobility (cm²/V/s)")
     ax.set_title("Bulk AMC mobility versus electric field")
     ax.grid(True, which="both")
@@ -573,8 +590,8 @@ def plot_energy(
         marker="o",
     )
 
-    ax.set_xscale("log")
-    ax.set_xlabel("Electric field (V/cm)")
+    ax.axvline(0.0, linewidth=0.8)
+    ax.set_xlabel("Electric field Ex (V/cm)")
     ax.set_ylabel("Mean kinetic energy (eV)")
     ax.set_title("Bulk AMC mean energy versus electric field")
     ax.grid(True, which="both")
@@ -626,8 +643,8 @@ def plot_impact_ionization_coefficient(
         field_data = data[data["field_V_per_m"].abs() > 0.0].copy()
 
         if not field_data.empty:
-            min_field = float(field_data["field_V_per_m"].abs().min())
-            max_field = float(field_data["field_V_per_m"].abs().max())
+            min_field = float(field_data["field_abs_V_per_m"].min())
+            max_field = float(field_data["field_abs_V_per_m"].max())
 
             if min_field > 0.0 and max_field > min_field:
                 field_reference_V_per_m = np.logspace(
@@ -653,7 +670,7 @@ def plot_impact_ionization_coefficient(
     ax.set_yscale("log")
     # ax.set_xlim(xmax=
     # ax.set_xlim(1.0e-4, 7.0e-4)
-    ax.set_xlabel("1 / electric field (cm/V)")
+    ax.set_xlabel("1 / |electric field| (cm/V)")
     ax.set_ylabel("Impact ionization coefficient (cm$^{-1}$)")
     ax.set_title("Bulk AMC impact ionization coefficient")
     ax.grid(True, which="both")
@@ -691,6 +708,7 @@ def write_summary(
     with summary_file.open("w", encoding="utf-8") as stream:
         stream.write(f"low_field_mobility_m2_per_V_s = {mobility_m2_per_v_s:.8e}\n")
         stream.write(f"low_field_mobility_cm2_per_V_s = {mobility_cm2_per_v_s:.8e}\n")
+        stream.write("mobility_extraction_method = signed_zero_intercept_vx_vs_requested_Ex\n")
         stream.write(f"linear_fit_intercept_m_per_s = {intercept_m_per_s:.8e}\n")
         stream.write(f"fit_field_min_V_per_cm = {min_fit_field:.8e}\n")
         stream.write(f"fit_field_max_V_per_cm = {max_fit_field:.8e}\n")
