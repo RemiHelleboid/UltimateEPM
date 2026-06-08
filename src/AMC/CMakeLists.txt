@@ -12,6 +12,7 @@ set(HEADER_FILES_LIBAMC
     amc_device_history.hpp
     amc_self_consistent_device_simulation_3d.hpp
     amc_self_consistent_device_simulation_2d.hpp
+    amc_quench_circuit.hpp
   )
 
 
@@ -26,6 +27,7 @@ set(SOURCE_FILES_LIBAMC
     amc_scattering_model.cpp
     amc_self_consistent_device_simulation_3d.cpp
     amc_self_consistent_device_simulation_2d.cpp
+    amc_quench_circuit.cpp
 )
 
 add_library(lib_amc STATIC ${SOURCE_FILES_LIBAMC} ${HEADER_FILES_LIBAMC})

@@ -277,11 +277,13 @@ void device_amc_simulation::inject_scheduled_particle_if_due() {
                    "because max particle count was reached.\n",
                    injection.m_time_s);
 
-        m_state.m_scheduled_particle_injection_done = true;
+        m_state.m_scheduled_particle_injection_done                = true;
+        m_simulation_options.m_scheduled_particle_injection.m_done = true;
         return;
     }
     add_particle_at_position(injection.m_position_um, injection.m_particle_type, injection.m_weight);
-    m_state.m_scheduled_particle_injection_done = true;
+    m_state.m_scheduled_particle_injection_done                = true;
+    m_simulation_options.m_scheduled_particle_injection.m_done = true;
     fmt::print("\nScheduled particle injected at t={:.6e} s, "
                "position=({:.6e}, {:.6e}, {:.6e}) um, weight={:.6e}\n",
                injection.m_time_s,
@@ -448,6 +450,20 @@ std::size_t device_amc_simulation::get_number_holes() const {
 
 double device_amc_simulation::ramo_current_scale_factor() const { return 1.0; }
 
+// Compute Ramo current for a given single particle
+double device_amc_simulation::compute_ramo_current_for_particle(const particle_amc &particle) const {
+    const auto  *mesh_ptr     = m_device.get_p_mesh();
+    const double scale_factor = ramo_current_scale_factor();
+    auto         position     = particle.state().position;
+    if (m_dimension == 2) {
+        position.to_2d_inplace();
+    }
+    const auto weighting_field_m    = get_RamoUnitaryElectricField_at_position(position);
+    double     current_contribution = scale_factor * particle.weight() * particle.get_signed_charge() *
+                                      particle.state().velocity.dot(weighting_field_m);
+    return current_contribution;
+}
+
 std::pair<double, double> device_amc_simulation::compute_ramo_current() const {
     double total_electron_current = 0.0;
     double total_hole_current     = 0.0;
@@ -489,25 +505,23 @@ void device_amc_simulation::transport_particles_one_time_step() {
         // Electric field is in V/cm, but we need it in V/m for the transport kernel, so we convert it here.
         constexpr double cm_to_m = 1.0e2;
         transport.drift_particle(particle, particle.state().electric_field * cm_to_m, dt);
+    }
+    apply_z_periodicity_to_particles();  // In 3D, this does nothing.
+    update_element_and_check_boundary();
+    remove_collected_particles();
 
-        apply_z_periodicity_to_particles();  // In 3D, this does nothing.
-        update_element_and_check_boundary();
-        remove_collected_particles();
-
+    for (auto &p_particle : m_list_particles) {
+        auto &particle = *p_particle;
         // Scattering
-        const auto event = transport.scatter_particle(particle, dt);
-        // DEBUG 
-        std::size_t iter_start_ii = 1000;
-        if (event == scattering_event::impact_ionization && m_state.m_iteration >= iter_start_ii) {
+        auto      &transport = transport_for(particle.type());
+        const auto event     = transport.scatter_particle(particle, dt);
+
+        if (event == scattering_event::impact_ionization) {
             m_simulation_history.m_last_impact_ionization_position = particle.state().position;
-
             m_simulation_history.m_impact_ionization_positions.push_back(particle.state().position);
-            // Debug print for impact ionization event
-            // fmt::print("Impact ionization for a {} um and energy {:.3e} eV\n",
-            //            particle.type() == particle_type::electron ? "electron" : "hole",
-            //            particle.state().kinetic_energy);
-
-            if (m_simulation_options.m_particle_creation_activated) {
+            bool enable_part_creation = m_simulation_options.m_particle_creation_activated &&
+                                        m_simulation_options.m_scheduled_particle_injection.m_done;
+            if (enable_part_creation) {
                 const std::size_t queued_particles = 2 * impact_pair_seeds.size();
 
                 if (m_list_particles.size() + queued_particles + 2 <= m_simulation_options.m_max_number_particle) {
@@ -558,7 +572,7 @@ void reflect_particle_to_previous_position(particle_amc &particle) {
 void device_amc_simulation::update_element_and_check_boundary() {
     const bool is_2d = m_dimension == 2;
     for (auto &p_particle : m_list_particles) {
-        auto &particle = *p_particle;
+        auto                &particle    = *p_particle;
         const mesh::element *old_element = particle.get_containing_element();
         if (old_element == nullptr) {
             particle.set_crossed_contact(true);
@@ -594,8 +608,6 @@ void device_amc_simulation::remove_collected_particles() {
     for (const auto &p_particle : m_list_particles) {
         if (p_particle->state().m_crossed_contact) {
             remove_particle = true;
-            if (m_simulation_options.m_export_time_step) {
-            }
             nb_part_erased++;
         }
     }

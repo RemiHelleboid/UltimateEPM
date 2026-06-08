@@ -253,7 +253,7 @@ int main(int argc, const char** argv) {
                                                        "max-particles",
                                                        "Hard maximum number of active particles.",
                                                        false,
-                                                       1000000,
+                                                       1000000000,
                                                        "integer");
 
         TCLAP::ValueArg<std::size_t> arg_avalanche_threshold("",

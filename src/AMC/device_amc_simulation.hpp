@@ -27,6 +27,7 @@ struct scheduled_particle_injection {
     mesh::vector3 m_position_um{0.0, 0.0, 0.0};
     particle_type m_particle_type = particle_type::electron;
     double        m_weight        = 1.0;
+    bool          m_done          = false;
 };
 
 /**
@@ -43,7 +44,7 @@ struct options_device_amc {
     std::size_t m_gamma_max_energy_samples             = 1000;
     double      m_time_step                            = 1e-15;    // s
     double      m_t_max                                = 1e-9;     // s
-    std::size_t m_max_number_particle                  = 1000000;  // Hard limit on nb of particles in the simulation.
+    std::size_t m_max_number_particle                  = 100000000;  // Hard limit on nb of particles in the simulation.
     std::size_t m_avalanche_threshold                  = 1000;
     bool        m_particle_creation_activated          = true;
     bool        m_stop_simu_when_no_electron_remaining = true;
@@ -197,6 +198,7 @@ class device_amc_simulation {
 
     void                      remove_collected_particles();
     std::pair<double, double> compute_ramo_current() const;
+    double                    compute_ramo_current_for_particle(const particle_amc &particle) const;
     virtual double            ramo_current_scale_factor() const;
 
     void run();

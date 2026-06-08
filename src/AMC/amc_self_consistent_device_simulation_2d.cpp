@@ -486,11 +486,11 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
             break;
         }
 
-        transport_particles_one_time_step();
-        add_particle_charges_to_elements();
         const auto [electron_current, hole_current] = compute_ramo_current();
         accumulator_ramo_current_electron += electron_current;
         accumulator_ramo_current_hole += hole_current;
+        transport_particles_one_time_step();
+        add_particle_charges_to_elements();
 
         const bool should_update_poisson =
             (m_state.m_iteration % m_self_consistent_options.m_poisson_frequency == 0) && (m_state.m_iteration != 0);
