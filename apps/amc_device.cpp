@@ -1,5 +1,5 @@
 /**
- * @file device_analytic_mc.cpp
+ * @file amc_device.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
  * @brief
  * @version 0.1

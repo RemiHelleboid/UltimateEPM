@@ -1,18 +1,15 @@
 /**
- * @file electron_phonon.cpp
- * @author your name (you@domain.com)
- * @brief
+ * @file amc_bulk.cpp
+ * @author remzerrr (remi.helleboid@gmail.com)
+ * @brief 
  * @version 0.1
- * @date 2024-02-10
- *
- * @copyright Copyright (c) 2024
- *
- */
-/**
- * @file electron_phonon.cpp
- * @brief Analytical bulk Monte Carlo simulation driver.
+ * @date 2026-06-08
+ * 
+ * @copyright Copyright (c) 2026
+ * 
  */
 
+ 
 #include <fmt/chrono.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
