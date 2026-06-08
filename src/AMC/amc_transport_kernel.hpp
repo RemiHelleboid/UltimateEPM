@@ -26,6 +26,13 @@
 namespace uepm::amc {
 
 enum class impurity_scattering_model { mobility_empirical, screened_coulomb };
+
+/**
+ * @brief Configuration struct for the AMC transport kernel.
+ * Background for bulk, particle_local for device.
+ */
+enum class impurity_density_source { background, particle_local };
+
 struct amc_transport_config {
     particle_type m_carrier_type                  = particle_type::electron;
     double        m_lattice_temperature           = 300.0;
@@ -37,8 +44,8 @@ struct amc_transport_config {
 
     bool                      m_enable_impact_ionization   = false;
     bool                      m_enable_impurity_scattering = false;
-    impurity_scattering_model m_impurity_scattering_model =
-        impurity_scattering_model::screened_coulomb;
+    impurity_scattering_model m_impurity_scattering_model  = impurity_scattering_model::mobility_empirical;
+    impurity_density_source   m_impurity_density_source    = impurity_density_source::background;
 };
 
 class amc_transport_kernel {

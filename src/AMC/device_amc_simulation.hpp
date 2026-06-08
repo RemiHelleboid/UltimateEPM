@@ -45,7 +45,6 @@ struct options_device_amc {
     double      m_t_max                                = 1e-9;     // s
     std::size_t m_max_number_particle                  = 1000000;  // Hard limit on nb of particles in the simulation.
     std::size_t m_avalanche_threshold                  = 1000;
-    bool        m_activate_impact_ionization           = true;
     bool        m_particle_creation_activated          = true;
     bool        m_stop_simu_when_no_electron_remaining = true;
     bool        m_keep_particles_history               = false;
@@ -56,6 +55,10 @@ struct options_device_amc {
 
     bool                         m_enable_scheduled_particle_injection = false;
     scheduled_particle_injection m_scheduled_particle_injection{};
+
+    bool                      m_activate_impact_ionization = true;
+    bool                      m_enable_impurity_scattering = false;
+    impurity_scattering_model m_impurity_scattering_model  = impurity_scattering_model::mobility_empirical;
 
     options_device_amc() = default;
 

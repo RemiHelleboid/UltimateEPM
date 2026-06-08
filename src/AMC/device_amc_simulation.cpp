@@ -43,7 +43,8 @@ vector3 device_amc_simulation::get_RamoUnitaryElectricField_at_position(const me
     if (m_state.m_use_constant_RamoUnitaryElectricField) {
         return m_state.m_RamoUnitaryElectricField_Vm_per_cm;
     }
-    vector3 ramo_unitary_electric_field = m_device.interpolate_vector_at_location("RamoUnitaryElectricField", position);
+    vector3 ramo_unitary_electric_field =
+        m_device.interpolate_vector_at_location("RamoUnitaryPotential_gradient", position);
     return ramo_unitary_electric_field;
 }
 
@@ -70,12 +71,18 @@ double device_amc_simulation::get_total_hole_weight() const {
 amc_transport_config device_amc_simulation::make_transport_config(const options_device_amc &options,
                                                                   particle_type             carrier_type) {
     amc_transport_config cfg;
-    cfg.m_carrier_type                  = carrier_type;
-    cfg.m_lattice_temperature           = options.m_lattice_temperature;
-    cfg.m_max_energy_eV                 = options.m_max_energy_eV;
-    cfg.m_self_scattering_safety_factor = options.m_self_scattering_safety_factor;
-    cfg.m_gamma_max_energy_samples      = options.m_gamma_max_energy_samples;
-    cfg.m_enable_impact_ionization      = options.m_activate_impact_ionization;
+    cfg.m_carrier_type                     = carrier_type;
+    cfg.m_lattice_temperature              = options.m_lattice_temperature;
+    cfg.m_max_energy_eV                    = options.m_max_energy_eV;
+    cfg.m_self_scattering_safety_factor    = options.m_self_scattering_safety_factor;
+    cfg.m_gamma_max_energy_samples         = options.m_gamma_max_energy_samples;
+    cfg.m_enable_impact_ionization         = options.m_activate_impact_ionization;
+    cfg.m_enable_impurity_scattering       = options.m_enable_impurity_scattering;
+    cfg.m_impurity_density_source          = impurity_density_source::particle_local;
+    cfg.m_background_impurity_density_cm_3 = 0.0;
+    if (options.m_enable_impurity_scattering) {
+        cfg.m_impurity_scattering_model = options.m_impurity_scattering_model;
+    }
     return cfg;
 }
 

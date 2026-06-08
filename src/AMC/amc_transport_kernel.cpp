@@ -94,11 +94,18 @@ std::size_t draw_intervalley_destination_valley(const intervalley_phonon_branch&
     }
 }
 
-double local_impurity_density_cm_3(const particle_amc& particle, const amc_transport_config& cfg) {
-    if (particle.state().impurity_concentration_cm_3 > 0.0) {
-        return particle.state().impurity_concentration_cm_3;
+double impurity_density_cm_3(const particle_amc& particle, const amc_transport_config& cfg) {
+    switch (cfg.m_impurity_density_source) {
+        case impurity_density_source::background:
+            return std::isfinite(cfg.m_background_impurity_density_cm_3) && cfg.m_background_impurity_density_cm_3 > 0.0
+                       ? cfg.m_background_impurity_density_cm_3
+                       : 0.0;
+        case impurity_density_source::particle_local: {
+            const double local_density = particle.state().impurity_concentration_cm_3;
+            return std::isfinite(local_density) && local_density > 0.0 ? local_density : 0.0;
+        }
     }
-    return cfg.m_background_impurity_density_cm_3;
+    return 0.0;
 }
 
 }  // namespace
@@ -253,32 +260,27 @@ scattering_channel amc_transport_kernel::select_scattering_channel(const particl
 
     throw std::runtime_error("failed to select a real scattering channel");
 }
-
 double amc_transport_kernel::impurity_rate_for_particle(const particle_amc& p,
                                                         const valley_model& current_band,
                                                         double              energy_eV) const {
-    const double impurity_density_cm_3 = local_impurity_density_cm_3(p, m_cfg);
-
-    if (impurity_density_cm_3 <= 0.0) {
+    const double impurity_density = impurity_density_cm_3(p, m_cfg);
+    if (impurity_density <= 0.0) {
         return 0.0;
     }
-
     switch (m_cfg.m_impurity_scattering_model) {
         case impurity_scattering_model::mobility_empirical:
             return impurity_momentum_relaxation_rate_silicon(current_band,
                                                              p.type(),
-                                                             impurity_density_cm_3,
+                                                             impurity_density,
                                                              m_impurity_mobility_parameters);
-
         case impurity_scattering_model::screened_coulomb:
             return screened_coulomb_impurity_momentum_relaxation_rate_silicon(current_band,
                                                                               p.type(),
                                                                               energy_eV,
-                                                                              impurity_density_cm_3,
-                                                                              impurity_density_cm_3,
+                                                                              impurity_density,
+                                                                              impurity_density,
                                                                               m_cfg.m_lattice_temperature);
     }
-
     throw std::runtime_error("unknown impurity scattering model");
 }
 
