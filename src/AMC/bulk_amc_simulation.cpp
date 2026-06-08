@@ -377,6 +377,7 @@ void bulk_amc_simulation::run_self_scattering_emc() {
             }
         }
         double particle_ii_coefficient_raw = p.compute_raw_impact_ionization_coefficient();
+        fmt::print("Particle {} raw II coefficient: {:.6e} cm^-1\n", p.index(), particle_ii_coefficient_raw);
         reduced_ii_ionization_coefficient_raw += particle_ii_coefficient_raw;
     }
 

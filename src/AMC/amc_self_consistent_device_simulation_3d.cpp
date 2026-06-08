@@ -386,7 +386,7 @@ void self_consistent_device_amc_simulation_3d::update_self_consistent_potential(
     m_poisson_solver.apply_dirichlet_condition_second_member("cathode", m_self_consistent_options.m_cathode_voltage);
     m_poisson_solver.solve_system();
     constexpr bool add_gradient = true;
-    m_poisson_solver.add_solution_to_mesh_functions("DorySolution", add_gradient);
+    m_poisson_solver.add_solution_to_mesh_functions("PoissonSolution", add_gradient);
 }
 
 void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_simulation() {
@@ -454,11 +454,12 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
             (m_simulation_options.m_export_time_step &&
              m_state.m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0)) {
             export_current_state();
-            fmt::print("\rExported iteration at time {:<10.3e}ps - {:>9d} / {} ({:.1f}%) ",
+            fmt::print("\rExported iteration at time {:<10.3e}ps - {:>9d} / {} ({:.1f}%) -- number of particles: {}",
                        m_state.m_time_s * 1e12,
                        m_state.m_iteration,
                        total_iterations,
-                       static_cast<double>(m_state.m_iteration) / static_cast<double>(total_iterations) * 100.0);
+                       static_cast<double>(m_state.m_iteration) / static_cast<double>(total_iterations) * 100.0,
+                       m_list_particles.size());
             std::fflush(stdout);
         }
     }
@@ -466,10 +467,6 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
     fmt::print("END 3D SELF-CONSISTENT AMC SIMULATION\n");
 }
 
-void self_consistent_device_amc_simulation_3d::export_current_state() {
-    const std::string FileName = fmt::format("{}_poisson_time.vtk.{:09d}", m_simulation_options.m_prefix_export_filename, m_state.m_iteration);
-    file::export_as_vtk(*(m_device.get_p_mesh()), FileName, {}, {}, true);
-    export_current_time_step_particles_as_vtp(m_simulation_options.m_prefix_export_filename);
-}
+void self_consistent_device_amc_simulation_3d::export_current_state() { export_current_snapshot(); }
 
 }  // namespace uepm::amc

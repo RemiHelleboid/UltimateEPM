@@ -13,7 +13,10 @@
 
 #include <algorithm>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <limits>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -162,6 +165,164 @@ void export_as_vtk(const mesh::mesh&               mesh,
         write_vtk_data(file, mesh, scalar_fields, vector_fields, export_all_fields);
     }
     file.close();
+}
+
+void export_as_vtu(const mesh::mesh&               mesh,
+                   const std::string&              filename,
+                   const std::vector<std::string>& scalar_fields,
+                   const std::vector<std::string>& vector_fields,
+                   bool                            export_all_fields) {
+    std::ofstream file(filename);
+
+    if (!file.is_open()) {
+        throw std::runtime_error("Could not open VTU file: " + filename);
+    }
+
+    file << std::setprecision(std::numeric_limits<double>::max_digits10);
+
+    const auto list_vertices      = mesh.get_list_vertices();
+    const auto list_bulk_elements = mesh.get_list_bulk_element();
+
+    const std::size_t number_points = list_vertices.size();
+    const std::size_t number_cells  = list_bulk_elements.size();
+
+    const int dimension = mesh.get_dimension();
+    const int cell_type = (dimension == 2) ? VTK_TRIANGLE : VTK_TETRA;
+
+    file << "<?xml version=\"1.0\"?>\n";
+    file << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+    file << "  <UnstructuredGrid>\n";
+    file << "    <Piece NumberOfPoints=\"" << number_points << "\" NumberOfCells=\"" << number_cells << "\">\n";
+
+    file << "      <Points>\n";
+    file << "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+    file << "          ";
+    for (const auto& vertex : list_vertices) {
+        file << vertex.x() << ' ' << vertex.y() << ' ' << vertex.z() << ' ';
+    }
+    file << "\n";
+    file << "        </DataArray>\n";
+    file << "      </Points>\n";
+
+    file << "      <Cells>\n";
+
+    file << "        <DataArray type=\"Int64\" Name=\"connectivity\" format=\"ascii\">\n";
+    file << "          ";
+    for (const auto& element : list_bulk_elements) {
+        for (const auto& vertex_index : element->get_vertices_index()) {
+            file << static_cast<long long>(vertex_index) << ' ';
+        }
+    }
+    file << "\n";
+    file << "        </DataArray>\n";
+
+    file << "        <DataArray type=\"Int64\" Name=\"offsets\" format=\"ascii\">\n";
+    file << "          ";
+    std::size_t offset = 0;
+    for (const auto& element : list_bulk_elements) {
+        offset += element->get_vertices_index().size();
+        file << static_cast<long long>(offset) << ' ';
+    }
+    file << "\n";
+    file << "        </DataArray>\n";
+
+    file << "        <DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">\n";
+    file << "          ";
+    for (std::size_t i = 0; i < number_cells; ++i) {
+        file << cell_type << ' ';
+    }
+    file << "\n";
+    file << "        </DataArray>\n";
+
+    file << "      </Cells>\n";
+
+    const auto list_scalar_functions = mesh.get_list_scalar_functions();
+    const auto list_vector_functions = mesh.get_list_vector_functions();
+
+    std::vector<mesh::sp_scalar_function> scalar_vertex_functions;
+    std::vector<mesh::sp_scalar_function> scalar_cell_functions;
+    std::vector<mesh::sp_vector_function> vector_vertex_functions;
+    std::vector<mesh::sp_vector_function> vector_cell_functions;
+
+    for (const auto& scalar_function : list_scalar_functions) {
+        if (scalar_function->get_location_type() == mesh::DataLocationType::vertex) {
+            scalar_vertex_functions.push_back(scalar_function);
+        } else if (scalar_function->get_location_type() == mesh::DataLocationType::cell) {
+            scalar_cell_functions.push_back(scalar_function);
+        }
+    }
+
+    for (const auto& vector_function : list_vector_functions) {
+        if (vector_function->get_location_type() == mesh::DataLocationType::vertex) {
+            vector_vertex_functions.push_back(vector_function);
+        } else if (vector_function->get_location_type() == mesh::DataLocationType::cell) {
+            vector_cell_functions.push_back(vector_function);
+        }
+    }
+
+    file << "      <PointData>\n";
+
+    for (const auto& scalar_function : scalar_vertex_functions) {
+        const std::string field_name = scalar_function->get_name();
+
+        file << "        <DataArray type=\"Float64\" Name=\"" << field_name << "\" format=\"ascii\">\n";
+        file << "          ";
+        for (const auto& vertex : list_vertices) {
+            file << vertex.get_scalar_data(field_name) << ' ';
+        }
+        file << "\n";
+        file << "        </DataArray>\n";
+    }
+
+    for (const auto& vector_function : vector_vertex_functions) {
+        const std::string field_name = vector_function->get_name();
+
+        file << "        <DataArray type=\"Float64\" Name=\"" << field_name
+             << "\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+        file << "          ";
+        for (const auto& vertex : list_vertices) {
+            const auto vector = vertex.get_vector_data(field_name);
+            file << vector.x() << ' ' << vector.y() << ' ' << vector.z() << ' ';
+        }
+        file << "\n";
+        file << "        </DataArray>\n";
+    }
+
+    file << "      </PointData>\n";
+
+    file << "      <CellData>\n";
+
+    for (const auto& scalar_function : scalar_cell_functions) {
+        const std::string field_name = scalar_function->get_name();
+
+        file << "        <DataArray type=\"Float64\" Name=\"" << field_name << "\" format=\"ascii\">\n";
+        file << "          ";
+        for (const auto& element : list_bulk_elements) {
+            file << element->get_scalar_data(field_name) << ' ';
+        }
+        file << "\n";
+        file << "        </DataArray>\n";
+    }
+
+    for (const auto& vector_function : vector_cell_functions) {
+        const std::string field_name = vector_function->get_name();
+
+        file << "        <DataArray type=\"Float64\" Name=\"" << field_name
+             << "\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+        file << "          ";
+        for (const auto& element : list_bulk_elements) {
+            const auto vector = element->get_vector_data(field_name);
+            file << vector.x() << ' ' << vector.y() << ' ' << vector.z() << ' ';
+        }
+        file << "\n";
+        file << "        </DataArray>\n";
+    }
+
+    file << "      </CellData>\n";
+
+    file << "    </Piece>\n";
+    file << "  </UnstructuredGrid>\n";
+    file << "</VTKFile>\n";
 }
 
 }  // namespace file

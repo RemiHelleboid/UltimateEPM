@@ -29,6 +29,30 @@ def van_overstraeten_de_man_alpha_n(electric_field_V_per_m, temperature_K=300.0)
 
     return gamma * a_inf * np.exp(-gamma * b / electric_field_V_per_cm)
 
+def van_overstraeten_de_man_alpha_p(electric_field_V_per_m, temperature_K=300.0):
+    electric_field_V_per_cm = np.asarray(electric_field_V_per_m) / 100.0
+
+    e0 = 4.0e5  # V/cm
+
+    a_low = 1.582e6   # cm^-1
+    b_low = 2.036e6   # V/cm
+
+    a_high = 6.71e5   # cm^-1
+    b_high = 1.693e6  # V/cm
+
+    hbar_omega_op_eV = 0.063
+    k_B_eV_per_K = 8.617333262145e-5
+    T0 = 300.0
+
+    gamma = np.tanh(hbar_omega_op_eV / (2.0 * k_B_eV_per_K * T0)) / \
+            np.tanh(hbar_omega_op_eV / (2.0 * k_B_eV_per_K * temperature_K))
+
+    a_inf = np.where(electric_field_V_per_cm < e0, a_low, a_high)
+    b = np.where(electric_field_V_per_cm < e0, b_low, b_high)
+
+    return gamma * a_inf * np.exp(-gamma * b / electric_field_V_per_cm)
+
+
 
 
 def parse_args() -> argparse.Namespace:
@@ -175,12 +199,20 @@ def parse_args() -> argparse.Namespace:
         help="Number of threads for parallel execution.",
     )
 
+
+    parser.add_argument(
+        "--enable-impact-ionization",
+        action="store_true",
+        help="Enable impact ionization in the simulation.",
+    )
+    
     parser.add_argument(
         "--show",
         action="store_true",
         help="Show plots interactively after saving them.",
     )
     
+
     args = parser.parse_args()
     args.fields = [float(x) for x in args.fields.split(",") if x.strip()]
     
@@ -274,6 +306,9 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
     ]
     if args.enable_impurity_scattering:
         command.append("--enable-impurity-scattering")
+        
+    if args.enable_impact_ionization:
+        command.append("--enable-impact-ionization")
 
     log_file = run_dir / "stdout.log"
     
@@ -666,6 +701,32 @@ def plot_impact_ionization_coefficient(
                     linestyle="--",
                     label="Van Overstraeten-de Man electron",
                 )
+    elif particle == "hole":
+        field_data = data[data["field_V_per_m"].abs() > 0.0].copy()
+
+        if not field_data.empty:
+            min_field = float(field_data["field_abs_V_per_m"].min())
+            max_field = float(field_data["field_abs_V_per_m"].max())
+
+            if min_field > 0.0 and max_field > min_field:
+                field_reference_V_per_m = np.logspace(
+                    np.log10(min_field),
+                    np.log10(max_field),
+                    300,
+                )
+                inverse_field_reference_cm_per_V = 1.0 / (field_reference_V_per_m / 100.0)
+                alpha_reference_cm_1 = van_overstraeten_de_man_alpha_p(
+                    field_reference_V_per_m,
+                    temperature_K,
+                )
+                positive_reference = alpha_reference_cm_1 > 0.0
+                ax.plot(
+                    inverse_field_reference_cm_per_V[positive_reference],
+                    alpha_reference_cm_1[positive_reference],
+                    linestyle="--",
+                    label="Van Overstraeten-de Man hole",
+                )
+                
 
     ax.set_yscale("log")
     # ax.set_xlim(xmax=

@@ -538,8 +538,7 @@ int main(int argc, const char** argv) {
                                                                            arg_number_holes.getValue(),
                                                                            arg_seed.getValue());
 
-            simulation.set_prefix_export_trajectory_filename(fmt::format("{}/time_step", trajectory_dir));
-
+            simulation.set_prefix_export_trajectory_filename(trajectory_dir);
             simulation.run_self_consistent_transport_simulation();
 
             const std::string history_file = fmt::format("{}/device_history.csv", output_dir);

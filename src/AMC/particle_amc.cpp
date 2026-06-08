@@ -10,6 +10,10 @@
 
 #include "particle_amc.hpp"
 #include "physical_constants.hpp"
+#include "unit_conversion.hpp"
+
+#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include <cmath>
 #include <fstream>
@@ -73,11 +77,13 @@ void particle_amc::set_data_from_device(int m_dimension) {
 
 double particle_amc::compute_raw_impact_ionization_coefficient() const {
     // NB II / drift distance
-    double drift_distance_m = m_state.position.x();
-    return 0.01 *
+    double drift_distance_m = std::abs(m_state.position.x()) * uepm::units::micron_to_meter;  // assuming drift along x and position in microns
+    fmt::print("Drift distance for impact ionization coefficient: {:.3e} m\n", drift_distance_m);
+    double ii_coef = 1e-2 *
            static_cast<double>(
                history().scattering_events()[static_cast<std::size_t>(scattering_event::impact_ionization)]) /
            drift_distance_m;
+    return ii_coef;
 }
 
 void particle_history::export_trajectory_as_csv(const std::string& filename) const {

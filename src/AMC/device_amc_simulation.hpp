@@ -112,6 +112,11 @@ struct state_device_amc_simulation {
     vector3 m_RamoUnitaryElectricField_Vm_per_cm{0.0, 0.0, 0.0};
 };
 
+struct vtk_time_series_record {
+    double      m_time_s = 0.0;
+    std::string m_filename;
+};
+
 /**
  * @brief Device amc simulation class. This class contains the main loop of the simulation and the list of particles.
  *
@@ -139,13 +144,15 @@ class device_amc_simulation {
     virtual void                apply_z_periodicity_to_particles();
 
     // Export functions
-    struct particle_vtp_export_record {
-        double      m_time_s = 0.0;
-        std::string m_filename;
-    };
-    mutable std::vector<particle_vtp_export_record> m_particle_vtp_export_records;
-    void export_current_time_step_particles_as_vtp(const std::string &prefix_filename) const;
+
+    mutable std::vector<vtk_time_series_record> m_particle_vtp_export_records;
+    mutable std::vector<vtk_time_series_record> m_mesh_vtk_export_records;
+
+    void export_current_particles_as_vtp(const std::string &directory) const;
     void write_particle_vtp_time_collection(const std::string &pvd_filename) const;
+    void export_current_mesh_as_vtk(const std::string &directory) const;
+    void write_mesh_vtk_time_collection(const std::string &pvd_filename) const;
+    void export_current_snapshot() const;
 
     vector3 get_RamoUnitaryElectricField_at_position(const mesh::vector3 &position) const;
 

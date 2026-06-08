@@ -31,8 +31,118 @@
 
 #include "physical_constants.hpp"
 #include "unit_conversion.hpp"
+#include "vtkWriter.hpp"
 
 namespace uepm::amc {
+
+namespace {
+
+void write_vtk_time_collection(const std::string &pvd_filename, std::vector<vtk_time_series_record> records) {
+    std::ofstream stream(pvd_filename);
+
+    if (!stream.is_open()) {
+        throw std::runtime_error(fmt::format("Could not open VTK collection file '{}'", pvd_filename));
+    }
+
+    std::sort(records.begin(), records.end(), [](const vtk_time_series_record &lhs, const vtk_time_series_record &rhs) {
+        return lhs.m_time_s < rhs.m_time_s;
+    });
+
+    stream << std::setprecision(std::numeric_limits<double>::max_digits10);
+
+    stream << "<?xml version=\"1.0\"?>\n";
+    stream << "<VTKFile type=\"Collection\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+    stream << "  <Collection>\n";
+
+    for (const auto &record : records) {
+        stream << "    <DataSet timestep=\"" << record.m_time_s << "\" group=\"\" part=\"0\" file=\""
+               << record.m_filename << "\"/>\n";
+    }
+
+    stream << "  </Collection>\n";
+    stream << "</VTKFile>\n";
+}
+
+namespace {
+
+std::string python_string_literal(const std::string &value) {
+    std::string escaped;
+    escaped.reserve(value.size() + 2);
+    escaped.push_back('"');
+
+    for (const char c : value) {
+        switch (c) {
+            case '\\':
+                escaped += "\\\\";
+                break;
+            case '"':
+                escaped += "\\\"";
+                break;
+            case '\n':
+                escaped += "\\n";
+                break;
+            case '\r':
+                escaped += "\\r";
+                break;
+            case '\t':
+                escaped += "\\t";
+                break;
+            default:
+                escaped.push_back(c);
+                break;
+        }
+    }
+
+    escaped.push_back('"');
+    return escaped;
+}
+
+void write_paraview_scene_script(const std::filesystem::path &base_directory) {
+    std::filesystem::create_directories(base_directory);
+
+    const auto script_path = base_directory / "open_scene.py";
+    const auto scene_dir   = std::filesystem::absolute(base_directory).lexically_normal();
+
+    std::ofstream stream(script_path);
+
+    if (!stream.is_open()) {
+        throw std::runtime_error(fmt::format("Could not open ParaView scene script '{}'", script_path.string()));
+    }
+
+    stream << "from paraview.simple import *\n";
+    stream << "import os\n\n";
+
+    stream << "scene_dir = " << python_string_literal(scene_dir.generic_string()) << "\n";
+    stream << "mesh_file = os.path.join(scene_dir, \"mesh\", \"mesh.pvd\")\n";
+    stream << "particles_file = os.path.join(scene_dir, \"particles\", \"particles.pvd\")\n\n";
+
+    stream << "mesh = OpenDataFile(mesh_file)\n";
+    stream << "particles = OpenDataFile(particles_file)\n\n";
+
+    stream << "view = GetActiveViewOrCreate(\"RenderView\")\n\n";
+
+    stream << "mesh_display = Show(mesh, view)\n";
+    stream << "mesh_display.Representation = \"Surface\"\n\n";
+
+    stream << "particles_display = Show(particles, view)\n";
+    stream << "particles_display.Representation = \"Point Gaussian\"\n";
+    stream << "particles_display.PointSize = 6.0\n\n";
+
+    stream << "ColorBy(particles_display, (\"POINTS\", \"energy_eV\"))\n";
+    stream << "particles_display.RescaleTransferFunctionToDataRange(True, False)\n\n";
+
+    stream << "ColorBy(mesh_display, (\"POINTS\", \"PoissonSolution_gradient\"))\n";
+    stream << "mesh_display.RescaleTransferFunctionToDataRange(True, False)\n\n";
+
+    stream << "animation_scene = GetAnimationScene()\n";
+    stream << "animation_scene.UpdateAnimationUsingDataTimeSteps()\n";
+    stream << "ResetCamera(view)\n";
+    stream << "Render()\n";
+}
+
+}  // namespace
+
+}  // namespace
 
 struct impact_ionization_pair_seed {
     mesh::vector3 position;
@@ -172,7 +282,7 @@ void device_amc_simulation::inject_scheduled_particle_if_due() {
     }
     add_particle_at_position(injection.m_position_um, injection.m_particle_type, injection.m_weight);
     m_state.m_scheduled_particle_injection_done = true;
-    fmt::print("Scheduled particle injected at t={:.6e} s, "
+    fmt::print("\nScheduled particle injected at t={:.6e} s, "
                "position=({:.6e}, {:.6e}, {:.6e}) um, weight={:.6e}\n",
                injection.m_time_s,
                injection.m_position_um.x(),
@@ -380,17 +490,22 @@ void device_amc_simulation::transport_particles_one_time_step() {
         constexpr double cm_to_m = 1.0e2;
         transport.drift_particle(particle, particle.state().electric_field * cm_to_m, dt);
 
+        apply_z_periodicity_to_particles();  // In 3D, this does nothing.
+        update_element_and_check_boundary();
+        remove_collected_particles();
+
         // Scattering
         const auto event = transport.scatter_particle(particle, dt);
-        if (event == scattering_event::impact_ionization) {
+        // DEBUG 
+        std::size_t iter_start_ii = 1000;
+        if (event == scattering_event::impact_ionization && m_state.m_iteration >= iter_start_ii) {
             m_simulation_history.m_last_impact_ionization_position = particle.state().position;
 
             m_simulation_history.m_impact_ionization_positions.push_back(particle.state().position);
             // Debug print for impact ionization event
-            fmt::print("Impact ionization at position ({:.3e}, {:.3e}, {:.3e}) um\n",
-                       particle.state().position.x(),
-                       particle.state().position.y(),
-                       particle.state().position.z());
+            // fmt::print("Impact ionization for a {} um and energy {:.3e} eV\n",
+            //            particle.type() == particle_type::electron ? "electron" : "hole",
+            //            particle.state().kinetic_energy);
 
             if (m_simulation_options.m_particle_creation_activated) {
                 const std::size_t queued_particles = 2 * impact_pair_seeds.size();
@@ -406,9 +521,6 @@ void device_amc_simulation::transport_particles_one_time_step() {
             particle.record_state();
         }
     }
-    apply_z_periodicity_to_particles();  // In 3D, this does nothing.
-    update_element_and_check_boundary();
-    remove_collected_particles();
 
     for (const auto &seed : impact_pair_seeds) {
         add_particle_at_position(seed.position, particle_type::electron, seed.weight);
@@ -445,44 +557,33 @@ void reflect_particle_to_previous_position(particle_amc &particle) {
 
 void device_amc_simulation::update_element_and_check_boundary() {
     const bool is_2d = m_dimension == 2;
-
     for (auto &p_particle : m_list_particles) {
         auto &particle = *p_particle;
-
         const mesh::element *old_element = particle.get_containing_element();
-
         if (old_element == nullptr) {
             particle.set_crossed_contact(true);
             continue;
         }
-
         mesh::vector3 current_position = particle.state().position;
-
         if (is_2d) {
             current_position.to_2d_inplace();
         }
-
         if (old_element->is_location_inside_element(current_position)) {
             continue;
         }
-
         if (m_device.check_enters_contact(current_position)) {
             particle.set_crossed_contact(true);
             continue;
         }
-
         auto *new_element = m_device.find_element_at_location(current_position);
-
         if (new_element == nullptr) {
             reflect_particle_to_previous_position(particle);
             continue;
         }
-
         if (m_device.get_material_name_at_element(new_element) != "Silicon") {
             reflect_particle_to_previous_position(particle);
             continue;
         }
-
         particle.set_containing_element(new_element);
     }
 }
@@ -513,23 +614,18 @@ void device_amc_simulation::run() {
         if (m_list_particles.empty()) {
             break;
         }
-
         if (m_simulation_options.m_stop_simu_when_no_electron_remaining && get_number_electrons() == 0) {
             break;
         }
-
         if (has_reached_avalanche()) {
             break;
         }
-
         advance_particles_one_time_step();
-
         const auto nb_electrons         = get_number_electrons();
         const auto nb_holes             = get_number_holes();
         const auto nb_impact_ionization = m_simulation_history.m_impact_ionization_positions.size();
 
         double dumb_ramo_current_e_h_total = 0.0;
-
         m_simulation_history.add_data_to_history(m_state.m_time_s,
                                                  nb_electrons,
                                                  nb_holes,
@@ -552,6 +648,18 @@ std::vector<mesh::vector3> device_amc_simulation::get_all_particles_position() c
         return p_particle->state().position;
     });
     return all_positions;
+}
+
+void device_amc_simulation::export_current_snapshot() const {
+    const std::filesystem::path base_directory(m_simulation_options.m_prefix_export_filename);
+
+    const std::filesystem::path mesh_directory      = base_directory / "mesh";
+    const std::filesystem::path particles_directory = base_directory / "particles";
+
+    export_current_mesh_as_vtk(mesh_directory.string());
+    export_current_particles_as_vtp(particles_directory.string());
+
+    write_paraview_scene_script(base_directory);
 }
 
 std::pair<double, double> device_amc_simulation::compute_depletion_region() const {
@@ -658,14 +766,14 @@ void device_amc_simulation::export_all_trajectories_as_csv(const std::string &pr
     // std::cout << std::endl;
 }
 
-void device_amc_simulation::export_current_time_step_particles_as_vtp(const std::string &prefix_filename) const {
-    const std::filesystem::path prefix_path(prefix_filename);
+void device_amc_simulation::export_current_particles_as_vtp(const std::string &directory) const {
+    const std::filesystem::path output_directory(directory);
+    std::filesystem::create_directories(output_directory);
 
-    std::filesystem::path vtp_path = prefix_path;
-    vtp_path += fmt::format(".{:012d}.vtp", m_state.m_iteration);
+    const std::string filename = fmt::format("particles_{:012d}.vtp", m_state.m_iteration);
 
-    std::filesystem::path pvd_path = prefix_path;
-    pvd_path += ".pvd";
+    const std::filesystem::path vtp_path = output_directory / filename;
+    const std::filesystem::path pvd_path = output_directory / "particles.pvd";
 
     std::ofstream stream(vtp_path);
 
@@ -816,49 +924,49 @@ void device_amc_simulation::export_current_time_step_particles_as_vtp(const std:
     stream << "  </PolyData>\n";
     stream << "</VTKFile>\n";
 
-    const std::string vtp_filename = vtp_path.filename().generic_string();
-
     const auto already_recorded =
         std::find_if(m_particle_vtp_export_records.begin(),
                      m_particle_vtp_export_records.end(),
-                     [&](const particle_vtp_export_record &record) { return record.m_filename == vtp_filename; });
+                     [&](const vtk_time_series_record &record) { return record.m_filename == filename; });
 
     if (already_recorded == m_particle_vtp_export_records.end()) {
         m_particle_vtp_export_records.push_back(
-            particle_vtp_export_record{.m_time_s = m_state.m_time_s, .m_filename = vtp_filename});
+            vtk_time_series_record{.m_time_s = m_state.m_time_s, .m_filename = filename});
     }
 
     write_particle_vtp_time_collection(pvd_path.string());
 }
 
 void device_amc_simulation::write_particle_vtp_time_collection(const std::string &pvd_filename) const {
-    std::ofstream stream(pvd_filename);
+    write_vtk_time_collection(pvd_filename, m_particle_vtp_export_records);
+}
 
-    if (!stream.is_open()) {
-        throw std::runtime_error(fmt::format("Could not open particle PVD file '{}'", pvd_filename));
+void device_amc_simulation::export_current_mesh_as_vtk(const std::string &directory) const {
+    const std::filesystem::path output_directory(directory);
+    std::filesystem::create_directories(output_directory);
+
+    const std::string filename = fmt::format("mesh_{:012d}.vtu", m_state.m_iteration);
+
+    const std::filesystem::path vtu_path = output_directory / filename;
+    const std::filesystem::path pvd_path = output_directory / "mesh.pvd";
+
+    file::export_as_vtu(*(m_device.get_p_mesh()), vtu_path.string(), {}, {}, true);
+
+    const auto already_recorded =
+        std::find_if(m_mesh_vtk_export_records.begin(),
+                     m_mesh_vtk_export_records.end(),
+                     [&](const vtk_time_series_record &record) { return record.m_filename == filename; });
+
+    if (already_recorded == m_mesh_vtk_export_records.end()) {
+        m_mesh_vtk_export_records.push_back(
+            vtk_time_series_record{.m_time_s = m_state.m_time_s, .m_filename = filename});
     }
 
-    auto records = m_particle_vtp_export_records;
+    write_mesh_vtk_time_collection(pvd_path.string());
+}
 
-    std::sort(records.begin(),
-              records.end(),
-              [](const particle_vtp_export_record &lhs, const particle_vtp_export_record &rhs) {
-                  return lhs.m_time_s < rhs.m_time_s;
-              });
-
-    stream << std::setprecision(std::numeric_limits<double>::max_digits10);
-
-    stream << "<?xml version=\"1.0\"?>\n";
-    stream << "<VTKFile type=\"Collection\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
-    stream << "  <Collection>\n";
-
-    for (const auto &record : records) {
-        stream << "    <DataSet timestep=\"" << record.m_time_s << "\" group=\"\" part=\"0\" file=\""
-               << record.m_filename << "\"/>\n";
-    }
-
-    stream << "  </Collection>\n";
-    stream << "</VTKFile>\n";
+void device_amc_simulation::write_mesh_vtk_time_collection(const std::string &pvd_filename) const {
+    write_vtk_time_collection(pvd_filename, m_mesh_vtk_export_records);
 }
 
 }  // namespace uepm::amc

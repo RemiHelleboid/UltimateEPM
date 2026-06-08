@@ -36,6 +36,12 @@ void export_as_vtk(const mesh::mesh&               mesh,
                    const std::vector<std::string>& vector_fields     = {},
                    const bool                      export_all_fields = false);
 
+void export_as_vtu(const mesh::mesh&               mesh,
+                   const std::string&              filename,
+                   const std::vector<std::string>& scalar_fields     = {},
+                   const std::vector<std::string>& vector_fields     = {},
+                   bool                            export_all_fields = false);
+
 }  // namespace file
 
 }  // namespace uepm
