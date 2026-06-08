@@ -516,7 +516,7 @@ double amc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_o
         }
 
         if (m_cfg.m_enable_impurity_scattering && m_cfg.m_background_impurity_density_cm_3 > 0.0) {
-            total_rate += total_rate += impurity_rate_for_energy(band_or_valley, energy_eV);
+            total_rate += impurity_rate_for_energy(band_or_valley, energy_eV);
         }
 
         if (m_cfg.m_enable_impact_ionization) {
