@@ -30,6 +30,8 @@
 #include <string>
 #include <vector>
 
+#include <omp.h>
+
 #include "physical_constants.hpp"
 #include "unit_conversion.hpp"
 #include "vtkWriter.hpp"
@@ -261,6 +263,35 @@ const amc_transport_kernel &device_amc_simulation::transport_for(particle_type t
     return m_hole_transport;
 }
 
+void device_amc_simulation::initialize_thread_transports(int seed_random_generator) {
+    const auto number_threads = static_cast<std::size_t>(m_simulation_options.m_nb_threads);
+    if (number_threads <= 1) {
+        return;
+    }
+
+    m_thread_electron_transports.assign(number_threads, m_electron_transport);
+    m_thread_hole_transports.assign(number_threads, m_hole_transport);
+
+    for (std::size_t thread_index = 0; thread_index < number_threads; ++thread_index) {
+        const auto offset = static_cast<std::uint64_t>(7919 * thread_index);
+        m_thread_electron_transports[thread_index].seed(
+            static_cast<std::uint64_t>(seed_random_generator) + offset);
+        m_thread_hole_transports[thread_index].seed(
+            static_cast<std::uint64_t>(seed_random_generator) + offset + 1);
+    }
+}
+
+amc_transport_kernel &device_amc_simulation::transport_for(particle_type type, std::size_t thread_index) {
+    if (m_thread_electron_transports.empty()) {
+        return transport_for(type);
+    }
+
+    if (type == particle_type::electron) {
+        return m_thread_electron_transports.at(thread_index);
+    }
+    return m_thread_hole_transports.at(thread_index);
+}
+
 void device_amc_simulation::initialize_particle_transport_state(particle_amc &particle) {
     auto &transport = transport_for(particle.type());
 
@@ -353,6 +384,7 @@ device_amc_simulation::device_amc_simulation(const device::device     &simulatio
     m_simulation_history.m_initial_seed_rng = seed_random_generator;
     m_electron_transport.initialize();
     m_hole_transport.initialize();
+    initialize_thread_transports(seed_random_generator);
     initialize_scheduled_particle_injection();
 }
 
@@ -369,6 +401,7 @@ device_amc_simulation::device_amc_simulation(const device::device     &device_si
       m_simulation_options(simulation_option) {
     m_electron_transport.initialize();
     m_hole_transport.initialize();
+    initialize_thread_transports(seed_random_generator);
     mesh::element *first_element{nullptr};
     if (m_dimension == 2) {
         first_element = m_device.find_element_at_location(starting_position.to_2d());
@@ -545,12 +578,15 @@ void device_amc_simulation::transport_particles_one_time_step() {
     inject_scheduled_particle_if_due();
     const double                             dt = m_simulation_options.m_time_step;
     std::vector<impact_ionization_pair_seed> impact_pair_seeds;
-    for (auto &p_particle : m_list_particles) {
-        auto &particle = *p_particle;
+    const auto number_particles = static_cast<std::int64_t>(m_list_particles.size());
 
+#pragma omp parallel for if (m_simulation_options.m_nb_threads > 1) num_threads(m_simulation_options.m_nb_threads)
+    for (std::int64_t particle_index = 0; particle_index < number_particles; ++particle_index) {
+        auto &particle = *m_list_particles[static_cast<std::size_t>(particle_index)];
         particle.state().previous_position = particle.state().position;
         particle.set_data_from_device(m_dimension);
-        auto &transport = transport_for(particle.type());
+        const auto thread_index = static_cast<std::size_t>(omp_get_thread_num());
+        auto      &transport    = transport_for(particle.type(), thread_index);
         // Electric field is in V/cm, but we need it in V/m for the transport kernel, so we convert it here.
         constexpr double cm_to_m = 1.0e2;
         transport.drift_particle(particle, particle.state().electric_field * cm_to_m, dt);
@@ -559,13 +595,26 @@ void device_amc_simulation::transport_particles_one_time_step() {
     update_element_and_check_boundary();
     remove_collected_particles();
 
-    for (auto &p_particle : m_list_particles) {
-        auto &particle = *p_particle;
-        // Scattering
-        auto      &transport = transport_for(particle.type());
-        const auto event     = transport.scatter_particle(particle, dt);
+    const auto scattering_particle_count = static_cast<std::int64_t>(m_list_particles.size());
+    m_scattering_events_scratch.resize(static_cast<std::size_t>(scattering_particle_count));
 
-        if (event == scattering_event::impact_ionization) {
+#pragma omp parallel for if (m_simulation_options.m_nb_threads > 1) num_threads(m_simulation_options.m_nb_threads)
+    for (std::int64_t particle_index = 0; particle_index < scattering_particle_count; ++particle_index) {
+        auto &particle = *m_list_particles[static_cast<std::size_t>(particle_index)];
+        // Scattering
+        const auto thread_index = static_cast<std::size_t>(omp_get_thread_num());
+        auto      &transport    = transport_for(particle.type(), thread_index);
+        m_scattering_events_scratch[static_cast<std::size_t>(particle_index)] =
+            transport.scatter_particle(particle, dt);
+
+        if (m_simulation_options.m_keep_particles_history) {
+            particle.record_state();
+        }
+    }
+
+    for (std::size_t particle_index = 0; particle_index < m_scattering_events_scratch.size(); ++particle_index) {
+        auto &particle = *m_list_particles[particle_index];
+        if (m_scattering_events_scratch[particle_index] == scattering_event::impact_ionization) {
             m_simulation_history.m_last_impact_ionization_position = particle.state().position;
             m_simulation_history.m_impact_ionization_positions.push_back(particle.state().position);
             bool enable_part_creation = m_simulation_options.m_particle_creation_activated &&
@@ -578,10 +627,6 @@ void device_amc_simulation::transport_particles_one_time_step() {
                                                                             .weight   = particle.weight()});
                 }
             }
-        }
-
-        if (m_simulation_options.m_keep_particles_history) {
-            particle.record_state();
         }
     }
 

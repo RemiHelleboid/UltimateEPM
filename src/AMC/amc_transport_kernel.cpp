@@ -134,7 +134,21 @@ void amc_transport_kernel::initialize() {
     m_impact_ionization_parameters = make_silicon_impact_ionization_parameters();
     m_impurity_mobility_parameters = make_silicon_impurity_mobility_parameters();
 
-    m_gamma_max_s_1 = compute_max_self_scattering_rate(m_cfg.m_max_energy_eV, m_cfg.m_gamma_max_energy_samples);
+    m_gamma_max_by_valley_s_1.assign(m_valleys.size(), 0.0);
+    m_gamma_max_s_1 = 0.0;
+    for (std::size_t valley_index = 0; valley_index < m_valleys.size(); ++valley_index) {
+        double valley_gamma_max = 0.0;
+        for (std::size_t i = 0; i < m_cfg.m_gamma_max_energy_samples; ++i) {
+            const double x = static_cast<double>(i) /
+                             static_cast<double>(m_cfg.m_gamma_max_energy_samples - 1);
+            const double energy_eV = x * m_cfg.m_max_energy_eV;
+            valley_gamma_max =
+                std::max(valley_gamma_max, total_scattering_rate_for_energy(valley_index, energy_eV));
+        }
+        valley_gamma_max *= m_cfg.m_self_scattering_safety_factor;
+        m_gamma_max_by_valley_s_1[valley_index] = valley_gamma_max;
+        m_gamma_max_s_1 = std::max(m_gamma_max_s_1, valley_gamma_max);
+    }
 }
 
 void amc_transport_kernel::initialize_particle_state(particle_amc& p) {
@@ -180,7 +194,8 @@ void amc_transport_kernel::drift_particle(particle_amc& p, const mesh::vector3& 
 
     p.state().gamma               = valley.gamma_from_k_valley(p.state().local_k);
     p.state().kinetic_energy      = valley.kinetic_energy_from_gamma(p.state().gamma);
-    const vector3 velocity_valley = valley.velocity_from_k_valley(p.state().local_k);
+    const vector3 velocity_valley =
+        valley.velocity_from_k_valley_and_energy(p.state().local_k, p.state().kinetic_energy);
     p.state().velocity            = valley.to_global_frame(velocity_valley);
 
     const vector3 avg_velocity = 0.5 * (old_velocity + p.state().velocity);
@@ -203,6 +218,27 @@ double amc_transport_kernel::sample_free_flight_time() {
     } while (u <= 0.0);
 
     return -std::log(u) / m_gamma_max_s_1;
+}
+
+double amc_transport_kernel::gamma_max(const particle_amc& p) const {
+    const auto valley_index = p.state().valley_index;
+    if (valley_index >= m_gamma_max_by_valley_s_1.size()) {
+        throw std::out_of_range("invalid valley index in gamma_max");
+    }
+    return m_gamma_max_by_valley_s_1[valley_index];
+}
+
+double amc_transport_kernel::sample_free_flight_time(const particle_amc& p) {
+    const double local_gamma_max = gamma_max(p);
+    if (local_gamma_max <= 0.0) {
+        throw std::invalid_argument("valley max self-scattering rate must be > 0");
+    }
+
+    double u = 0.0;
+    do {
+        u = uniform01();
+    } while (u <= 0.0);
+    return -std::log(u) / local_gamma_max;
 }
 
 const impact_ionization_parameters& amc_transport_kernel::impact_ionization_parameters_for_carrier() const {
@@ -243,6 +279,11 @@ scattering_channel amc_transport_kernel::select_scattering_channel(const particl
         total_rate += channel.rate_s_1;
     }
 
+    return select_scattering_channel(channels, total_rate);
+}
+
+scattering_channel amc_transport_kernel::select_scattering_channel(const scattering_channel_list& channels,
+                                                                   double                         total_rate) {
     if (total_rate <= 0.0) {
         throw std::runtime_error("cannot select scattering channel with zero total rate");
     }
@@ -310,7 +351,7 @@ double amc_transport_kernel::impurity_rate_for_energy(const valley_model& band_o
     throw std::runtime_error("unknown impurity scattering model");
 }
 
-std::vector<scattering_channel> amc_transport_kernel::build_scattering_channels(const particle_amc& p) const {
+scattering_channel_list amc_transport_kernel::build_scattering_channels(const particle_amc& p) const {
     const auto current_band_index = p.state().valley_index;
     if (current_band_index >= m_valleys.size()) {
         throw std::out_of_range("invalid band/valley index in build_scattering_channels");
@@ -319,11 +360,9 @@ std::vector<scattering_channel> amc_transport_kernel::build_scattering_channels(
     const auto&  current_band = m_valleys[current_band_index];
     const double energy_eV    = p.state().kinetic_energy;
 
-    std::vector<scattering_channel> channels;
+    scattering_channel_list channels;
 
     if (p.type() == particle_type::hole) {
-        channels.reserve(2 + 2 * m_hole_optical_transitions.size());
-
         const double acoustic_rate =
             acoustic_scattering_rate_silicon_holes(current_band, energy_eV, m_cfg.m_lattice_temperature);
 
@@ -405,8 +444,6 @@ std::vector<scattering_channel> amc_transport_kernel::build_scattering_channels(
 
         return channels;
     }
-
-    channels.reserve(2 + 2 * m_intervalley_branches.size());
 
     const double acoustic_rate = acoustic_scattering_rate_silicon(current_band, energy_eV, m_cfg.m_lattice_temperature);
 
@@ -552,6 +589,9 @@ void amc_transport_kernel::ensure_gamma_max_covers(double total_rate) {
 
     const double old_gamma_max = m_gamma_max_s_1;
     m_gamma_max_s_1            = total_rate * m_cfg.m_self_scattering_safety_factor;
+    for (double& valley_gamma_max : m_gamma_max_by_valley_s_1) {
+        valley_gamma_max = std::max(valley_gamma_max, m_gamma_max_s_1);
+    }
 
     fmt::print(stderr,
                "Warning: gamma_max increased from {:.6e} to {:.6e} s^-1 "
@@ -560,6 +600,20 @@ void amc_transport_kernel::ensure_gamma_max_covers(double total_rate) {
                old_gamma_max,
                m_gamma_max_s_1,
                total_rate);
+}
+
+void amc_transport_kernel::ensure_gamma_max_covers(std::size_t band_or_valley_index, double total_rate) {
+    if (band_or_valley_index >= m_gamma_max_by_valley_s_1.size()) {
+        throw std::out_of_range("invalid valley index in ensure_gamma_max_covers");
+    }
+    if (total_rate <= m_gamma_max_by_valley_s_1[band_or_valley_index]) {
+        return;
+    }
+
+    m_gamma_max_by_valley_s_1[band_or_valley_index] =
+        total_rate * m_cfg.m_self_scattering_safety_factor;
+    m_gamma_max_s_1 =
+        std::max(m_gamma_max_s_1, m_gamma_max_by_valley_s_1[band_or_valley_index]);
 }
 
 double amc_transport_kernel::compute_max_self_scattering_rate(double max_energy_eV, std::size_t n_samples) const {
@@ -604,8 +658,8 @@ scattering_event amc_transport_kernel::apply_scattering_channel(particle_amc& p,
             p.state().local_k        = band_or_valley.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
             p.state().gamma          = band_or_valley.gamma_from_k_valley(p.state().local_k);
             p.state().kinetic_energy = band_or_valley.kinetic_energy_from_gamma(p.state().gamma);
-            p.state().velocity =
-                band_or_valley.to_global_frame(band_or_valley.velocity_from_k_valley(p.state().local_k));
+            p.state().velocity = band_or_valley.to_global_frame(
+                band_or_valley.velocity_from_k_valley_and_energy(p.state().local_k, p.state().kinetic_energy));
 
             p.increment_scattering_event_count();
             p.add_scattering_event(scattering_event::acoustic);
@@ -622,7 +676,8 @@ scattering_event amc_transport_kernel::apply_scattering_channel(particle_amc& p,
                 p.state().local_k        = dst_band.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
                 p.state().gamma          = dst_band.gamma_from_k_valley(p.state().local_k);
                 p.state().kinetic_energy = dst_band.kinetic_energy_from_gamma(p.state().gamma);
-                p.state().velocity       = dst_band.to_global_frame(dst_band.velocity_from_k_valley(p.state().local_k));
+                p.state().velocity = dst_band.to_global_frame(
+                    dst_band.velocity_from_k_valley_and_energy(p.state().local_k, p.state().kinetic_energy));
                 p.increment_scattering_event_count();
                 if (channel.process == intervalley_process::absorption) {
                     p.add_scattering_event(scattering_event::intervalley_absorption);
@@ -653,7 +708,8 @@ scattering_event amc_transport_kernel::apply_scattering_channel(particle_amc& p,
             p.state().local_k        = dst_valley.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
             p.state().gamma          = dst_valley.gamma_from_k_valley(p.state().local_k);
             p.state().kinetic_energy = dst_valley.kinetic_energy_from_gamma(p.state().gamma);
-            p.state().velocity       = dst_valley.to_global_frame(dst_valley.velocity_from_k_valley(p.state().local_k));
+            p.state().velocity = dst_valley.to_global_frame(
+                dst_valley.velocity_from_k_valley_and_energy(p.state().local_k, p.state().kinetic_energy));
             p.increment_scattering_event_count();
             if (channel.process == intervalley_process::absorption) {
                 p.add_scattering_event(scattering_event::intervalley_absorption);
@@ -677,8 +733,8 @@ scattering_event amc_transport_kernel::apply_scattering_channel(particle_amc& p,
             p.state().local_k        = band_or_valley.draw_random_k_valley_at_energy(channel.final_energy_eV, m_rng);
             p.state().gamma          = band_or_valley.gamma_from_k_valley(p.state().local_k);
             p.state().kinetic_energy = band_or_valley.kinetic_energy_from_gamma(p.state().gamma);
-            p.state().velocity =
-                band_or_valley.to_global_frame(band_or_valley.velocity_from_k_valley(p.state().local_k));
+            p.state().velocity = band_or_valley.to_global_frame(
+                band_or_valley.velocity_from_k_valley_and_energy(p.state().local_k, p.state().kinetic_energy));
             p.increment_scattering_event_count();
             p.add_scattering_event(scattering_event::impurity);
 
@@ -694,8 +750,8 @@ scattering_event amc_transport_kernel::apply_scattering_channel(particle_amc& p,
             p.state().local_k            = band_or_valley.draw_random_k_valley_at_energy(final_energy_eV, m_rng);
             p.state().gamma              = band_or_valley.gamma_from_k_valley(p.state().local_k);
             p.state().kinetic_energy     = band_or_valley.kinetic_energy_from_gamma(p.state().gamma);
-            p.state().velocity =
-                band_or_valley.to_global_frame(band_or_valley.velocity_from_k_valley(p.state().local_k));
+            p.state().velocity = band_or_valley.to_global_frame(
+                band_or_valley.velocity_from_k_valley_and_energy(p.state().local_k, p.state().kinetic_energy));
             p.increment_scattering_event_count();
             p.add_scattering_event(scattering_event::impact_ionization);
             return scattering_event::impact_ionization;

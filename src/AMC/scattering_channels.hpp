@@ -10,8 +10,10 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 
 namespace uepm::amc {
 
@@ -28,5 +30,31 @@ struct scattering_channel {
     std::size_t                      destination_index = 0;
     const intervalley_phonon_branch* branch            = nullptr;
     intervalley_process              process           = intervalley_process::none;
+};
+
+class scattering_channel_list {
+ public:
+    static constexpr std::size_t capacity = 16;
+
+    using const_iterator = std::array<scattering_channel, capacity>::const_iterator;
+
+    void push_back(const scattering_channel& channel) {
+        if (m_size == capacity) {
+            throw std::length_error("too many AMC scattering channels");
+        }
+        m_channels[m_size++] = channel;
+    }
+
+    [[nodiscard]] bool empty() const noexcept { return m_size == 0; }
+    [[nodiscard]] std::size_t size() const noexcept { return m_size; }
+    [[nodiscard]] const scattering_channel& front() const { return m_channels.front(); }
+    [[nodiscard]] const_iterator begin() const noexcept { return m_channels.begin(); }
+    [[nodiscard]] const_iterator end() const noexcept {
+        return m_channels.begin() + static_cast<std::ptrdiff_t>(m_size);
+    }
+
+ private:
+    std::array<scattering_channel, capacity> m_channels{};
+    std::size_t                              m_size = 0;
 };
 }  // namespace uepm::amc

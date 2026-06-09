@@ -167,6 +167,10 @@ class valley_model {
      */
     vector3 velocity_from_k_valley(const vector3& k_valley) const {
         const double energy = kinetic_energy_from_gamma(gamma_from_k_valley(k_valley));
+        return velocity_from_k_valley_and_energy(k_valley, energy);
+    }
+
+    vector3 velocity_from_k_valley_and_energy(const vector3& k_valley, double energy) const {
         const double factor = 1.0 + 2.0 * m_non_parabolicity * energy;
 
         return vector3{uepm::constants::h_bar * k_valley.x() / (m_transverse_effective_mass * factor),

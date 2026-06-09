@@ -130,18 +130,23 @@ class device_amc_simulation {
     device::device              m_device;
     amc_transport_kernel        m_electron_transport;
     amc_transport_kernel        m_hole_transport;
+    std::vector<amc_transport_kernel> m_thread_electron_transports;
+    std::vector<amc_transport_kernel> m_thread_hole_transports;
     int                         m_dimension;
     options_device_amc          m_simulation_options;
     history_device_amc          m_simulation_history{};
 
     std::vector<std::unique_ptr<particle_amc>> m_list_particles;
+    std::vector<std::optional<scattering_event>> m_scattering_events_scratch;
 
     void                        initialize_scheduled_particle_injection();
     bool                        has_pending_scheduled_particle_injection() const;
     void                        inject_scheduled_particle_if_due();
     static amc_transport_config make_transport_config(const options_device_amc &options, particle_type carrier_type);
+    void                         initialize_thread_transports(int seed_random_generator);
     amc_transport_kernel       &transport_for(particle_type type);
     const amc_transport_kernel &transport_for(particle_type type) const;
+    amc_transport_kernel       &transport_for(particle_type type, std::size_t thread_index);
     void                        initialize_particle_transport_state(particle_amc &particle);
     std::string                 initialize_simulation_history_file() ;
     virtual void                apply_z_periodicity_to_particles();

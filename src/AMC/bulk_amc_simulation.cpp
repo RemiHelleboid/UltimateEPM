@@ -321,7 +321,7 @@ void bulk_amc_simulation::run_self_scattering_emc() {
         while (p.state().time < m_cfg.m_final_time) {
             const double time_before_drift = p.state().time;
 
-            const double tau            = transport.sample_free_flight_time();
+            const double tau            = transport.sample_free_flight_time(p);
             const double remaining_time = m_cfg.m_final_time - p.state().time;
             const double drift_time     = std::min(tau, remaining_time);
             transport.drift_particle(p, m_cfg.m_electric_field, drift_time);
@@ -345,14 +345,18 @@ void bulk_amc_simulation::run_self_scattering_emc() {
                 break;
             }
 
-            const double total_rate = transport.total_scattering_rate(p);
+            const auto channels = transport.build_scattering_channels(p);
+            double     total_rate = 0.0;
+            for (const auto& channel : channels) {
+                total_rate += channel.rate_s_1;
+            }
             max_observed_total_rate = std::max(max_observed_total_rate, total_rate);
             // Do not call ensure_gamma_max_covers() in parallel on shared m_transport.
             // This local transport is thread-private, so this is safe.
-            transport.ensure_gamma_max_covers(total_rate);
+            transport.ensure_gamma_max_covers(p.state().valley_index, total_rate);
             const double u = transport.uniform01();
-            if (u < total_rate / transport.gamma_max()) {
-                const auto channel = transport.select_scattering_channel(p);
+            if (u < total_rate / transport.gamma_max(p)) {
+                const auto channel = transport.select_scattering_channel(channels, total_rate);
                 transport.apply_scattering_channel(p, channel);
             } else {
                 p.increment_scattering_event_count();

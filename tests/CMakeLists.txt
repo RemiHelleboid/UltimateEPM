@@ -5,6 +5,7 @@ set(TEST_DIRS
   "${CMAKE_CURRENT_SOURCE_DIR}/epp"
   "${CMAKE_CURRENT_SOURCE_DIR}/fbmc"
   "${CMAKE_CURRENT_SOURCE_DIR}/poisson"
+  "${CMAKE_CURRENT_SOURCE_DIR}/amc"
 )
 
 foreach(dir IN LISTS TEST_DIRS)
@@ -18,6 +19,9 @@ foreach(dir IN LISTS TEST_DIRS)
 
     add_executable(${exe} "${src}")
     target_link_libraries(${exe} PRIVATE doctest::doctest libepp lib_bzmesh libpoisson uepm::mesh libfile ${EXTRA_LIBS})
+    if(dir_name STREQUAL "amc")
+      target_link_libraries(${exe} PRIVATE uepm::amc)
+    endif()
 
     if(COMMAND doctest_discover_tests)
       doctest_discover_tests(${exe}
