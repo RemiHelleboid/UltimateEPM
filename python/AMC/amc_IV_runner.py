@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import math
+import os
+import shlex
 import subprocess
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -190,6 +193,20 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--resistance",
+        type=float,
+        default=1.0,
+        help="Passive quench resistance in ohms.",
+    )
+
+    parser.add_argument(
+        "--capacitance",
+        type=float,
+        default=1.0,
+        help="Passive quench capacitance in farads.",
+    )
+
+    parser.add_argument(
         "--effective-depth",
         type=float,
         default=1.0,
@@ -297,14 +314,43 @@ def parse_args() -> argparse.Namespace:
 
 
 def validate_args(args: argparse.Namespace) -> None:
-    if not args.exe.exists():
+    if not args.exe.is_file():
         raise FileNotFoundError(f"Executable not found: {args.exe}")
 
-    if not args.device_mesh.exists():
+    if not os.access(args.exe, os.X_OK):
+        raise PermissionError(f"Executable is not executable: {args.exe}")
+
+    if not args.device_mesh.is_file():
         raise FileNotFoundError(f"Device mesh not found: {args.device_mesh}")
 
-    if args.material_file is not None and not args.material_file.exists():
+    if args.material_file is not None and not args.material_file.is_file():
         raise FileNotFoundError(f"Material file not found: {args.material_file}")
+
+    finite_values = {
+        "--vmin": args.vmin,
+        "--vmax": args.vmax,
+        "--vstep": args.vstep,
+        "--cathode-voltage": args.cathode_voltage,
+        "--time": args.time,
+        "--dt": args.dt,
+        "--temperature": args.temperature,
+        "--max-energy": args.max_energy,
+        "--gamma-safety": args.gamma_safety,
+        "--x0": args.x0,
+        "--y0": args.y0,
+        "--z0": args.z0,
+        "--avalanche-voltage-drop": args.avalanche_voltage_drop,
+        "--quench-high-field": args.quench_high_field,
+        "--quench-quiet-time": args.quench_quiet_time,
+        "--resistance": args.resistance,
+        "--capacitance": args.capacitance,
+        "--effective-depth": args.effective_depth,
+        "--particle-z-period": args.particle_z_period,
+        "--transient-fraction": args.transient_fraction,
+    }
+    for option, value in finite_values.items():
+        if not math.isfinite(value):
+            raise ValueError(f"{option} must be finite.")
 
     if args.vstep == 0.0:
         raise ValueError("--vstep must be non-zero.")
@@ -351,6 +397,12 @@ def validate_args(args: argparse.Namespace) -> None:
     if args.quench_quiet_time <= 0.0:
         raise ValueError("--quench-quiet-time must be positive.")
 
+    if args.resistance <= 0.0:
+        raise ValueError("--resistance must be positive.")
+
+    if args.capacitance <= 0.0:
+        raise ValueError("--capacitance must be positive.")
+
     if args.effective_depth <= 0.0:
         raise ValueError("--effective-depth must be positive.")
 
@@ -368,6 +420,12 @@ def validate_args(args: argparse.Namespace) -> None:
 
     if args.export_frequency <= 0:
         raise ValueError("--export-frequency must be positive.")
+
+    if args.history_filename != "device_history.csv":
+        raise ValueError(
+            "--history-filename must be 'device_history.csv'; "
+            "the simulator does not support a custom history filename."
+        )
 
 
 def build_voltage_list(vmin: float, vmax: float, vstep: float) -> list[float]:
@@ -390,7 +448,12 @@ def voltage_directory_name(voltage: float) -> str:
     return f"Va_{voltage:+.6e}_V".replace("+", "p").replace("-", "m")
 
 
-def build_command(args: argparse.Namespace, voltage: float, run_dir: Path) -> list[str]:
+def build_command(
+    args: argparse.Namespace,
+    voltage: float,
+    run_dir: Path,
+    seed: int,
+) -> list[str]:
     command = [
         str(args.exe),
         "--device-mesh",
@@ -435,12 +498,16 @@ def build_command(args: argparse.Namespace, voltage: float, run_dir: Path) -> li
         str(args.quench_high_field),
         "--quench-quiet-time",
         str(args.quench_quiet_time),
+        "--resistance",
+        str(args.resistance),
+        "--capacitance",
+        str(args.capacitance),
         "--effective-depth",
         str(args.effective_depth),
         "--particle-z-period",
         str(args.particle_z_period),
         "--seed",
-        str(args.seed),
+        str(seed),
         "--export-frequency",
         str(args.export_frequency),
         "-j",
@@ -470,7 +537,7 @@ def build_command(args: argparse.Namespace, voltage: float, run_dir: Path) -> li
     return command
 
 
-def run_one_voltage(args: argparse.Namespace, voltage: float) -> Path:
+def run_one_voltage(args: argparse.Namespace, voltage: float, seed: int) -> Path:
     run_dir = args.outdir / voltage_directory_name(voltage)
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -480,12 +547,12 @@ def run_one_voltage(args: argparse.Namespace, voltage: float) -> Path:
         print(f"Reusing Va = {voltage:.6e} V", flush=True)
         return history_file
 
-    command = build_command(args, voltage, run_dir)
+    command = build_command(args, voltage, run_dir, seed)
 
     log_file = run_dir / "stdout.log"
     command_file = run_dir / "command.txt"
 
-    command_file.write_text(" ".join(command) + "\n", encoding="utf-8")
+    command_file.write_text(shlex.join(command) + "\n", encoding="utf-8")
 
     with log_file.open("w", encoding="utf-8") as stream:
         completed = subprocess.run(
@@ -498,8 +565,7 @@ def run_one_voltage(args: argparse.Namespace, voltage: float) -> Path:
 
     if completed.returncode != 0:
         raise RuntimeError(
-            f"Simulation failed for Va={voltage:.6e} V. "
-            f"See log: {log_file}"
+            f"Simulation failed for Va={voltage:.6e} V. " f"See log: {log_file}"
         )
 
     if not history_file.exists():
@@ -586,30 +652,25 @@ def extract_iv_point(
 
     result: dict[str, float | str] = {
         "voltage_V": float(voltage),
-
         "time_min_s": t_min,
         "time_max_s": t_max,
         "transient_cut_s": t_cut,
         "n_samples_total": int(len(df)),
         "n_samples_steady": int(len(steady)),
-
         "mean_current_A_per_um": mean_current,
         "std_current_A_per_um": std_current,
         "stderr_current_A_per_um": float(stderr_current),
         "mean_abs_current_A_per_um": abs(mean_current),
-
         "mean_current_electron_A_per_um": float(np.mean(current_e)),
         "mean_current_hole_A_per_um": float(np.mean(current_h)),
         "std_current_electron_A_per_um": float(np.std(current_e, ddof=1)),
         "std_current_hole_A_per_um": float(np.std(current_h, ddof=1)),
-
         "mean_nb_electrons": float(steady["nb_electrons"].mean()),
         "mean_nb_holes": float(steady["nb_holes"].mean()),
         "final_nb_electrons": float(df["nb_electrons"].iloc[-1]),
         "final_nb_holes": float(df["nb_holes"].iloc[-1]),
         "max_nb_electrons": float(df["nb_electrons"].max()),
         "max_nb_holes": float(df["nb_holes"].max()),
-
         "history_file": str(history_file),
     }
 
@@ -618,6 +679,12 @@ def extract_iv_point(
 
     optional_mean_max(result, df, steady, "nb_impact_ionization")
     optional_mean_max(result, df, steady, "max_electric_field")
+    optional_mean_final(result, df, steady, "anode_voltage_V")
+    optional_mean_final(result, df, steady, "cathode_voltage_V")
+    optional_mean_final(result, df, steady, "quench_bias_voltage_V")
+    optional_mean_final(result, df, steady, "quench_device_current_A")
+    optional_mean_final(result, df, steady, "quench_resistor_current_A")
+    optional_mean_max(result, df, steady, "quench_voltage_drop_V")
 
     return result
 
@@ -625,12 +692,13 @@ def extract_iv_point(
 def run_and_extract_one_voltage(
     args: argparse.Namespace,
     voltage: float,
+    seed: int,
 ) -> dict[str, float | str]:
     print(f"Running Va = {voltage:.6e} V", flush=True)
 
     started = time.perf_counter()
 
-    history_file = run_one_voltage(args, voltage)
+    history_file = run_one_voltage(args, voltage, seed)
 
     record = extract_iv_point(
         history_file,
@@ -639,6 +707,7 @@ def run_and_extract_one_voltage(
     )
 
     record["runtime_s"] = float(time.perf_counter() - started)
+    record["seed"] = seed
 
     print(f"Finished Va = {voltage:.6e} V", flush=True)
 
@@ -864,7 +933,11 @@ def write_manifest(args: argparse.Namespace, voltages: list[float]) -> None:
         stream.write(f"nelectrons = {args.nelectrons}\n")
         stream.write(f"nholes = {args.nholes}\n")
         stream.write(f"max_particles = {args.max_particles}\n")
-        stream.write(f"avalanche_threshold = {args.avalanche_threshold}\n")
+        stream.write(f"avalanche_voltage_drop = {args.avalanche_voltage_drop:.8e}\n")
+        stream.write(f"quench_high_field = {args.quench_high_field:.8e}\n")
+        stream.write(f"quench_quiet_time = {args.quench_quiet_time:.8e}\n")
+        stream.write(f"resistance = {args.resistance:.8e}\n")
+        stream.write(f"capacitance = {args.capacitance:.8e}\n")
         stream.write(f"effective_depth = {args.effective_depth:.8e}\n")
         stream.write(f"particle_z_period = {args.particle_z_period:.8e}\n\n")
 
@@ -875,8 +948,12 @@ def write_manifest(args: argparse.Namespace, voltages: list[float]) -> None:
 
         stream.write(f"disable_impact_ionization = {args.disable_impact_ionization}\n")
         stream.write(f"disable_particle_creation = {args.disable_particle_creation}\n")
-        stream.write(f"disable_doping_init_particles = {args.disable_doping_init_particles}\n")
-        stream.write(f"keep_going_without_electrons = {args.keep_going_without_electrons}\n")
+        stream.write(
+            f"disable_doping_init_particles = {args.disable_doping_init_particles}\n"
+        )
+        stream.write(
+            f"keep_going_without_electrons = {args.keep_going_without_electrons}\n"
+        )
         stream.write(f"export_time_steps = {args.export_time_steps}\n")
         stream.write(f"export_frequency = {args.export_frequency}\n")
         stream.write("extra_args = " + " ".join(args.extra_args) + "\n")
@@ -885,6 +962,12 @@ def write_manifest(args: argparse.Namespace, voltages: list[float]) -> None:
 def main() -> int:
     args = parse_args()
     validate_args(args)
+
+    args.exe = args.exe.resolve()
+    args.device_mesh = args.device_mesh.resolve()
+    if args.material_file is not None:
+        args.material_file = args.material_file.resolve()
+    args.outdir = args.outdir.resolve()
 
     args.outdir.mkdir(parents=True, exist_ok=True)
 
@@ -904,21 +987,27 @@ def main() -> int:
         print(f"  {voltage:.6e} V")
 
     print(
-        f"Running with jobs={args.jobs}, "
-        f"threads_per_run={args.threads_per_run}",
+        f"Running with jobs={args.jobs}, " f"threads_per_run={args.threads_per_run}",
         flush=True,
     )
 
     records: list[dict[str, float | str]] = []
 
     if args.jobs == 1:
-        for voltage in voltages:
-            records.append(run_and_extract_one_voltage(args, voltage))
+        for index, voltage in enumerate(voltages):
+            records.append(
+                run_and_extract_one_voltage(args, voltage, args.seed + index)
+            )
     else:
         with ProcessPoolExecutor(max_workers=args.jobs) as executor:
             futures = {
-                executor.submit(run_and_extract_one_voltage, args, voltage): voltage
-                for voltage in voltages
+                executor.submit(
+                    run_and_extract_one_voltage,
+                    args,
+                    voltage,
+                    args.seed + index,
+                ): voltage
+                for index, voltage in enumerate(voltages)
             }
 
             for future in as_completed(futures):

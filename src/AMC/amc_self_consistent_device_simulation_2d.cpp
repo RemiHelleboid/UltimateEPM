@@ -301,23 +301,13 @@ void self_consistent_device_amc_simulation_2d::add_missing_contact_charge_to_poi
     if (accumulation_steps == 0) {
         throw std::invalid_argument("accumulation_steps must be positive.");
     }
-
     const double accumulation_factor = static_cast<double>(accumulation_steps);
-
     for (std::size_t i = 0; i < m_list_element_contact_ptr.size(); ++i) {
         auto& element = m_list_element_contact_ptr[i];
-
         const double equilibrium_charge        = m_list_element_contact_equilibrium_charge[i];
         const double accumulated_mobile_charge = element->get_n_charge() - element->get_p_charge();
         const double target_accumulated_charge = equilibrium_charge * accumulation_factor;
         const double correction                = target_accumulated_charge - accumulated_mobile_charge;
-        // fmt::print(
-        //     "Contact element {}: equilibrium charge = {:.3e}, accumulated mobile charge = {:.3e}, target accumulated
-        //     " "charge = {:.3e}, correction = {:.3e}\n", m_list_element_contact[i], equilibrium_charge,
-        //     accumulated_mobile_charge,
-        //     target_accumulated_charge,
-        //     correction);
-
         if (correction > 0.0) {
             element->add_n_charge(correction);
         } else if (correction < 0.0) {
