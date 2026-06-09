@@ -20,7 +20,9 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <thread>
 
+#include "amc_run_manifest.hpp"
 #include "bulk_amc_simulation.hpp"
 
 namespace {
@@ -304,6 +306,7 @@ int main(int argc, const char** argv) {
         uepm::amc::bulk_amc_simulation simulation{config};
         simulation.initialize();
 
+        const std::string started_at_utc = uepm::amc::current_utc_timestamp();
         const auto start_time = std::chrono::high_resolution_clock::now();
 
         if (runner == "self-scattering") {
@@ -331,6 +334,96 @@ int main(int argc, const char** argv) {
         if (arg_plot_with_python.getValue()) {
             fmt::print("Plot option requested, but no plotting hook is currently configured.\n");
         }
+
+        const auto& observables = simulation.observables();
+        const auto& ii_stats    = simulation.impact_ionization_statistics();
+        const double mean_velocity_x_m_per_s =
+            observables.accumulated_time_s > 0.0
+                ? observables.weighted_velocity_x_m2_per_s2 / observables.accumulated_time_s
+                : 0.0;
+        const double mean_energy_eV =
+            observables.accumulated_time_s > 0.0
+                ? observables.weighted_kinetic_energy_eV_s / observables.accumulated_time_s
+                : 0.0;
+
+        uepm::amc::simulation_manifest manifest;
+        manifest.add("run", "simulation_type", "bulk_amc");
+        manifest.add("run", "status", "completed");
+        manifest.add("run", "started_at_utc", started_at_utc);
+        manifest.add("run", "finished_at_utc", uepm::amc::current_utc_timestamp());
+        manifest.add("run", "elapsed_seconds", elapsed.count());
+        manifest.add("run", "command_line", uepm::amc::command_line_from_arguments(argc, argv));
+        manifest.add("run", "working_directory", std::filesystem::current_path().string());
+
+        manifest.add("build", "project_version", uepm::amc::amc_project_version());
+        manifest.add("build", "build_type", uepm::amc::amc_build_type());
+        manifest.add("build", "compiler", uepm::amc::amc_compiler());
+        manifest.add("build",
+                     "hardware_concurrency",
+                     static_cast<std::size_t>(std::thread::hardware_concurrency()));
+
+        manifest.add("input", "material", material_symbol);
+        manifest.add("input", "carrier_type", particle_type_string);
+        manifest.add("input", "runner", runner);
+        manifest.add("input", "output_directory", std::filesystem::absolute(output_dir).string());
+
+        manifest.add("simulation", "number_of_particles", config.m_number_of_particles);
+        manifest.add("simulation", "requested_threads", config.m_nb_threads);
+        manifest.add("simulation", "random_seed_policy", runner == "self-scattering" ? "thread_seed_base_1234" : "random_device");
+        manifest.add("simulation", "lattice_temperature_K", config.m_lattice_temperature);
+        manifest.add("simulation", "final_time_s", config.m_final_time);
+        manifest.add("simulation", "fixed_time_step_s", config.m_time_step);
+        manifest.add("simulation", "warmup_fraction", config.m_warmup_fraction);
+        manifest.add("simulation", "record_history", config.m_record_history);
+        manifest.add("simulation", "electric_field_x_V_per_m", config.m_electric_field.x());
+        manifest.add("simulation", "electric_field_y_V_per_m", config.m_electric_field.y());
+        manifest.add("simulation", "electric_field_z_V_per_m", config.m_electric_field.z());
+
+        manifest.add("scattering", "impact_ionization_enabled", config.m_enable_impact_ionization);
+        manifest.add("scattering", "impurity_scattering_enabled", config.m_enable_impurity_scattering);
+        manifest.add("scattering", "impurity_density_cm_3", config.m_impurity_density_cm_3);
+        manifest.add(
+            "scattering",
+            "impurity_model",
+            config.m_impurity_scattering_model == uepm::amc::impurity_scattering_model::mobility_empirical
+                ? "mobility-empirical"
+                : "screened-coulomb");
+        manifest.add("scattering", "gamma_max_energy_eV", config.m_max_energy_eV);
+        manifest.add("scattering", "gamma_safety_factor", config.m_self_scattering_safety_factor);
+        manifest.add("scattering", "gamma_energy_samples", config.m_gamma_max_energy_samples);
+        manifest.add("scattering", "computed_gamma_max_s_1", simulation.gamma_max());
+
+        manifest.add("results", "mean_velocity_x_m_per_s", mean_velocity_x_m_per_s);
+        manifest.add("results", "mean_kinetic_energy_eV", mean_energy_eV);
+        manifest.add("results", "accumulated_carrier_time_s", observables.accumulated_time_s);
+        manifest.add("results", "acoustic_events", simulation.count_scattering_events(uepm::amc::scattering_event::acoustic));
+        manifest.add("results",
+                     "intervalley_absorption_events",
+                     simulation.count_scattering_events(uepm::amc::scattering_event::intervalley_absorption));
+        manifest.add("results",
+                     "intervalley_emission_events",
+                     simulation.count_scattering_events(uepm::amc::scattering_event::intervalley_emission));
+        manifest.add("results", "impurity_events", simulation.count_scattering_events(uepm::amc::scattering_event::impurity));
+        manifest.add("results",
+                     "impact_ionization_events",
+                     simulation.count_scattering_events(uepm::amc::scattering_event::impact_ionization));
+        manifest.add("results",
+                     "self_scattering_events",
+                     simulation.count_scattering_events(uepm::amc::scattering_event::self_scattering));
+        manifest.add("results", "impact_ionization_rate_per_carrier_s_1", ii_stats.event_rate_per_carrier_s_1());
+        manifest.add("results", "impact_ionization_coefficient_cm_1", ii_stats.ionization_coefficient_cm_1());
+
+        manifest.add("outputs", "observables_csv", fmt::format("{}/observables.csv", output_dir));
+        manifest.add("outputs", "particle_history_exported", config.m_record_history);
+        if (config.m_record_history) {
+            manifest.add("outputs", "particle_history_prefix", file_prefix);
+        }
+
+        const std::filesystem::path manifest_file =
+            std::filesystem::path(output_dir) / "simulation_manifest.txt";
+        manifest.add("outputs", "simulation_manifest", manifest_file.string());
+        manifest.write(manifest_file);
+        fmt::print("Wrote {}\n", manifest_file.string());
 
         return 0;
     } catch (const TCLAP::ArgException& error) {

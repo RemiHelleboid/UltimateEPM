@@ -169,10 +169,24 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--avalanche-threshold",
-        type=int,
-        default=1000,
-        help="Particle-count threshold used to stop the simulation.",
+        "--avalanche-voltage-drop",
+        type=float,
+        default=1.0,
+        help="Absolute quench-circuit voltage drop used to detect avalanche, in volts.",
+    )
+
+    parser.add_argument(
+        "--quench-high-field",
+        type=float,
+        default=1.0e5,
+        help="Particle electric-field threshold that resets the quench quiet window, in V/cm.",
+    )
+
+    parser.add_argument(
+        "--quench-quiet-time",
+        type=float,
+        default=1.0e-11,
+        help="Required time without high-field particles or impact ionization after avalanche, in seconds.",
     )
 
     parser.add_argument(
@@ -328,11 +342,14 @@ def validate_args(args: argparse.Namespace) -> None:
     if args.max_particles <= 0:
         raise ValueError("--max-particles must be positive.")
 
-    if args.avalanche_threshold <= 0:
-        raise ValueError("--avalanche-threshold must be positive.")
+    if args.avalanche_voltage_drop <= 0.0:
+        raise ValueError("--avalanche-voltage-drop must be positive.")
 
-    if args.avalanche_threshold > args.max_particles:
-        raise ValueError("--avalanche-threshold cannot be larger than --max-particles.")
+    if args.quench_high_field <= 0.0:
+        raise ValueError("--quench-high-field must be positive.")
+
+    if args.quench_quiet_time <= 0.0:
+        raise ValueError("--quench-quiet-time must be positive.")
 
     if args.effective_depth <= 0.0:
         raise ValueError("--effective-depth must be positive.")
@@ -412,8 +429,12 @@ def build_command(args: argparse.Namespace, voltage: float, run_dir: Path) -> li
         str(args.nholes),
         "--max-particles",
         str(args.max_particles),
-        "--avalanche-threshold",
-        str(args.avalanche_threshold),
+        "--avalanche-voltage-drop",
+        str(args.avalanche_voltage_drop),
+        "--quench-high-field",
+        str(args.quench_high_field),
+        "--quench-quiet-time",
+        str(args.quench_quiet_time),
         "--effective-depth",
         str(args.effective_depth),
         "--particle-z-period",

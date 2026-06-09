@@ -33,7 +33,6 @@ void options_self_consistent_device_amc_2d::validate() const {
 double self_consistent_device_amc_simulation_2d::scale_integrated_2d_doping_to_carriers(
     double integrated_doping) const {
     constexpr double micron_to_cm = 1.0e-4;
-
     return integrated_doping * m_self_consistent_options.m_effective_depth_um * micron_to_cm;
 }
 
@@ -502,11 +501,12 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
             break;
         }
 
-        if (has_reached_avalanche()) {
-            fmt::print("Stop: avalanche threshold reached.\n");
+        if (has_reached_particle_limit()) {
+            fmt::print("Stop: hard particle limit reached.\n");
             break;
         }
 
+        const std::size_t impact_events_before_step = m_simulation_history.m_impact_ionization_positions.size();
         transport_particles_one_time_step();
         add_particle_charges_to_elements();
 
@@ -527,8 +527,9 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
             accumulator_ramo_current_hole     = 0.0;
 
             if (m_simulation_options.m_scheduled_particle_injection.m_done) {
-                const double circuit_dt_s = m_simulation_options.m_time_step * sim_poisson_frequency;
-                advance_quench_circuit(ramo_current, circuit_dt_s);
+                const double circuit_dt_s  = m_simulation_options.m_time_step * sim_poisson_frequency;
+                const double sample_time_s = m_state.m_time_s + m_simulation_options.m_time_step;
+                advance_quench_circuit(ramo_current, circuit_dt_s, sample_time_s);
             }
 
             add_charges_at_contacts(poisson_frequency());
@@ -548,8 +549,9 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
 
         m_state.m_time_s += m_simulation_options.m_time_step;
         ++m_state.m_iteration;
+        update_successful_quench_detection(m_state.m_time_s, impact_events_before_step);
 
-        const double temp_max_electric_field = 0.0;
+        const double max_electric_field_V_per_cm = max_particle_electric_field_V_per_cm();
         m_simulation_history.add_data_to_history(m_state.m_time_s,
                                                  get_number_electrons(),
                                                  get_number_holes(),
@@ -557,7 +559,7 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
                                                  ramo_current_electron,
                                                  ramo_current_hole,
                                                  ramo_current,
-                                                 temp_max_electric_field,
+                                                 max_electric_field_V_per_cm,
                                                  anode_voltage_for_poisson(),
                                                  cathode_voltage_for_poisson(),
                                                  quench_supply_voltage_for_history(),

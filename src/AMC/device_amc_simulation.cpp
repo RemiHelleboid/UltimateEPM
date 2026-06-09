@@ -174,12 +174,6 @@ void options_device_amc::validate() const {
     if (m_max_number_particle == 0) {
         throw std::invalid_argument("--max-particles must be positive.");
     }
-    if (m_avalanche_threshold == 0) {
-        throw std::invalid_argument("--avalanche-threshold must be positive.");
-    }
-    if (m_avalanche_threshold > m_max_number_particle) {
-        throw std::invalid_argument("--avalanche-threshold cannot be larger than --max-particles.");
-    }
     if (m_frequency_export_trajectory <= 0) {
         throw std::invalid_argument("--export-frequency must be positive.");
     }
@@ -723,7 +717,7 @@ void device_amc_simulation::run() {
         if (m_simulation_options.m_stop_simu_when_no_electron_remaining && get_number_electrons() == 0) {
             break;
         }
-        if (has_reached_avalanche()) {
+        if (has_reached_particle_limit()) {
             break;
         }
         advance_particles_one_time_step();

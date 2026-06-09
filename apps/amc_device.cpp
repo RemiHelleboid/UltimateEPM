@@ -14,6 +14,7 @@
 #include <string>
 
 #include "amc_device_runner.hpp"
+#include "amc_run_manifest.hpp"
 #include "amc_device_setup.hpp"
 
 int main(int argc, const char** argv) {
@@ -126,12 +127,27 @@ int main(int argc, const char** argv) {
                                                        1000000000,
                                                        "integer");
 
-        TCLAP::ValueArg<std::size_t> arg_avalanche_threshold("",
-                                                             "avalanche-threshold",
-                                                             "Particle count threshold used to stop the simulation.",
-                                                             false,
-                                                             1000,
-                                                             "integer");
+        TCLAP::ValueArg<double> arg_avalanche_voltage_drop(
+            "",
+            "avalanche-voltage-drop",
+            "Absolute quench-circuit voltage drop used to detect avalanche, in volts.",
+            false,
+            1.0,
+            "volts");
+        TCLAP::ValueArg<double> arg_quench_high_field(
+            "",
+            "quench-high-field",
+            "Particle electric-field threshold that resets the successful-quench quiet window, in V/cm.",
+            false,
+            1.0e5,
+            "V/cm");
+        TCLAP::ValueArg<double> arg_quench_quiet_time(
+            "",
+            "quench-quiet-time",
+            "Required time without high-field particles or impact ionization after avalanche, in seconds.",
+            false,
+            1.0e-11,
+            "seconds");
         TCLAP::ValueArg<int>         arg_nb_threads("j",
                                                     "nthreads",
                                                     "Number of threads requested by the simulation.",
@@ -269,7 +285,9 @@ int main(int argc, const char** argv) {
         cmd.add(arg_number_electrons);
         cmd.add(arg_number_holes);
         cmd.add(arg_max_particles);
-        cmd.add(arg_avalanche_threshold);
+        cmd.add(arg_avalanche_voltage_drop);
+        cmd.add(arg_quench_high_field);
+        cmd.add(arg_quench_quiet_time);
         cmd.add(arg_nb_threads);
         cmd.add(arg_seed);
         cmd.add(arg_disable_impact_ionization);
@@ -304,7 +322,6 @@ int main(int argc, const char** argv) {
         device_options.m_self_scattering_safety_factor        = arg_gamma_safety.getValue();
         device_options.m_gamma_max_energy_samples             = arg_gamma_samples.getValue();
         device_options.m_max_number_particle                  = arg_max_particles.getValue();
-        device_options.m_avalanche_threshold                  = arg_avalanche_threshold.getValue();
         device_options.m_nb_threads                           = arg_nb_threads.getValue();
         device_options.m_activate_impact_ionization           = !arg_disable_impact_ionization.getValue();
         device_options.m_particle_creation_activated          = !arg_disable_particle_creation.getValue();
@@ -339,6 +356,9 @@ int main(int argc, const char** argv) {
         sc_options.m_passive_quench_circuit.m_capacitance_F            = arg_quench_capacitance.getValue();
         sc_options.m_quench_biased_contact                             = uepm::amc::quench_biased_contact::cathode;
         sc_options.m_ramo_current_to_quench_current_sign               = -1.0;
+        sc_options.m_avalanche_voltage_drop_threshold_V                 = arg_avalanche_voltage_drop.getValue();
+        sc_options.m_quench_high_field_threshold_V_per_cm               = arg_quench_high_field.getValue();
+        sc_options.m_quench_quiet_time_s                                = arg_quench_quiet_time.getValue();
         sc_options.validate();
 
         uepm::amc::self_consistent_device_amc_run_config run_config;
@@ -347,6 +367,7 @@ int main(int argc, const char** argv) {
         run_config.material_symbol = material_symbol;
         run_config.output_dir      = arg_output_dir.getValue();
         run_config.simulation_name = arg_simulation_name.getValue();
+        run_config.command_line    = uepm::amc::command_line_from_arguments(argc, argv);
         run_config.starting_position =
             uepm::mesh::vector3{arg_start_x.getValue(), arg_start_y.getValue(), arg_start_z.getValue()};
         run_config.number_electrons_start                            = arg_number_electrons.getValue();

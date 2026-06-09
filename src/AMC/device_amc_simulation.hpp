@@ -45,7 +45,6 @@ struct options_device_amc {
     double      m_time_step                            = 1e-15;    // s
     double      m_t_max                                = 1e-9;     // s
     std::size_t m_max_number_particle                  = 100000000;  // Hard limit on nb of particles in the simulation.
-    std::size_t m_avalanche_threshold                  = 1000;
     bool        m_particle_creation_activated          = true;
     bool        m_stop_simu_when_no_electron_remaining = true;
     bool        m_keep_particles_history               = false;
@@ -66,7 +65,6 @@ struct options_device_amc {
     options_device_amc(double      t_max,
                        double      time_step,
                        std::size_t max_number_particle,
-                       std::size_t avalanche_threshold,
                        bool        activate_impact_ionization,
                        bool        particle_creation_activated,
                        bool        stop_simu_when_no_electron_remaining,
@@ -77,7 +75,6 @@ struct options_device_amc {
         : m_time_step(time_step),
           m_t_max(t_max),
           m_max_number_particle(max_number_particle),
-          m_avalanche_threshold(avalanche_threshold),
           m_activate_impact_ionization(activate_impact_ionization),
           m_particle_creation_activated(particle_creation_activated),
           m_stop_simu_when_no_electron_remaining(stop_simu_when_no_electron_remaining),
@@ -93,7 +90,6 @@ struct options_device_amc {
         std::cout << "Time step: " << m_time_step << std::endl;
         std::cout << "Final time: " << m_t_max << std::endl;
         std::cout << "Max number of particles: " << m_max_number_particle << std::endl;
-        std::cout << "Avalanche threshold: " << m_avalanche_threshold << std::endl;
         std::cout << "Activate impact ionization: " << m_activate_impact_ionization << std::endl;
         std::cout << "Activate particle creation: " << m_particle_creation_activated << std::endl;
         std::cout << "Stop simulation when no electron remaining: " << m_stop_simu_when_no_electron_remaining
@@ -220,7 +216,9 @@ class device_amc_simulation {
     void set_stop_simulation_without_electron(bool new_value) {
         m_simulation_options.m_stop_simu_when_no_electron_remaining = new_value;
     }
-    bool has_reached_avalanche() const { return m_list_particles.size() >= m_simulation_options.m_max_number_particle; }
+    bool has_reached_particle_limit() const {
+        return m_list_particles.size() >= m_simulation_options.m_max_number_particle;
+    }
 
     const history_device_amc &get_simulation_history() const { return m_simulation_history; }
 

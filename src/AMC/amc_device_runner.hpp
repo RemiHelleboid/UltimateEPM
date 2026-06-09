@@ -27,6 +27,7 @@ struct self_consistent_device_amc_run_config {
     std::string material_symbol = "Si";
     std::string output_dir;
     std::string simulation_name = "self_consistent_amc";
+    std::string command_line;
 
     mesh::vector3 starting_position{0.0, 0.0, 0.0};
     std::size_t   number_electrons_start = 1;

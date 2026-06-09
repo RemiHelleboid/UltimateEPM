@@ -14,8 +14,11 @@ set(HEADER_FILES_LIBAMC
     amc_self_consistent_device_simulation_3d.hpp
     amc_self_consistent_device_simulation_2d.hpp
     amc_quench_circuit.hpp
+    amc_avalanche_detector.hpp
+    amc_quench_detector.hpp
     amc_device_setup.hpp
     amc_device_runner.hpp
+    amc_run_manifest.hpp
   )
 
 
@@ -34,6 +37,7 @@ set(SOURCE_FILES_LIBAMC
     amc_quench_circuit.cpp
     amc_device_setup.cpp
     amc_device_runner.cpp
+    amc_run_manifest.cpp
 )
 
 add_library(lib_amc STATIC ${SOURCE_FILES_LIBAMC} ${HEADER_FILES_LIBAMC})
@@ -52,3 +56,10 @@ target_link_libraries(lib_amc PUBLIC ${GMSH_LIB})
 
 # All users of this library will need at least C++20
 target_compile_features(lib_amc PUBLIC cxx_std_20)
+target_compile_definitions(
+  lib_amc
+  PUBLIC
+    UEPM_PROJECT_VERSION="${PROJECT_VERSION}"
+    UEPM_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
+    UEPM_COMPILER="${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
+)

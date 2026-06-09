@@ -121,6 +121,12 @@ class bulk_amc_simulation {
     void        accumulate_observables(double dt);
     void        accumulate_particle_observables(const particle_amc& p, double dt);
     void        export_observables_to_csv(const std::string& filename) const;
+
+    const bulk_observables& observables() const noexcept { return m_observables; }
+    const impact_ionization_coefficient_statistics& impact_ionization_statistics() const noexcept {
+        return m_impact_ionization_coefficient_statistics;
+    }
+    double gamma_max() const noexcept { return m_transport.gamma_max(); }
 };
 
 }  // namespace uepm::amc

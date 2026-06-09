@@ -386,7 +386,7 @@ void self_consistent_device_amc_simulation_3d::recompute_vertex_space_charge_fro
 
 void self_consistent_device_amc_simulation_3d::update_self_consistent_potential() {
     m_poisson_solver.update_second_member();
-    m_poisson_solver.apply_dirichlet_condition_second_member("anode", common_options().m_anode_voltage);
+    m_poisson_solver.apply_dirichlet_condition_second_member("anode", anode_voltage_for_poisson());
     m_poisson_solver.apply_dirichlet_condition_second_member("cathode", cathode_voltage_for_poisson());
     m_poisson_solver.solve_system();
     constexpr bool add_gradient = true;
@@ -413,11 +413,13 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
             break;
         }
 
-        if (has_reached_avalanche()) {
-            fmt::print("Stop: avalanche threshold reached.\n");
+        if (has_reached_particle_limit()) {
+            fmt::print("Stop: hard particle limit reached.\n");
             break;
         }
 
+        const std::size_t impact_events_before_step =
+            m_simulation_history.m_impact_ionization_positions.size();
         transport_particles_one_time_step();
         add_particle_charges_to_elements();
         const auto [electron_current, hole_current] = compute_ramo_current();
@@ -429,23 +431,35 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
 
         if (should_update_poisson) {
             const std::size_t poisson_frequency = common_options().m_poisson_frequency;
+
+            ramo_current_electron =
+                accumulator_ramo_current_electron / static_cast<double>(poisson_frequency);
+            ramo_current_hole = accumulator_ramo_current_hole / static_cast<double>(poisson_frequency);
+            ramo_current      = ramo_current_electron + ramo_current_hole;
+            ramo_current -= common_options().m_background_ramo_current_A;
+            accumulator_ramo_current_electron = 0.0;
+            accumulator_ramo_current_hole     = 0.0;
+
+            if (m_simulation_options.m_scheduled_particle_injection.m_done) {
+                const double circuit_dt_s =
+                    m_simulation_options.m_time_step * static_cast<double>(poisson_frequency);
+                const double sample_time_s = m_state.m_time_s + m_simulation_options.m_time_step;
+                advance_quench_circuit(ramo_current, circuit_dt_s, sample_time_s);
+            }
+
             add_charges_at_contacts(poisson_frequency);
             add_particle_charges_to_elements();
             add_missing_contact_charge_to_poisson_reservoir(poisson_frequency + 1);
             recompute_vertex_space_charge_from_element_charges(poisson_frequency + 1);
             update_self_consistent_potential();
             reset_element_charges();
-            ramo_current_electron = accumulator_ramo_current_electron / static_cast<double>(poisson_frequency);
-            ramo_current_hole     = accumulator_ramo_current_hole / static_cast<double>(poisson_frequency);
-            ramo_current          = ramo_current_electron + ramo_current_hole;
-            accumulator_ramo_current_electron = 0.0;
-            accumulator_ramo_current_hole     = 0.0;
         }
 
         m_state.m_time_s += m_simulation_options.m_time_step;
         ++m_state.m_iteration;
+        update_successful_quench_detection(m_state.m_time_s, impact_events_before_step);
 
-        const double temp_max_electric_field = 0.0;
+        const double max_electric_field_V_per_cm = max_particle_electric_field_V_per_cm();
         m_simulation_history.add_data_to_history(m_state.m_time_s,
                                                  get_number_electrons(),
                                                  get_number_holes(),
@@ -453,7 +467,7 @@ void self_consistent_device_amc_simulation_3d::run_self_consistent_transport_sim
                                                  ramo_current_electron,
                                                  ramo_current_hole,
                                                  ramo_current,
-                                                 temp_max_electric_field,
+                                                 max_electric_field_V_per_cm,
                                                  anode_voltage_for_poisson(),
                                                  cathode_voltage_for_poisson(),
                                                  quench_supply_voltage_for_history(),
