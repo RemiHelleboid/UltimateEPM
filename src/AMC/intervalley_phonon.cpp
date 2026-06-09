@@ -16,14 +16,14 @@ std::vector<intervalley_phonon_branch> make_silicon_intervalley_phonon_branches(
     std::vector<intervalley_phonon_branch> branches;
     branches.reserve(5);
 
-    // Values inspired by the silicon MC model summarized in Aubry-Fortuna et al.
+    // Aubry-Fortuna et al.
     // Energies are in eV here.
     // D0 values are converted from eV/cm to eV/m.
     // The paper lists:
     // g1 = 11.4 meV, g2 = 18.8 meV, g3 = 63.2 meV,
     // f1 = 21.9 meV, f2 = 46.3 meV.
     // with g1, g2, f1 treated as first-order,
-    // and g3, f2 treated as zeroth-order. :contentReference[oaicite:1]{index=1}
+    // and g3, f2 treated as zeroth-order
 
     branches.push_back(intervalley_phonon_branch{.m_name                    = "g1_TA",
                                                  .m_family                  = intervalley_family::g,

@@ -50,7 +50,7 @@ void particle_amc::print_info() const {
     std::cout << "State:\n";
     std::cout << "  Time: " << m_state.time << " s\n";
     std::cout << "  Position: (" << m_state.position.x() << ", " << m_state.position.y() << ", " << m_state.position.z()
-              << ") m\n";
+              << ") \n";
     std::cout << "  Local k: (" << m_state.local_k.x() << ", " << m_state.local_k.y() << ", " << m_state.local_k.z()
               << ") 1/m\n";
     std::cout << "  Velocity: (" << m_state.velocity.x() << ", " << m_state.velocity.y() << ", " << m_state.velocity.z()

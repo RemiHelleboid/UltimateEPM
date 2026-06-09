@@ -66,13 +66,14 @@ carrier_impact_ionization_parameters make_silicon_impact_ionization_parameters()
     return parameters;
 }
 
+// Data from Annexe HDR Dollfus
 std::vector<valley_model> make_silicon_delta_valleys() {
     std::vector<valley_model> valleys;
     valleys.reserve(6);
 
     valley_model::parameters p;
-    p.transverse_effective_mass   = 0.19 * m0;
-    p.longitudinal_effective_mass = 0.916 * m0;
+    p.transverse_effective_mass   = 0.1905 * m0;
+    p.longitudinal_effective_mass = 0.9163 * m0;
 
     p.dispersion = valley_model::band_type::kane;
 
@@ -108,6 +109,7 @@ std::vector<valley_model> make_silicon_delta_valleys() {
     return valleys;
 }
 
+// IDEM
 std::vector<valley_model> make_silicon_hole_bands() {
     std::vector<valley_model> bands;
     bands.reserve(2);
@@ -128,8 +130,8 @@ std::vector<valley_model> make_silicon_hole_bands() {
 
     // Light-hole band: isotropic parabolic approximation
     p.name                        = "light_hole";
-    p.transverse_effective_mass   = 0.24 * m0;
-    p.longitudinal_effective_mass = 0.24 * m0;
+    p.transverse_effective_mass   = 0.25 * m0;
+    p.longitudinal_effective_mass = 0.25 * m0;
     bands.emplace_back(p);
 
     return bands;

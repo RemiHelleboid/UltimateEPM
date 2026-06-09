@@ -36,7 +36,8 @@ double acoustic_scattering_rate_silicon(const valley_model& valley, double energ
     constexpr double u_l     = 9.0e3;    // m / s
     constexpr double u_t     = 5.4e3;    // m / s
     constexpr double u_avg   = (u_l + 2.0 * u_t) / 3.0;
-    constexpr double D_ac_eV = 6.6;  // eV
+    // constexpr double D_ac_eV = 6.6;  // eV (Valeur de Aubry-Fortuna et al. pour les électrons, ajustée pour mieux correspondre aux données expérimentales de mobilité)
+    constexpr double D_ac_eV = 9.0;  // eV (Valeur dans l'HDR de Phillipe)
 
     const double energy_clamped_eV = std::max(energy_eV, 1.0e-9);
     const double energy_J          = energy_clamped_eV * uepm::constants::eV_to_J;
