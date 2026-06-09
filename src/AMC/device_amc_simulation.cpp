@@ -638,6 +638,7 @@ void device_amc_simulation::run() {
         const auto nb_impact_ionization = m_simulation_history.m_impact_ionization_positions.size();
 
         double dumb_ramo_current_e_h_total = 0.0;
+        double dumb_0 = 0.0;
         m_simulation_history.add_data_to_history(m_state.m_time_s,
                                                  nb_electrons,
                                                  nb_holes,
@@ -645,7 +646,13 @@ void device_amc_simulation::run() {
                                                  dumb_ramo_current_e_h_total,
                                                  dumb_ramo_current_e_h_total,
                                                  dumb_ramo_current_e_h_total,
-                                                 0.0);
+                                                 0.0,
+                                                 dumb_0,
+                                                 dumb_0,
+                                                 dumb_0,
+                                                 dumb_0,
+                                                 dumb_0,
+                                                 dumb_0);
 
         if (m_simulation_options.m_export_time_step &&
             m_state.m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0) {
@@ -695,7 +702,7 @@ std::pair<double, double> device_amc_simulation::compute_depletion_region() cons
     return {x_min, x_max};
 }
 
-std::string device_amc_simulation::initialize_simulation_history_file() const {
+std::string device_amc_simulation::initialize_simulation_history_file()  {
     std::string simulation_name_for_file =
         m_simulation_options.m_simulation_name.empty() ? "simulation" : m_simulation_options.m_simulation_name;
     const std::string history_filename =
@@ -707,16 +714,8 @@ std::string device_amc_simulation::initialize_simulation_history_file() const {
     if (!stream.is_open()) {
         throw std::runtime_error(fmt::format("Could not open simulation history CSV file '{}'", history_filename));
     }
-    stream << "time_s,"
-           << "nb_electrons,"
-           << "nb_holes,"
-           << "nb_impact_ionization,"
-           << "anode_current_A,"
-           << "cathode_current_A,"
-           << "ramo_current_A,"
-           << "depletion_x_min_um,"
-           << "depletion_x_max_um\n";
     stream.close();
+    m_simulation_history.print_header_csv(history_filename);
     return history_filename;
 }
 

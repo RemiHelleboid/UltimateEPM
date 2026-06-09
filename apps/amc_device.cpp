@@ -105,9 +105,27 @@ void validate_device_options(const uepm::amc::options_device_amc& options) {
     }
 }
 
-void validate_self_consistent_options(const uepm::amc::options_self_consistent_device_amc_3d& options) {
+void validate_self_consistent_options(const uepm::amc::options_self_consistent_device_amc_common& options) {
     if (options.m_poisson_frequency == 0) {
-        throw std::invalid_argument("--poisson-frequency must be positive.");
+        throw std::invalid_argument("Poisson frequency must be positive.");
+    }
+
+    if (!std::isfinite(options.m_anode_voltage)) {
+        throw std::invalid_argument("Anode voltage must be finite.");
+    }
+
+    if (!std::isfinite(options.m_cathode_voltage)) {
+        throw std::invalid_argument("Cathode voltage must be finite.");
+    }
+
+    if (options.m_passive_quench_circuit.m_enabled) {
+        if (options.m_passive_quench_circuit.m_resistance_ohm <= 0.0) {
+            throw std::invalid_argument("Passive quench resistance must be positive.");
+        }
+
+        if (options.m_passive_quench_circuit.m_capacitance_F <= 0.0) {
+            throw std::invalid_argument("Passive quench capacitance must be positive.");
+        }
     }
 }
 
@@ -451,24 +469,28 @@ int main(int argc, const char** argv) {
         device_options.m_enable_impurity_scattering = arg_enable_impurity_scattering.getValue();
         device_options.m_impurity_scattering_model  = parse_impurity_model(arg_impurity_model.getValue());
 
+        uepm::amc::options_self_consistent_device_amc_common sc_options;
+        sc_options.m_poisson_frequency                                 = arg_poisson_frequency.getValue();
+        sc_options.m_anode_voltage                                     = arg_anode_voltage.getValue();
+        sc_options.m_cathode_voltage                                   = arg_cathode_voltage.getValue();
+        sc_options.m_initialize_particles_from_doping                  = !arg_disable_doping_init_particles.getValue();
+        sc_options.m_passive_quench_circuit.m_enabled                  = true;
+        sc_options.m_passive_quench_circuit.m_bias_voltage_V           = sc_options.m_cathode_voltage;
+        sc_options.m_passive_quench_circuit.m_initial_device_voltage_V = sc_options.m_cathode_voltage;
+        sc_options.m_passive_quench_circuit.m_resistance_ohm           = 1.0e6;
+        sc_options.m_passive_quench_circuit.m_capacitance_F            = 1.0e-16;
+        sc_options.m_quench_biased_contact                             = uepm::amc::quench_biased_contact::cathode;
+        sc_options.m_ramo_current_to_quench_current_sign               = -1.0;
+        validate_self_consistent_options(sc_options);
+
         uepm::amc::options_self_consistent_device_amc_2d self_consistent_options_2d;
-        self_consistent_options_2d.m_poisson_frequency                = arg_poisson_frequency.getValue();
-        self_consistent_options_2d.m_anode_voltage                    = arg_anode_voltage.getValue();
-        self_consistent_options_2d.m_cathode_voltage                  = arg_cathode_voltage.getValue();
-        self_consistent_options_2d.m_effective_depth_um               = arg_effective_depth.getValue();
-        self_consistent_options_2d.m_particle_z_period_um             = arg_particle_z_period.getValue();
-        self_consistent_options_2d.m_initialize_particles_from_doping = !arg_disable_doping_init_particles.getValue();
+        self_consistent_options_2d.m_common               = sc_options;
+        self_consistent_options_2d.m_effective_depth_um   = arg_effective_depth.getValue();
+        self_consistent_options_2d.m_particle_z_period_um = arg_particle_z_period.getValue();
 
         uepm::amc::options_self_consistent_device_amc_3d self_consistent_options_3d;
-        self_consistent_options_3d.m_poisson_frequency                = arg_poisson_frequency.getValue();
-        self_consistent_options_3d.m_anode_voltage                    = arg_anode_voltage.getValue();
-        self_consistent_options_3d.m_cathode_voltage                  = arg_cathode_voltage.getValue();
-        self_consistent_options_3d.m_initialize_particles_from_doping = !arg_disable_doping_init_particles.getValue();
+        self_consistent_options_3d.m_common = sc_options;
 
-        if (self_consistent_options_2d.m_poisson_frequency == 0 ||
-            self_consistent_options_3d.m_poisson_frequency == 0) {
-            throw std::invalid_argument("--poisson-frequency must be positive.");
-        }
         if (self_consistent_options_2d.m_effective_depth_um <= 0.0) {
             throw std::invalid_argument("--effective-depth must be positive.");
         }

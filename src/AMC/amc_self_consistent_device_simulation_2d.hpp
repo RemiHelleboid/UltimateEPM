@@ -16,39 +16,24 @@
 #include <string>
 #include <vector>
 
+#include "amc_quench_circuit.hpp"
 #include "device.hpp"
 #include "device_amc_simulation.hpp"
 #include "materials.hpp"
 #include "poisson_solver_2d.hpp"
 #include "vtkWriter.hpp"
+#include "amc_self_consistent_device_simulation_base.hpp"
 
 namespace uepm::amc {
 
 struct options_self_consistent_device_amc_2d {
-    // Poisson solver options
-    bool        m_frozen_field_mode = false;
-    std::size_t m_poisson_frequency = 10;
+    options_self_consistent_device_amc_common m_common{};
 
-    double m_anode_voltage   = 0.0;
-    double m_cathode_voltage = 0.0;
-
-    // Weight of particles injected at contacts.
-    double m_contact_injection_particle_weight = 2.0;
-
-    // Physical depth represented by the 2D mesh.
-    // Used for doping integration, charge deposition, contact injection.
-    double m_effective_depth_um = 1.0;
-
-    // Numerical periodic z box for particle motion only.
-    // Does not affect Poisson charge normalization.
+    double m_effective_depth_um   = 1.0;
     double m_particle_z_period_um = 1.0;
-
-    bool   m_initialize_particles_from_doping = true;
-    double m_initial_particle_weight          = 2.0;
-
 };
 
-class self_consistent_device_amc_simulation_2d : public device_amc_simulation {
+class self_consistent_device_amc_simulation_2d : public self_consistent_device_amc_simulation_base {
  private:
     options_self_consistent_device_amc_2d m_self_consistent_options;
     uepm::fem::poisson_solver_2d          m_poisson_solver;
@@ -98,6 +83,7 @@ class self_consistent_device_amc_simulation_2d : public device_amc_simulation {
     void recompute_vertex_space_charge_from_element_charges(std::size_t accumulation_steps);
 
     void export_current_state();
+
 };
 
 }  // namespace uepm::amc

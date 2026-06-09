@@ -10,6 +10,7 @@ set(HEADER_FILES_LIBAMC
     amc_material_model.hpp
     amc_scattering_model.hpp
     amc_device_history.hpp
+    amc_self_consistent_device_simulation_base.hpp
     amc_self_consistent_device_simulation_3d.hpp
     amc_self_consistent_device_simulation_2d.hpp
     amc_quench_circuit.hpp
@@ -25,6 +26,7 @@ set(SOURCE_FILES_LIBAMC
     amc_transport_kernel.cpp
     amc_material_model.cpp
     amc_scattering_model.cpp
+    amc_self_consistent_device_simulation_base.cpp
     amc_self_consistent_device_simulation_3d.cpp
     amc_self_consistent_device_simulation_2d.cpp
     amc_quench_circuit.cpp

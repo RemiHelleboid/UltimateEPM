@@ -39,7 +39,7 @@ void self_consistent_device_amc_simulation_2d::validate_self_consistent_options(
     if (m_dimension != 2) {
         throw std::invalid_argument("self_consistent_device_amc_simulation_2d requires a 2D device.");
     }
-    if (m_self_consistent_options.m_poisson_frequency == 0) {
+    if (poisson_frequency() == 0) {
         throw std::invalid_argument("Poisson frequency must be positive.");
     }
 }
@@ -207,7 +207,7 @@ void self_consistent_device_amc_simulation_2d::add_charges_at_contacts(std::size
     if (poisson_frequency == 0) {
         throw std::invalid_argument("Poisson frequency must be positive.");
     }
-    const double particle_weight = m_self_consistent_options.m_contact_injection_particle_weight;
+    const double particle_weight = common_options().m_contact_injection_particle_weight;
     if (particle_weight <= 0.0) {
         throw std::invalid_argument("Contact injection particle weight must be positive.");
     }
@@ -328,17 +328,22 @@ void self_consistent_device_amc_simulation_2d::compute_unitary_potential() {
     m_poisson_solver.add_solution_to_mesh_functions("RamoUnitaryPotential", add_gradient);
 
     // Check if the Unitary is constant everywhere.
-    const double unitary_potential_max = m_device.get_p_mesh()->get_argmax_max_of_function("RamoUnitaryPotential_gradient_norm").second;
-    const double unitary_potential_min = m_device.get_p_mesh()->get_argmin_min_of_function("RamoUnitaryPotential_gradient_norm").second;
+    const double unitary_potential_max =
+        m_device.get_p_mesh()->get_argmax_max_of_function("RamoUnitaryPotential_gradient_norm").second;
+    const double unitary_potential_min =
+        m_device.get_p_mesh()->get_argmin_min_of_function("RamoUnitaryPotential_gradient_norm").second;
     if (std::abs(unitary_potential_max - unitary_potential_min) < 1e-6) {
-        fmt::print(
-            "INFO : Unitary potential is constant across the device (max = {:.6e}, min = {:.6e}). The Constant Unitary Electric Field will be used.\n",
-            unitary_potential_max, unitary_potential_min);
+        fmt::print("INFO : Unitary potential is constant across the device (max = {:.6e}, min = {:.6e}). The Constant "
+                   "Unitary Electric Field will be used.\n",
+                   unitary_potential_max,
+                   unitary_potential_min);
         m_state.m_use_constant_RamoUnitaryElectricField = true;
         m_state.m_RamoUnitaryElectricField_Vm_per_cm =
             m_device.get_p_mesh()->interpolate_vector_at_location("RamoUnitaryPotential_gradient", {1e-3, 1e-3, 0.0});
     } else {
-        fmt::print("Unitary potential computed. Max value: {:.6e}, Min value: {:.6e}\n", unitary_potential_max, unitary_potential_min);
+        fmt::print("Unitary potential computed. Max value: {:.6e}, Min value: {:.6e}\n",
+                   unitary_potential_max,
+                   unitary_potential_min);
     }
 }
 
@@ -360,15 +365,18 @@ self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_
     const options_self_consistent_device_amc_2d& self_consistent_options,
     const physic::material::list_materials&      list_materials,
     int                                          seed_random_generator)
-    : device_amc_simulation(simulation_device, simulation_options, seed_random_generator),
+    : self_consistent_device_amc_simulation_base(simulation_device,
+                                                 simulation_options,
+                                                 self_consistent_options.m_common,
+                                                 seed_random_generator),
       m_self_consistent_options(self_consistent_options),
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), list_materials),
       m_contact_rng(seed_random_generator + 1) {
     validate_self_consistent_options();
     initialize_contact_elements();
     initialize_poisson_solver();
-    if (m_self_consistent_options.m_initialize_particles_from_doping) {
-        place_initial_charges_according_to_doping(m_self_consistent_options.m_initial_particle_weight);
+    if (common_options().m_initialize_particles_from_doping) {
+        place_initial_charges_according_to_doping(common_options().m_initial_particle_weight);
     }
 }
 
@@ -381,20 +389,21 @@ self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_
     std::size_t                                  number_electrons_start,
     std::size_t                                  number_holes_start,
     int                                          seed_random_generator)
-    : device_amc_simulation(simulation_device,
-                            simulation_options,
-                            starting_position,
-                            number_electrons_start,
-                            number_holes_start,
-                            seed_random_generator),
+    : self_consistent_device_amc_simulation_base(simulation_device,
+                                                 simulation_options,
+                                                 self_consistent_options.m_common,
+                                                 starting_position,
+                                                 number_electrons_start,
+                                                 number_holes_start,
+                                                 seed_random_generator),
       m_self_consistent_options(self_consistent_options),
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), list_materials),
       m_contact_rng(seed_random_generator + 1) {
     validate_self_consistent_options();
     initialize_contact_elements();
     initialize_poisson_solver();
-    if (m_self_consistent_options.m_initialize_particles_from_doping) {
-        place_initial_charges_according_to_doping(m_self_consistent_options.m_initial_particle_weight);
+    if (common_options().m_initialize_particles_from_doping) {
+        place_initial_charges_according_to_doping(common_options().m_initial_particle_weight);
     }
 }
 
@@ -451,8 +460,8 @@ void self_consistent_device_amc_simulation_2d::apply_z_periodicity_to_particles(
 
 void self_consistent_device_amc_simulation_2d::update_self_consistent_potential() {
     m_poisson_solver.update_second_member();
-    m_poisson_solver.apply_dirichlet_condition_second_member("anode", m_self_consistent_options.m_anode_voltage);
-    m_poisson_solver.apply_dirichlet_condition_second_member("cathode", m_self_consistent_options.m_cathode_voltage);
+    m_poisson_solver.apply_dirichlet_condition_second_member("anode", anode_voltage_for_poisson());
+    m_poisson_solver.apply_dirichlet_condition_second_member("cathode", cathode_voltage_for_poisson());
     m_poisson_solver.solve_system();
     constexpr bool add_gradient = true;
     m_poisson_solver.add_solution_to_mesh_functions("PoissonSolution", add_gradient);
@@ -467,13 +476,15 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
 
     fmt::print("START 2D SELF-CONSISTENT AMC SIMULATION\n");
     fmt::print("Total iterations: {}\n", total_iterations);
-    fmt::print("Poisson frequency: {}\n", m_self_consistent_options.m_poisson_frequency);
+    fmt::print("Poisson frequency: {}\n", poisson_frequency());
 
     double accumulator_ramo_current_electron = 0.0;
     double accumulator_ramo_current_hole     = 0.0;
     double ramo_current_electron             = 0.0;
     double ramo_current_hole                 = 0.0;
     double ramo_current                      = 0.0;
+
+    const double sim_poisson_frequency = static_cast<double>(poisson_frequency());
 
     while (m_state.m_time_s <= m_simulation_options.m_t_max && !m_list_particles.empty()) {
         if (m_simulation_options.m_stop_simu_when_no_electron_remaining && get_number_electrons() == 0) {
@@ -486,35 +497,41 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
             break;
         }
 
-        const auto [electron_current, hole_current] = compute_ramo_current();
-        accumulator_ramo_current_electron += electron_current;
-        accumulator_ramo_current_hole += hole_current;
         transport_particles_one_time_step();
         add_particle_charges_to_elements();
 
+        const auto [electron_current, hole_current] = compute_ramo_current();
+        accumulator_ramo_current_electron += electron_current;
+        accumulator_ramo_current_hole += hole_current;
+
         const bool should_update_poisson =
-            (m_state.m_iteration % m_self_consistent_options.m_poisson_frequency == 0) && (m_state.m_iteration != 0);
+            (m_state.m_iteration % common_options().m_poisson_frequency == 0) && (m_state.m_iteration != 0);
 
         if (should_update_poisson) {
-            const std::size_t poisson_frequency = m_self_consistent_options.m_poisson_frequency;
-            add_charges_at_contacts(poisson_frequency);
-            add_particle_charges_to_elements();
-            add_missing_contact_charge_to_poisson_reservoir(poisson_frequency + 1);
-            recompute_vertex_space_charge_from_element_charges(poisson_frequency + 1);
-            update_self_consistent_potential();
-            reset_element_charges();
-
             // Ramo current
-            ramo_current_electron = accumulator_ramo_current_electron / static_cast<double>(poisson_frequency);
-            ramo_current_hole     = accumulator_ramo_current_hole / static_cast<double>(poisson_frequency);
+            ramo_current_electron = accumulator_ramo_current_electron / sim_poisson_frequency;
+            ramo_current_hole     = accumulator_ramo_current_hole / sim_poisson_frequency;
             ramo_current          = ramo_current_electron + ramo_current_hole;
             accumulator_ramo_current_electron = 0.0;
             accumulator_ramo_current_hole     = 0.0;
+
+            if (m_simulation_options.m_scheduled_particle_injection.m_done) {
+                const double circuit_dt_s = m_simulation_options.m_time_step * sim_poisson_frequency;
+                advance_quench_circuit(ramo_current, circuit_dt_s);
+            }
+
+            add_charges_at_contacts(poisson_frequency());
+            add_particle_charges_to_elements();
+            add_missing_contact_charge_to_poisson_reservoir(poisson_frequency() + 1);
+            recompute_vertex_space_charge_from_element_charges(poisson_frequency() + 1);
+            update_self_consistent_potential();
+            reset_element_charges();
         }
 
         m_state.m_time_s += m_simulation_options.m_time_step;
         ++m_state.m_iteration;
 
+        const double temp_max_electric_field = 0.0;
         m_simulation_history.add_data_to_history(m_state.m_time_s,
                                                  get_number_electrons(),
                                                  get_number_holes(),
@@ -522,7 +539,13 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
                                                  ramo_current_electron,
                                                  ramo_current_hole,
                                                  ramo_current,
-                                                 0.0);
+                                                 temp_max_electric_field,
+                                                 anode_voltage_for_poisson(),
+                                                 cathode_voltage_for_poisson(),
+                                                 quench_supply_voltage_for_history(),
+                                                 quench_device_current_for_history(),
+                                                 quench_resistor_current_for_history(),
+                                                 quench_voltage_drop_for_history());
 
         m_simulation_history.append_last_iter_to_csv(stream);
         if (m_state.m_iteration == 1 ||

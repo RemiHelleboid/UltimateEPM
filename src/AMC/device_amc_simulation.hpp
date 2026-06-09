@@ -141,7 +141,7 @@ class device_amc_simulation {
     amc_transport_kernel       &transport_for(particle_type type);
     const amc_transport_kernel &transport_for(particle_type type) const;
     void                        initialize_particle_transport_state(particle_amc &particle);
-    std::string                 initialize_simulation_history_file() const;
+    std::string                 initialize_simulation_history_file() ;
     virtual void                apply_z_periodicity_to_particles();
 
     // Export functions
