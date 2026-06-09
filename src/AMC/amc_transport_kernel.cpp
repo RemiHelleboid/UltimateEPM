@@ -14,6 +14,7 @@
 #include <fmt/core.h>
 
 #include <stdexcept>
+#include <utility>
 
 #include "amc_scattering_model.hpp"
 #include "unit_conversion.hpp"
@@ -110,29 +111,47 @@ double impurity_density_cm_3(const particle_amc& particle, const amc_transport_c
 
 }  // namespace
 
-amc_transport_kernel::amc_transport_kernel() : m_cfg{}, m_rng(std::random_device{}()) {}
+amc_transport_kernel::amc_transport_kernel()
+    : m_cfg{},
+      m_material_model(make_silicon_amc_material_model()),
+      m_rng(std::random_device{}()) {}
 
 amc_transport_kernel::amc_transport_kernel(const amc_transport_config& cfg)
     : m_cfg(cfg),
+      m_material_model(make_silicon_amc_material_model()),
       m_rng(std::random_device{}()) {}
 
 amc_transport_kernel::amc_transport_kernel(const amc_transport_config& cfg, std::uint64_t seed)
     : m_cfg(cfg),
+      m_material_model(make_silicon_amc_material_model()),
+      m_rng(seed) {}
+
+amc_transport_kernel::amc_transport_kernel(const amc_transport_config& cfg, amc_material_model material)
+    : m_cfg(cfg),
+      m_material_model(std::move(material)),
+      m_rng(std::random_device{}()) {}
+
+amc_transport_kernel::amc_transport_kernel(const amc_transport_config& cfg,
+                                           amc_material_model         material,
+                                           std::uint64_t              seed)
+    : m_cfg(cfg),
+      m_material_model(std::move(material)),
       m_rng(seed) {}
 
 void amc_transport_kernel::initialize() {
+    m_material_model.validate();
     if (m_cfg.m_carrier_type == particle_type::electron) {
-        m_valleys              = make_silicon_delta_valleys();
-        m_intervalley_branches = make_silicon_intervalley_phonon_branches();
+        m_valleys              = m_material_model.m_electron_valleys;
+        m_intervalley_branches = m_material_model.m_electron_intervalley_transitions;
         m_hole_optical_transitions.clear();
     } else {
-        m_valleys = make_silicon_hole_bands();
+        m_valleys = m_material_model.m_hole_bands;
         m_intervalley_branches.clear();
-        m_hole_optical_transitions = make_silicon_hole_optical_transitions();
+        m_hole_optical_transitions = m_material_model.m_hole_optical_transitions;
     }
 
-    m_impact_ionization_parameters = make_silicon_impact_ionization_parameters();
-    m_impurity_mobility_parameters = make_silicon_impurity_mobility_parameters();
+    m_impact_ionization_parameters = m_material_model.m_impact_ionization;
+    m_impurity_mobility_parameters = m_material_model.m_impurity_mobility;
 
     m_gamma_max_by_valley_s_1.assign(m_valleys.size(), 0.0);
     m_gamma_max_s_1 = 0.0;
@@ -310,17 +329,15 @@ double amc_transport_kernel::impurity_rate_for_particle(const particle_amc& p,
     }
     switch (m_cfg.m_impurity_scattering_model) {
         case impurity_scattering_model::mobility_empirical:
-            return impurity_momentum_relaxation_rate_silicon(current_band,
-                                                             p.type(),
-                                                             impurity_density,
-                                                             m_impurity_mobility_parameters);
+            return impurity_momentum_relaxation_rate(
+                current_band, p.type(), impurity_density, m_impurity_mobility_parameters);
         case impurity_scattering_model::screened_coulomb:
-            return screened_coulomb_impurity_momentum_relaxation_rate_silicon(current_band,
-                                                                              p.type(),
-                                                                              energy_eV,
-                                                                              impurity_density,
-                                                                              impurity_density,
-                                                                              m_cfg.m_lattice_temperature);
+            return screened_coulomb_impurity_momentum_relaxation_rate(current_band,
+                                                                      m_material_model.m_dielectric.epsilon_r,
+                                                                      energy_eV,
+                                                                      impurity_density,
+                                                                      impurity_density,
+                                                                      m_cfg.m_lattice_temperature);
     }
     throw std::runtime_error("unknown impurity scattering model");
 }
@@ -334,18 +351,18 @@ double amc_transport_kernel::impurity_rate_for_energy(const valley_model& band_o
 
     switch (m_cfg.m_impurity_scattering_model) {
         case impurity_scattering_model::mobility_empirical:
-            return impurity_momentum_relaxation_rate_silicon(band_or_valley,
-                                                             m_cfg.m_carrier_type,
-                                                             impurity_density_cm_3,
-                                                             m_impurity_mobility_parameters);
+            return impurity_momentum_relaxation_rate(band_or_valley,
+                                                     m_cfg.m_carrier_type,
+                                                     impurity_density_cm_3,
+                                                     m_impurity_mobility_parameters);
 
         case impurity_scattering_model::screened_coulomb:
-            return screened_coulomb_impurity_momentum_relaxation_rate_silicon(band_or_valley,
-                                                                              m_cfg.m_carrier_type,
-                                                                              energy_eV,
-                                                                              impurity_density_cm_3,
-                                                                              impurity_density_cm_3,
-                                                                              m_cfg.m_lattice_temperature);
+            return screened_coulomb_impurity_momentum_relaxation_rate(band_or_valley,
+                                                                      m_material_model.m_dielectric.epsilon_r,
+                                                                      energy_eV,
+                                                                      impurity_density_cm_3,
+                                                                      impurity_density_cm_3,
+                                                                      m_cfg.m_lattice_temperature);
     }
 
     throw std::runtime_error("unknown impurity scattering model");
@@ -363,8 +380,8 @@ scattering_channel_list amc_transport_kernel::build_scattering_channels(const pa
     scattering_channel_list channels;
 
     if (p.type() == particle_type::hole) {
-        const double acoustic_rate =
-            acoustic_scattering_rate_silicon_holes(current_band, energy_eV, m_cfg.m_lattice_temperature);
+        const double acoustic_rate = acoustic_scattering_rate(
+            current_band, m_material_model.m_hole_acoustic, energy_eV, m_cfg.m_lattice_temperature);
 
         if (acoustic_rate > 0.0) {
             channels.push_back(scattering_channel{.mechanism         = scattering_mechanism::acoustic,
@@ -372,7 +389,8 @@ scattering_channel_list amc_transport_kernel::build_scattering_channels(const pa
                                                   .final_energy_eV   = energy_eV,
                                                   .destination_index = current_band_index,
                                                   .branch            = nullptr,
-                                                  .process           = intervalley_process::none});
+                                                  .process           = intervalley_process::none,
+                                                  .transition_name   = "acoustic"});
         }
 
         for (const auto& transition : m_hole_optical_transitions) {
@@ -382,11 +400,13 @@ scattering_channel_list amc_transport_kernel::build_scattering_channels(const pa
 
             const auto& final_band = m_valleys[transition.final_band];
 
-            const double rate_abs = optical_scattering_rate_silicon_holes(final_band,
-                                                                          transition,
-                                                                          energy_eV,
-                                                                          true,
-                                                                          m_cfg.m_lattice_temperature);
+            const double rate_abs = optical_scattering_rate_holes(
+                final_band,
+                transition,
+                m_material_model.m_hole_acoustic.mass_density_kg_per_m3,
+                energy_eV,
+                true,
+                m_cfg.m_lattice_temperature);
 
             if (rate_abs > 0.0) {
                 channels.push_back(scattering_channel{.mechanism         = scattering_mechanism::intervalley,
@@ -394,15 +414,18 @@ scattering_channel_list amc_transport_kernel::build_scattering_channels(const pa
                                                       .final_energy_eV   = energy_eV + transition.phonon_energy_eV,
                                                       .destination_index = transition.final_band,
                                                       .branch            = nullptr,
-                                                      .process           = intervalley_process::absorption});
+                                                      .process           = intervalley_process::absorption,
+                                                      .transition_name   = transition.name});
             }
 
             const double final_energy_emission_eV = energy_eV - transition.phonon_energy_eV;
-            const double rate_em                  = optical_scattering_rate_silicon_holes(final_band,
-                                                                                          transition,
-                                                                                          energy_eV,
-                                                                                          false,
-                                                                                          m_cfg.m_lattice_temperature);
+            const double rate_em = optical_scattering_rate_holes(
+                final_band,
+                transition,
+                m_material_model.m_hole_acoustic.mass_density_kg_per_m3,
+                energy_eV,
+                false,
+                m_cfg.m_lattice_temperature);
 
             if (rate_em > 0.0 && final_energy_emission_eV >= 0.0) {
                 channels.push_back(scattering_channel{.mechanism         = scattering_mechanism::intervalley,
@@ -410,7 +433,8 @@ scattering_channel_list amc_transport_kernel::build_scattering_channels(const pa
                                                       .final_energy_eV   = final_energy_emission_eV,
                                                       .destination_index = transition.final_band,
                                                       .branch            = nullptr,
-                                                      .process           = intervalley_process::emission});
+                                                      .process           = intervalley_process::emission,
+                                                      .transition_name   = transition.name});
             }
         }
 
@@ -423,6 +447,7 @@ scattering_channel_list amc_transport_kernel::build_scattering_channels(const pa
                     .rate_s_1          = rate_impurity,
                     .final_energy_eV   = energy_eV,
                     .destination_index = current_band_index,
+                    .transition_name   = "impurity",
                 });
             }
         }
@@ -438,37 +463,51 @@ scattering_channel_list amc_transport_kernel::build_scattering_channels(const pa
                                                       .final_energy_eV   = energy_eV - impact_parameters.m_threshold_eV,
                                                       .destination_index = current_band_index,
                                                       .branch            = nullptr,
-                                                      .process           = intervalley_process::none});
+                                                      .process           = intervalley_process::none,
+                                                      .transition_name   = "impact_ionization"});
             }
         }
 
         return channels;
     }
 
-    const double acoustic_rate = acoustic_scattering_rate_silicon(current_band, energy_eV, m_cfg.m_lattice_temperature);
+    const double acoustic_rate = acoustic_scattering_rate(
+        current_band, m_material_model.m_electron_acoustic, energy_eV, m_cfg.m_lattice_temperature);
 
     if (acoustic_rate > 0.0) {
         channels.push_back(scattering_channel{.mechanism       = scattering_mechanism::acoustic,
                                               .rate_s_1        = acoustic_rate,
                                               .final_energy_eV = energy_eV,
                                               .branch          = nullptr,
-                                              .process         = intervalley_process::none});
+                                              .process         = intervalley_process::none,
+                                              .transition_name = "acoustic"});
     }
     const double optical_boost = 1.0;
     for (const auto& branch : m_intervalley_branches) {
-        const double rate_abs =
-            intervalley_scattering_rate(current_band, branch, energy_eV, true, m_cfg.m_lattice_temperature);
+        const double rate_abs = intervalley_scattering_rate(
+            current_band,
+            branch,
+            m_material_model.m_electron_acoustic.mass_density_kg_per_m3,
+            energy_eV,
+            true,
+            m_cfg.m_lattice_temperature);
 
         if (rate_abs > 0.0) {
             channels.push_back(scattering_channel{.mechanism       = scattering_mechanism::intervalley,
                                                   .rate_s_1        = rate_abs * optical_boost,
                                                   .final_energy_eV = energy_eV + branch.m_phonon_energy_eV,
                                                   .branch          = &branch,
-                                                  .process         = intervalley_process::absorption});
+                                                  .process         = intervalley_process::absorption,
+                                                  .transition_name = branch.m_name});
         }
 
-        const double rate_em =
-            intervalley_scattering_rate(current_band, branch, energy_eV, false, m_cfg.m_lattice_temperature);
+        const double rate_em = intervalley_scattering_rate(
+            current_band,
+            branch,
+            m_material_model.m_electron_acoustic.mass_density_kg_per_m3,
+            energy_eV,
+            false,
+            m_cfg.m_lattice_temperature);
 
         const double final_energy_emission_eV = energy_eV - branch.m_phonon_energy_eV;
         if (rate_em > 0.0 && final_energy_emission_eV >= 0.0) {
@@ -476,7 +515,8 @@ scattering_channel_list amc_transport_kernel::build_scattering_channels(const pa
                                                   .rate_s_1        = rate_em * optical_boost,
                                                   .final_energy_eV = final_energy_emission_eV,
                                                   .branch          = &branch,
-                                                  .process         = intervalley_process::emission});
+                                                  .process         = intervalley_process::emission,
+                                                  .transition_name = branch.m_name});
         }
     }
 
@@ -489,6 +529,7 @@ scattering_channel_list amc_transport_kernel::build_scattering_channels(const pa
                 .rate_s_1          = rate_impurity,
                 .final_energy_eV   = energy_eV,
                 .destination_index = current_band_index,
+                .transition_name   = "impurity",
             });
         }
     }
@@ -504,7 +545,8 @@ scattering_channel_list amc_transport_kernel::build_scattering_channels(const pa
                                                   .final_energy_eV   = energy_eV - impact_parameters.m_threshold_eV,
                                                   .destination_index = current_band_index,
                                                   .branch            = nullptr,
-                                                  .process           = intervalley_process::none});
+                                                  .process           = intervalley_process::none,
+                                                  .transition_name   = "impact_ionization"});
         }
     }
 
@@ -532,7 +574,8 @@ double amc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_o
     double      total_rate     = 0.0;
 
     if (m_cfg.m_carrier_type == particle_type::hole) {
-        total_rate += acoustic_scattering_rate_silicon_holes(band_or_valley, energy_eV, m_cfg.m_lattice_temperature);
+        total_rate += acoustic_scattering_rate(
+            band_or_valley, m_material_model.m_hole_acoustic, energy_eV, m_cfg.m_lattice_temperature);
 
         for (const auto& transition : m_hole_optical_transitions) {
             if (transition.initial_band != band_or_valley_index) {
@@ -541,17 +584,21 @@ double amc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_o
 
             const auto& final_band = m_valleys[transition.final_band];
 
-            total_rate += optical_scattering_rate_silicon_holes(final_band,
-                                                                transition,
-                                                                energy_eV,
-                                                                true,
-                                                                m_cfg.m_lattice_temperature);
+            total_rate += optical_scattering_rate_holes(
+                final_band,
+                transition,
+                m_material_model.m_hole_acoustic.mass_density_kg_per_m3,
+                energy_eV,
+                true,
+                m_cfg.m_lattice_temperature);
 
-            total_rate += optical_scattering_rate_silicon_holes(final_band,
-                                                                transition,
-                                                                energy_eV,
-                                                                false,
-                                                                m_cfg.m_lattice_temperature);
+            total_rate += optical_scattering_rate_holes(
+                final_band,
+                transition,
+                m_material_model.m_hole_acoustic.mass_density_kg_per_m3,
+                energy_eV,
+                false,
+                m_cfg.m_lattice_temperature);
         }
 
         if (m_cfg.m_enable_impurity_scattering && m_cfg.m_background_impurity_density_cm_3 > 0.0) {
@@ -565,12 +612,22 @@ double amc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_o
         return total_rate;
     }
 
-    total_rate += acoustic_scattering_rate_silicon(band_or_valley, energy_eV, m_cfg.m_lattice_temperature);
+    total_rate += acoustic_scattering_rate(
+        band_or_valley, m_material_model.m_electron_acoustic, energy_eV, m_cfg.m_lattice_temperature);
 
     for (const auto& branch : m_intervalley_branches) {
-        total_rate += intervalley_scattering_rate(band_or_valley, branch, energy_eV, true, m_cfg.m_lattice_temperature);
-        total_rate +=
-            intervalley_scattering_rate(band_or_valley, branch, energy_eV, false, m_cfg.m_lattice_temperature);
+        total_rate += intervalley_scattering_rate(band_or_valley,
+                                                  branch,
+                                                  m_material_model.m_electron_acoustic.mass_density_kg_per_m3,
+                                                  energy_eV,
+                                                  true,
+                                                  m_cfg.m_lattice_temperature);
+        total_rate += intervalley_scattering_rate(band_or_valley,
+                                                  branch,
+                                                  m_material_model.m_electron_acoustic.mass_density_kg_per_m3,
+                                                  energy_eV,
+                                                  false,
+                                                  m_cfg.m_lattice_temperature);
     }
 
     if (m_cfg.m_enable_impurity_scattering && m_cfg.m_background_impurity_density_cm_3 > 0.0) {
@@ -679,6 +736,7 @@ scattering_event amc_transport_kernel::apply_scattering_channel(particle_amc& p,
                 p.state().velocity = dst_band.to_global_frame(
                     dst_band.velocity_from_k_valley_and_energy(p.state().local_k, p.state().kinetic_energy));
                 p.increment_scattering_event_count();
+                p.add_transition_event(channel.transition_name);
                 if (channel.process == intervalley_process::absorption) {
                     p.add_scattering_event(scattering_event::intervalley_absorption);
                     return scattering_event::intervalley_absorption;
@@ -711,6 +769,7 @@ scattering_event amc_transport_kernel::apply_scattering_channel(particle_amc& p,
             p.state().velocity = dst_valley.to_global_frame(
                 dst_valley.velocity_from_k_valley_and_energy(p.state().local_k, p.state().kinetic_energy));
             p.increment_scattering_event_count();
+            p.add_transition_event(channel.transition_name);
             if (channel.process == intervalley_process::absorption) {
                 p.add_scattering_event(scattering_event::intervalley_absorption);
                 return scattering_event::intervalley_absorption;

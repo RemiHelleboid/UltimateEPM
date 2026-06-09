@@ -11,6 +11,8 @@
 
 #include "amc_material_model.hpp"
 
+#include <stdexcept>
+
 #include "physical_constants.hpp"
 
 namespace uepm::amc {
@@ -152,6 +154,83 @@ std::vector<hole_optical_transition> make_silicon_hole_optical_transitions() {
     transitions.push_back({"lh_to_lh", 1, 1, eop_eV, dop_eV_per_m, 0.5});
 
     return transitions;
+}
+
+void amc_material_model::validate() const {
+    if (m_name.empty() || m_symbol.empty()) {
+        throw std::invalid_argument("AMC material name and symbol must not be empty");
+    }
+    if (m_dielectric.epsilon_r <= 0.0) {
+        throw std::invalid_argument("AMC material relative permittivity must be positive");
+    }
+    const auto validate_acoustic = [](const acoustic_scattering_parameters& parameters) {
+        if (parameters.mass_density_kg_per_m3 <= 0.0) {
+            throw std::invalid_argument("AMC material mass density must be positive");
+        }
+        if (parameters.sound_velocity_m_per_s <= 0.0) {
+            throw std::invalid_argument("AMC material sound velocity must be positive");
+        }
+        if (parameters.deformation_potential_eV < 0.0) {
+            throw std::invalid_argument("AMC acoustic deformation potential must be non-negative");
+        }
+        if (parameters.overlap_factor < 0.0) {
+            throw std::invalid_argument("AMC acoustic overlap factor must be non-negative");
+        }
+    };
+    validate_acoustic(m_electron_acoustic);
+    validate_acoustic(m_hole_acoustic);
+    if (m_electron_valleys.empty() || m_hole_bands.empty()) {
+        throw std::invalid_argument("AMC material must define electron valleys and hole bands");
+    }
+    for (const auto& transition : m_electron_intervalley_transitions) {
+        if (transition.m_name.empty()) {
+            throw std::invalid_argument("AMC electron intervalley transition name must not be empty");
+        }
+    }
+    for (const auto& transition : m_hole_optical_transitions) {
+        if (transition.name.empty()) {
+            throw std::invalid_argument("AMC hole optical transition name must not be empty");
+        }
+        if (transition.initial_band >= m_hole_bands.size() ||
+            transition.final_band >= m_hole_bands.size()) {
+            throw std::invalid_argument("AMC hole optical transition references an invalid band");
+        }
+    }
+}
+
+amc_material_model make_silicon_amc_material_model() {
+    constexpr double silicon_mass_density_kg_per_m3 = 2.329e3;
+    constexpr double electron_longitudinal_sound_velocity_m_per_s = 9.0e3;
+    constexpr double electron_transverse_sound_velocity_m_per_s   = 5.4e3;
+
+    amc_material_model material;
+    material.m_name       = "Silicon";
+    material.m_symbol     = "Si";
+    material.m_dielectric = make_silicon_dielectric_properties();
+
+    material.m_electron_acoustic = acoustic_scattering_parameters{
+        .mass_density_kg_per_m3   = silicon_mass_density_kg_per_m3,
+        .sound_velocity_m_per_s   = (electron_longitudinal_sound_velocity_m_per_s +
+                                   2.0 * electron_transverse_sound_velocity_m_per_s) /
+                                  3.0,
+        .deformation_potential_eV = 6.6,
+        .overlap_factor           = 1.0,
+    };
+    material.m_hole_acoustic = acoustic_scattering_parameters{
+        .mass_density_kg_per_m3   = silicon_mass_density_kg_per_m3,
+        .sound_velocity_m_per_s   = 6.6e3,
+        .deformation_potential_eV = 5.5,
+        .overlap_factor           = 0.5,
+    };
+
+    material.m_electron_valleys                = make_silicon_delta_valleys();
+    material.m_electron_intervalley_transitions = make_silicon_intervalley_phonon_branches();
+    material.m_hole_bands                      = make_silicon_hole_bands();
+    material.m_hole_optical_transitions        = make_silicon_hole_optical_transitions();
+    material.m_impurity_mobility               = make_silicon_impurity_mobility_parameters();
+    material.m_impact_ionization               = make_silicon_impact_ionization_parameters();
+    material.validate();
+    return material;
 }
 
 }  // namespace uepm::amc

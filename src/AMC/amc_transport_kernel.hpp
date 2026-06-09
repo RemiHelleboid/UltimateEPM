@@ -53,6 +53,8 @@ class amc_transport_kernel {
     amc_transport_kernel();
     explicit amc_transport_kernel(const amc_transport_config& cfg);
     amc_transport_kernel(const amc_transport_config& cfg, std::uint64_t seed);
+    amc_transport_kernel(const amc_transport_config& cfg, amc_material_model material);
+    amc_transport_kernel(const amc_transport_config& cfg, amc_material_model material, std::uint64_t seed);
 
     void                                seed(std::uint64_t value) { m_rng.seed(value); }
     void                                ensure_gamma_max_covers(double total_rate);
@@ -65,6 +67,7 @@ class amc_transport_kernel {
     double impurity_rate_for_energy(const valley_model& band_or_valley, double energy_eV) const;
 
     const std::vector<valley_model>& valleys() const noexcept { return m_valleys; }
+    const amc_material_model&        material_model() const noexcept { return m_material_model; }
     double                           gamma_max() const noexcept { return m_gamma_max_s_1; }
     double                           gamma_max(const particle_amc& p) const;
     void                             initialize_particle_state(particle_amc& p);
@@ -83,6 +86,7 @@ class amc_transport_kernel {
 
  private:
     amc_transport_config m_cfg;
+    amc_material_model   m_material_model;
 
     std::vector<valley_model>              m_valleys;
     std::vector<intervalley_phonon_branch> m_intervalley_branches;

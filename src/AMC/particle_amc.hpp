@@ -14,6 +14,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -80,6 +83,7 @@ class particle_history {
     std::size_t                                      m_total_scattering_events = 0;
     std::vector<particle_snapshot>                   m_snapshots;
     std::array<std::size_t, num_scattering_channels> m_scattering_events{};
+    std::unordered_map<std::string, std::size_t>     m_transition_events;
 
  public:
     particle_history() = default;
@@ -92,11 +96,15 @@ class particle_history {
     const std::array<std::size_t, num_scattering_channels>& scattering_events() const noexcept {
         return m_scattering_events;
     }
+    const std::unordered_map<std::string, std::size_t>& transition_events() const noexcept {
+        return m_transition_events;
+    }
     void reserve(std::size_t n_steps) { m_snapshots.reserve(n_steps); }
     void clear() noexcept {
         m_total_scattering_events = 0;
         m_snapshots.clear();
         m_scattering_events.fill(0);
+        m_transition_events.clear();
     }
 
     void set_particle_index(std::size_t particle_index) noexcept { m_particle_index = particle_index; }
@@ -114,6 +122,11 @@ class particle_history {
         const auto index = static_cast<std::size_t>(event);
         if (index < m_scattering_events.size()) {
             ++m_scattering_events[index];
+        }
+    }
+    void add_transition_event(std::string_view transition_name) {
+        if (!transition_name.empty()) {
+            ++m_transition_events[std::string(transition_name)];
         }
     }
     void export_trajectory_as_csv(const std::string& filename) const;
@@ -207,6 +220,9 @@ class particle_amc {
     void     increment_scattering_event_count() noexcept { m_history.increment_scattering_event_count(); }
     void     record_state() { m_history.record(m_state); }
     void     add_scattering_event(scattering_event event) noexcept { m_history.add_event(event); }
+    void     add_transition_event(std::string_view transition_name) {
+        m_history.add_transition_event(transition_name);
+    }
     void     reset_history() noexcept { m_history.clear(); }
     void     set_data_from_device(int m_dimension);
     void     print_info() const;

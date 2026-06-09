@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
+#include <string_view>
 
 namespace uepm::amc {
 
@@ -30,6 +31,7 @@ struct scattering_channel {
     std::size_t                      destination_index = 0;
     const intervalley_phonon_branch* branch            = nullptr;
     intervalley_process              process           = intervalley_process::none;
+    std::string_view                 transition_name{};
 };
 
 class scattering_channel_list {
