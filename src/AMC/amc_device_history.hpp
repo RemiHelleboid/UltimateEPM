@@ -92,7 +92,8 @@ struct history_device_amc {
     void print_header_csv(const std::string &filename) {
         std::ofstream file(filename);
         file << "time,nb_electrons,nb_holes,nb_impact_ionization,ramo_current_electron,ramo_current_hole,ramo_current,"
-                "max_electric_field,anode_voltage_V,cathode_voltage_V,quench_bias_voltage_V,quench_device_current_A,quench_resistor_current_A,quench_voltage_drop_V\n";
+                "max_electric_field,anode_voltage_V,cathode_voltage_V,quench_bias_voltage_V,quench_device_current_A,"
+                "quench_resistor_current_A,quench_voltage_drop_V\n";
         file.close();
     }
 
@@ -100,8 +101,10 @@ struct history_device_amc {
         file << m_list_times.back() << ',' << m_list_nb_electrons.back() << ',' << m_list_nb_holes.back() << ','
              << m_list_nb_impact_ionization.back() << ',' << m_list_ramo_current_electron.back() << ','
              << m_list_ramo_current_hole.back() << ',' << m_list_ramo_current.back() << ','
-             << m_max_electric_field.back() << ',' << m_list_anode_voltage_V.back() << ',' << m_list_cathode_voltage_V.back() << ','
-             << m_list_quench_bias_voltage_V.back() << ',' << m_list_quench_device_current_A.back() << ',' << m_list_quench_resistor_current_A.back() << ',' << m_list_quench_voltage_drop_V.back() << '\n';
+             << m_max_electric_field.back() << ',' << m_list_anode_voltage_V.back() << ','
+             << m_list_cathode_voltage_V.back() << ',' << m_list_quench_bias_voltage_V.back() << ','
+             << m_list_quench_device_current_A.back() << ',' << m_list_quench_resistor_current_A.back() << ','
+             << m_list_quench_voltage_drop_V.back() << '\n';
     }
 
     void export_to_csv(const std::string &filename, std::size_t frequency = 1) {
@@ -149,7 +152,8 @@ struct history_device_amc {
         double_list_cathode_voltage_V.push_back(m_list_cathode_voltage_V[m_list_nb_electrons.size() - 1]);
         double_list_quench_bias_voltage_V.push_back(m_list_quench_bias_voltage_V[m_list_nb_electrons.size() - 1]);
         double_list_quench_device_current_A.push_back(m_list_quench_device_current_A[m_list_nb_electrons.size() - 1]);
-        double_list_quench_resistor_current_A.push_back(m_list_quench_resistor_current_A[m_list_nb_electrons.size() - 1]);
+        double_list_quench_resistor_current_A.push_back(
+            m_list_quench_resistor_current_A[m_list_nb_electrons.size() - 1]);
         double_list_quench_voltage_drop_V.push_back(m_list_quench_voltage_drop_V[m_list_nb_electrons.size() - 1]);
 
         std::vector<std::string> header_csv = {"time",
@@ -191,6 +195,27 @@ struct history_device_amc {
                 m_list_nb_electrons[index_iteration] + m_list_nb_holes[index_iteration];
         }
         return history_total_number_particles;
+    }
+
+    double extract_final_current(double time_window_s) const {
+        if (m_list_times.empty()) {
+            return 0.0;
+        }
+
+        const double final_time_s  = m_list_times.back();
+        double       current_sum_A = 0.0;
+        std::size_t  count         = 0;
+
+        for (std::size_t index_iteration = m_list_times.size(); index_iteration-- > 0;) {
+            if (final_time_s - m_list_times[index_iteration] <= time_window_s) {
+                current_sum_A += m_list_ramo_current[index_iteration];
+                ++count;
+            } else {
+                break;
+            }
+        }
+
+        return count > 0 ? current_sum_A / static_cast<double>(count) : 0.0;
     }
 };
 

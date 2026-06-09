@@ -44,6 +44,7 @@ struct options_self_consistent_device_amc_common {
 
     // Converts signed Ramo current into current drawn from the biased circuit node.
     double m_ramo_current_to_quench_current_sign = 1.0;
+    double m_background_ramo_current_A = 0.0;
 };
 
 class self_consistent_device_amc_simulation_base : public device_amc_simulation {

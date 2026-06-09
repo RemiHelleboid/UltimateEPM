@@ -512,6 +512,7 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
             ramo_current_electron = accumulator_ramo_current_electron / sim_poisson_frequency;
             ramo_current_hole     = accumulator_ramo_current_hole / sim_poisson_frequency;
             ramo_current          = ramo_current_electron + ramo_current_hole;
+            ramo_current -= common_options().m_background_ramo_current_A;
             accumulator_ramo_current_electron = 0.0;
             accumulator_ramo_current_hole     = 0.0;
 
@@ -526,6 +527,13 @@ void self_consistent_device_amc_simulation_2d::run_self_consistent_transport_sim
             recompute_vertex_space_charge_from_element_charges(poisson_frequency() + 1);
             update_self_consistent_potential();
             reset_element_charges();
+
+            if (m_state.m_scheduled_particle_injection_done && m_common_options.m_background_ramo_current_A == 0.0) {
+                const double time_window = 1e-12;  // 1 ns
+                double       bg_current  = m_simulation_history.extract_final_current(time_window);
+                fmt::print("Extracted background Ramo current from history: {:.3e} A\n", bg_current);
+                m_common_options.m_background_ramo_current_A = bg_current;
+            }
         }
 
         m_state.m_time_s += m_simulation_options.m_time_step;

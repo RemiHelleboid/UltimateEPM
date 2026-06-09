@@ -478,7 +478,7 @@ int main(int argc, const char** argv) {
         sc_options.m_passive_quench_circuit.m_bias_voltage_V           = sc_options.m_cathode_voltage;
         sc_options.m_passive_quench_circuit.m_initial_device_voltage_V = sc_options.m_cathode_voltage;
         sc_options.m_passive_quench_circuit.m_resistance_ohm           = 1.0e6;
-        sc_options.m_passive_quench_circuit.m_capacitance_F            = 1.0e-16;
+        sc_options.m_passive_quench_circuit.m_capacitance_F            = 5.0e-17;
         sc_options.m_quench_biased_contact                             = uepm::amc::quench_biased_contact::cathode;
         sc_options.m_ramo_current_to_quench_current_sign               = -1.0;
         validate_self_consistent_options(sc_options);
