@@ -21,6 +21,15 @@
 
 namespace uepm::amc {
 
+void options_self_consistent_device_amc_2d::validate() const {
+    if (m_effective_depth_um <= 0.0) {
+        throw std::invalid_argument("--effective-depth must be positive.");
+    }
+    if (m_particle_z_period_um <= 0.0) {
+        throw std::invalid_argument("--particle-z-period must be positive.");
+    }
+}
+
 double self_consistent_device_amc_simulation_2d::scale_integrated_2d_doping_to_carriers(
     double integrated_doping) const {
     constexpr double micron_to_cm = 1.0e-4;
@@ -42,6 +51,7 @@ void self_consistent_device_amc_simulation_2d::validate_self_consistent_options(
     if (poisson_frequency() == 0) {
         throw std::invalid_argument("Poisson frequency must be positive.");
     }
+    m_self_consistent_options.validate();
 }
 
 double self_consistent_device_amc_simulation_2d::ramo_current_scale_factor() const {

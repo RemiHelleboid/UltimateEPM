@@ -18,6 +18,7 @@
 #include <fmt/xchar.h>
 
 #include <algorithm>
+#include <cmath>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -148,6 +149,54 @@ struct impact_ionization_pair_seed {
     mesh::vector3 position;
     double        weight = 1.0;
 };
+
+void options_device_amc::validate() const {
+    if (m_time_step <= 0.0) {
+        throw std::invalid_argument("--dt must be positive.");
+    }
+    if (m_t_max <= 0.0) {
+        throw std::invalid_argument("--time must be positive.");
+    }
+    if (m_lattice_temperature < 0.0) {
+        throw std::invalid_argument("--temperature must be non-negative.");
+    }
+    if (m_max_energy_eV <= 0.0) {
+        throw std::invalid_argument("--max-energy must be positive.");
+    }
+    if (m_self_scattering_safety_factor <= 0.0) {
+        throw std::invalid_argument("--gamma-safety must be positive.");
+    }
+    if (m_gamma_max_energy_samples < 2) {
+        throw std::invalid_argument("--gamma-samples must be at least 2.");
+    }
+    if (m_max_number_particle == 0) {
+        throw std::invalid_argument("--max-particles must be positive.");
+    }
+    if (m_avalanche_threshold == 0) {
+        throw std::invalid_argument("--avalanche-threshold must be positive.");
+    }
+    if (m_avalanche_threshold > m_max_number_particle) {
+        throw std::invalid_argument("--avalanche-threshold cannot be larger than --max-particles.");
+    }
+    if (m_frequency_export_trajectory <= 0) {
+        throw std::invalid_argument("--export-frequency must be positive.");
+    }
+    if (m_nb_threads <= 0) {
+        throw std::invalid_argument("--nthreads must be positive.");
+    }
+    if (m_enable_scheduled_particle_injection) {
+        const auto& injection = m_scheduled_particle_injection;
+        if (injection.m_time_s < 0.0) {
+            throw std::invalid_argument("--inject-time must be non-negative.");
+        }
+        if (injection.m_time_s > m_t_max) {
+            throw std::invalid_argument("--inject-time cannot be larger than --time.");
+        }
+        if (injection.m_weight <= 0.0) {
+            throw std::invalid_argument("--inject-weight must be positive.");
+        }
+    }
+}
 
 vector3 device_amc_simulation::get_RamoUnitaryElectricField_at_position(const mesh::vector3 &position) const {
     if (m_state.m_use_constant_RamoUnitaryElectricField) {

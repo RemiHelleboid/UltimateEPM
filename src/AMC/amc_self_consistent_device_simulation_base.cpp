@@ -16,6 +16,27 @@
 
 namespace uepm::amc {
 
+void options_self_consistent_device_amc_common::validate() const {
+    if (m_poisson_frequency == 0) {
+        throw std::invalid_argument("Poisson frequency must be positive.");
+    }
+    if (!std::isfinite(m_anode_voltage)) {
+        throw std::invalid_argument("Anode voltage must be finite.");
+    }
+    if (!std::isfinite(m_cathode_voltage)) {
+        throw std::invalid_argument("Cathode voltage must be finite.");
+    }
+    if (!std::isfinite(m_contact_injection_particle_weight) || m_contact_injection_particle_weight <= 0.0) {
+        throw std::invalid_argument("Contact injection particle weight must be positive.");
+    }
+    if (!std::isfinite(m_initial_particle_weight) || m_initial_particle_weight <= 0.0) {
+        throw std::invalid_argument("Initial particle weight must be positive.");
+    }
+    if (!std::isfinite(m_ramo_current_to_quench_current_sign) || m_ramo_current_to_quench_current_sign == 0.0) {
+        throw std::invalid_argument("Ramo current to quench current sign must be finite and non-zero.");
+    }
+}
+
 self_consistent_device_amc_simulation_base::self_consistent_device_amc_simulation_base(
     const device::device&                            simulation_device,
     const options_device_amc&                        simulation_options,
@@ -47,27 +68,7 @@ self_consistent_device_amc_simulation_base::self_consistent_device_amc_simulatio
 }
 
 void self_consistent_device_amc_simulation_base::validate_common_self_consistent_options() const {
-    if (m_common_options.m_poisson_frequency == 0) {
-        throw std::invalid_argument("Poisson frequency must be positive.");
-    }
-    if (!std::isfinite(m_common_options.m_anode_voltage)) {
-        throw std::invalid_argument("Anode voltage must be finite.");
-    }
-    if (!std::isfinite(m_common_options.m_cathode_voltage)) {
-        throw std::invalid_argument("Cathode voltage must be finite.");
-    }
-    if (!std::isfinite(m_common_options.m_contact_injection_particle_weight) ||
-        m_common_options.m_contact_injection_particle_weight <= 0.0) {
-        throw std::invalid_argument("Contact injection particle weight must be positive.");
-    }
-    if (!std::isfinite(m_common_options.m_initial_particle_weight) ||
-        m_common_options.m_initial_particle_weight <= 0.0) {
-        throw std::invalid_argument("Initial particle weight must be positive.");
-    }
-    if (!std::isfinite(m_common_options.m_ramo_current_to_quench_current_sign) ||
-        m_common_options.m_ramo_current_to_quench_current_sign == 0.0) {
-        throw std::invalid_argument("Ramo current to quench current sign must be finite and non-zero.");
-    }
+    m_common_options.validate();
 }
 
 const options_self_consistent_device_amc_common& self_consistent_device_amc_simulation_base::common_options() const {

@@ -86,6 +86,8 @@ struct options_device_amc {
           m_frequency_export_trajectory(frequency_export_trajectory),
           m_nb_threads(nb_threads) {}
 
+    void validate() const;
+
     void print_options() const {
         std::cout << "Simulation options: " << std::endl;
         std::cout << "Time step: " << m_time_step << std::endl;

@@ -31,6 +31,8 @@ struct options_self_consistent_device_amc_2d {
 
     double m_effective_depth_um   = 1.0;
     double m_particle_z_period_um = 1.0;
+
+    void validate() const;
 };
 
 class self_consistent_device_amc_simulation_2d : public self_consistent_device_amc_simulation_base {
