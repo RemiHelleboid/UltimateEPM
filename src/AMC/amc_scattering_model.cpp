@@ -22,9 +22,8 @@ double bose_einstein_occupation(double phonon_energy_eV, double temperature_K) {
     if (temperature_K <= 0.0) {
         return 0.0;
     }
-
     const double x = phonon_energy_eV / (uepm::constants::k_b_eV * temperature_K);
-    return 1.0 / (std::exp(x) - 1.0);
+    return 1.0 / std::expm1(x);
 }
 
 double acoustic_scattering_rate(const valley_model&                    valley,

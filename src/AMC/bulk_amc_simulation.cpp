@@ -31,11 +31,9 @@ std::size_t particle_scattering_event_count(const particle_amc& particle, scatte
 
 double particle_drift_velocity_along_field_m_per_s(const particle_amc& particle, const mesh::vector3& electric_field) {
     const double field_norm = electric_field.norm();
-
     if (field_norm <= 0.0) {
         return 0.0;
     }
-
     const mesh::vector3 field_direction = electric_field / field_norm;
     return std::abs(particle.state().velocity.dot(field_direction));
 }
@@ -43,7 +41,6 @@ double particle_drift_velocity_along_field_m_per_s(const particle_amc& particle,
 double sampled_time_after_warmup(double time_before_s, double time_after_s, double warmup_time_s, double final_time_s) {
     const double sample_start = std::max(time_before_s, warmup_time_s);
     const double sample_stop  = std::min(time_after_s, final_time_s);
-
     return std::max(0.0, sample_stop - sample_start);
 }
 
@@ -68,34 +65,25 @@ amc_transport_config bulk_amc_simulation::make_transport_config(const bulk_amc_s
 }
 
 std::size_t bulk_amc_simulation::count_scattering_events(scattering_event event) const {
-    std::size_t total = 0;
-
+    std::size_t       total       = 0;
     const std::size_t event_index = static_cast<std::size_t>(event);
-
     for (const auto& particle : m_particles) {
         total += particle.history().scattering_events()[event_index];
     }
-
     return total;
 }
 
 double bulk_amc_simulation::average_drift_velocity_along_field_m_per_s() const {
     const double field_norm = m_cfg.m_electric_field.norm();
-
     if (field_norm <= 0.0 || m_particles.empty()) {
         return 0.0;
     }
-
     const mesh::vector3 field_direction = m_cfg.m_electric_field / field_norm;
-
-    double velocity_sum = 0.0;
-
+    double              velocity_sum    = 0.0;
     for (const auto& particle : m_particles) {
         velocity_sum += particle.state().velocity.dot(field_direction);
     }
-
     const double mean_parallel_velocity = velocity_sum / static_cast<double>(m_particles.size());
-
     return std::abs(mean_parallel_velocity);
 }
 
@@ -107,20 +95,15 @@ void bulk_amc_simulation::initialize() {
 
     for (std::size_t i = 0; i < m_cfg.m_number_of_particles; ++i) {
         particle_amc p{i, m_cfg.m_carrier_type, 1.0};
-
         p.state().time         = 0.0;
         p.state().position     = vector3{0.0, 0.0, 0.0};
         p.state().valley_index = i % m_transport.valleys().size();
-
         m_transport.initialize_particle_state(p);
-
         if (m_cfg.m_record_history) {
             p.record_state();
         }
-
         m_particles.push_back(std::move(p));
     }
-
     fmt::print("Computed max self-scattering rate: {:.6e} s^-1\n", m_transport.gamma_max());
     fmt::print("Initialized {} particles\n", m_particles.size());
 }
@@ -129,12 +112,10 @@ void bulk_amc_simulation::accumulate_observables(double dt) {
     if (dt <= 0.0) {
         return;
     }
-
     for (const auto& p : m_particles) {
         m_observables.weighted_velocity_x_m2_per_s2 += p.state().velocity.x() * dt;
         m_observables.weighted_kinetic_energy_eV_s += p.state().kinetic_energy * dt;
     }
-
     m_observables.accumulated_time_s += static_cast<double>(m_particles.size()) * dt;
 }
 
@@ -142,7 +123,6 @@ void bulk_amc_simulation::accumulate_particle_observables(const particle_amc& p,
     if (dt <= 0.0) {
         return;
     }
-
     m_observables.weighted_velocity_x_m2_per_s2 += p.state().velocity.x() * dt;
     m_observables.weighted_kinetic_energy_eV_s += p.state().kinetic_energy * dt;
     m_observables.accumulated_time_s += dt;
@@ -161,12 +141,10 @@ void bulk_amc_simulation::run() {
     if (m_cfg.m_warmup_fraction < 0.0 || m_cfg.m_warmup_fraction >= 1.0) {
         throw std::invalid_argument("warmup fraction must be in [0, 1)");
     }
-
     const double      dt           = m_cfg.m_time_step;
     const std::size_t n_steps      = static_cast<std::size_t>(std::ceil(m_cfg.m_final_time / dt));
     const std::size_t warmup_steps = static_cast<std::size_t>(m_cfg.m_warmup_fraction * static_cast<double>(n_steps));
-
-    m_observables                                 = {};
+    m_observables                  = {};
     m_impact_ionization_coefficient_statistics    = {};
     std::size_t previous_impact_ionization_events = count_scattering_events(scattering_event::impact_ionization);
 
@@ -344,8 +322,7 @@ void bulk_amc_simulation::run_self_scattering_emc() {
             if (drift_time < tau) {
                 break;
             }
-
-            const auto channels = transport.build_scattering_channels(p);
+            const auto channels   = transport.build_scattering_channels(p);
             double     total_rate = 0.0;
             for (const auto& channel : channels) {
                 total_rate += channel.rate_s_1;
