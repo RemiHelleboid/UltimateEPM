@@ -200,8 +200,8 @@ void amc_material_model::validate() const {
 
 amc_material_model make_silicon_amc_material_model() {
     constexpr double silicon_mass_density_kg_per_m3 = 2.329e3;
-    constexpr double electron_longitudinal_sound_velocity_m_per_s = 9.0e3;
-    constexpr double electron_transverse_sound_velocity_m_per_s   = 5.4e3;
+    constexpr double electron_longitudinal_sound_velocity_m_per_s = 9.002e3;
+    constexpr double electron_transverse_sound_velocity_m_per_s   = 5.409e3;
 
     amc_material_model material;
     material.m_name       = "Silicon";
@@ -213,12 +213,12 @@ amc_material_model make_silicon_amc_material_model() {
         .sound_velocity_m_per_s   = (electron_longitudinal_sound_velocity_m_per_s +
                                    2.0 * electron_transverse_sound_velocity_m_per_s) /
                                   3.0,
-        .deformation_potential_eV = 6.6,
+        .deformation_potential_eV = 6.55,
         .overlap_factor           = 1.0,
     };
     material.m_hole_acoustic = acoustic_scattering_parameters{
         .mass_density_kg_per_m3   = silicon_mass_density_kg_per_m3,
-        .sound_velocity_m_per_s   = 6.6e3,
+        .sound_velocity_m_per_s   = 6.606e3,
         .deformation_potential_eV = 5.5,
         .overlap_factor           = 0.5,
     };
