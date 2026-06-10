@@ -22,6 +22,7 @@
 #include <string>
 #include <thread>
 
+#include "amc_device_setup.hpp"
 #include "amc_run_manifest.hpp"
 #include "bulk_amc_simulation.hpp"
 
@@ -133,6 +134,13 @@ int main(int argc, const char** argv) {
                                                         false,
                                                         "mobility",
                                                         "string");
+        TCLAP::ValueArg<std::string> arg_impurity_screening(
+            "",
+            "impurity-screening",
+            "Screened-Coulomb screening: debye (analytic, default) or full (finite-temperature numerical).",
+            false,
+            "debye",
+            "string");
 
         TCLAP::ValueArg<double> arg_max_energy("e",
                                                "max-energy",
@@ -180,6 +188,7 @@ int main(int argc, const char** argv) {
         cmd.add(arg_enable_impact_ionization);
         cmd.add(arg_enable_impurity_scattering);
         cmd.add(arg_impurity_model);
+        cmd.add(arg_impurity_screening);
         cmd.add(arg_max_energy);
         cmd.add(arg_warmup_fraction);
         cmd.add(arg_gamma_safety);
@@ -246,6 +255,8 @@ int main(int argc, const char** argv) {
         } else {
             throw std::invalid_argument("--impurity-model must be either 'mobility' or 'screened-coulomb'");
         }
+        const auto parsed_impurity_screening =
+            uepm::amc::parse_impurity_screening_model(arg_impurity_screening.getValue());
         const std::string output_dir = [&] {
             const std::string requested_output_dir = arg_output_dir.getValue();
             if (!requested_output_dir.empty()) {
@@ -276,6 +287,7 @@ int main(int argc, const char** argv) {
         config.m_enable_impurity_scattering    = arg_enable_impurity_scattering.getValue();
         config.m_impurity_density_cm_3         = impurity_density_cm_3;
         config.m_impurity_scattering_model     = parsed_impurity_model;
+        config.m_impurity_screening_model      = parsed_impurity_screening;
 
         fmt::print("Running bulk AMC simulation\n");
         fmt::print("Material: {}\n", material_symbol);
@@ -296,6 +308,12 @@ int main(int argc, const char** argv) {
                        ? (config.m_impurity_scattering_model == uepm::amc::impurity_scattering_model::mobility_empirical
                               ? "mobility-empirical"
                               : "screened-coulomb")
+                       : "N/A");
+        fmt::print("  impurity screening: {}\n",
+                   config.m_enable_impurity_scattering &&
+                           config.m_impurity_scattering_model ==
+                               uepm::amc::impurity_scattering_model::screened_coulomb
+                       ? uepm::amc::impurity_screening_model_name(config.m_impurity_screening_model)
                        : "N/A");
         fmt::print("Gamma max energy: {:.6f} eV\n", config.m_max_energy_eV);
         fmt::print("Gamma safety factor: {:.6f}\n", config.m_self_scattering_safety_factor);
@@ -388,6 +406,9 @@ int main(int argc, const char** argv) {
             config.m_impurity_scattering_model == uepm::amc::impurity_scattering_model::mobility_empirical
                 ? "mobility-empirical"
                 : "screened-coulomb");
+        manifest.add("scattering",
+                     "impurity_screening",
+                     uepm::amc::impurity_screening_model_name(config.m_impurity_screening_model));
         manifest.add("scattering", "gamma_max_energy_eV", config.m_max_energy_eV);
         manifest.add("scattering", "gamma_safety_factor", config.m_self_scattering_safety_factor);
         manifest.add("scattering", "gamma_energy_samples", config.m_gamma_max_energy_samples);

@@ -60,6 +60,7 @@ amc_transport_config bulk_amc_simulation::make_transport_config(const bulk_amc_s
     transport_cfg.m_background_impurity_density_cm_3 =
         cfg.m_enable_impurity_scattering ? cfg.m_impurity_density_cm_3 : 0.0;
     transport_cfg.m_impurity_scattering_model = cfg.m_impurity_scattering_model;
+    transport_cfg.m_impurity_screening_model  = cfg.m_impurity_screening_model;
 
     return transport_cfg;
 }

@@ -203,4 +203,55 @@ inline T simpson_uniform(const std::vector<T>& x, const std::vector<T>& y, T tol
     return simpson_uniform<T>(std::span<const T>(x), std::span<const T>(y), tol);
 }
 
+constexpr std::array<double, 16> gauss_legendre_32_nodes{
+    0.0483076656877383162,
+    0.144471961582796493,
+    0.239287362252137075,
+    0.331868602282127650,
+    0.421351276130635345,
+    0.506899908932229390,
+    0.587715757240762329,
+    0.663044266930215201,
+    0.732182118740289680,
+    0.794483795967942407,
+    0.849367613732569970,
+    0.896321155766052124,
+    0.934906075937739689,
+    0.964762255587506431,
+    0.985611511545268335,
+    0.997263861849481564,
+};
+
+constexpr std::array<double, 16> gauss_legendre_32_weights{
+    0.0965400885147278006,
+    0.0956387200792748594,
+    0.0938443990808045656,
+    0.0911738786957638847,
+    0.0876520930044038111,
+    0.0833119242269467552,
+    0.0781938957870703065,
+    0.0723457941088485062,
+    0.0658222227763618468,
+    0.0586840934785355471,
+    0.0509980592623761762,
+    0.0428358980222266807,
+    0.0342738629130214331,
+    0.0253920653092620595,
+    0.0162743947309056706,
+    0.00701861000947009660,
+};
+
+template <typename Function>
+double integrate_gauss_legendre_32(Function&& function, double lower, double upper) {
+    const double midpoint   = 0.5 * (lower + upper);
+    const double half_width = 0.5 * (upper - lower);
+    double       sum        = 0.0;
+
+    for (std::size_t i = 0; i < gauss_legendre_32_nodes.size(); ++i) {
+        const double offset = half_width * gauss_legendre_32_nodes[i];
+        sum += gauss_legendre_32_weights[i] * (function(midpoint - offset) + function(midpoint + offset));
+    }
+    return half_width * sum;
+}
+
 }  // namespace uepm::integrate

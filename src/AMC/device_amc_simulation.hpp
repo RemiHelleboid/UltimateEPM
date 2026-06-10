@@ -59,6 +59,7 @@ struct options_device_amc {
     bool                      m_activate_impact_ionization = true;
     bool                      m_enable_impurity_scattering = false;
     impurity_scattering_model m_impurity_scattering_model  = impurity_scattering_model::mobility_empirical;
+    impurity_screening_model  m_impurity_screening_model   = impurity_screening_model::debye_analytic;
 
     options_device_amc() = default;
 

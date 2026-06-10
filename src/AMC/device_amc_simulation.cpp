@@ -237,6 +237,7 @@ amc_transport_config device_amc_simulation::make_transport_config(const options_
     cfg.m_background_impurity_density_cm_3 = 0.0;
     if (options.m_enable_impurity_scattering) {
         cfg.m_impurity_scattering_model = options.m_impurity_scattering_model;
+        cfg.m_impurity_screening_model  = options.m_impurity_screening_model;
     }
     return cfg;
 }

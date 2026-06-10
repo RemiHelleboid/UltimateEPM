@@ -258,6 +258,13 @@ int main(int argc, const char** argv) {
                                                         false,
                                                         "mobility",
                                                         "model");
+        TCLAP::ValueArg<std::string> arg_impurity_screening(
+            "",
+            "impurity-screening",
+            "Screened-Coulomb screening: debye (analytic, default) or full (finite-temperature numerical).",
+            false,
+            "debye",
+            "model");
 
         TCLAP::ValueArg<double> arg_quench_resistance("R", "resistance", "Quench resistance.", false, 1.0, "weight");
 
@@ -306,6 +313,7 @@ int main(int argc, const char** argv) {
         cmd.add(arg_disable_doping_init_particles);
         cmd.add(arg_enable_impurity_scattering);
         cmd.add(arg_impurity_model);
+        cmd.add(arg_impurity_screening);
         cmd.add(arg_quench_resistance);
         cmd.add(arg_quench_capacitance);
 
@@ -341,6 +349,8 @@ int main(int argc, const char** argv) {
         }
         device_options.m_enable_impurity_scattering = arg_enable_impurity_scattering.getValue();
         device_options.m_impurity_scattering_model  = uepm::amc::parse_impurity_model(arg_impurity_model.getValue());
+        device_options.m_impurity_screening_model =
+            uepm::amc::parse_impurity_screening_model(arg_impurity_screening.getValue());
 
         device_options.validate();
 

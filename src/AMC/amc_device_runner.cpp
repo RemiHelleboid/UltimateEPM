@@ -150,6 +150,9 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
         device_options.m_impurity_scattering_model == impurity_scattering_model::mobility_empirical
             ? "mobility-empirical"
             : "screened-coulomb");
+    manifest.add("transport",
+                 "impurity_screening",
+                 impurity_screening_model_name(device_options.m_impurity_screening_model));
     manifest.add("transport", "gamma_max_energy_eV", device_options.m_max_energy_eV);
     manifest.add("transport", "gamma_safety_factor", device_options.m_self_scattering_safety_factor);
     manifest.add("transport", "gamma_energy_samples", device_options.m_gamma_max_energy_samples);

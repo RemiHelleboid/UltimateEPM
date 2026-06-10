@@ -34,6 +34,7 @@ struct bulk_amc_simulation_config {
     double                    m_doping_concentration       = 1.0e16;           // m^-3
     bool                      m_enable_impurity_scattering = false;
     impurity_scattering_model m_impurity_scattering_model  = impurity_scattering_model::screened_coulomb;
+    impurity_screening_model  m_impurity_screening_model   = impurity_screening_model::debye_analytic;
     double                    m_impurity_density_cm_3      = 0.0;     // cm^-3, positive scattering center density
     
     double                    m_max_self_scattering_rate   = 1.0e15;  // s^-1

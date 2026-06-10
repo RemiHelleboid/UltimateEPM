@@ -47,11 +47,11 @@ class scattering_channel_list {
         m_channels[m_size++] = channel;
     }
 
-    [[nodiscard]] bool empty() const noexcept { return m_size == 0; }
-    [[nodiscard]] std::size_t size() const noexcept { return m_size; }
-    [[nodiscard]] const scattering_channel& front() const { return m_channels.front(); }
-    [[nodiscard]] const_iterator begin() const noexcept { return m_channels.begin(); }
-    [[nodiscard]] const_iterator end() const noexcept {
+    bool empty() const noexcept { return m_size == 0; }
+    std::size_t size() const noexcept { return m_size; }
+    const scattering_channel& front() const { return m_channels.front(); }
+    const_iterator begin() const noexcept { return m_channels.begin(); }
+    const_iterator end() const noexcept {
         return m_channels.begin() + static_cast<std::ptrdiff_t>(m_size);
     }
 

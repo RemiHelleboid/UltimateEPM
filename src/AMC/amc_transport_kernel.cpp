@@ -337,18 +337,17 @@ double amc_transport_kernel::impurity_rate_for_particle(const particle_amc& p,
                                                                       energy_eV,
                                                                       impurity_density,
                                                                       impurity_density,
-                                                                      m_cfg.m_lattice_temperature);
+                                                                      m_cfg.m_lattice_temperature,
+                                                                      m_cfg.m_impurity_screening_model);
     }
     throw std::runtime_error("unknown impurity scattering model");
 }
 
 double amc_transport_kernel::impurity_rate_for_energy(const valley_model& band_or_valley, double energy_eV) const {
     const double impurity_density_cm_3 = m_cfg.m_background_impurity_density_cm_3;
-
     if (impurity_density_cm_3 <= 0.0) {
         return 0.0;
     }
-
     switch (m_cfg.m_impurity_scattering_model) {
         case impurity_scattering_model::mobility_empirical:
             return impurity_momentum_relaxation_rate(band_or_valley,
@@ -362,7 +361,8 @@ double amc_transport_kernel::impurity_rate_for_energy(const valley_model& band_o
                                                                       energy_eV,
                                                                       impurity_density_cm_3,
                                                                       impurity_density_cm_3,
-                                                                      m_cfg.m_lattice_temperature);
+                                                                      m_cfg.m_lattice_temperature,
+                                                                      m_cfg.m_impurity_screening_model);
     }
 
     throw std::runtime_error("unknown impurity scattering model");

@@ -12,6 +12,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 
 #include "amc_transport_kernel.hpp"
 #include "particle_amc.hpp"
@@ -21,6 +22,8 @@
 namespace uepm::amc {
 
 impurity_scattering_model parse_impurity_model(const std::string& text);
+impurity_screening_model  parse_impurity_screening_model(const std::string& text);
+std::string_view          impurity_screening_model_name(impurity_screening_model model);
 particle_type             parse_particle_type(const std::string& text);
 
 void validate_material_symbol(const std::string& material_symbol);

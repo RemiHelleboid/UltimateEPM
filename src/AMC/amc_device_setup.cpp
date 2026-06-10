@@ -28,6 +28,26 @@ impurity_scattering_model parse_impurity_model(const std::string& text) {
     throw std::invalid_argument("--impurity-model must be either mobility or screened-coulomb.");
 }
 
+impurity_screening_model parse_impurity_screening_model(const std::string& text) {
+    if (text == "debye") {
+        return impurity_screening_model::debye_analytic;
+    }
+    if (text == "full") {
+        return impurity_screening_model::finite_temperature_full;
+    }
+    throw std::invalid_argument("--impurity-screening must be either debye or full.");
+}
+
+std::string_view impurity_screening_model_name(impurity_screening_model model) {
+    switch (model) {
+        case impurity_screening_model::debye_analytic:
+            return "debye-analytic";
+        case impurity_screening_model::finite_temperature_full:
+            return "finite-temperature-full";
+    }
+    throw std::runtime_error("unknown impurity screening model");
+}
+
 particle_type parse_particle_type(const std::string& text) {
     if (text == "electron" || text == "e") {
         return particle_type::electron;

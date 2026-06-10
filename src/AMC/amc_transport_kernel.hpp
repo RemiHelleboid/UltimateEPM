@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "amc_material_model.hpp"
+#include "amc_scattering_model.hpp"
 #include "intervalley_phonon.hpp"
 #include "particle_amc.hpp"
 #include "scattering_channels.hpp"
@@ -45,6 +46,7 @@ struct amc_transport_config {
     bool                      m_enable_impact_ionization   = false;
     bool                      m_enable_impurity_scattering = false;
     impurity_scattering_model m_impurity_scattering_model  = impurity_scattering_model::mobility_empirical;
+    impurity_screening_model  m_impurity_screening_model   = impurity_screening_model::debye_analytic;
     impurity_density_source   m_impurity_density_source    = impurity_density_source::background;
 };
 
@@ -73,7 +75,7 @@ class amc_transport_kernel {
     void                             initialize_particle_state(particle_amc& p);
     std::optional<scattering_event>  scatter_particle(particle_amc& p, double dt);
     void                             drift_particle(particle_amc& p, const mesh::vector3& electric_field_Vm, double dt);
-    scattering_channel_list         build_scattering_channels(const particle_amc& p) const;
+    scattering_channel_list          build_scattering_channels(const particle_amc& p) const;
     double                           total_scattering_rate(const particle_amc& p) const;
     double             total_scattering_rate_for_energy(std::size_t band_or_valley_index, double energy_eV) const;
     double             compute_max_self_scattering_rate(double max_energy_eV, std::size_t n_samples) const;
@@ -96,7 +98,7 @@ class amc_transport_kernel {
 
     carrier_impurity_mobility_parameters m_impurity_mobility_parameters;
 
-    std::mt19937_64 m_rng;
+    std::mt19937_64     m_rng;
     double              m_gamma_max_s_1 = 0.0;
     std::vector<double> m_gamma_max_by_valley_s_1;
 };

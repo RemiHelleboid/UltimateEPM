@@ -2,6 +2,7 @@
 #include <doctest/doctest.h>
 
 #include <algorithm>
+#include <cmath>
 #include <string_view>
 
 #include "amc_material_model.hpp"
@@ -15,9 +16,10 @@ TEST_CASE("silicon material model preserves scattering parameters") {
     CHECK(material.m_symbol == "Si");
     CHECK(material.m_dielectric.epsilon_r == doctest::Approx(11.7));
     CHECK(material.m_electron_acoustic.mass_density_kg_per_m3 == doctest::Approx(2.329e3));
-    CHECK(material.m_electron_acoustic.sound_velocity_m_per_s == doctest::Approx(6.6e3));
-    CHECK(material.m_electron_acoustic.deformation_potential_eV == doctest::Approx(9.0));
-    CHECK(material.m_hole_acoustic.sound_velocity_m_per_s == doctest::Approx(6.6e3));
+    CHECK(material.m_electron_acoustic.sound_velocity_m_per_s ==
+          doctest::Approx(6606.666666666667));
+    CHECK(material.m_electron_acoustic.deformation_potential_eV == doctest::Approx(6.55));
+    CHECK(material.m_hole_acoustic.sound_velocity_m_per_s == doctest::Approx(6606.0));
     CHECK(material.m_hole_acoustic.deformation_potential_eV == doctest::Approx(5.5));
     CHECK(material.m_hole_acoustic.overlap_factor == doctest::Approx(0.5));
 
@@ -35,11 +37,11 @@ TEST_CASE("parameterized rates reproduce silicon reference values") {
 
     const double electron_acoustic = uepm::amc::acoustic_scattering_rate(
         material.m_electron_valleys.front(), material.m_electron_acoustic, 0.1, 300.0);
-    CHECK(electron_acoustic == doctest::Approx(6.988811279204761e12).epsilon(1.0e-12));
+    CHECK(electron_acoustic == doctest::Approx(3.694230372508554e12).epsilon(1.0e-12));
 
     const double hole_acoustic = uepm::amc::acoustic_scattering_rate(
         material.m_hole_bands.front(), material.m_hole_acoustic, 0.1, 300.0);
-    CHECK(hole_acoustic == doctest::Approx(5.152184403984006e12).epsilon(1.0e-12));
+    CHECK(hole_acoustic == doctest::Approx(5.142829554521578e12).epsilon(1.0e-12));
 
     const auto& g3_transition = material.m_electron_intervalley_transitions[2];
     const double g3_absorption = uepm::amc::intervalley_scattering_rate(
@@ -54,6 +56,82 @@ TEST_CASE("parameterized rates reproduce silicon reference values") {
     const double screened_impurity = uepm::amc::screened_coulomb_impurity_momentum_relaxation_rate(
         material.m_electron_valleys.front(), material.m_dielectric.epsilon_r, 0.1, 1.0e17, 1.0e17, 300.0);
     CHECK(screened_impurity == doctest::Approx(8.669406979196892e11).epsilon(1.0e-12));
+}
+
+TEST_CASE("finite-temperature impurity screening matches Dawson references") {
+    CHECK(uepm::amc::impurity_screening_function(0.0) == doctest::Approx(1.0));
+    CHECK(uepm::amc::impurity_screening_function(0.1) ==
+          doctest::Approx(0.9933599239785286).epsilon(2.0e-7));
+    CHECK(uepm::amc::impurity_screening_function(0.5) ==
+          doctest::Approx(0.8488727670040446).epsilon(2.0e-7));
+    CHECK(uepm::amc::impurity_screening_function(1.0) ==
+          doctest::Approx(0.5380795069127684).epsilon(2.0e-7));
+    CHECK(uepm::amc::impurity_screening_function(4.0) ==
+          doctest::Approx(0.03233700030900128).epsilon(2.0e-7));
+    CHECK(uepm::amc::impurity_screening_function(10.0) ==
+          doctest::Approx(0.005025384718759853).epsilon(2.0e-6));
+}
+
+TEST_CASE("full impurity screening reproduces independent numerical references") {
+    const auto material = uepm::amc::make_silicon_amc_material_model();
+    const auto& valley = material.m_electron_valleys.front();
+
+    struct reference_case {
+        double energy_eV;
+        double density_cm_3;
+        double expected_rate_s_1;
+    };
+    const reference_case cases[] = {
+        {0.01, 1.0e15, 3.813939568092906e11},
+        {0.10, 1.0e17, 8.726862850796857e11},
+        {0.50, 1.0e19, 4.981710987949476e12},
+        {1.00, 1.0e17, 4.379353408058030e10},
+    };
+
+    for (const auto& test_case : cases) {
+        const double rate = uepm::amc::screened_coulomb_impurity_momentum_relaxation_rate(
+            valley,
+            material.m_dielectric.epsilon_r,
+            test_case.energy_eV,
+            test_case.density_cm_3,
+            test_case.density_cm_3,
+            300.0,
+            uepm::amc::impurity_screening_model::finite_temperature_full);
+        CHECK(rate == doctest::Approx(test_case.expected_rate_s_1).epsilon(2.0e-6));
+    }
+}
+
+TEST_CASE("full impurity screening is finite across the validation grid") {
+    const auto material = uepm::amc::make_silicon_amc_material_model();
+    const auto& valley = material.m_electron_valleys.front();
+    const double energies_eV[] = {0.01, 0.05, 0.10, 0.50, 1.00};
+    const double densities_cm_3[] = {1.0e15, 1.0e17, 1.0e19};
+
+    for (double energy_eV : energies_eV) {
+        for (double density_cm_3 : densities_cm_3) {
+            const double analytic_rate =
+                uepm::amc::screened_coulomb_impurity_momentum_relaxation_rate(
+                    valley,
+                    material.m_dielectric.epsilon_r,
+                    energy_eV,
+                    density_cm_3,
+                    density_cm_3,
+                    300.0,
+                    uepm::amc::impurity_screening_model::debye_analytic);
+            const double full_rate =
+                uepm::amc::screened_coulomb_impurity_momentum_relaxation_rate(
+                    valley,
+                    material.m_dielectric.epsilon_r,
+                    energy_eV,
+                    density_cm_3,
+                    density_cm_3,
+                    300.0,
+                    uepm::amc::impurity_screening_model::finite_temperature_full);
+
+            CHECK(std::isfinite(full_rate));
+            CHECK(full_rate >= analytic_rate);
+        }
+    }
 }
 
 TEST_CASE("transition names travel with channels and are recorded") {

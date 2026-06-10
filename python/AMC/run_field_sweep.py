@@ -127,6 +127,19 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--impurity-screening-model",
+        type=str,
+        default="debye",
+        choices=["debye", "full"],
+        help=(
+            "Model for impurity scattering. "
+            "'mobility' uses an empirical mobility-based model, while "
+            "'screened-coulomb' uses a screened Coulomb potential model. "
+            "Ignored if --enable-impurity-scattering is not set."
+        ),
+    )
+
+    parser.add_argument(
         "--npart",
         type=int,
         default=10000,
@@ -264,6 +277,9 @@ def validate_args(args: argparse.Namespace) -> None:
 
     if args.impurity_model not in ["mobility", "screened-coulomb"]:
         raise ValueError("--impurity-model must be either 'mobility' or 'screened-coulomb'.")
+    
+    if args.impurity_screening_model not in ["debye", "full"]:
+        raise ValueError("--impurity-screening-model must be either 'debye' or 'full'.")
 
 def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
     run_dir = args.outdir / f"Ex_{field_v_per_cm:.6e}_Vcm"
@@ -306,7 +322,8 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
     ]
     if args.enable_impurity_scattering:
         command.append("--enable-impurity-scattering")
-        
+        command.append("--impurity-screening")
+        command.append(args.impurity_screening_model)
     if args.enable_impact_ionization:
         command.append("--enable-impact-ionization")
 
