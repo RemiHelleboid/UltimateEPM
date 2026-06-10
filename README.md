@@ -1,9 +1,7 @@
 # UltimateEPM 
 Band structure and DOS computation using empirical pseudopotentials on the full Brillouin-Zone using Empirical Pseudo-Potential Method. It includes the following features:
-* Standard __EPM over high symmetry k-points__ in the Brillouin zone.
+* Standard __EPM over high symmetry k-points__ in the Brillouin zone, including __nonlocal correction__ and __spin orbit coupling__.
 * Calculation of the __band structure and DOS on a mesh of k-points in the Brillouin zone__.
-* __Nonlocal corrections__ to the EPM.
-* __Spin-orbit coupling__ (SOC) for the EPM band structure.
 * MPI and OpenMP __parallelization__.
 
 [![CI Build](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci_comp.yaml/badge.svg)](https://github.com/RemiHelleboid/UltimateEPM/actions/workflows/ci_comp.yaml)
@@ -27,28 +25,28 @@ You can do four types of calculations:
 
 __Compute the electronic band structure over a path of high-symmetry points (e.g. $L \Gamma XWKULWXK \Gamma$) for a given material, and plot the results.__
 
-![Band structure of Silicon](doc/band_structure_Si.png)
+![Band structure of Silicon](doc/img/band_structure_Si.png)
 
 The SOC can be included in the computation:
 
-![Band structure of Ge with SOC](doc/GeSOC.png)
+![Band structure of Ge with SOC](doc/img/GeSOC.png)
 
 ---
 
 __Compute the electronic band structure over all k-points of an input mesh of the Brillouin Zone (or a fraction of it). The result can then be visualized, for example, through iso-energy surface.__  
-<img src="doc/rotation_animation_4th_band_iso.gif" width="600">
+<img src="doc/img/rotation_animation_4th_band_iso.gif" width="600">
 
 ---
 
 __Compute the density of states over the all Brillouin Zone.__   
-![Band structure of Silicon](doc/silicon_dos_per_band.png)
-![Band structure of Silicon](doc/dos_total_silicon.png)
+![Band structure of Silicon](doc/img/silicon_dos_per_band.png)
+![Band structure of Silicon](doc/img/dos_total_silicon.png)
 
 ---
 
 __Dielectric function computation (q-dependent)__
-![Band structure of Silicon](/doc/dielectric_func_Si.png)
-![Maps of the dielectric function](/doc/dielectric_map_Si.png)
+![Band structure of Silicon](/doc/img/dielectric_func_Si.png)
+![Maps of the dielectric function](/doc/img/dielectric_map_Si.png)
 
 ## Build and Compilation
 
@@ -131,7 +129,7 @@ This program has an __MPI version__, for the same arguments as previously, the c
 ___Output___ 
 * The result of the computation, i.e. the energy of each band at each vertex of the input mesh, is stored as follows: for each band the energies are store as a gmsh "view" which is the name for the physical data (scalar, vector field, tensor, ...) in the mesh. 
 
-![Band structure of Silicon](doc/gmsh_band_views.png)
+![Band structure of Silicon](doc/img/gmsh_band_views.png)
 
 ---
 ### __Density of States Computation__
@@ -157,7 +155,7 @@ This program has an __MPI version__, for the same arguments as previously, the c
 
 This section reports some performances of the code. We show comparison between parallelization with OpenMP and MPI. The numbers are shown only as a rough estimation, and one should not rely to much on the accuracy here.
 ### Band structure computation
-![Band structure of Silicon](doc/BandsOnBZ_Computation_Time.png)
+![Band structure of Silicon](doc/img/BandsOnBZ_Computation_Time.png)
 
 
 _Band structure computation of Silicon for 16 bands, on a full BZ mesh of around 300K points with local EPM._
@@ -167,13 +165,13 @@ Computation for every k-points is completely independent from the others, which 
 
 ### Density of states computation
 
-![Band structure of Silicon](doc/DOS_Computation_Time.png)
+![Band structure of Silicon](doc/img/DOS_Computation_Time.png)
 
 ---
 ## Brillouin Zone Meshing
 To get the required mesh of the Brillouin Zone, you can use the BZ.py script from the great J. Grebot, there: [fcc-bz-mesh](https://github.com/JGrebot/fcc-bz-mesh).
 
-![Band structure of Silicon](doc/bz_mesh_jg_8.png)
+![Band structure of Silicon](doc/img/bz_mesh_jg_8.png)
 
 ---
 
@@ -196,7 +194,7 @@ If you have data for materials that are not yet available in the code, feel free
 | CdTe       |   No    |    Yes    |
 
 ### Comparison of the standard EPM with the nonlocal EPM for 8 materials. 
-![With and without nonlocal correction](doc/bands_many_mat_vert.png)
+![With and without nonlocal correction](doc/img/bands_many_mat_vert.png)
 ---
 ## References
 1. Cohen, M. L. & Bergstresser, T. K. Band Structures and Pseudopotential Form Factors for Fourteen Semiconductors of the Diamond and Zinc-blende Structures. Phys. Rev. 141, 789–796 (1966).    
