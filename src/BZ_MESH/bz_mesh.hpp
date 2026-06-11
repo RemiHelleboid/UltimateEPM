@@ -95,7 +95,9 @@ class MeshBZ {
     std::vector<Tetra>                    m_list_tetrahedra;
     std::vector<std::vector<std::size_t>> m_vertex_to_tetrahedra;
 
-    double m_reduce_bz_factor = 1.0;
+    // Corrects small discrepancies between the integrated full-BZ mesh volume
+    // and the analytical reciprocal-cell volume.
+    double m_bz_volume_correction = 1.0;
 
     /**
      * @brief List of indices of vertices that lie in the irreducible wedge of the BZ.
@@ -164,9 +166,14 @@ class MeshBZ {
     const vector3& get_center() const noexcept { return m_center; }
     void           shift_bz_center(const vector3& shift);
 
-    double get_reduce_bz_factor() const noexcept { return m_reduce_bz_factor; }
-    void   set_reduce_bz_factor(double factor) noexcept { m_reduce_bz_factor = factor; }
+    double get_bz_volume_correction() const noexcept { return m_bz_volume_correction; }
+    void   set_bz_volume_correction(double factor) noexcept { m_bz_volume_correction = factor; }
+    // Compatibility aliases for existing callers.
+    double get_reduce_bz_factor() const noexcept { return get_bz_volume_correction(); }
+    void   set_reduce_bz_factor(double factor) noexcept { set_bz_volume_correction(factor); }
     double si_to_reduced_scale() const noexcept;
+    vector3 si_to_reduced_k(const vector3& k_si) const noexcept;
+    vector3 reduced_to_si_k(const vector3& k_reduced) const noexcept;
 
     std::size_t get_number_vertices() const noexcept { return m_list_vertices.size(); }
     std::size_t get_number_elements() const noexcept { return m_list_tetrahedra.size(); }
@@ -244,7 +251,13 @@ class MeshBZ {
                                        bool               write_gradients) const;
 
     // ---------- reading ----------
-    void read_mesh_geometry_from_msh_file(const std::string& filename, bool normalize_by_fourier_factor = true);
+    /**
+     * @brief Read a mesh while storing all internal k coordinates in SI (1/m).
+     *
+     * @param input_coordinates_are_reduced Set true when the file uses units of
+     *        2*pi/a, false when it already contains SI coordinates.
+     */
+    void read_mesh_geometry_from_msh_file(const std::string& filename, bool input_coordinates_are_reduced = true);
     void read_mesh_bands_from_msh_file(const std::string& filename,
                                        int                nb_conduction_bands        = -1,
                                        int                nb_valence_bands           = -1,
@@ -253,7 +266,7 @@ class MeshBZ {
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
     void add_new_gradient_band_energies_to_vertices(const std::vector<double>& gradients_at_vertices);
     void keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduction_bands);
-    void load_kstar_ibz_to_bz(const std::string& filename = "kstar_ibz_to_bz.txt");
+    void load_kstar_ibz_to_bz(const std::string& kstarFilePath = "");
 
     // ---------- Band structure ----------
     void compute_band_structure_over_mesh(uepm::pseudopotential::BandStructure& band_structure, bool use_iwedge = true);

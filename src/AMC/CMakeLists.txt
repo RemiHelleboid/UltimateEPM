@@ -17,6 +17,7 @@ set(HEADER_FILES_LIBAMC
     amc_avalanche_detector.hpp
     amc_quench_detector.hpp
     amc_device_setup.hpp
+    amc_device_config.hpp
     amc_device_runner.hpp
     amc_run_manifest.hpp
   )
@@ -36,6 +37,7 @@ set(SOURCE_FILES_LIBAMC
     amc_self_consistent_device_simulation_2d.cpp
     amc_quench_circuit.cpp
     amc_device_setup.cpp
+    amc_device_config.cpp
     amc_device_runner.cpp
     amc_run_manifest.cpp
 )
@@ -47,7 +49,7 @@ target_include_directories(lib_amc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Link with reuired libraries
 target_link_libraries(lib_amc PUBLIC libepp lib_bzmesh libfile libmesh libphysics uepm::poisson)
-target_link_libraries(lib_amc PUBLIC Eigen3::Eigen rapidcsv fmt::fmt)
+target_link_libraries(lib_amc PUBLIC Eigen3::Eigen rapidcsv fmt::fmt yaml-cpp::yaml-cpp)
 target_include_directories(lib_amc PUBLIC ${GMSH_INC})
 target_link_libraries(lib_amc PUBLIC ${GMSH_LIB})
 

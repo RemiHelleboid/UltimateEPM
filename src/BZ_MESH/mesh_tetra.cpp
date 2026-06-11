@@ -248,7 +248,9 @@ bool Tetra::is_location_inside(const vector3& location) const {
     const double  lambda_2          = scalar_triple_product(v_loc1, m_list_edges[1], m_list_edges[2]) / tetra_determinant;
     const double  lambda_3          = scalar_triple_product(v_loc1, m_list_edges[2], m_list_edges[0]) / tetra_determinant;
     const double  lambda_4          = scalar_triple_product(v_loc1, m_list_edges[0], m_list_edges[1]) / tetra_determinant;
-    return (lambda_1 >= 0 && lambda_2 >= 0 && lambda_3 >= 0 && lambda_4 >= 0);
+    constexpr double barycentric_tolerance = 1e-12;
+    return (lambda_1 >= -barycentric_tolerance && lambda_2 >= -barycentric_tolerance &&
+            lambda_3 >= -barycentric_tolerance && lambda_4 >= -barycentric_tolerance);
 }
 
 /**
@@ -575,9 +577,10 @@ void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double en
  * @param band_index
  * @return double
  */
-double Tetra::interpolate_dos_at_energy_per_band(double energy, std::size_t band_index) const noexcept {
-    // return (band_index < m_dos_per_band.size()) ? m_dos_per_band[band_index].sample_or_zero(energy) : 0.0;
-    return 0.0;
+double Tetra::interpolate_dos_at_energy_per_band(double energy, std::size_t band_index) const {
+    // The precomputed cache is not implemented yet. Falling back to the exact
+    // tetrahedral expression preserves the physics instead of silently returning zero.
+    return compute_tetra_dos_energy_band(energy, band_index);
 }
 
 /**

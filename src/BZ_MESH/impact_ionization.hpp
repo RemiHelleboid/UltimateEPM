@@ -25,6 +25,11 @@ namespace uepm::mesh_bz {
 typedef std::complex<double>       complex_d;
 typedef std::unique_ptr<BZ_States> uptr_BZstates;
 
+/**
+ * @brief Experimental impact-ionization implementation.
+ *
+ * The rate model is incomplete and must not be treated as validated production physics.
+ */
 class ImpactIonization {
  private:
     /**

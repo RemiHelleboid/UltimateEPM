@@ -187,7 +187,7 @@ void BandStructure::Compute_parallel(bool compute_gradient, int nb_threads) {
                 m_energies_gradient[index_k][level] = grad;
             }
         }
-        if ((index_k + 1) % 100 == 0) {
+        if ((index_k + 1) % 1000 == 0) {
 #pragma omp critical
             {
                 std::cout << "\rComputing band structure at point " << index_k + 1 << "/" << m_nb_points << " = "

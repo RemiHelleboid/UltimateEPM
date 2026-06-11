@@ -251,7 +251,9 @@ class Vertex {
      *
      * @param nb_bands
      */
-    void set_nb_electron_phonon_rates(std::size_t nb_bands) { m_electron_phonon_rates.resize(nb_bands); }
+    void set_nb_electron_phonon_rates(std::size_t nb_bands) {
+        m_electron_phonon_rates.assign(nb_bands, std::array<double, 8>{});
+    }
 
     /**
      * @brief Set the electron-phonon rates for a given band.

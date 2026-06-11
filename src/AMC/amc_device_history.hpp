@@ -108,6 +108,11 @@ struct history_device_amc {
     }
 
     void export_to_csv(const std::string &filename, std::size_t frequency = 1) {
+        if (m_list_times.empty()) {
+            print_header_csv(filename);
+            return;
+        }
+
         std::vector<double> double_list_time;
         std::vector<double> double_list_nb_electrons;
         std::vector<double> double_list_nb_hole;

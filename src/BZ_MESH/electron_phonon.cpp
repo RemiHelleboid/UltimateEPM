@@ -389,6 +389,9 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     fmt::print("Using {} threads.\n", m_nb_threads_mesh_ops);
 
     auto list_bands = get_band_indices(MeshParticleType::conduction);
+    for (auto& vertex : m_list_vertices) {
+        vertex.set_nb_electron_phonon_rates(list_bands.size());
+    }
     fmt::print("Computing electron-phonon rates for conduction bands: ");
     for (auto b : list_bands) {
         fmt::print("{} ", b);
@@ -406,13 +409,14 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
         const std::size_t idx_k1 = irreducible_wedge_only ? m_list_vtx_in_iwedge[idx] : idx;
         Vertex&           k1     = m_list_vertices[idx_k1];
         for (auto idx_n1 : list_bands) {
+            const std::size_t local_band_index = get_local_band_index(idx_n1);
             if (k1.get_energy_at_band(idx_n1) > energy_max) {
                 ++skipped_bc_energy;
-                k1.add_electron_phonon_rates(std::array<double, 8>{0, 0, 0, 0, 0, 0, 0, 0});
+                k1.set_electron_phonon_rates(local_band_index, std::array<double, 8>{});
                 continue;
             } else {
                 auto rate = compute_electron_phonon_rate(idx_n1, idx_k1);
-                k1.add_electron_phonon_rates(rate.as_array());
+                k1.set_electron_phonon_rates(local_band_index, rate.as_array());
             }
         }
         std::size_t d = ++done;
@@ -447,7 +451,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
                 for (auto idx_n1 : get_band_indices(MeshParticleType::conduction)) {
                     std::size_t local_idx_n1 = get_local_band_index(idx_n1);
                     auto        rates_symm   = vtx.get_electron_phonon_rates(local_idx_n1);
-                    m_list_vertices[idx_k1].add_electron_phonon_rates(rates_symm);
+                    m_list_vertices[idx_k1].set_electron_phonon_rates(local_idx_n1, rates_symm);
                     m_phonon_rates_transport[local_idx_n1][idx_k1] = m_phonon_rates_transport[local_idx_n1][idx_iw];
                 }
             }
@@ -1199,7 +1203,7 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
             }
         }
         // Scale by reduce-BZ factor and spin degeneracy
-        const double scale = m_spin_degeneracy;
+        const double scale = get_bz_volume_correction() * m_spin_degeneracy;
         for (double& w : m_count_weight_tetra_per_vertex) {
             w *= scale;
         }
@@ -1286,7 +1290,7 @@ double ElectronPhonon::mean_electron_energy_equilibrium(double fermi_level_eV, d
             w_k[ids[i]] += Vt * 0.25 * inv_2pi3;
         }
     }
-    const double scale = get_reduce_bz_factor() * m_spin_degeneracy;
+    const double scale = get_bz_volume_correction() * m_spin_degeneracy;
     for (double& w : w_k) {
         w *= scale;
     }

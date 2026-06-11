@@ -73,9 +73,12 @@ Tetra *Octree_mesh::find_tetra_at_location(const vector3 &location) const {
     if (!m_is_leaf) {
         for (auto &&p_sub_node : m_list_sub_nodes) {
             if (p_sub_node->is_inside(location)) {
-                return p_sub_node->find_tetra_at_location(location);
+                if (Tetra *tetra = p_sub_node->find_tetra_at_location(location)) {
+                    return tetra;
+                }
             }
         }
+        return nullptr;
     }
     const auto it_tetra = std::find_if(m_list_tetras.begin(), m_list_tetras.end(), [&](const Tetra *p_tetra) {
         return p_tetra->is_location_inside(location);

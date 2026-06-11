@@ -20,7 +20,7 @@
 
 TEST_CASE("Testing Poisson 2d on a PN Junction.") {
 
-    std::string material_file = PROJECT_SRC_DIR + std::string("/data/materials.yaml"); 
+    std::string material_file = PROJECT_SRC_DIR + std::string("/examples/materials/materials.yaml"); 
     std::cout << "Material file : " << material_file << std::endl;
     uepm::physic::material::list_materials list_of_materials;
     list_of_materials.load_materials_from_file(material_file);

@@ -38,7 +38,6 @@ class self_consistent_device_amc_simulation_3d : public self_consistent_device_a
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
     std::vector<double>                         m_list_element_contact_equilibrium_charge;
-    std::vector<double>                         m_list_element_contact_residual_charge;
 
     std::minstd_rand m_contact_rng;
 

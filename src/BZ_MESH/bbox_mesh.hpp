@@ -11,9 +11,12 @@
 
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <memory>
 #include <random>
-#include <array>
+#include <stdexcept>
 #include <vector>
 
 #include "vector_bz.hpp"
@@ -89,8 +92,11 @@ class bbox_mesh {
     }
 
     bool is_inside(const vector3 &location) const {
-        return (location.x() > m_x_min) && (location.x() < m_x_max) && (location.y() > m_y_min) && (location.y() < m_y_max) &&
-               (location.z() > m_z_min) && (location.z() < m_z_max);
+        constexpr double relative_tolerance = 1e-12;
+        const double     tolerance = relative_tolerance * std::max(1.0, get_diagonal_size());
+        return (location.x() >= m_x_min - tolerance) && (location.x() <= m_x_max + tolerance) &&
+               (location.y() >= m_y_min - tolerance) && (location.y() <= m_y_max + tolerance) &&
+               (location.z() >= m_z_min - tolerance) && (location.z() <= m_z_max + tolerance);
     }
 
     /**
@@ -114,12 +120,19 @@ class bbox_mesh {
     }
 
     void dilate(double factor) {
-        m_x_min *= factor;
-        m_x_max *= factor;
-        m_y_min *= factor;
-        m_y_max *= factor;
-        m_z_min *= factor;
-        m_z_max *= factor;
+        if (factor < 0.0) {
+            throw std::invalid_argument("A bounding-box dilation factor cannot be negative.");
+        }
+        const vector3 center = get_center();
+        const double  hx     = 0.5 * factor * get_x_size();
+        const double  hy     = 0.5 * factor * get_y_size();
+        const double  hz     = 0.5 * factor * get_z_size();
+        m_x_min = center.x() - hx;
+        m_x_max = center.x() + hx;
+        m_y_min = center.y() - hy;
+        m_y_max = center.y() + hy;
+        m_z_min = center.z() - hz;
+        m_z_max = center.z() + hz;
     }
 
     void translate(const vector3 &translation) {
@@ -149,4 +162,3 @@ class bbox_mesh {
 };
 
 }  // namespace uepm::mesh_bz
-

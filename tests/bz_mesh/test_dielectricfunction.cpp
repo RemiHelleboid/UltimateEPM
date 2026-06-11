@@ -25,7 +25,51 @@
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
+#include "dielectric_mesh.hpp"
 #include "doctest/doctest.h"
+
+namespace {
+class SyntheticDielectricMesh : public uepm::mesh_bz::DielectricMesh {
+ public:
+    void initialize() {
+        m_list_vertices = {
+            uepm::mesh_bz::Vertex(0, 0.0, 0.0, 0.0),
+            uepm::mesh_bz::Vertex(1, 1.0, 0.0, 0.0),
+            uepm::mesh_bz::Vertex(2, 0.0, 1.0, 0.0),
+            uepm::mesh_bz::Vertex(3, 0.0, 0.0, 1.0),
+        };
+        std::array<uepm::mesh_bz::Vertex*, 4> vertices = {
+            &m_list_vertices[0], &m_list_vertices[1], &m_list_vertices[2], &m_list_vertices[3]};
+        m_list_tetrahedra.emplace_back(0, vertices);
+        m_energies = {1.0, 3.0};
+        m_dielectric_function = {
+            {{0.0, 0.0}, {10.0, 20.0}},
+            {{1.0, 2.0}, {11.0, 22.0}},
+            {{2.0, 4.0}, {12.0, 24.0}},
+            {{3.0, 6.0}, {13.0, 26.0}},
+        };
+        build_search_tree();
+    }
+};
+}  // namespace
+
+TEST_CASE("dielectric interpolation uses node-major storage and clamps energy") {
+    SyntheticDielectricMesh mesh;
+    mesh.initialize();
+    const uepm::mesh_bz::vector3 centroid(0.25, 0.25, 0.25);
+
+    const auto below = mesh.interpolate_dielectric_function(centroid, 0.0);
+    CHECK(below.real() == doctest::Approx(1.5));
+    CHECK(below.imag() == doctest::Approx(3.0));
+
+    const auto middle = mesh.interpolate_dielectric_function(centroid, 2.0);
+    CHECK(middle.real() == doctest::Approx(6.5));
+    CHECK(middle.imag() == doctest::Approx(13.0));
+
+    const auto above = mesh.interpolate_dielectric_function(centroid, 4.0);
+    CHECK(above.real() == doctest::Approx(11.5));
+    CHECK(above.imag() == doctest::Approx(23.0));
+}
 
 TEST_CASE("Epsilon_Si") {
     // Eigen::MatrixXcd Rmat = Eigen::MatrixXcd::Random(139,139);

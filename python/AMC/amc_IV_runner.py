@@ -29,20 +29,10 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--device-mesh",
+        "--config",
         required=True,
         type=Path,
-        help="Path to the device mesh .msh file.",
-    )
-
-    parser.add_argument(
-        "--material-file",
-        type=Path,
-        default=None,
-        help=(
-            "Path to the material YAML file used by the Poisson solver. "
-            "If omitted, the executable default is used."
-        ),
+        help="Base device AMC YAML configuration file.",
     )
 
     parser.add_argument(
@@ -56,14 +46,14 @@ def parse_args() -> argparse.Namespace:
         "--vmin",
         required=True,
         type=float,
-        help="Minimum anode voltage in V.",
+        help="Minimum voltage applied to the swept contact, in V.",
     )
 
     parser.add_argument(
         "--vmax",
         required=True,
         type=float,
-        help="Maximum anode voltage in V.",
+        help="Maximum voltage applied to the swept contact, in V.",
     )
 
     parser.add_argument(
@@ -74,157 +64,17 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--cathode-voltage",
-        type=float,
-        default=0.0,
-        help="Cathode voltage in V.",
-    )
-
-    parser.add_argument(
-        "--time",
-        type=float,
-        default=50.0e-12,
-        help="Final simulation time in seconds.",
-    )
-
-    parser.add_argument(
-        "--dt",
-        type=float,
-        default=1.0e-15,
-        help="Device AMC timestep in seconds.",
-    )
-
-    parser.add_argument(
-        "--temperature",
-        type=float,
-        default=300.0,
-        help="Lattice temperature in K.",
-    )
-
-    parser.add_argument(
-        "--max-energy",
-        type=float,
-        default=10.0,
-        help="Maximum carrier energy in eV for gamma_max precomputation.",
-    )
-
-    parser.add_argument(
-        "--gamma-safety",
-        type=float,
-        default=1.2,
-        help="Self-scattering gamma safety factor.",
-    )
-
-    parser.add_argument(
-        "--gamma-samples",
-        type=int,
-        default=1000,
-        help="Number of gamma_max energy samples.",
-    )
-
-    parser.add_argument(
-        "--poisson-frequency",
-        type=int,
-        default=10,
-        help="Number of transport steps between two Poisson updates.",
-    )
-
-    parser.add_argument(
-        "--x0",
-        type=float,
-        required=True,
-        help="Initial particle x position in microns. Required by the C++ app.",
-    )
-
-    parser.add_argument(
-        "--y0",
-        type=float,
-        default=0.0,
-        help="Initial particle y position in microns.",
-    )
-
-    parser.add_argument(
-        "--z0",
-        type=float,
-        default=0.0,
-        help="Initial particle z position in microns.",
-    )
-
-    parser.add_argument(
-        "--nelectrons",
-        type=int,
-        default=1,
-        help="Initial number of electrons when not using only doping initialization.",
-    )
-
-    parser.add_argument(
-        "--nholes",
-        type=int,
-        default=0,
-        help="Initial number of holes when not using only doping initialization.",
-    )
-
-    parser.add_argument(
-        "--max-particles",
-        type=int,
-        default=1_000_000,
-        help="Hard maximum number of active particles.",
-    )
-
-    parser.add_argument(
-        "--avalanche-voltage-drop",
-        type=float,
-        default=1.0,
-        help="Absolute quench-circuit voltage drop used to detect avalanche, in volts.",
-    )
-
-    parser.add_argument(
-        "--quench-high-field",
-        type=float,
-        default=1.0e5,
-        help="Particle electric-field threshold that resets the quench quiet window, in V/cm.",
-    )
-
-    parser.add_argument(
-        "--quench-quiet-time",
-        type=float,
-        default=1.0e-11,
-        help="Required time without high-field particles or impact ionization after avalanche, in seconds.",
-    )
-
-    parser.add_argument(
-        "--resistance",
-        type=float,
-        default=1.0,
-        help="Passive quench resistance in ohms.",
-    )
-
-    parser.add_argument(
-        "--capacitance",
-        type=float,
-        default=1.0,
-        help="Passive quench capacitance in farads.",
-    )
-
-    parser.add_argument(
-        "--effective-depth",
-        type=float,
-        default=1.0,
-        help="Effective physical depth for 2D simulation, in microns.",
-    )
-
-    parser.add_argument(
-        "--particle-z-period",
-        type=float,
-        default=1.0,
-        help="Numerical periodic z length for 2D particles, in microns.",
+        "--swept-contact",
+        choices=["anode", "cathode"],
+        default="anode",
+        help="Contact voltage varied by the sweep.",
     )
 
     parser.add_argument(
         "--seed",
         type=int,
-        default=0,
-        help="Base random seed.",
+        default=None,
+        help="Base random seed. If omitted, run.seed from the YAML file is used.",
     )
 
     parser.add_argument(
@@ -250,8 +100,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--threads-per-run",
         type=int,
-        default=1,
-        help="Number of C++ threads passed to each individual simulation.",
+        default=None,
+        help="Override run.threads for each simulation; otherwise use the YAML value.",
     )
 
     parser.add_argument(
@@ -261,53 +111,21 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--disable-impact-ionization",
-        action="store_true",
-        help="Pass --disable-impact-ionization to the simulator.",
-    )
-
-    parser.add_argument(
-        "--disable-particle-creation",
-        action="store_true",
-        help="Pass --disable-particle-creation to the simulator.",
-    )
-
-    parser.add_argument(
-        "--disable-doping-init-particles",
-        action="store_true",
-        help="Pass --disable-doping-init-particles to the simulator.",
-    )
-
-    parser.add_argument(
-        "--keep-going-without-electrons",
-        action="store_true",
-        help="Pass --keep-going-without-electrons to the simulator.",
-    )
-
-    parser.add_argument(
-        "--export-time-steps",
-        action="store_true",
-        help="Export VTK/VTP timesteps during each run.",
-    )
-
-    parser.add_argument(
-        "--export-frequency",
-        type=int,
-        default=100,
-        help="Export one timestep every N iterations.",
-    )
-
-    parser.add_argument(
         "--show",
         action="store_true",
         help="Show plots interactively.",
     )
 
     parser.add_argument(
-        "--extra-args",
-        nargs=argparse.REMAINDER,
+        "--set",
+        dest="config_overrides",
+        action="append",
         default=[],
-        help="Additional arguments passed directly to the simulator.",
+        metavar="PATH=VALUE",
+        help=(
+            "Additional YAML override applied to every run. Repeat for multiple "
+            "settings. Sweep-owned settings take precedence."
+        ),
     )
 
     return parser.parse_args()
@@ -320,32 +138,13 @@ def validate_args(args: argparse.Namespace) -> None:
     if not os.access(args.exe, os.X_OK):
         raise PermissionError(f"Executable is not executable: {args.exe}")
 
-    if not args.device_mesh.is_file():
-        raise FileNotFoundError(f"Device mesh not found: {args.device_mesh}")
-
-    if args.material_file is not None and not args.material_file.is_file():
-        raise FileNotFoundError(f"Material file not found: {args.material_file}")
+    if not args.config.is_file():
+        raise FileNotFoundError(f"AMC configuration not found: {args.config}")
 
     finite_values = {
         "--vmin": args.vmin,
         "--vmax": args.vmax,
         "--vstep": args.vstep,
-        "--cathode-voltage": args.cathode_voltage,
-        "--time": args.time,
-        "--dt": args.dt,
-        "--temperature": args.temperature,
-        "--max-energy": args.max_energy,
-        "--gamma-safety": args.gamma_safety,
-        "--x0": args.x0,
-        "--y0": args.y0,
-        "--z0": args.z0,
-        "--avalanche-voltage-drop": args.avalanche_voltage_drop,
-        "--quench-high-field": args.quench_high_field,
-        "--quench-quiet-time": args.quench_quiet_time,
-        "--resistance": args.resistance,
-        "--capacitance": args.capacitance,
-        "--effective-depth": args.effective_depth,
-        "--particle-z-period": args.particle_z_period,
         "--transient-fraction": args.transient_fraction,
     }
     for option, value in finite_values.items():
@@ -358,74 +157,41 @@ def validate_args(args: argparse.Namespace) -> None:
     if (args.vmax - args.vmin) * args.vstep < 0.0:
         raise ValueError("--vstep sign is inconsistent with --vmin and --vmax.")
 
-    if args.time <= 0.0:
-        raise ValueError("--time must be positive.")
-
-    if args.dt <= 0.0:
-        raise ValueError("--dt must be positive.")
-
-    if args.temperature < 0.0:
-        raise ValueError("--temperature must be non-negative.")
-
-    if args.max_energy <= 0.0:
-        raise ValueError("--max-energy must be positive.")
-
-    if args.gamma_safety <= 0.0:
-        raise ValueError("--gamma-safety must be positive.")
-
-    if args.gamma_samples < 2:
-        raise ValueError("--gamma-samples must be at least 2.")
-
-    if args.poisson_frequency <= 0:
-        raise ValueError("--poisson-frequency must be positive.")
-
-    if args.nelectrons < 0:
-        raise ValueError("--nelectrons must be non-negative.")
-
-    if args.nholes < 0:
-        raise ValueError("--nholes must be non-negative.")
-
-    if args.max_particles <= 0:
-        raise ValueError("--max-particles must be positive.")
-
-    if args.avalanche_voltage_drop <= 0.0:
-        raise ValueError("--avalanche-voltage-drop must be positive.")
-
-    if args.quench_high_field <= 0.0:
-        raise ValueError("--quench-high-field must be positive.")
-
-    if args.quench_quiet_time <= 0.0:
-        raise ValueError("--quench-quiet-time must be positive.")
-
-    if args.resistance <= 0.0:
-        raise ValueError("--resistance must be positive.")
-
-    if args.capacitance <= 0.0:
-        raise ValueError("--capacitance must be positive.")
-
-    if args.effective_depth <= 0.0:
-        raise ValueError("--effective-depth must be positive.")
-
-    if args.particle_z_period <= 0.0:
-        raise ValueError("--particle-z-period must be positive.")
-
     if not (0.0 <= args.transient_fraction < 1.0):
         raise ValueError("--transient-fraction must be in [0, 1).")
 
     if args.jobs <= 0:
         raise ValueError("--jobs must be positive.")
 
-    if args.threads_per_run <= 0:
+    if args.threads_per_run is not None and args.threads_per_run <= 0:
         raise ValueError("--threads-per-run must be positive.")
-
-    if args.export_frequency <= 0:
-        raise ValueError("--export-frequency must be positive.")
 
     if args.history_filename != "device_history.csv":
         raise ValueError(
             "--history-filename must be 'device_history.csv'; "
             "the simulator does not support a custom history filename."
         )
+
+    for override in args.config_overrides:
+        key, separator, value = override.partition("=")
+        if not separator or not key or not value:
+            raise ValueError(
+                f"Invalid --set value '{override}'. Expected PATH=VALUE."
+            )
+
+        runner_owned_keys = {
+            f"contacts.{args.swept_contact}_voltage_V",
+            "run.output_directory",
+        }
+        if args.seed is not None:
+            runner_owned_keys.add("run.seed")
+        if args.threads_per_run is not None:
+            runner_owned_keys.add("run.threads")
+
+        if key in runner_owned_keys:
+            raise ValueError(
+                f"--set {key}=... conflicts with an IV runner-owned setting."
+            )
 
 
 def build_voltage_list(vmin: float, vmax: float, vstep: float) -> list[float]:
@@ -444,107 +210,54 @@ def build_voltage_list(vmin: float, vmax: float, vstep: float) -> list[float]:
     return voltages
 
 
-def voltage_directory_name(voltage: float) -> str:
-    return f"Va_{voltage:+.6e}_V".replace("+", "p").replace("-", "m")
+def voltage_directory_name(contact: str, voltage: float) -> str:
+    prefix = "Va" if contact == "anode" else "Vc"
+    return f"{prefix}_{voltage:+.6e}_V".replace("+", "p").replace("-", "m")
 
 
 def build_command(
     args: argparse.Namespace,
     voltage: float,
     run_dir: Path,
-    seed: int,
+    seed: int | None,
 ) -> list[str]:
     command = [
         str(args.exe),
-        "--device-mesh",
-        str(args.device_mesh),
-        "--material",
-        "Si",
-        "--outdir",
-        str(run_dir),
-        "--time",
-        str(args.time),
-        "--dt",
-        str(args.dt),
-        "--temperature",
-        str(args.temperature),
-        "--max-energy",
-        str(args.max_energy),
-        "--gamma-safety",
-        str(args.gamma_safety),
-        "--gamma-samples",
-        str(args.gamma_samples),
-        "--poisson-frequency",
-        str(args.poisson_frequency),
-        "--anode-voltage",
-        str(voltage),
-        "--cathode-voltage",
-        str(args.cathode_voltage),
-        "--x0",
-        str(args.x0),
-        "--y0",
-        str(args.y0),
-        "--z0",
-        str(args.z0),
-        "--nelectrons",
-        str(args.nelectrons),
-        "--nholes",
-        str(args.nholes),
-        "--max-particles",
-        str(args.max_particles),
-        "--avalanche-voltage-drop",
-        str(args.avalanche_voltage_drop),
-        "--quench-high-field",
-        str(args.quench_high_field),
-        "--quench-quiet-time",
-        str(args.quench_quiet_time),
-        "--resistance",
-        str(args.resistance),
-        "--capacitance",
-        str(args.capacitance),
-        "--effective-depth",
-        str(args.effective_depth),
-        "--particle-z-period",
-        str(args.particle_z_period),
-        "--seed",
-        str(seed),
-        "--export-frequency",
-        str(args.export_frequency),
-        "-j",
-        str(args.threads_per_run),
+        "--config",
+        str(args.config),
     ]
 
-    if args.material_file is not None:
-        command.extend(["--material-file", str(args.material_file)])
+    for override in args.config_overrides:
+        command.extend(["--set", override])
 
-    if args.disable_impact_ionization:
-        command.append("--disable-impact-ionization")
+    swept_voltage_key = f"contacts.{args.swept_contact}_voltage_V"
+    command.extend(["--set", f"{swept_voltage_key}={voltage}"])
+    command.extend(["--set", f"run.output_directory={run_dir}"])
 
-    if args.disable_particle_creation:
-        command.append("--disable-particle-creation")
+    if args.seed is not None:
+        command.extend(["--set", f"run.seed={seed}"])
 
-    if args.disable_doping_init_particles:
-        command.append("--disable-doping-init-particles")
-
-    if args.keep_going_without_electrons:
-        command.append("--keep-going-without-electrons")
-
-    if args.export_time_steps:
-        command.append("--export-time-steps")
-
-    command.extend(args.extra_args)
+    if args.threads_per_run is not None:
+        command.extend(["--set", f"run.threads={args.threads_per_run}"])
 
     return command
 
 
-def run_one_voltage(args: argparse.Namespace, voltage: float, seed: int) -> Path:
-    run_dir = args.outdir / voltage_directory_name(voltage)
+def run_one_voltage(
+    args: argparse.Namespace,
+    voltage: float,
+    seed: int | None,
+) -> Path:
+    run_dir = args.outdir / voltage_directory_name(args.swept_contact, voltage)
     run_dir.mkdir(parents=True, exist_ok=True)
 
     history_file = run_dir / args.history_filename
 
     if args.resume and history_file.exists():
-        print(f"Reusing Va = {voltage:.6e} V", flush=True)
+        print(
+            f"Reusing {args.swept_contact} = {voltage:.6e} V",
+            flush=True,
+        )
         return history_file
 
     command = build_command(args, voltage, run_dir, seed)
@@ -565,7 +278,8 @@ def run_one_voltage(args: argparse.Namespace, voltage: float, seed: int) -> Path
 
     if completed.returncode != 0:
         raise RuntimeError(
-            f"Simulation failed for Va={voltage:.6e} V. " f"See log: {log_file}"
+            f"Simulation failed for {args.swept_contact}={voltage:.6e} V. "
+            f"See log: {log_file}"
         )
 
     if not history_file.exists():
@@ -657,14 +371,14 @@ def extract_iv_point(
         "transient_cut_s": t_cut,
         "n_samples_total": int(len(df)),
         "n_samples_steady": int(len(steady)),
-        "mean_current_A_per_um": mean_current,
-        "std_current_A_per_um": std_current,
-        "stderr_current_A_per_um": float(stderr_current),
-        "mean_abs_current_A_per_um": abs(mean_current),
-        "mean_current_electron_A_per_um": float(np.mean(current_e)),
-        "mean_current_hole_A_per_um": float(np.mean(current_h)),
-        "std_current_electron_A_per_um": float(np.std(current_e, ddof=1)),
-        "std_current_hole_A_per_um": float(np.std(current_h, ddof=1)),
+        "mean_current_A": mean_current,
+        "std_current_A": std_current,
+        "stderr_current_A": float(stderr_current),
+        "mean_abs_current_A": abs(mean_current),
+        "mean_current_electron_A": float(np.mean(current_e)),
+        "mean_current_hole_A": float(np.mean(current_h)),
+        "std_current_electron_A": float(np.std(current_e, ddof=1)),
+        "std_current_hole_A": float(np.std(current_h, ddof=1)),
         "mean_nb_electrons": float(steady["nb_electrons"].mean()),
         "mean_nb_holes": float(steady["nb_holes"].mean()),
         "final_nb_electrons": float(df["nb_electrons"].iloc[-1]),
@@ -692,9 +406,9 @@ def extract_iv_point(
 def run_and_extract_one_voltage(
     args: argparse.Namespace,
     voltage: float,
-    seed: int,
+    seed: int | None,
 ) -> dict[str, float | str]:
-    print(f"Running Va = {voltage:.6e} V", flush=True)
+    print(f"Running {args.swept_contact} = {voltage:.6e} V", flush=True)
 
     started = time.perf_counter()
 
@@ -707,9 +421,10 @@ def run_and_extract_one_voltage(
     )
 
     record["runtime_s"] = float(time.perf_counter() - started)
-    record["seed"] = seed
+    if seed is not None:
+        record["seed"] = seed
 
-    print(f"Finished Va = {voltage:.6e} V", flush=True)
+    print(f"Finished {args.swept_contact} = {voltage:.6e} V", flush=True)
 
     return record
 
@@ -719,8 +434,8 @@ def plot_iv_signed(df: pd.DataFrame, outdir: Path, show: bool) -> None:
 
     ax.errorbar(
         df["voltage_V"],
-        df["mean_current_A_per_um"],
-        yerr=df["stderr_current_A_per_um"],
+        df["mean_current_A"],
+        yerr=df["stderr_current_A"],
         marker="o",
         linestyle="-",
         capsize=3,
@@ -729,7 +444,7 @@ def plot_iv_signed(df: pd.DataFrame, outdir: Path, show: bool) -> None:
 
     ax.plot(
         df["voltage_V"],
-        df["mean_current_electron_A_per_um"],
+        df["mean_current_electron_A"],
         marker="s",
         linestyle="--",
         label="electron",
@@ -737,14 +452,14 @@ def plot_iv_signed(df: pd.DataFrame, outdir: Path, show: bool) -> None:
 
     ax.plot(
         df["voltage_V"],
-        df["mean_current_hole_A_per_um"],
+        df["mean_current_hole_A"],
         marker="^",
         linestyle="--",
         label="hole",
     )
 
-    ax.set_xlabel("Anode voltage (V)")
-    ax.set_ylabel("Mean Ramo current (A/um)")
+    ax.set_xlabel("Swept contact voltage (V)")
+    ax.set_ylabel("Mean Ramo current (A)")
     ax.set_title("Device AMC I/V curve")
     ax.grid(True)
     ax.legend()
@@ -760,7 +475,7 @@ def plot_iv_signed(df: pd.DataFrame, outdir: Path, show: bool) -> None:
 
 
 def plot_iv_abs_log(df: pd.DataFrame, outdir: Path, show: bool) -> None:
-    data = df[df["mean_abs_current_A_per_um"] > 0.0].copy()
+    data = df[df["mean_abs_current_A"] > 0.0].copy()
 
     if data.empty:
         print("No positive absolute current values available for log plot.")
@@ -770,14 +485,14 @@ def plot_iv_abs_log(df: pd.DataFrame, outdir: Path, show: bool) -> None:
 
     ax.plot(
         data["voltage_V"],
-        data["mean_abs_current_A_per_um"],
+        data["mean_abs_current_A"],
         marker="o",
         linestyle="-",
     )
 
     ax.set_yscale("log")
-    ax.set_xlabel("Anode voltage (V)")
-    ax.set_ylabel("|Mean Ramo current| (A/um)")
+    ax.set_xlabel("Swept contact voltage (V)")
+    ax.set_ylabel("|Mean Ramo current| (A)")
     ax.set_title("Device AMC I/V curve")
     ax.grid(True, which="both")
 
@@ -808,7 +523,7 @@ def plot_particle_counts(df: pd.DataFrame, outdir: Path, show: bool) -> None:
         label="mean holes",
     )
 
-    ax.set_xlabel("Anode voltage (V)")
+    ax.set_xlabel("Swept contact voltage (V)")
     ax.set_ylabel("Mean numerical particle count")
     ax.set_title("Mean particle population versus voltage")
     ax.grid(True)
@@ -853,7 +568,7 @@ def plot_represented_carriers_if_available(
         label="holes",
     )
 
-    ax.set_xlabel("Anode voltage (V)")
+    ax.set_xlabel("Swept contact voltage (V)")
     ax.set_ylabel("Mean represented carrier count")
     ax.set_title("Mean represented carriers versus voltage")
     ax.grid(True)
@@ -885,7 +600,7 @@ def plot_max_field_if_available(
         marker="o",
     )
 
-    ax.set_xlabel("Anode voltage (V)")
+    ax.set_xlabel("Swept contact voltage (V)")
     ax.set_ylabel("Mean max electric field")
     ax.set_title("Maximum electric field versus voltage")
     ax.grid(True)
@@ -908,55 +623,22 @@ def write_manifest(args: argparse.Namespace, voltages: list[float]) -> None:
         stream.write("====================\n\n")
 
         stream.write(f"exe = {args.exe}\n")
-        stream.write(f"device_mesh = {args.device_mesh}\n")
-        stream.write(f"material_file = {args.material_file}\n")
+        stream.write(f"config = {args.config}\n")
         stream.write(f"outdir = {args.outdir}\n\n")
 
+        stream.write(f"swept_contact = {args.swept_contact}\n")
         stream.write(f"vmin = {args.vmin:.8e}\n")
         stream.write(f"vmax = {args.vmax:.8e}\n")
         stream.write(f"vstep = {args.vstep:.8e}\n")
         stream.write("voltages = " + " ".join(f"{v:.8e}" for v in voltages) + "\n\n")
 
-        stream.write(f"cathode_voltage = {args.cathode_voltage:.8e}\n")
-        stream.write(f"time = {args.time:.8e}\n")
-        stream.write(f"dt = {args.dt:.8e}\n")
-        stream.write(f"temperature = {args.temperature:.8e}\n")
-        stream.write(f"max_energy = {args.max_energy:.8e}\n")
-        stream.write(f"gamma_safety = {args.gamma_safety:.8e}\n")
-        stream.write(f"gamma_samples = {args.gamma_samples}\n")
-        stream.write(f"poisson_frequency = {args.poisson_frequency}\n")
-        stream.write(f"transient_fraction = {args.transient_fraction:.8e}\n\n")
-
-        stream.write(f"x0 = {args.x0:.8e}\n")
-        stream.write(f"y0 = {args.y0:.8e}\n")
-        stream.write(f"z0 = {args.z0:.8e}\n")
-        stream.write(f"nelectrons = {args.nelectrons}\n")
-        stream.write(f"nholes = {args.nholes}\n")
-        stream.write(f"max_particles = {args.max_particles}\n")
-        stream.write(f"avalanche_voltage_drop = {args.avalanche_voltage_drop:.8e}\n")
-        stream.write(f"quench_high_field = {args.quench_high_field:.8e}\n")
-        stream.write(f"quench_quiet_time = {args.quench_quiet_time:.8e}\n")
-        stream.write(f"resistance = {args.resistance:.8e}\n")
-        stream.write(f"capacitance = {args.capacitance:.8e}\n")
-        stream.write(f"effective_depth = {args.effective_depth:.8e}\n")
-        stream.write(f"particle_z_period = {args.particle_z_period:.8e}\n\n")
-
+        stream.write(f"transient_fraction = {args.transient_fraction:.8e}\n")
         stream.write(f"jobs = {args.jobs}\n")
         stream.write(f"threads_per_run = {args.threads_per_run}\n")
         stream.write(f"resume = {args.resume}\n")
-        stream.write(f"seed = {args.seed}\n\n")
-
-        stream.write(f"disable_impact_ionization = {args.disable_impact_ionization}\n")
-        stream.write(f"disable_particle_creation = {args.disable_particle_creation}\n")
-        stream.write(
-            f"disable_doping_init_particles = {args.disable_doping_init_particles}\n"
-        )
-        stream.write(
-            f"keep_going_without_electrons = {args.keep_going_without_electrons}\n"
-        )
-        stream.write(f"export_time_steps = {args.export_time_steps}\n")
-        stream.write(f"export_frequency = {args.export_frequency}\n")
-        stream.write("extra_args = " + " ".join(args.extra_args) + "\n")
+        stream.write(f"seed = {args.seed}\n")
+        for override in args.config_overrides:
+            stream.write(f"set = {override}\n")
 
 
 def main() -> int:
@@ -964,9 +646,7 @@ def main() -> int:
     validate_args(args)
 
     args.exe = args.exe.resolve()
-    args.device_mesh = args.device_mesh.resolve()
-    if args.material_file is not None:
-        args.material_file = args.material_file.resolve()
+    args.config = args.config.resolve()
     args.outdir = args.outdir.resolve()
 
     args.outdir.mkdir(parents=True, exist_ok=True)
@@ -986,8 +666,10 @@ def main() -> int:
     for voltage in voltages:
         print(f"  {voltage:.6e} V")
 
+    print(f"Swept contact: {args.swept_contact}", flush=True)
     print(
-        f"Running with jobs={args.jobs}, " f"threads_per_run={args.threads_per_run}",
+        f"Running with jobs={args.jobs}, threads_per_run="
+        f"{args.threads_per_run if args.threads_per_run is not None else 'config'}",
         flush=True,
     )
 
@@ -995,8 +677,9 @@ def main() -> int:
 
     if args.jobs == 1:
         for index, voltage in enumerate(voltages):
+            seed = args.seed + index if args.seed is not None else None
             records.append(
-                run_and_extract_one_voltage(args, voltage, args.seed + index)
+                run_and_extract_one_voltage(args, voltage, seed)
             )
     else:
         with ProcessPoolExecutor(max_workers=args.jobs) as executor:
@@ -1005,7 +688,7 @@ def main() -> int:
                     run_and_extract_one_voltage,
                     args,
                     voltage,
-                    args.seed + index,
+                    args.seed + index if args.seed is not None else None,
                 ): voltage
                 for index, voltage in enumerate(voltages)
             }
@@ -1017,7 +700,8 @@ def main() -> int:
                     records.append(future.result())
                 except Exception as exc:
                     raise RuntimeError(
-                        f"Voltage run failed for Va = {voltage:.6e} V"
+                        f"Voltage run failed for {args.swept_contact} = "
+                        f"{voltage:.6e} V"
                     ) from exc
 
     df = pd.DataFrame.from_records(records)

@@ -26,24 +26,22 @@
 
 namespace uepm::mesh_bz {
 
-ImpactIonization::ImpactIonization(const uepm::pseudopotential::Material& material, const std::string& initial_mesh_path) {
+ImpactIonization::ImpactIonization(const uepm::pseudopotential::Material& material, const std::string& initial_mesh_path)
+    : m_material(material),
+      m_dielectric_mesh(material) {
     std::filesystem::path path(initial_mesh_path);
     if (!std::filesystem::exists(path)) {
-        std::cerr << "Error: file " << initial_mesh_path << " does not exist." << std::endl;
-        exit(1);
+        throw std::invalid_argument("Impact-ionization mesh file does not exist: " + initial_mesh_path);
     }
     std::ifstream file(initial_mesh_path);
     if (!file.is_open()) {
-        std::cerr << "Error: could not open file " << initial_mesh_path << std::endl;
-        exit(1);
+        throw std::invalid_argument("Could not open impact-ionization mesh file: " + initial_mesh_path);
     }
-    m_material          = material;
     m_initial_mesh_path = initial_mesh_path;
 }
 
 void ImpactIonization::read_dielectric_file(const std::string& filename) {
-    bool normalize_by_fourier_factor = false;
-    m_dielectric_mesh.read_mesh_geometry_from_msh_file(filename, normalize_by_fourier_factor);
+    m_dielectric_mesh.read_mesh_geometry_from_msh_file(filename, true);
     m_dielectric_mesh.build_search_tree();
     m_dielectric_mesh.read_dielectric_file(filename);
 }
@@ -70,7 +68,7 @@ void ImpactIonization::interp_test_dielectric_function(std::string filename) {
                 double    y = y0 + j * dy;
                 double    z = z0 + k * dz;
                 vector3   position(x, y, z);
-                complex_d epsilon = m_dielectric_mesh.interpolate_dielectric_function(position, 0.0102);
+                complex_d epsilon = m_dielectric_mesh.interpolate_dielectric_function(m_dielectric_mesh.reduced_to_si_k(position), 0.0102);
                 file << x << ", " << y << ", " << z << ", " << epsilon.real() << ", " << epsilon.imag() << std::endl;
                 std::cout << "Position: " << position << " epsilon: " << epsilon << std::endl;
             }
@@ -128,6 +126,9 @@ void ImpactIonization::compute_eigenstates(int nb_threads) {
 }
 
 double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t idx_k1) {
+    throw std::logic_error(
+        "ImpactIonization::compute_impact_ionization_rate is experimental and incomplete; no validated rate is available.");
+
     constexpr int                     nb_valence_bands    = 3;
     constexpr int                     nb_conduction_bands = 4;
     constexpr int                     min_conduction_band = 4;
@@ -153,10 +154,10 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
     // Sum_2[idx_band][idx_node]
     std::vector<std::vector<complex_d>> Sum_2(nb_valence_bands);
     for (int idx_n2 = 0; idx_n2 < nb_valence_bands; ++idx_n2) {
-        Sum_2_prime[idx_n2].resize(nb_vtx);
+        Sum_2[idx_n2].resize(nb_vtx);
         for (std::size_t idx_node = 0; idx_node < nb_vtx; ++idx_node) {
             const Eigen::MatrixXcd& A_2   = m_list_BZ_states[0]->get_eigen_states()[idx_node];
-            Sum_2_prime[idx_n2][idx_node] = A_2.col(idx_n2).sum();
+            Sum_2[idx_n2][idx_node] = A_2.col(idx_n2).sum();
         }
     }
 

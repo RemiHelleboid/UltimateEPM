@@ -62,3 +62,12 @@ static inline void CHECK_VEC3_CLOSE(const vector3& g, double gx, double gy, doub
     CHECK(g.y() == doctest::Approx(gy).epsilon(eps).scale(1.0));
     CHECK(g.z() == doctest::Approx(gz).epsilon(eps).scale(1.0));
 }
+
+TEST_CASE("tetra location test includes faces and vertices") {
+    TetraWithVerts fixture({v3(0.0, 0.0, 0.0), v3(1.0, 0.0, 0.0), v3(0.0, 1.0, 0.0), v3(0.0, 0.0, 1.0)});
+
+    CHECK(fixture.tet.is_location_inside(v3(0.25, 0.25, 0.25)));
+    CHECK(fixture.tet.is_location_inside(v3(0.0, 0.25, 0.25)));
+    CHECK(fixture.tet.is_location_inside(v3(0.0, 0.0, 0.0)));
+    CHECK_FALSE(fixture.tet.is_location_inside(v3(-1e-6, 0.25, 0.25)));
+}

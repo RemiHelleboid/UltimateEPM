@@ -37,9 +37,10 @@ calculations, Brillouin-zone processing, device meshing, Poisson solvers, and
 full-band and analytical Monte Carlo transport.
 
 This document describes the internal architecture and numerical
-responsibilities of the libraries under `src/`. User-facing command-line
-instructions remain in the project `README.md` and generated API details remain
-the responsibility of Doxygen.
+responsibilities of the libraries under `src/`. It may also include
+user-facing configuration references when they are needed to interpret the
+implemented numerical behavior. Generated API details remain the
+responsibility of Doxygen.
 
 == Document organization
 
@@ -54,9 +55,11 @@ Each source library has a dedicated chapter. A chapter should explain:
 
 = Current Scope
 
-The present revision focuses exclusively on the analytical Monte Carlo (AMC)
-carrier-transport model. Device electrostatics, circuit coupling, avalanche
-detection, and the other UltimateEPM libraries will be documented in later
+The present revision focuses on the analytical Monte Carlo (AMC)
+carrier-transport model and its device-simulation configuration. Device
+electrostatics, circuit coupling, avalanche detection, and quench detection
+are covered at the configuration and interaction level; complete numerical
+derivations and the other UltimateEPM libraries will be documented in later
 revisions.
 
 #include "libraries/amc.typ"

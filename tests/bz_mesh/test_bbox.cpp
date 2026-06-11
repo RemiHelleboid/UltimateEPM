@@ -79,18 +79,17 @@ TEST_SUITE("[bbox_mesh] geometry & metrics") {
         CHECK_EQ(c.z(), doctest::Approx(-4.0));
     }
 
-    TEST_CASE("is_inside uses strict inequalities (boundary excluded)") {
+    TEST_CASE("is_inside includes boundaries with a floating-point tolerance") {
         bbox_mesh b(0.0, 1.0, 0.0, 2.0, 0.0, 3.0);
-        // interior
         CHECK(b.is_inside(vector3(0.5, 1.0, 1.5)));
-        // on faces/edges/corners -> false
-        CHECK_FALSE(b.is_inside(vector3(0.0, 1.0, 1.0)));  // x_min plane
-        CHECK_FALSE(b.is_inside(vector3(1.0, 1.0, 1.0)));  // x_max plane
-        CHECK_FALSE(b.is_inside(vector3(0.5, 0.0, 1.0)));  // y_min
-        CHECK_FALSE(b.is_inside(vector3(0.5, 2.0, 1.0)));  // y_max
-        CHECK_FALSE(b.is_inside(vector3(0.5, 1.0, 0.0)));  // z_min
-        CHECK_FALSE(b.is_inside(vector3(0.5, 1.0, 3.0)));  // z_max
-        CHECK_FALSE(b.is_inside(vector3(0.0, 0.0, 0.0)));  // corner
+        CHECK(b.is_inside(vector3(0.0, 1.0, 1.0)));
+        CHECK(b.is_inside(vector3(1.0, 1.0, 1.0)));
+        CHECK(b.is_inside(vector3(0.5, 0.0, 1.0)));
+        CHECK(b.is_inside(vector3(0.5, 2.0, 1.0)));
+        CHECK(b.is_inside(vector3(0.5, 1.0, 0.0)));
+        CHECK(b.is_inside(vector3(0.5, 1.0, 3.0)));
+        CHECK(b.is_inside(vector3(0.0, 0.0, 0.0)));
+        CHECK_FALSE(b.is_inside(vector3(-1e-6, 1.0, 1.0)));
     }
 }
 
@@ -130,15 +129,17 @@ TEST_SUITE("[bbox_mesh] operations: split/transform/overlap") {
         CHECK_EQ(b.get_z_max(), doctest::Approx(2.0));
     }
 
-    TEST_CASE("dilate scales from origin (not from center)") {
+    TEST_CASE("dilate preserves the box center") {
         bbox_mesh b(-1.0, 2.0, -2.0, 4.0, -3.0, 1.0);
+        const auto center_before = b.get_center();
         b.dilate(2.5);
-        CHECK_EQ(b.get_x_min(), doctest::Approx(-2.5));
-        CHECK_EQ(b.get_x_max(), doctest::Approx(5.0));
-        CHECK_EQ(b.get_y_min(), doctest::Approx(-5.0));
-        CHECK_EQ(b.get_y_max(), doctest::Approx(10.0));
-        CHECK_EQ(b.get_z_min(), doctest::Approx(-7.5));
-        CHECK_EQ(b.get_z_max(), doctest::Approx(2.5));
+        CHECK_EQ(b.get_center().x(), doctest::Approx(center_before.x()));
+        CHECK_EQ(b.get_center().y(), doctest::Approx(center_before.y()));
+        CHECK_EQ(b.get_center().z(), doctest::Approx(center_before.z()));
+        CHECK_EQ(b.get_x_size(), doctest::Approx(7.5));
+        CHECK_EQ(b.get_y_size(), doctest::Approx(15.0));
+        CHECK_EQ(b.get_z_size(), doctest::Approx(10.0));
+        CHECK_THROWS_AS(b.dilate(-1.0), std::invalid_argument);
     }
 
     TEST_CASE("is_overlapping: overlapping, touching, and disjoint cases") {

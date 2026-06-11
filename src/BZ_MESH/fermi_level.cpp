@@ -166,7 +166,7 @@ Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
         }
     }
 
-    // 5) Neutrality function F(EF) = n - p + Nd+ - Na- (monotone ↑ in EF)
+    // 5) Neutrality: p + Nd+ = n + Na-, written as a monotone function of EF.
     auto F = [&](double EF) {
         double n = 0.0, p = 0.0;
         for (int idx_band : list_idx_cond) {
@@ -177,7 +177,7 @@ Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
         }
         const double Nd = donors_ionized(EF, Ec, opt.dop, opt.T_K);
         const double Na = acceptors_ionized(EF, Ev, opt.dop, opt.T_K);
-        return (n - p + Nd - Na);
+        return charge_neutrality_residual(n, p, Nd, Na);
     };
 
     // 6) Bracket EF and bisection

@@ -40,4 +40,4 @@ target_link_libraries(lib_bzmesh PUBLIC ${GMSH_LIB})
 target_link_libraries(lib_bzmesh PUBLIC OpenMP::OpenMP_CXX)
 
 # All users of this library will need at least C++20
-target_compile_features(lib_bzmesh PRIVATE cxx_std_20)
+target_compile_features(lib_bzmesh PUBLIC cxx_std_20)

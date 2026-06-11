@@ -29,9 +29,11 @@ light-hole bands. The transport kernel does not read these parameters from the
 project YAML files: they are currently compiled into
 `amc_material_model.cpp` and `intervalley_phonon.cpp`.
 
-Self-consistent Poisson coupling, induced-current computation, external circuit
-coupling, avalanche detection, and quench detection are outside the present
-scope.
+This chapter concentrates on the analytical transport model. It also documents
+the user-facing configuration of self-consistent Poisson coupling,
+induced-current output, passive quench-circuit coupling, avalanche detection,
+and successful-quench detection. Detailed derivations of those coupled models
+remain outside the present scope.
 
 == Semiclassical State
 
@@ -606,7 +608,7 @@ The event-driven bulk path also exposes a per-particle raw estimate based on
 event count divided by displacement along $x$. That estimate assumes $x$ is
 the drift direction and should not be used for arbitrary field orientation.
 
-== Configuration Parameters
+== Internal Transport Configuration
 
 The transport kernel is controlled by `amc_transport_config`:
 
@@ -629,6 +631,384 @@ The transport kernel is controlled by `amc_transport_config`:
 `m_gamma_max_energy_samples` must be at least two in command-line option
 validation. The kernel's `initialize()` method itself assumes this condition
 when forming the uniform energy grid.
+
+== Device YAML Configuration
+
+The `device_amc.epm` executable is configured primarily through YAML. The
+command-line interface intentionally contains only configuration-file
+selection, repeatable overrides, configuration generation, help, and version
+reporting.
+
+A complete configuration template is generated with:
+
+```sh
+device_amc.epm --write-config config.yaml
+```
+
+A simulation is run with:
+
+```sh
+device_amc.epm --config config.yaml
+```
+
+Any scalar YAML value can be overridden without editing the file. Both
+`--set dotted.path=value` and `--set dotted.path value` are accepted, and
+`--set` may be repeated:
+
+```sh
+device_amc.epm --config config.yaml \
+  --set run.threads=8 \
+  --set contacts.cathode_voltage_V 30 \
+  --set simulation.final_time_s=2e-12
+```
+
+Configuration is resolved in this order:
+
+1. compiled defaults establish the complete schema;
+2. values present in the YAML file replace those defaults;
+3. command-line `--set` assignments replace the resulting YAML values;
+4. the fully resolved typed configuration is validated.
+
+Unknown YAML keys, unknown override paths, mappings where scalar values are
+expected, invalid scalar types, and invalid enum strings are errors. This
+strict behavior is intentional: a misspelled key must not silently leave a
+default active.
+
+The paths `input.device_mesh` and `input.material_file` are resolved relative
+to the directory containing the YAML file unless they are absolute.
+`run.output_directory` is not rebased against the YAML file; a relative output
+directory is interpreted from the process working directory.
+
+=== Input and run control
+
+#table(
+  columns: (1.45fr, 0.75fr, 2.8fr),
+  align: (left, center, left),
+  table.header([YAML key], [Default], [Meaning]),
+  [`input.device_mesh`], [required],
+  [Gmsh device mesh and state file. The loaded mesh must be two- or
+   three-dimensional. A relative path is based on the YAML directory.],
+  [`input.material_file`], [project example],
+  [Material-parameter YAML used by the Poisson solver. A relative path is based
+   on the YAML directory.],
+  [`input.material`], [`Si`],
+  [Transport material symbol. The analytical device model currently accepts
+   only silicon.],
+  [`run.name`], [`self_consistent_amc`],
+  [Human-readable simulation name stored in the run manifest and simulation
+   options.],
+  [`run.output_directory`], [empty],
+  [Directory for history, trajectory, visualization, and manifest outputs. If
+   empty, the runner creates `self_consistent_amc_<mesh-stem>`.],
+  [`run.threads`], [1],
+  [Requested OpenMP transport-thread count. It must be strictly positive.
+   Changing it also changes the assignment of random streams.],
+  [`run.seed`], [0],
+  [Base integer seed used to initialize simulation random-number generators.
+   Reproducibility also depends on thread count and scheduling.],
+)
+
+=== Time integration and self-consistency
+
+#table(
+  columns: (1.55fr, 0.75fr, 2.7fr),
+  align: (left, center, left),
+  table.header([YAML key], [Default], [Meaning]),
+  [`simulation.final_time_s`], [$10^(-12)$ s],
+  [Requested final physical simulation time. It must be strictly positive.],
+  [`simulation.time_step_s`], [$10^(-15)$ s],
+  [Synchronized device Monte Carlo step. Drift, scattering, circuit evolution,
+   and self-consistent bookkeeping use this temporal discretization. It must
+   be strictly positive.],
+  [`simulation.temperature_K`], [300 K],
+  [Lattice temperature used for phonon populations and thermal carrier
+   initialization. It must be non-negative.],
+  [`simulation.max_particles`], [$10^9$],
+  [Hard upper bound on the number of active numerical particles. The
+   simulation rejects further growth rather than allowing unbounded avalanche
+   multiplication. It must be non-zero.],
+  [`simulation.poisson_frequency`], [10],
+  [Number of transport steps between self-consistent Poisson updates. It must
+   be at least one.],
+  [`simulation.stop_when_no_electrons`], [`true`],
+  [Stop when no electron remains in the device, subject to pending scheduled
+   injection and other continuation conditions. Set to `false` to continue
+   until another stopping condition is reached.],
+)
+
+The fixed-step accuracy discussion in the Monte Carlo time-integration section
+applies directly to `simulation.time_step_s`. In particular, it should be
+small relative to scattering and field-evolution time scales.
+
+=== Transport model
+
+#table(
+  columns: (1.55fr, 0.8fr, 2.65fr),
+  align: (left, center, left),
+  table.header([YAML key], [Default], [Meaning]),
+  [`transport.max_energy_eV`], [10 eV],
+  [Maximum carrier energy sampled while constructing per-band or per-valley
+   scattering-rate majorants. It must be strictly positive and should exceed
+   energies reached during the run.],
+  [`transport.gamma_safety_factor`], [1.2],
+  [Multiplicative safety margin applied to sampled maximum scattering rates.
+   It must be strictly positive.],
+  [`transport.gamma_samples`], [1000],
+  [Number of uniformly spaced energy samples used to construct each rate
+   majorant. It must be at least two.],
+  [`transport.impact_ionization`], [`true`],
+  [Include the impact-ionization scattering channel in rate evaluation.],
+  [`transport.particle_creation`], [`true`],
+  [When an impact-ionization event occurs, create the secondary electron-hole
+   pair. If `false`, impact-ionization events can still be computed and
+   recorded but do not multiply carriers.],
+  [`transport.impurity_scattering`], [`false`],
+  [Enable ionized-impurity scattering using local device doping as the
+   scattering-centre density.],
+  [`transport.impurity_model`], [`mobility`],
+  [Impurity-rate model. Accepted values are `mobility` for the empirical
+   mobility-derived rate and `screened-coulomb` for the analytical
+   screened-Coulomb rate.],
+  [`transport.impurity_screening`], [`debye`],
+  [Screening approximation for the screened-Coulomb model. Accepted values are
+   `debye` for analytic Debye screening and `full` for the finite-temperature
+   numerical treatment. It has no effect when impurity scattering is disabled
+   or the mobility model is selected.],
+)
+
+=== Contacts and initial particles
+
+#table(
+  columns: (1.65fr, 0.75fr, 2.6fr),
+  align: (left, center, left),
+  table.header([YAML key], [Default], [Meaning]),
+  [`contacts.anode_voltage_V`], [0 V],
+  [Dirichlet voltage applied to the automatically created anode contact unless
+   that contact is the dynamically biased quench-circuit node.],
+  [`contacts.cathode_voltage_V`], [0 V],
+  [Dirichlet voltage applied to the automatically created cathode contact
+   unless that contact is the dynamically biased quench-circuit node.],
+  [`particles.initial_electrons`], [1],
+  [Number of explicit electrons created at `particles.initial_position` before
+   transport starts.],
+  [`particles.initial_holes`], [0],
+  [Number of explicit holes created at `particles.initial_position` before
+   transport starts.],
+  [`particles.initial_position.x_um`], [0 um],
+  [Initial mesh-coordinate $x$ position of explicitly requested particles.],
+  [`particles.initial_position.y_um`], [0 um],
+  [Initial mesh-coordinate $y$ position of explicitly requested particles.],
+  [`particles.initial_position.z_um`], [0 um],
+  [Initial mesh-coordinate $z$ position of explicitly requested particles.],
+  [`particles.initialize_from_doping`], [`true`],
+  [Also initialize numerical carriers from the mesh doping distribution.],
+  [`particles.initial_weight`], [2],
+  [Numerical weight assigned to particles generated from the initial doping
+   distribution. It must be positive.],
+  [`particles.contact_injection_weight`], [2],
+  [Numerical weight assigned to carriers injected by contact charge
+   reservoirs during self-consistent evolution. It must be positive.],
+)
+
+The explicit counts and doping-based initialization are independent. Thus, a
+run may contain both the requested particles at the configured position and
+additional particles representing the initial dopant charge.
+
+=== Two-dimensional geometry
+
+#table(
+  columns: (1.7fr, 0.75fr, 2.55fr),
+  align: (left, center, left),
+  table.header([YAML key], [Default], [Meaning]),
+  [`geometry_2d.effective_depth_um`], [1 um],
+  [Physical out-of-plane depth represented by a two-dimensional mesh. It
+   scales integrated doping, deposited charge, and Ramo current. Ignored for a
+   three-dimensional mesh.],
+  [`geometry_2d.particle_z_period_um`], [1 um],
+  [Numerical periodic length used for particle $z$ coordinates in a
+   two-dimensional simulation. Ignored for a three-dimensional mesh.],
+)
+
+The effective physical depth and numerical periodic length are separate
+concepts and need not be equal.
+
+=== Scheduled particle injection
+
+#table(
+  columns: (1.7fr, 0.75fr, 2.55fr),
+  align: (left, center, left),
+  table.header([YAML key], [Default], [Meaning]),
+  [`scheduled_injection.enabled`], [`false`],
+  [Enable one scheduled particle injection during the simulation.],
+  [`scheduled_injection.time_s`], [0 s],
+  [Physical time at which the particle is injected. It must be non-negative
+   and no greater than `simulation.final_time_s` when injection is enabled.],
+  [`scheduled_injection.position.x_um`], [0 um],
+  [Injection $x$ position in device-mesh coordinates.],
+  [`scheduled_injection.position.y_um`], [0 um],
+  [Injection $y$ position in device-mesh coordinates.],
+  [`scheduled_injection.position.z_um`], [0 um],
+  [Injection $z$ position in device-mesh coordinates.],
+  [`scheduled_injection.type`], [`electron`],
+  [Injected carrier type. Accepted values are `electron`, `e`, `hole`, and
+   `h`.],
+  [`scheduled_injection.weight`], [1],
+  [Numerical carrier weight assigned to the injected particle. It must be
+   positive when injection is enabled.],
+)
+
+Only one scheduled injection is represented by the current schema. After it
+has been performed, its internal `done` state prevents reinjection.
+
+=== Output control
+
+#table(
+  columns: (1.65fr, 0.75fr, 2.6fr),
+  align: (left, center, left),
+  table.header([YAML key], [Default], [Meaning]),
+  [`output.keep_particle_history`], [`false`],
+  [Store complete per-particle trajectories and export them after the run.
+   This can consume substantial memory and storage for large avalanches.],
+  [`output.export_time_steps`], [`false`],
+  [Periodically export particle and mesh snapshots for visualization.],
+  [`output.export_frequency`], [100],
+  [Number of transport iterations between snapshot exports. It must be
+   strictly positive, even when periodic export is disabled.],
+)
+
+Every completed run writes `device_history.csv` and
+`simulation_manifest.txt`. The manifest records the command line, resolved
+simulation parameters, build information, input paths, output paths, and final
+observables. Trajectory and time-step directories are created only when the
+corresponding output mode requires them.
+
+=== Passive quench circuit
+
+#table(
+  columns: (1.75fr, 0.75fr, 2.5fr),
+  align: (left, center, left),
+  table.header([YAML key], [Default], [Meaning]),
+  [`quench_circuit.enabled`], [`true`],
+  [Couple the selected device contact to the passive series-resistor and
+   parallel-capacitance quench model.],
+  [`quench_circuit.resistance_ohm`], [1 ohm],
+  [Quench resistance $R$. Circuit validation requires a strictly positive,
+   finite value.],
+  [`quench_circuit.capacitance_F`], [1 F],
+  [Device or quench-node capacitance $C$. Circuit validation requires a
+   strictly positive value.],
+  [`quench_circuit.biased_contact`], [`cathode`],
+  [Contact whose voltage is evolved by the circuit. Accepted values are
+   `anode` and `cathode`.],
+  [`quench_circuit.ramo_current_sign`], [-1],
+  [Non-zero sign and scale converting signed Ramo current into current drawn
+   from the biased circuit node. Reverse it when the mesh/contact convention
+   gives the opposite physical current polarity.],
+  [`quench_circuit.background_ramo_current_A`], [0 A],
+  [Baseline current subtracted from the measured Ramo-current signal before
+   self-consistent circuit and stopping logic use it.],
+)
+
+The circuit supply voltage and initial device voltage are derived from the
+configured voltage of `quench_circuit.biased_contact`. For example, with the
+default `cathode` selection, both are initialized from
+`contacts.cathode_voltage_V`; they are not independent YAML parameters.
+
+=== Avalanche and successful-quench detection
+
+#table(
+  columns: (1.85fr, 0.75fr, 2.4fr),
+  align: (left, center, left),
+  table.header([YAML key], [Default], [Meaning]),
+  [`avalanche_detection.voltage_drop_V`], [1 V],
+  [Absolute quench-circuit voltage drop required to mark avalanche onset. It
+   must be positive and finite.],
+  [`quench_detection.high_field_V_per_cm`], [$10^5$ V/cm],
+  [A particle at or above this electric-field magnitude resets the quiet
+   interval used for successful-quench detection. It must be positive and
+   finite.],
+  [`quench_detection.quiet_time_s`], [$10^(-11)$ s],
+  [Required time after avalanche without high-field particles or new
+   impact-ionization events before quenching is declared successful. It must
+   be positive and finite.],
+)
+
+Detection results, event times, voltage drop, and the interval from avalanche
+to successful quench are written to the simulation manifest when available.
+
+=== Complete generated schema
+
+The generated file contains every currently accepted key with its compiled
+default. It is the preferred starting point for a new run:
+
+```yaml
+input:
+  device_mesh: device.msh
+  material_file: /path/to/examples/materials/materials.yaml
+  material: Si
+run:
+  name: self_consistent_amc
+  output_directory: ""
+  threads: 1
+  seed: 0
+simulation:
+  final_time_s: 1e-12
+  time_step_s: 1e-15
+  temperature_K: 300
+  max_particles: 1000000000
+  poisson_frequency: 10
+  stop_when_no_electrons: true
+transport:
+  max_energy_eV: 10
+  gamma_safety_factor: 1.2
+  gamma_samples: 1000
+  impact_ionization: true
+  particle_creation: true
+  impurity_scattering: false
+  impurity_model: mobility
+  impurity_screening: debye
+contacts:
+  anode_voltage_V: 0
+  cathode_voltage_V: 0
+particles:
+  initial_electrons: 1
+  initial_holes: 0
+  initial_position:
+    x_um: 0
+    y_um: 0
+    z_um: 0
+  initialize_from_doping: true
+  initial_weight: 2
+  contact_injection_weight: 2
+geometry_2d:
+  effective_depth_um: 1
+  particle_z_period_um: 1
+scheduled_injection:
+  enabled: false
+  time_s: 0
+  position:
+    x_um: 0
+    y_um: 0
+    z_um: 0
+  type: electron
+  weight: 1
+output:
+  keep_particle_history: false
+  export_time_steps: false
+  export_frequency: 100
+quench_circuit:
+  enabled: true
+  resistance_ohm: 1
+  capacitance_F: 1
+  biased_contact: cathode
+  ramo_current_sign: -1
+  background_ramo_current_A: 0
+avalanche_detection:
+  voltage_drop_V: 1
+quench_detection:
+  high_field_V_per_cm: 100000
+  quiet_time_s: 1e-11
+```
 
 == Implemented Invariants
 

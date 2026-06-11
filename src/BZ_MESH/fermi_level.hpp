@@ -68,6 +68,10 @@ struct Result {
     std::vector<std::vector<double>> dos_per_band;
 };
 
+inline double charge_neutrality_residual(double n_m3, double p_m3, double Nd_plus_m3, double Na_minus_m3) noexcept {
+    return n_m3 - p_m3 - Nd_plus_m3 + Na_minus_m3;
+}
+
 /**
  * @brief Solve the Fermi level using charge neutrality.
  *
