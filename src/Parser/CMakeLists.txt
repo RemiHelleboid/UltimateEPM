@@ -10,6 +10,7 @@ set(SOURCE_FILES_LIBFILE "file.cpp"
 )
 
 add_library(libfile ${HEADER_FILES_LIBFILE} ${SOURCE_FILES_LIBFILE})
+add_library(uepm::io ALIAS libfile)
 
 
 target_include_directories(libfile PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

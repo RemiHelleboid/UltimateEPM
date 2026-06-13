@@ -45,13 +45,13 @@ void poisson_solver_3d::compute_stiffness_matrix() {
         }
         double relative_permittivity = region_material.m_parameters["dielectric-constant"];
         auto   list_sp_elements      = bulk_region->get_list_elements();
-        double absolute_permittivity = relative_permittivity * physic::constant::vacuum_permittivity;
+        double absolute_permittivity = relative_permittivity * uepm::constants::eps_0;
         for (auto &&sp_element : list_sp_elements) {
             ++index_element;
             m_list_bulk_elements.push_back(sp_element);
             std::vector<mesh::vertex *> p_vertices_list = sp_element->get_vertices();
             Eigen::Matrix4d             elementary_stiffness_matrix =
-                (absolute_permittivity / physic::constant::elementary_charge) * compute_elementary_stiffness_matrix(sp_element);
+                (absolute_permittivity / uepm::constants::q_e) * compute_elementary_stiffness_matrix(sp_element);
             for (int index_row = 0; index_row < 4; ++index_row) {
                 for (int index_col = 0; index_col < 4; ++index_col) {
                     m_matrix_lhs.coeffRef(p_vertices_list[index_row]->get_index(), p_vertices_list[index_col]->get_index()) +=

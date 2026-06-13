@@ -30,13 +30,14 @@ namespace uepm::amc {
 enum class particle_type : std::int8_t { electron, hole };
 
 std::string_view carrier_type_to_string(particle_type type);
-double signed_charge_C(particle_type type);
+double           signed_charge_C(particle_type type);
 
 using vector3 = uepm::mesh::vector3;
 using element = uepm::mesh::element;
 
 struct particle_state {
-    double      time = 0.0;
+    double      time                  = 0.0;
+    double      lattice_temperature_K = 300.0;  // in K
     vector3     position{};
     vector3     local_k{};
     vector3     velocity{};
@@ -188,30 +189,17 @@ class particle_amc {
 
     void set_type(particle_type type) noexcept { m_type = type; }
     void set_state(const particle_state& state) noexcept { m_state = state; }
-    void advance_time(double dt) {
-        if (dt < 0.0) {
-            throw std::invalid_argument("time step must be >= 0");
-        }
-        m_state.time += dt;
-    }
+    void advance_time(double dt) { m_state.time += dt; }
 
     void set_position(const vector3& position) noexcept { m_state.position = position; }
     void translate(const vector3& dr) noexcept { m_state.position += dr; }
     void set_local_k(const vector3& local_k) noexcept { m_state.local_k = local_k; }
     void set_velocity(const vector3& velocity) noexcept { m_state.velocity = velocity; }
-    void set_kinetic_energy(double energy) {
-        if (energy < 0.0) {
-            throw std::invalid_argument("kinetic energy must be >= 0");
-        }
-        m_state.kinetic_energy = energy;
-    }
+    void set_kinetic_energy(double energy) { m_state.kinetic_energy = energy; }
+    void set_gamma(double gamma) { m_state.gamma = gamma; }
 
-    void set_gamma(double gamma) {
-        if (gamma < 0.0) {
-            throw std::invalid_argument("gamma must be >= 0");
-        }
-        m_state.gamma = gamma;
-    }
+    double get_lattice_temperature() const noexcept { return m_state.lattice_temperature_K; }
+    void   set_lattice_temperature(double temperature_K) noexcept { m_state.lattice_temperature_K = temperature_K; }
 
     void     set_crossed_contact(bool crossed) noexcept { m_state.m_crossed_contact = crossed; }
     void     set_valley_index(std::size_t valley_index) noexcept { m_state.valley_index = valley_index; }
@@ -220,9 +208,7 @@ class particle_amc {
     void     increment_scattering_event_count() noexcept { m_history.increment_scattering_event_count(); }
     void     record_state() { m_history.record(m_state); }
     void     add_scattering_event(scattering_event event) noexcept { m_history.add_event(event); }
-    void     add_transition_event(std::string_view transition_name) {
-        m_history.add_transition_event(transition_name);
-    }
+    void     add_transition_event(std::string_view transition_name) { m_history.add_transition_event(transition_name); }
     void     reset_history() noexcept { m_history.clear(); }
     void     set_data_from_device(int m_dimension);
     void     print_info() const;

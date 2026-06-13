@@ -41,4 +41,4 @@ target_link_libraries(libepp PUBLIC ${GMSH_LIB})
   target_link_libraries(libepp PUBLIC OpenMP::OpenMP_CXX)
 
 # All users of this library will need at least C++20
-target_compile_features(libepp PRIVATE cxx_std_20)
+target_compile_features(libepp PUBLIC cxx_std_20)

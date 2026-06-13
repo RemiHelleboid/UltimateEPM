@@ -34,6 +34,10 @@ class vertex : public geometry_entity, public vector3 {
         m_electric_field = new_electric_field;
     }
 
+    // Temperature accessors
+    inline double get_temperature() const noexcept { return m_local_temperature; }
+    inline void   set_temperature(double new_temperature) noexcept { m_local_temperature = new_temperature; }
+
     // Space charge accessors
     inline double get_space_charge() const noexcept { return m_space_charge; }
     inline void   set_space_charge(double new_space_charge) noexcept { m_space_charge = new_space_charge; }

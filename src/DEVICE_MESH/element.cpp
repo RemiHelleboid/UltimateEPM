@@ -135,6 +135,15 @@ double element::interpolate_doping_at_location(const vector3 &location) const {
     return interpolated_value;
 }
 
+double element::interpolate_temperature_at_location(const vector3 &location) const {
+    const auto barycentric_coords = compute_barycentric_coordinate(location);
+    double     interpolated_value = 0;
+    for (unsigned int index_vtx = 0; index_vtx < m_vertices.size(); ++index_vtx) {
+        interpolated_value += barycentric_coords[index_vtx] * m_vertices[index_vtx]->get_temperature();
+    }
+    return interpolated_value;
+}
+
 
 vector3 element::interpolate_vector_at_location(const std::string &name, const vector3 &location) const {
     const auto barycentric_coords = compute_barycentric_coordinate(location);

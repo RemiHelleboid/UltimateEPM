@@ -29,6 +29,7 @@ set(SOURCE_FILES_LIBBZMESH
 
 add_library(lib_bzmesh STATIC ${SOURCE_FILES_LIBBZMESH}
                               ${HEADER_FILES_LIBBZMESH})
+add_library(uepm::bzmesh ALIAS lib_bzmesh)
 
 target_include_directories(lib_bzmesh PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

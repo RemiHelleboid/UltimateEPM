@@ -111,11 +111,13 @@ class element : public geometry_entity {
     virtual double              interpolate_scalar_at_location(const std::string &name, const vector3 &location) const;
     virtual vector3             interpolate_vector_at_location(const std::string &name, const vector3 &location) const;
     virtual double              interpolate_doping_at_location(const vector3 &location) const;
+    virtual double              interpolate_temperature_at_location(const vector3 &location) const;
     virtual vector3             interpolate_electric_field_at_location(const vector3 &location) const;
-    virtual vector3             compute_gradient(const std::string &scalar_field_name) const                            = 0;
-    virtual std::map<std::shared_ptr<element>, vector3> compute_element_line_intersection(const vector3 &point_A,
-                                                                                          const vector3 &point_B) const = 0;
-    virtual void                                        distribute_charge_quantity_over_vertices(double charge_quantity);
+    virtual vector3             compute_gradient(const std::string &scalar_field_name) const = 0;
+    virtual std::map<std::shared_ptr<element>, vector3> compute_element_line_intersection(
+        const vector3 &point_A,
+        const vector3 &point_B) const = 0;
+    virtual void distribute_charge_quantity_over_vertices(double charge_quantity);
 
     virtual double  integrate_scalar(const std::string &scalar_field_name) const = 0;
     virtual vector3 integrate_vector(const std::string &vector_field_name) const = 0;

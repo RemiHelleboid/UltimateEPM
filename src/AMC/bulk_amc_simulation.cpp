@@ -96,6 +96,7 @@ void bulk_amc_simulation::initialize() {
 
     for (std::size_t i = 0; i < m_cfg.m_number_of_particles; ++i) {
         particle_amc p{i, m_cfg.m_carrier_type, 1.0};
+        p.set_lattice_temperature(m_cfg.m_lattice_temperature);
         p.state().time         = 0.0;
         p.state().position     = vector3{0.0, 0.0, 0.0};
         p.state().valley_index = i % m_transport.valleys().size();
@@ -359,7 +360,7 @@ void bulk_amc_simulation::run_self_scattering_emc() {
             }
         }
         double particle_ii_coefficient_raw = p.compute_raw_impact_ionization_coefficient();
-        fmt::print("Particle {} raw II coefficient: {:.6e} cm^-1\n", p.index(), particle_ii_coefficient_raw);
+        // fmt::print("Particle {} raw II coefficient: {:.6e} cm^-1\n", p.index(), particle_ii_coefficient_raw);
         reduced_ii_ionization_coefficient_raw += particle_ii_coefficient_raw;
     }
 

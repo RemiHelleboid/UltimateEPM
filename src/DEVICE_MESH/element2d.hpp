@@ -28,11 +28,11 @@ namespace mesh {
 class element2d : public element {
  private:
     double        m_measure = 0.0;
-    const vector3 m_precomputed_v0;
-    const vector3 m_precomputed_v1;
-    double        m_bary_coord_precomputed_v00     = 0.0;
-    double        m_bary_coord_precomputed_v01     = 0.0;
-    double        m_bary_coord_precomputed_v11     = 0.0;
+    const vector3 m_precomputed_v0{};
+    const vector3 m_precomputed_v1{};
+    double        m_bary_coord_precomputed_v00             = 0.0;
+    double        m_bary_coord_precomputed_v01             = 0.0;
+    double        m_bary_coord_precomputed_v11             = 0.0;
     double        m_inverse_bary_coord_precomputed_divisor = 0.0;
 
  public:
@@ -40,16 +40,16 @@ class element2d : public element {
     element2d(vertex *VtxA, vertex *VtxB, vertex *VtxC)
         : element(0, {VtxA, VtxB, VtxC}),
           m_precomputed_v0{*m_vertices[1] - *m_vertices[0]},
-          m_precomputed_v1{*m_vertices[2] - *m_vertices[0]},
-          m_measure{compute_area()} {
+          m_precomputed_v1{*m_vertices[2] - *m_vertices[0]} {
+        m_measure = compute_area();
         compute_precomputed_field_for_barycentric_coordinates();
     }
 
     element2d(std::size_t index, vertex *VtxA, vertex *VtxB, vertex *VtxC)
         : element(index, {VtxA, VtxB, VtxC}),
           m_precomputed_v0{*m_vertices[1] - *m_vertices[0]},
-          m_precomputed_v1{*m_vertices[2] - *m_vertices[0]},
-          m_measure{compute_area()} {
+          m_precomputed_v1{*m_vertices[2] - *m_vertices[0]} {
+        m_measure = compute_area();
         compute_precomputed_field_for_barycentric_coordinates();
     }
 
@@ -77,9 +77,10 @@ class element2d : public element {
     double  integrate_scalar(const std::string &scalar_field_name) const override;
     vector3 integrate_vector(const std::string &vector_field_name) const override;
 
-    std::map<std::shared_ptr<element>, vector3> compute_element_line_intersection(const vector3 &point_A,
-                                                                                  const vector3 &point_B) const override;
-    std::optional<vector3>                      compute_line_triangle_intersection_3d(const vector3 &point_A, const vector3 &point_B) const;
+    std::map<std::shared_ptr<element>, vector3> compute_element_line_intersection(
+        const vector3 &point_A,
+        const vector3 &point_B) const override;
+    std::optional<vector3> compute_line_triangle_intersection_3d(const vector3 &point_A, const vector3 &point_B) const;
 
     vector3 draw_uniform_random_point_inside_element() const override;
     vector3 draw_uniform_random_point_inside_element(std::minstd_rand &random_generator) const override;

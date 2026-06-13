@@ -44,9 +44,9 @@ void poisson_solver_2d::compute_stiffness_matrix() {
         for (auto &&sp_element : list_sp_elements) {
             m_list_bulk_elements.push_back(sp_element);
             std::vector<mesh::vertex *> p_vertices_list       = sp_element->get_vertices();
-            double                      absolute_permittivity = relative_permittivity * physic::constant::vacuum_permittivity;
+            double                      absolute_permittivity = relative_permittivity * uepm::constants::eps_0;
             Eigen::Matrix3d             elementary_stiffness_matrix =
-                (absolute_permittivity / physic::constant::elementary_charge) * compute_elementary_stiffness_matrix(sp_element);
+                (absolute_permittivity / uepm::constants::q_e) * compute_elementary_stiffness_matrix(sp_element);
             for (int index_row = 0; index_row < 3; ++index_row) {
                 for (int index_col = 0; index_col < 3; ++index_col) {
                     m_matrix_lhs.coeffRef(p_vertices_list[index_row]->get_index(), p_vertices_list[index_col]->get_index()) +=

@@ -43,7 +43,6 @@ add_library(libmesh STATIC ${SOURCE_FILES_LIBMESH} ${HEADER_FILES_LIBMESH})
 add_library(uepm::mesh ALIAS libmesh)
 
 target_include_directories(libmesh PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(libmesh PUBLIC ${GMSH_INC})
 
 # Add the STF library for reading STF files
 target_include_directories(libmesh PUBLIC ${GMSH_INC})
@@ -56,4 +55,4 @@ if(USE_OPENMP_ACCELERATION)
 endif(USE_OPENMP_ACCELERATION)
 
 # All users of this library will need at least C++20
-target_compile_features(libmesh PRIVATE cxx_std_20)
+target_compile_features(libmesh PUBLIC cxx_std_20)

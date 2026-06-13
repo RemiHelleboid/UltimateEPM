@@ -66,7 +66,7 @@ class amc_transport_kernel {
     double                              impact_ionization_rate(double energy_eV) const;
 
     double impurity_rate_for_particle(const particle_amc& p, const valley_model& current_band, double energy_eV) const;
-    double impurity_rate_for_energy(const valley_model& band_or_valley, double energy_eV) const;
+    double impurity_rate_for_energy(const valley_model& band_or_valley, double energy_eV, double temperature_K) const;
 
     const std::vector<valley_model>& valleys() const noexcept { return m_valleys; }
     const amc_material_model&        material_model() const noexcept { return m_material_model; }
@@ -77,11 +77,15 @@ class amc_transport_kernel {
     void                             drift_particle(particle_amc& p, const mesh::vector3& electric_field_Vm, double dt);
     scattering_channel_list          build_scattering_channels(const particle_amc& p) const;
     double                           total_scattering_rate(const particle_amc& p) const;
-    double             total_scattering_rate_for_energy(std::size_t band_or_valley_index, double energy_eV) const;
-    double             compute_max_self_scattering_rate(double max_energy_eV, std::size_t n_samples) const;
-    double             sample_free_flight_time();
-    double             sample_free_flight_time(const particle_amc& p);
-    scattering_channel select_scattering_channel(const particle_amc& p);
+    double                           total_scattering_rate_for_energy(std::size_t band_or_valley_index,
+                                                                      double      energy_eV,
+                                                                      double      max_temperature_K) const;
+    double                           compute_max_self_scattering_rate(double      max_energy_eV,
+                                                                      double      max_temperature_K,
+                                                                      std::size_t n_samples) const;
+    double                           sample_free_flight_time();
+    double                           sample_free_flight_time(const particle_amc& p);
+    scattering_channel               select_scattering_channel(const particle_amc& p);
     scattering_channel select_scattering_channel(const scattering_channel_list& channels, double total_rate);
     scattering_event   apply_scattering_channel(particle_amc& p, const scattering_channel& channel);
     double             uniform01();
