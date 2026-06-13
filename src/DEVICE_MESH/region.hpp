@@ -20,9 +20,7 @@
 
 #include "element.hpp"
 
-namespace uepm {
-
-namespace mesh {
+namespace uepm::mesh {
 
 enum class RegionType { bulk, interface, contact, unknown };
 std::ostream &operator<<(std::ostream &os, const RegionType &);
@@ -49,7 +47,7 @@ class region {
     // Setters and Getters
     int                                   get_dimension() const { return m_dimension; }
     void                                  set_dimension(int dimension) { m_dimension = dimension; }
-    const std::string &                   get_name() const { return m_name; }
+    const std::string                    &get_name() const { return m_name; }
     unsigned int                          get_index() const { return m_region_index; }
     std::size_t                           get_number_elements() const { return m_ListElements.size(); }
     bool                                  is_element_in_region(std::size_t element_index);
@@ -96,7 +94,11 @@ class region_interface : public region {
 
  public:
     // Constructors
-    region_interface(int dimension, const std::string &name, unsigned int region_index, int index_bulk_0, unsigned int index_bulk_1)
+    region_interface(int                dimension,
+                     const std::string &name,
+                     unsigned int       region_index,
+                     int                index_bulk_0,
+                     unsigned int       index_bulk_1)
         : region(dimension, name, region_index, RegionType::interface),
           m_index_region_bulk_0(index_bulk_0),
           m_index_region_bulk_1(index_bulk_1) {}
@@ -115,10 +117,7 @@ class region_contact : public region {
     region_contact(int dimension, const std::string &name, unsigned int region_index, unsigned int index_bulk_0)
         : region(dimension, name, region_index, RegionType::contact),
           m_index_region_bulk_0(index_bulk_0) {}
-    // Setters and Getters
     unsigned int get_bulk_0() const { return m_index_region_bulk_0; }
 };
 
-}  // namespace mesh
-
-}  // namespace uepm
+}  // namespace uepm::mesh

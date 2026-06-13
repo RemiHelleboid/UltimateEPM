@@ -23,23 +23,14 @@
 #include "element2d.hpp"
 #include "tree_node.hpp"
 
-namespace uepm {
-
-namespace mesh {
+namespace uepm::mesh {
 
 constexpr int    Max_Element_Per_Quadtree_Node = 8;
 constexpr double Min_Box_Size                  = 1e-3;
 
-static const std::string out_file = "QuadTreeSave.txt";
-
-quadtree_node::quadtree_node(const std::vector<element *> &list_p_elements, const bbox &bounding_box, int generation)
-    : m_node_box(bounding_box),
-      m_generation_depth(generation) {
+quadtree_node::quadtree_node(const std::vector<element *> &list_p_elements, const bbox &bounding_box)
+    : m_node_box(bounding_box) {
     if (list_p_elements.size() <= Max_Element_Per_Quadtree_Node || m_node_box.get_diagonal_size() <= Min_Box_Size) {
-        // std::ofstream my_file;
-        // my_file.open(out_file, std::ios::app);
-        // my_file << bounding_box << "," << list_p_elements.size() << std::endl;
-        // my_file.close();
         this->m_list_p_elements = list_p_elements;
         m_is_leaf               = true;
         return;
@@ -53,22 +44,21 @@ quadtree_node::quadtree_node(const std::vector<element *> &list_p_elements, cons
     constexpr uint number_quadrant = 4;
     m_sub_nodes.resize(number_quadrant);
     std::array<std::vector<element *>, number_quadrant> list_overlap_element_quadrants;
-    int                                                 new_generation_depth = m_generation_depth + 1;
-    // #pragma omp parallel for
     for (uint index_sub_box = 0; index_sub_box < number_quadrant; ++index_sub_box) {
-        m_sub_nodes[index_sub_box] =
-            std::make_unique<quadtree_node>(quadtree_node::find_overlapping_elements(list_p_elements, list_sub_boxes[index_sub_box]),
-                                            list_sub_boxes[index_sub_box],
-                                            new_generation_depth);
+        m_sub_nodes[index_sub_box] = std::make_unique<quadtree_node>(
+            quadtree_node::find_overlapping_elements(list_p_elements, list_sub_boxes[index_sub_box]),
+            list_sub_boxes[index_sub_box]);
     }
 }
 
-std::vector<element *> quadtree_node::find_overlapping_elements(const std::vector<element *> &list_p_elements, const bbox &bounding_box) {
+std::vector<element *> quadtree_node::find_overlapping_elements(const std::vector<element *> &list_p_elements,
+                                                                const bbox                   &bounding_box) {
     std::vector<element *> list_overlaping_elements;
     list_overlaping_elements.reserve(list_p_elements.size() / 3);
-    std::copy_if(list_p_elements.begin(), list_p_elements.end(), std::back_inserter(list_overlaping_elements), [&](const auto &p_element) {
-        return bounding_box.is_overlapping_triangle(*p_element);
-    });
+    std::copy_if(list_p_elements.begin(),
+                 list_p_elements.end(),
+                 std::back_inserter(list_overlaping_elements),
+                 [&](const auto &p_element) { return bounding_box.is_overlapping_triangle(*p_element); });
     list_overlaping_elements.shrink_to_fit();
     return list_overlaping_elements;
 }
@@ -81,7 +71,6 @@ element *quadtree_node::find_element_at_location(const vector3 &position) const 
         if (it_element != m_list_p_elements.end()) {
             return *it_element;
         }
-        // LOG_ERROR << "MAJOR FAILURE : NO ELEMENT AT LOCATION QUADTREE FAILED. " << position;
         return nullptr;
     }
     // Descend down in the quadtree
@@ -129,6 +118,4 @@ std::vector<element *> quadtree_node::find_elements_overlapping_box(const bbox &
     return std::vector<element *>(set_overlaping_elements.begin(), set_overlaping_elements.end());
 }
 
-}  // namespace mesh
-
-}  // namespace uepm
+}  // namespace uepm::mesh

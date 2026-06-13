@@ -11,6 +11,8 @@
 
 #include "finite_element.hpp"
 
+#include <fmt/core.h>
+
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <chrono>
@@ -47,28 +49,23 @@ void FiniteElementSystem::decompose_matrix() {
     Eigen::SparseLU<EigenSparseMatrix, Eigen::COLAMDOrdering<int> > solver;
     m_solver.analyzePattern(m_matrix_lhs);
     m_solver.factorize(m_matrix_lhs);
-    // m_iter_solver.setTolerance(1e-6);
-    // m_iter_solver.compute(m_matrix_lhs);
     if (m_solver.info() != Eigen::Success) {
-        LOG_ERROR << "The matrix decomposition failed.";
+        fmt::print("The matrix decomposition failed.\n");
         throw std::runtime_error("The matrix decomposition failed.");
     }
 }
 
 void FiniteElementSystem::solve_system() {
-    // auto start = std::chrono::high_resolution_clock::now();
     m_solution = m_solver.solve(m_second_member);
     if (m_solver.info() != Eigen::Success) {
-        LOG_ERROR << "The resolution of the linear system failed. ";
+        fmt::print("The resolution of the linear system failed.\n");
         throw std::runtime_error("The resolution of the linear system failed. ");
     }
-    // auto stop     = std::chrono::high_resolution_clock::now();
-    // auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-    // print_time_different_units(duration.count());
 }
 
 double FiniteElementSystem::solver_L2_error() const {
-    double error_l2 = (m_matrix_lhs * m_solution - m_second_member).norm();  //.norm() is an Eigen method that compute l2 norm of an array
+    double error_l2 = (m_matrix_lhs * m_solution - m_second_member)
+                          .norm();  //.norm() is an Eigen method that compute l2 norm of an array
     return (error_l2);
 }
 
@@ -91,27 +88,25 @@ void FiniteElementSystem::add_solution_to_mesh_functions(const std::string &func
     m_p_mesh->create_scalar_function_from_values_on_vertex(function_name, solution_values);
     if (add_gradient) {
         m_p_mesh->create_gradient_function(function_name, function_name + "_gradient");
-        const double gradient_scale = 1.0;
+        constexpr double gradient_scale = 1.0;
         m_p_mesh->add_electric_field_to_vertices(function_name + "_gradient", gradient_scale);
     }
 }
 
-void   FiniteElementSystem::add_second_member_to_mesh_functions(const std::string& function_name) {
+void FiniteElementSystem::add_second_member_to_mesh_functions(const std::string &function_name) {
     std::vector<double> second_member_values;
     second_member_values.resize(m_second_member.size());
     EigenVector::Map(&second_member_values[0], m_second_member.size()) = m_second_member;
-    m_p_mesh->create_scalar_function_from_values_on_vertex(function_name, second_member_values);    
+    m_p_mesh->create_scalar_function_from_values_on_vertex(function_name, second_member_values);
 }
-
 
 void FiniteElementSystem::print_infos() {
     std::cout << "FINITE ELEMENT SYSTEM INFOS" << std::endl;
     std::cout << "System size                       : " << m_solution.size() << std::endl;
     std::cout << "System status                     : " << get_status_string(m_status) << std::endl;
-
     std::cout << "Solution minimum                  : " << m_solution.minCoeff() << std::endl;
     std::cout << "Solution maximum                  : " << m_solution.maxCoeff() << std::endl;
     std::cout << "L2 Error of Solver                : " << solver_L2_error() << std::endl;
 }
 
-}  // namespace fem
+}  // namespace uepm::fem

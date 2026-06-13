@@ -11,6 +11,9 @@
 
 #include "msh_file.hpp"
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <functional>
 #include <map>
@@ -48,10 +51,7 @@ msh_file::msh_file(const std::string& filepath) : file(filepath) {}
 void msh_file::open_file() {
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 1);
-    // IF_PLOG(plog::debug){
-    //     gmsh::option::setNumber("General.Verbosity", 5);
-    // }
-    LOG_INFO << "OPEN MSH FILE : " << m_file_path << "\n";
+    fmt::print("Opening msh file : {}", m_file_path);
     gmsh::open(m_file_path);
     std::string name;
     gmsh::model::getCurrent(name);
@@ -83,7 +83,10 @@ void msh_file::read_mesh() {
     }
     for (std::size_t index_vertex = 0; index_vertex < size_nodes_tags; ++index_vertex) {
         std::size_t node_tag = nodeTags[index_vertex];
-        m_Mesh.add_vertex(nodeCoords[3 * index_vertex], nodeCoords[3 * index_vertex + 1], nodeCoords[3 * index_vertex + 2], node_tag - 1);
+        m_Mesh.add_vertex(nodeCoords[3 * index_vertex],
+                          nodeCoords[3 * index_vertex + 1],
+                          nodeCoords[3 * index_vertex + 2],
+                          node_tag - 1);
     }
     m_Mesh.sort_vertices();
 
@@ -105,9 +108,9 @@ void msh_file::read_mesh() {
         std::vector<int> tags;
         gmsh::model::getEntitiesForPhysicalGroup(dim_phy_group, tag_phy_group, tags);
         PhysicalGroupsToDimTag.insert({{dim_phy_group, tag_phy_group}, index_new_region});
-        LOG_INFO << "DIM PHY GROUP : " << dim_phy_group;
-        LOG_INFO << "TAG PHY GROUP : " << tag_phy_group;
-        LOG_INFO << "TAGS SIZE PHY GROUP : " << tags[0];
+        fmt::print("DIM PHY GROUP : {}\n", dim_phy_group);
+        fmt::print("TAG PHY GROUP : {}\n", tag_phy_group);
+        fmt::print("TAGS SIZE PHY GROUP : {}\n", tags[0]);
 
         std::string name_phy_group;
         gmsh::model::getPhysicalName(dim_phy_group, tag_phy_group, name_phy_group);
@@ -122,7 +125,7 @@ void msh_file::read_mesh() {
         if (material_name.empty()) {
             material_name = "Silicon";
         }
-        LOG_INFO << "READ REGION : " << name_region_bulk;
+        fmt::print("READ REGION : {}\n", name_region_bulk);
         /* Handling bulk region */
         if (dim_phy_group == dimension) {
             mesh::region_bulk new_bulk_region(dimension, name_region_bulk, index_new_region, material_name);
@@ -158,7 +161,6 @@ void msh_file::read_mesh() {
             }
         }
     }
-    IF_PLOG(plog::verbose) { m_Mesh.print_regions_info(); }
 
     /* READING OF GEOMETRY */
     std::vector<std::pair<int, int>> entities;
@@ -178,20 +180,20 @@ void msh_file::read_mesh() {
             //     std::cout << phy_tag << ", ";
             // }
             // std::cout << std::endl;
-            LOG_ERROR << "An entity belongs to multiple physical group. Fatal error.";
+            fmt::print("An entity belongs to multiple physical group. Fatal error.\n");
             // throw std::runtime_error("An element belongs to multiple physical group : error.");
         }
         if (physical_tags.empty()) {
-            LOG_WARNING << "An entity does not belong to any physical group. It is skipped.";
+            fmt::print("An entity does not belong to any physical group. It is skipped.\n");
             // throw std::runtime_error("An element belongs to no physical group : error.");
             continue;
         }
         auto MyRegionTag = PhysicalGroupsToDimTag.find({dim, physical_tags[0]});
         if (MyRegionTag != PhysicalGroupsToDimTag.end()) {
             region_index = MyRegionTag->second;
-            LOG_INFO << " MY REGION TAG : " << region_index;
+            fmt::print(" MY REGION TAG : {}\n", region_index);
         } else {
-            LOG_FATAL << " MY REGION TAG : " << region_index;
+            fmt::print(" MY REGION TAG : {}\n", region_index);
             throw std::runtime_error("Error when adding element to region. Region Unknown.");
         }
         gmsh::model::getEntityName(dim, tag, entity_name);
@@ -212,9 +214,6 @@ void msh_file::read_mesh() {
 
         std::vector<std::size_t> ElementNodeTags = elemNodeTags[0];
         std::vector<std::size_t> MyElementTag    = elemTags[0];
-        LOG_DEBUG << "ElementTag size : " << MyElementTag.size();
-        LOG_DEBUG << "ElementTag 0 : " << MyElementTag[0];
-
 
         if (dim == 1) {
             std::size_t element_index_1d = 0;
@@ -245,7 +244,6 @@ void msh_file::read_mesh() {
                     std::make_shared<mesh::element2d>(MyElementTag[element_index_2d++] - 1, p_vtxA, p_vtxB, p_vtxC);
                 sp_element->set_region_index(p_current_region->get_index());
                 p_current_region->add_element(sp_element);
-                // LOG_INFO << "Add element2D (triangle) to " << index_mesh_region;
             }
 
         } else if (dim == 3) {
@@ -259,7 +257,11 @@ void msh_file::read_mesh() {
                     throw std::runtime_error("ERROR");
                 }
                 std::shared_ptr<mesh::element3d> sp_element =
-                    std::make_shared<mesh::element3d>(MyElementTag[element_index_3d++] - 1, p_vtxA, p_vtxB, p_vtxC, p_vtxD);
+                    std::make_shared<mesh::element3d>(MyElementTag[element_index_3d++] - 1,
+                                                      p_vtxA,
+                                                      p_vtxB,
+                                                      p_vtxC,
+                                                      p_vtxD);
                 sp_element->set_region_index(p_current_region->get_index());
                 p_current_region->add_element(sp_element);
             }
@@ -268,63 +270,9 @@ void msh_file::read_mesh() {
         }
         p_current_region->compute_unique_vertices();
     }
-    IF_PLOG(plog::verbose) { m_Mesh.print_regions_info(); }
     gmsh::finalize();
     m_Mesh.build_search_tree();
 }
-
-// /**
-//  * @brief Read the "views" from msh file
-//  *
-//  */
-// void msh_file::read_states() {
-//     this->open_file();
-//     std::cout << "Read gmsh views ..." << std::endl;
-//     std::vector<int> viewTags;
-//     gmsh::view::getTags(viewTags);
-//     for (auto&& tag : viewTags) {
-//         const int   index_view  = gmsh::view::getIndex(tag);
-//         std::string name_object = "View[" + std::to_string(index_view) + "].Name";
-//         std::string name_view;
-//         try {
-//             gmsh::option::getString(name_object, name_view);
-//         } catch (const std::exception& e) {
-//             LOG_ERROR << "ERROR : A gmsh view could not be read. Skipping";
-//             std::cerr << e.what() << '\n';
-//         }
-//         // std::cout << "NAME OF THE VIEW READ: " << name_view << std::endl;
-//         std::string              type;
-//         std::vector<std::size_t> tags;
-//         double                   time;
-//         int                      numComp;
-//         std::vector<double>      data_view;
-//         gmsh::view::getHomogeneousModelData(tag, 0, type, tags, data_view, time, numComp);
-//         mesh::DataLocationType data_location_type = mesh::msh_to_armin_data_location_type.at(type);
-//         LOG_INFO << "Read view type : " << type;
-//         LOG_INFO << "Read view tag : " << tag;
-//         LOG_INFO << "Number component :  " << numComp;
-//         LOG_INFO << "Size vector data :  " << data_view.size();
-//         LOG_INFO << "Number vertices : " << m_Mesh.get_nb_vertices();
-//         std::transform(tags.begin(), tags.end(), tags.begin(), [&](auto vtx) { return --vtx; });
-
-//         if (data_location_type == mesh::DataLocationType::vertex) {
-//             if (numComp == 1) {
-//                 m_Mesh.create_scalar_datasets_from_idx_vertex_and_values(name_view, data_location_type, tags, data_view);
-//             }
-//         } else if (data_location_type == mesh::DataLocationType::cell) {
-//             if (numComp == 1) {
-//                 // Scalar dataset defined on elements
-//                 m_Mesh.create_scalar_datasets_from_idx_cells_and_values(name_view, data_location_type, tags, data_view);
-//             }
-//         }
-//     }
-//     gmsh::finalize();
-//     m_Mesh.re_index_datasets();
-
-//     // m_Mesh.add_scalar_data_to_all_vertices();
-//     // m_Mesh.add_vector_data_to_all_vertices();
-//     // m_Mesh.create_gradient_function("ElectrostaticPotential", "ArminElectricField");
-// }
 
 void msh_file::read_states(const std::vector<std::string>& list_dataset_to_import) {
     this->open_file();
@@ -337,12 +285,13 @@ void msh_file::read_states(const std::vector<std::string>& list_dataset_to_impor
         try {
             gmsh::option::getString(name_object, name_view);
         } catch (const std::exception& e) {
-            LOG_ERROR << "ERROR : A gmsh view could not be read. Skipping";
+            fmt::print("ERROR : A gmsh view could not be read. Skipping\n");
             std::cerr << e.what() << '\n';
         }
 
         if (!list_dataset_to_import.empty() &&
-            std::find(list_dataset_to_import.begin(), list_dataset_to_import.end(), name_view) == list_dataset_to_import.end()) {
+            std::find(list_dataset_to_import.begin(), list_dataset_to_import.end(), name_view) ==
+                list_dataset_to_import.end()) {
             // If the name of the view is not in the list of dataset to import, we skip it.
             // If the list is empty, we import all the views.
             continue;
@@ -354,28 +303,37 @@ void msh_file::read_states(const std::vector<std::string>& list_dataset_to_impor
         std::vector<double>      data_view;
         gmsh::view::getHomogeneousModelData(tag, 0, type, tags, data_view, time, numComp);
         mesh::DataLocationType data_location_type = mesh::msh_to_armin_data_location_type.at(type);
-        LOG_INFO << "Read view type : " << type;
-        LOG_INFO << "Read view tag : " << tag;
-        LOG_INFO << "Number component :  " << numComp;
-        LOG_INFO << "Size vector data :  " << data_view.size();
-        LOG_INFO << "Number vertices : " << m_Mesh.get_nb_vertices();
+        fmt::print("Read view type : {}\n", type);
+        fmt::print("Read view tag : {}\n", tag);
+        fmt::print("Number component :  {}\n", numComp);
+        fmt::print("Size vector data :  {}\n", data_view.size());
+        fmt::print("Number vertices : {}\n", m_Mesh.get_nb_vertices());
         std::transform(tags.begin(), tags.end(), tags.begin(), [&](auto vtx) { return --vtx; });
 
         if (data_location_type == mesh::DataLocationType::vertex) {
             if (numComp == 1) {
-                m_Mesh.create_scalar_datasets_from_idx_vertex_and_values(name_view, data_location_type, tags, data_view);
+                m_Mesh.create_scalar_datasets_from_idx_vertex_and_values(name_view,
+                                                                         data_location_type,
+                                                                         tags,
+                                                                         data_view);
             } else if (numComp == 2) {
                 std::vector<mesh::vector3> data_view_vector2;
                 for (std::size_t i = 0; i < data_view.size(); i += 2) {
                     data_view_vector2.push_back(mesh::vector3(data_view[i], data_view[i + 1], 0.0));
                 }
-                m_Mesh.create_vector_datasets_from_idx_vertex_and_values(name_view, data_location_type, tags, data_view_vector2);
+                m_Mesh.create_vector_datasets_from_idx_vertex_and_values(name_view,
+                                                                         data_location_type,
+                                                                         tags,
+                                                                         data_view_vector2);
             } else if (numComp == 3) {
                 std::vector<mesh::vector3> data_view_vector3;
                 for (std::size_t i = 0; i < data_view.size(); i += 3) {
                     data_view_vector3.push_back(mesh::vector3(data_view[i], data_view[i + 1], data_view[i + 2]));
                 }
-                m_Mesh.create_vector_datasets_from_idx_vertex_and_values(name_view, data_location_type, tags, data_view_vector3);
+                m_Mesh.create_vector_datasets_from_idx_vertex_and_values(name_view,
+                                                                         data_location_type,
+                                                                         tags,
+                                                                         data_view_vector3);
             }
         } else if (data_location_type == mesh::DataLocationType::cell) {
             if (numComp == 1) {

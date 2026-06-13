@@ -19,24 +19,16 @@
 #include <vector>
 
 #include "bbox.hpp"
-#include "element.hpp"
 #include "element3d.hpp"
 
-namespace uepm {
-
-namespace mesh {
+namespace uepm::mesh {
 
 constexpr int    Max_Element_Per_Quadtree_Node = 32;
 constexpr double Min_Box_Size                  = 1e-3;
 
-static const std::string out_file = "OctreeSave.txt";
-
-octree_node::octree_node(const std::vector<element *> &list_p_elements, const bbox &bounding_box, bool is_root) : m_node_box(bounding_box) {
+octree_node::octree_node(const std::vector<element *> &list_p_elements, const bbox &bounding_box)
+    : m_node_box(bounding_box) {
     if (list_p_elements.size() <= Max_Element_Per_Quadtree_Node || m_node_box.get_diagonal_size() <= Min_Box_Size) {
-        // std::ofstream my_file;
-        // my_file.open(out_file, std::ios::app);
-        // my_file << bounding_box << "," << list_p_elements.size() << std::endl;
-        // my_file.close();
         this->m_list_p_elements = list_p_elements;
         m_is_leaf               = true;
         return;
@@ -54,23 +46,22 @@ octree_node::octree_node(const std::vector<element *> &list_p_elements, const bb
     constexpr uint number_octant = 8;
     m_sub_nodes.resize(number_octant);
     std::array<std::vector<element *>, number_octant> list_overlap_element_quadrants;
-    const bool                                        child_is_root = false;
-#pragma omp parallel for if (is_root)
     for (uint index_sub_box = 0; index_sub_box < number_octant; ++index_sub_box) {
-        m_sub_nodes[index_sub_box] =
-            std::make_unique<octree_node>(octree_node::find_overlapping_elements(list_p_elements, list_sub_boxes[index_sub_box]),
-                                          list_sub_boxes[index_sub_box],
-                                          child_is_root);
+        m_sub_nodes[index_sub_box] = std::make_unique<octree_node>(
+            octree_node::find_overlapping_elements(list_p_elements, list_sub_boxes[index_sub_box]),
+            list_sub_boxes[index_sub_box]);
     }
 }
 
-std::vector<element *> octree_node::find_overlapping_elements(const std::vector<element *> &list_p_elements, const bbox &bounding_box) {
+std::vector<element *> octree_node::find_overlapping_elements(const std::vector<element *> &list_p_elements,
+                                                              const bbox                   &bounding_box) {
     constexpr uint         number_octant = 8;
     std::vector<element *> list_overlaping_elements;
     list_overlaping_elements.reserve(list_p_elements.size() / number_octant);
-    std::copy_if(list_p_elements.begin(), list_p_elements.end(), std::back_inserter(list_overlaping_elements), [&](const auto &p_element) {
-        return bounding_box.is_overlapping_tetra(*p_element);
-    });
+    std::copy_if(list_p_elements.begin(),
+                 list_p_elements.end(),
+                 std::back_inserter(list_overlaping_elements),
+                 [&](const auto &p_element) { return bounding_box.is_overlapping_tetra(*p_element); });
     list_overlaping_elements.shrink_to_fit();
     return list_overlaping_elements;
 }
@@ -83,7 +74,6 @@ element *octree_node::find_element_at_location(const vector3 &position) const {
         if (it_element != m_list_p_elements.end()) {
             return *it_element;
         }
-        // LOG_ERROR << "WARNING : NO ELEMENT AT LOCATION OCTREE FAILED." << std::endl;
         return nullptr;
 
     }  // Descend down in the quadtree
@@ -159,6 +149,4 @@ std::vector<element *> octree_node::find_elements_overlapping_box(const bbox &bo
     return std::vector<element *>(set_overlapping_elements.begin(), set_overlapping_elements.end());
 }
 
-}  // namespace mesh
-
-}  // namespace uepm
+}  // namespace uepm::mesh

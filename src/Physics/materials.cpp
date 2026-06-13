@@ -23,13 +23,9 @@ namespace uepm {
 namespace physic {
 namespace material {
 
-static const std::vector<std::string> list_required_parameters = {"dielectric-constant",
-                                                                  "e-ionization-threshold",
-                                                                  "h-ionization-threshold"};
+static const std::vector<std::string> list_required_parameters = {"dielectric-constant"};
 
-static const std::vector<std::string> list_optional_parameters = {"lattice_constant",
-                                                                  "electron_ionization_energy_threshold",
-                                                                  "hole_ionization_energy_threshold"};
+static const std::vector<std::string> list_optional_parameters = {"lattice_constant"};
 
 /**
  * @brief Load materials parameters from a YAML file.

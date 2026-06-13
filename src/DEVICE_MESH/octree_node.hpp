@@ -30,15 +30,15 @@ class octree_node : public tree_node {
     bbox                                      m_top_right_subbox_back;
     bbox                                      m_top_left_subbox_back;
 
-    std::vector<element *> find_overlapping_elements(const std::vector<element *> &list_p_elements, const bbox &bounding_box) override;
+    std::vector<element *> find_overlapping_elements(const std::vector<element *> &list_p_elements,
+                                                     const bbox                   &bounding_box) override;
 
  public:
-    octree_node(){};
-    octree_node(const std::vector<element *> &list_p_elements, const bbox &bounding_box, bool root);
+    octree_node() {};
+    octree_node(const std::vector<element *> &list_p_elements, const bbox &bounding_box);
 
-    element *              find_element_at_location(const vector3 &position) const override;
+    element               *find_element_at_location(const vector3 &position) const override;
     std::vector<element *> find_elements_overlapping_box(const bbox &box) const override;
-    //  std::vector<element *> find_elements_overlapping_sphere(const vector3 sphere_center, double radius) const override;
 };
 
 }  //  namespace mesh

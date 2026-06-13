@@ -14,11 +14,8 @@
 #include <iostream>
 #include <vector>
 
-#include <plog/Log.h>
 
-#include "materials.hpp"
 #include "mesh.hpp"
-#include "physical_constants.hpp"
 
 namespace uepm::fem {
 

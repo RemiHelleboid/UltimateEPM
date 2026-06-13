@@ -130,13 +130,6 @@ if(Eigen_ADDED AND NOT TARGET Eigen3::Eigen)
   target_include_directories(Eigen3::Eigen INTERFACE "${Eigen_SOURCE_DIR}")
 endif()
 
-# plog
-message(STATUS "Fetching plog")
-FetchContent_Declare(
-  plog
-  GIT_REPOSITORY https://github.com/SergiusTheBest/plog.git
-  GIT_TAG 2ab53dc768507fae46a30426e82e8018d093416b)
-FetchContent_MakeAvailable(plog)
 
 # fmt
 message(STATUS "Fetching fmt")

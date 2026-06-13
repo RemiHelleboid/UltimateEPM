@@ -10,7 +10,6 @@
  */
 
 #pragma once
-#include <plog/Log.h>
 
 #include <cassert>
 #include <exception>

@@ -14,7 +14,7 @@ also provides quadtree and octree spatial indexing and mesh output.
 
 == Dependencies
 
-The target publicly depends on Gmsh, `plog`, `rapidcsv`, and `uepm::common`.
+The target publicly depends on Gmsh, `rapidcsv`, and `uepm::common`.
 OpenMP support is conditional in the current build definition.
 
 == Geometry and Topology

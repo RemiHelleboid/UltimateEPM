@@ -15,9 +15,7 @@
 
 #include "tree_node.hpp"
 
-namespace uepm {
-
-namespace mesh {
+namespace uepm::mesh {
 
 class quadtree_node : public tree_node {
  private:
@@ -27,19 +25,18 @@ class quadtree_node : public tree_node {
     bbox                                        m_bottom_right_subbox;
     bbox                                        m_top_right_subbox;
     bbox                                        m_top_left_subbox;
-    int                                         m_generation_depth;
 
-    std::vector<element *> find_overlapping_elements(const std::vector<element *> &list_p_elements, const bbox &bounding_box) override;
+    std::vector<element *> find_overlapping_elements(const std::vector<element *> &list_p_elements,
+                                                     const bbox                   &bounding_box) override;
 
  public:
-    quadtree_node(){};
-    quadtree_node(const std::vector<element *> &list_p_elements, const bbox &bounding_box, int generation);
+    quadtree_node() {};
+    quadtree_node(const std::vector<element *> &list_p_elements, const bbox &bounding_box);
 
-    element *              find_element_at_location(const vector3 &position) const override;
+    element               *find_element_at_location(const vector3 &position) const override;
     std::vector<element *> find_elements_overlapping_box(const bbox &box) const override;
-    //  std::vector<element *> find_elements_overlapping_sphere(const vector3 sphere_center, double radius) const override;
+    //  std::vector<element *> find_elements_overlapping_sphere(const vector3 sphere_center, double radius) const
+    //  override;
 };
 
-}  //  namespace mesh
-
-}  // namespace uepm
+}  //  namespace uepm::mesh

@@ -13,7 +13,9 @@
 
 namespace uepm::fem {
 
-const Eigen::Matrix3d FiniteElementP1System2d::ElementaryMassMatrixRefElement{{2.0, 1.0, 1.0}, {1.0, 2.0, 1.0}, {1.0, 1.0, 2.0}};
+const Eigen::Matrix3d FiniteElementP1System2d::ElementaryMassMatrixRefElement{{2.0, 1.0, 1.0},
+                                                                              {1.0, 2.0, 1.0},
+                                                                              {1.0, 1.0, 2.0}};
 
 Eigen::Matrix3d FiniteElementP1System2d::compute_elementary_stiffness_matrix(std::shared_ptr<mesh::element> triangle) {
     mesh::vertex* p_vtx1 = triangle->get_vertex(0);
@@ -37,10 +39,10 @@ Eigen::Matrix3d FiniteElementP1System2d::compute_elementary_stiffness_matrix(std
 
     const double multiplication_factor = -1.0 / (4 * fabs(triangle->get_measure()));
 
-    Eigen::Matrix3d ElementaryStiffnessMatrix{{M11 * multiplication_factor, M12 * multiplication_factor, M13 * multiplication_factor},
-                                              {M12 * multiplication_factor, M22 * multiplication_factor, M23 * multiplication_factor},
-                                              {M13 * multiplication_factor, M23 * multiplication_factor, M33 * multiplication_factor}};
-    // ElementaryStiffnessMatrix *= multiplication_factor;
+    Eigen::Matrix3d ElementaryStiffnessMatrix{
+        {M11 * multiplication_factor, M12 * multiplication_factor, M13 * multiplication_factor},
+        {M12 * multiplication_factor, M22 * multiplication_factor, M23 * multiplication_factor},
+        {M13 * multiplication_factor, M23 * multiplication_factor, M33 * multiplication_factor}};
     return ElementaryStiffnessMatrix;
 }
 
@@ -50,15 +52,17 @@ Eigen::Matrix3d FiniteElementP1System2d::compute_elementary_mass_matrix(std::sha
     return ElementaryMassMatrix;
 }
 
-Eigen::Vector3d FiniteElementP1System2d::compute_elementary_second_member(std::shared_ptr<mesh::element> triangle, double constant_value) {
+Eigen::Vector3d FiniteElementP1System2d::compute_elementary_second_member(std::shared_ptr<mesh::element> triangle,
+                                                                          double constant_value) {
     constexpr double one_third = 1.0 / 3.0;
     double           value     = fabs(triangle->get_measure()) * constant_value * one_third;
     Eigen::Vector3d  ElementarySecondMember{value, value, value};
     return ElementarySecondMember;
 }
 
-Eigen::Vector3d FiniteElementP1System2d::compute_elementary_second_member(std::shared_ptr<mesh::element>        triangle,
-                                                                          std::function<double(double, double)> function) {
+Eigen::Vector3d FiniteElementP1System2d::compute_elementary_second_member(
+    std::shared_ptr<mesh::element>        triangle,
+    std::function<double(double, double)> function) {
     mesh::vector3    barycenter = triangle->get_barycenter();
     constexpr double one_third  = 1.0 / 3.0;
     double           value      = fabs(triangle->get_measure()) * function(barycenter.x(), barycenter.y()) * one_third;
@@ -67,7 +71,6 @@ Eigen::Vector3d FiniteElementP1System2d::compute_elementary_second_member(std::s
 }
 
 void FiniteElementP1System2d::compute_stiffness_matrix() {
-    LOG_INFO << "Computing the stiffness matrix of the FEM system.";
     std::size_t                                 number_vertices  = m_p_mesh->get_nb_vertices();
     std::vector<std::shared_ptr<mesh::element>> list_p_triangles = m_p_mesh->get_list_bulk_element();
     m_matrix_lhs.resize(number_vertices, number_vertices);
@@ -80,7 +83,8 @@ void FiniteElementP1System2d::compute_stiffness_matrix() {
 
         for (int index_row = 0; index_row < 3; ++index_row) {
             for (int index_col = 0; index_col < 3; ++index_col) {
-                m_matrix_lhs.coeffRef(p_vertices_list[index_row]->get_index(), p_vertices_list[index_col]->get_index()) +=
+                m_matrix_lhs.coeffRef(p_vertices_list[index_row]->get_index(),
+                                      p_vertices_list[index_col]->get_index()) +=
                     elementary_stiffness_matrix(index_row, index_col);
             }
         }
@@ -91,13 +95,12 @@ void FiniteElementP1System2d::compute_stiffness_matrix() {
 void FiniteElementP1System2d::compute_mass_matrix() {}
 
 void FiniteElementP1System2d::compute_second_member(double constant_value) {
-    LOG_INFO << "Computing second member of FEM system.";
     std::size_t                                 number_vertices  = m_p_mesh->get_nb_vertices();
     std::vector<std::shared_ptr<mesh::element>> list_p_triangles = m_p_mesh->get_list_bulk_element();
     m_second_member                                              = EigenVector::Constant(number_vertices, 0.0);
     for (auto&& p_triangle : list_p_triangles) {
-        std::vector<mesh::vertex*> p_vertices_list        = p_triangle->get_vertices();
-        Eigen::Vector3d            ElementarySecondMember = compute_elementary_second_member(p_triangle, constant_value);
+        std::vector<mesh::vertex*> p_vertices_list = p_triangle->get_vertices();
+        Eigen::Vector3d ElementarySecondMember     = compute_elementary_second_member(p_triangle, constant_value);
         for (int index_row = 0; index_row < 3; ++index_row) {
             m_second_member(p_vertices_list[index_row]->get_index()) += ElementarySecondMember(index_row);
         }
@@ -105,7 +108,6 @@ void FiniteElementP1System2d::compute_second_member(double constant_value) {
 }
 
 void FiniteElementP1System2d::compute_second_member(std::function<double(double, double)> function) {
-    LOG_INFO << "Computing second member of FEM system.";
     std::size_t                                 number_vertices  = m_p_mesh->get_nb_vertices();
     std::vector<std::shared_ptr<mesh::element>> list_p_triangles = m_p_mesh->get_list_bulk_element();
     m_second_member                                              = EigenVector::Constant(number_vertices, 0.0);
@@ -119,7 +121,6 @@ void FiniteElementP1System2d::compute_second_member(std::function<double(double,
 }
 
 void FiniteElementP1System2d::apply_dirichlet_condition(const std::string& region_name, const double boundary_value) {
-    LOG_INFO << "Applying Dirichlet BC on region : " << region_name;
     const mesh::region*      boundary_region              = m_p_mesh->get_p_region(region_name);
     std::vector<std::size_t> region_unique_vertices_index = boundary_region->get_unique_vertices_as_vector();
     for (auto&& index_vertex : region_unique_vertices_index) {
@@ -128,7 +129,8 @@ void FiniteElementP1System2d::apply_dirichlet_condition(const std::string& regio
     }
 }
 
-void FiniteElementP1System2d::apply_dirichlet_condition_second_member(const std::string& region_name, const double boundary_value) {
+void FiniteElementP1System2d::apply_dirichlet_condition_second_member(const std::string& region_name,
+                                                                      const double       boundary_value) {
     const mesh::region*      boundary_region              = m_p_mesh->get_p_region(region_name);
     std::vector<std::size_t> region_unique_vertices_index = boundary_region->get_unique_vertices_as_vector();
     for (auto&& index_vertex : region_unique_vertices_index) {
@@ -137,7 +139,6 @@ void FiniteElementP1System2d::apply_dirichlet_condition_second_member(const std:
 }
 
 void FiniteElementP1System2d::apply_neuman_condition(const std::string& region_name, const double boundary_value) {
-    LOG_INFO << "Applying Neuman BC on region : " << region_name;
     constexpr double    one_half        = 1.0 / 2.0;
     const mesh::region* boundary_region = m_p_mesh->get_p_region(region_name);
     auto                list_elements   = boundary_region->get_list_elements();

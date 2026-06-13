@@ -24,7 +24,6 @@ set(HEADER_FILES_LIBMESH
 
 set(SOURCE_FILES_LIBMESH
     "geometry_entity.cpp"
-    "vertex.cpp"
     "bbox.cpp"
     "element.cpp"
     "element1d.cpp"
@@ -47,7 +46,7 @@ target_include_directories(libmesh PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 # Add the STF library for reading STF files
 target_include_directories(libmesh PUBLIC ${GMSH_INC})
 target_link_libraries(libmesh PUBLIC ${GMSH_LIB})
-target_link_libraries(libmesh PUBLIC uepm_common plog rapidcsv)
+target_link_libraries(libmesh PUBLIC uepm_common rapidcsv)
 target_link_libraries(libmesh PUBLIC uepm::common)
 
 if(USE_OPENMP_ACCELERATION)

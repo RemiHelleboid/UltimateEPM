@@ -14,7 +14,7 @@ target_include_directories(libpoisson PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Add the STF library for reading STF files
 target_link_libraries(libpoisson PRIVATE libmesh)
-target_link_libraries(libpoisson PUBLIC plog pthread Eigen3::Eigen)
+target_link_libraries(libpoisson PUBLIC pthread Eigen3::Eigen)
 target_link_libraries(libpoisson PUBLIC libphysics)
 
 if(USE_OPENMP_ACCELERATION)

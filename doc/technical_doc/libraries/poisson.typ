@@ -12,7 +12,7 @@ Poisson solvers for two- and three-dimensional device meshes.
 
 == Dependencies
 
-The target privately depends on `libmesh` and publicly depends on `plog`,
+The target privately depends on `libmesh` and publicly depends on 
 POSIX threads, Eigen, and `libphysics`.
 
 == Governing Equation
