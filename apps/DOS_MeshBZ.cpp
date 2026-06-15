@@ -16,7 +16,7 @@
 #include <iostream>
 
 #include "BandStructure.h"
-#include "Material.h"
+#include "epm_material.hpp"
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
@@ -26,15 +26,33 @@
 
 int main(int argc, char *argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
-    TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
-    TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
+    TCLAP::ValueArg<std::string> arg_mesh_file("f",
+                                               "meshbandfile",
+                                               "File with BZ mesh and bands energy.",
+                                               true,
+                                               "bz.msh",
+                                               "string");
+    TCLAP::ValueArg<std::string> arg_material("m",
+                                              "material",
+                                              "Symbol of the material to use (Si, Ge, GaAs, ...)",
+                                              true,
+                                              "Si",
+                                              "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 1000, "int");
-    TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "cbands", "Number of conduction bands to consider", false, -1, "int");
-    TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "vbands", "Number of valence bands to consider", false, -1, "int");
-    TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
-    TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
-    TCLAP::SwitchArg arg_test_interp("t", "test-interp", "Test the interpolation DOS.", false);
-    TCLAP::SwitchArg arg_use_iw("", "iw", "Use the irreducible wedge only.", false);
+    TCLAP::ValueArg<int>         arg_nb_conduction_bands("c",
+                                                 "cbands",
+                                                 "Number of conduction bands to consider",
+                                                 false,
+                                                 -1,
+                                                 "int");
+    TCLAP::ValueArg<int> arg_nb_valence_bands("v", "vbands", "Number of valence bands to consider", false, -1, "int");
+    TCLAP::ValueArg<int> arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
+    TCLAP::SwitchArg     plot_with_python("P",
+                                      "plot",
+                                      "Call a python script after the computation to plot the band structure.",
+                                      false);
+    TCLAP::SwitchArg     arg_test_interp("t", "test-interp", "Test the interpolation DOS.", false);
+    TCLAP::SwitchArg     arg_use_iw("", "iw", "Use the irreducible wedge only.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -48,7 +66,7 @@ int main(int argc, char *argv[]) {
     cmd.parse(argc, argv);
 
     uepm::pseudopotential::Materials materials;
-    const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
+    const std::string file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
     materials.load_material_parameters(file_material_parameters);
 
     Options my_options;
@@ -61,7 +79,7 @@ int main(int argc, char *argv[]) {
     bool use_iw              = arg_use_iw.getValue();
     auto start               = std::chrono::high_resolution_clock::now();
 
-    uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
+    uepm::pseudopotential::epm_material current_material = materials.materials.at(arg_material.getValue());
 
     const std::string mesh_band_input_file = arg_mesh_file.getValue();
 
@@ -78,14 +96,12 @@ int main(int argc, char *argv[]) {
                                              set_positive_valence_band);
 
     // DEBUG
-    my_bz_mesh.export_selected_bands_to_gmsh(
-        "debug_bands.msh",
-        nb_valence_bands,
-        nb_conduction_bands,
-        true,
-        mesh_band_input_file,
-        true
-    );
+    my_bz_mesh.export_selected_bands_to_gmsh("debug_bands.msh",
+                                             nb_valence_bands,
+                                             nb_conduction_bands,
+                                             true,
+                                             mesh_band_input_file,
+                                             true);
 
     my_bz_mesh.apply_scissor(1.12);  // eV
 
@@ -107,7 +123,8 @@ int main(int argc, char *argv[]) {
     list_list_dos.reserve(2 * nb_bands);
     list_header.reserve(2 * nb_bands);
 
-    std::cout << "Compute DOS on " << nb_valence_bands << " valence bands and " << nb_conduction_bands << " conduction bands.\n";
+    std::cout << "Compute DOS on " << nb_valence_bands << " valence bands and " << nb_conduction_bands
+              << " conduction bands.\n";
     std::cout << "Using " << my_options.nrThreads << " threads.\n";
     if (use_interp) {
         std::cout << "Using interpolation when computing DOS.\n";

@@ -13,9 +13,8 @@
 
 namespace uepm::amc {
 
-self_consistent_device_amc_run_config load_device_amc_config(
-    const std::filesystem::path& config_file,
-    const std::vector<std::string>& overrides = {});
+self_consistent_device_amc_run_config load_device_amc_config(const std::filesystem::path&    config_file,
+                                                             const std::vector<std::string>& overrides = {});
 
 void write_basic_device_amc_config(const std::filesystem::path& config_file);
 

@@ -24,10 +24,12 @@
 #include "BandStructure.h"
 #include "Options.h"
 
-const std::string python_plot_band_structure_script = std::string(PROJECT_SRC_DIR) + "/python/plots/plot_band_structure.py";
+const std::string python_plot_band_structure_script =
+    std::string(PROJECT_SRC_DIR) + "/python/plots/plot_band_structure.py";
 
 std::string python_plot_command(const std::string& output_file, int nb_bands = 10) {
-    std::string python_call = "python3 " + python_plot_band_structure_script + " --file " + output_file + " -b " + std::to_string(nb_bands);
+    std::string python_call =
+        "python3 " + python_plot_band_structure_script + " --file " + output_file + " -b " + std::to_string(nb_bands);
     return python_call;
 }
 
@@ -43,7 +45,7 @@ void print_arguments(const std::vector<std::string>& path,
         std::cout << p << " ";
     }
     std::cout << std::endl;
-    std::cout << "Material: " << material << std::endl;
+    std::cout << "epm_material: " << material << std::endl;
     std::cout << "Number of points: " << nb_points << std::endl;
     std::cout << "Number of bands: " << nb_bands << std::endl;
     std::cout << "Number of threads: " << nb_threads << std::endl;
@@ -51,7 +53,7 @@ void print_arguments(const std::vector<std::string>& path,
     std::cout << "Result directory: " << result_dir << std::endl;
 }
 
-int compute_path_mat(const uepm::pseudopotential::Material& material,
+int compute_path_mat(const uepm::pseudopotential::epm_material& material,
                      const std::vector<std::string>&        path,
                      unsigned int                           nb_points,
                      unsigned int                           nb_bands,
@@ -75,8 +77,8 @@ int compute_path_mat(const uepm::pseudopotential::Material& material,
     my_bandstructure.Compute_parallel(my_options.nrThreads);
     my_bandstructure.AdjustValues();
     std::cout << "Time to compute: " << my_bandstructure.get_computation_time_s() << " s" << std::endl;
-    const std::string file_output =
-        result_dir + "/" + my_bandstructure.path_band_filename() + (enable_non_local_correction ? "_non_local" : "") + ".txt";
+    const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() +
+                                    (enable_non_local_correction ? "_non_local" : "") + ".txt";
     my_bandstructure.export_result_in_file(file_output);
     if (call_python_plot) {
         std::string python_call = python_plot_command(file_output, nb_bands);
@@ -104,7 +106,7 @@ int compute_all_mat(uepm::pseudopotential::Materials list_materials,
     my_options.nrLevels         = nb_bands;
     for (auto const& [name, mat] : list_materials.materials) {
         std::cout << "----------------------------------------------------" << std::endl;
-        std::cout << "Material: " << name << std::endl;
+        std::cout << "epm_material: " << name << std::endl;
         std::cout << "Path: ";
         for (auto& point : path) {
             std::cout << point << " ";
@@ -121,8 +123,8 @@ int compute_all_mat(uepm::pseudopotential::Materials list_materials,
 
         my_bandstructure.Compute_parallel(my_options.nrThreads);
         my_bandstructure.AdjustValues();
-        const std::string file_output =
-            result_dir + "/" + my_bandstructure.path_band_filename() + (enable_non_local_correction ? "_non_local" : "") + ".txt";
+        const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() +
+                                        (enable_non_local_correction ? "_non_local" : "") + ".txt";
         my_bandstructure.export_result_in_file(file_output);
         if (call_python_plot) {
             std::string python_call = python_plot_command(file_output, nb_bands);
@@ -154,7 +156,7 @@ int compute_all_path_all_mat(uepm::pseudopotential::Materials list_materials,
     my_options.nrLevels         = nb_bands;
     for (auto const& [name, mat] : list_materials.materials) {
         std::cout << "----------------------------------------------------" << std::endl;
-        std::cout << "Material: " << name << std::endl;
+        std::cout << "epm_material: " << name << std::endl;
         for (std::size_t path_index = 0; path_index < my_options.paths.size(); path_index++) {
             std::vector<std::string> path = my_options.paths[path_index];
             std::cout << "path: ";
@@ -173,8 +175,8 @@ int compute_all_path_all_mat(uepm::pseudopotential::Materials list_materials,
 
             my_bandstructure.Compute_parallel(my_options.nrThreads);
             my_bandstructure.AdjustValues();
-            const std::string file_output =
-                result_dir + "/" + my_bandstructure.path_band_filename() + (enable_non_local_correction ? "_non_local" : "") + ".txt";
+            const std::string file_output = result_dir + "/" + my_bandstructure.path_band_filename() +
+                                            (enable_non_local_correction ? "_non_local" : "") + ".txt";
             my_bandstructure.export_result_in_file(file_output);
             if (call_python_plot) {
                 std::string python_call = python_plot_command(file_output, nb_bands);
@@ -199,7 +201,12 @@ int main(int argc, char* argv[]) {
                                                      false,
                                                      "LGXWKULWXK",
                                                      "string");
-    TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", false, "Si", "string");
+    TCLAP::ValueArg<std::string> arg_material("m",
+                                              "material",
+                                              "Symbol of the material to use (Si, Ge, GaAs, ...)",
+                                              false,
+                                              "Si",
+                                              "string");
     TCLAP::ValueArg<int>         arg_nb_points("N", "npoints", "Number of points per Path", false, 80, "int");
     TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to compute", false, 12, "int");
     TCLAP::ValueArg<int>         arg_nearest_neighbors("n",
@@ -210,11 +217,25 @@ int main(int argc, char* argv[]) {
                                                "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<std::string> arg_res_dir("r", "resultdir", "directory to store the results.", false, "./", "str");
-    TCLAP::ValueArg<std::string> arg_data_mat("d", "file-data", "Name of the material data file", false, "materials-local-cohen.yaml", "string");
-    TCLAP::SwitchArg arg_enable_nonlocal_correction("C", "nonlocal-correction", "Enable the non-local-correction for the EPM model", false);
-    TCLAP::SwitchArg arg_enable_soc("S", "soc", "Enable the spin-orbit coupling for the EPM model", false);
-    TCLAP::SwitchArg all_path_mat("A", "all", "Compute the band structure on all the paths for all the materials", false);
-    TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
+    TCLAP::ValueArg<std::string> arg_data_mat("d",
+                                              "file-data",
+                                              "Name of the material data file",
+                                              false,
+                                              "materials-local-cohen.yaml",
+                                              "string");
+    TCLAP::SwitchArg             arg_enable_nonlocal_correction("C",
+                                                    "nonlocal-correction",
+                                                    "Enable the non-local-correction for the EPM model",
+                                                    false);
+    TCLAP::SwitchArg             arg_enable_soc("S", "soc", "Enable the spin-orbit coupling for the EPM model", false);
+    TCLAP::SwitchArg             all_path_mat("A",
+                                  "all",
+                                  "Compute the band structure on all the paths for all the materials",
+                                  false);
+    TCLAP::SwitchArg             plot_with_python("P",
+                                      "plot",
+                                      "Call a python script after the computation to plot the band structure.",
+                                      false);
 
     cmd.add(arg_path_sym_points);
     cmd.add(arg_material);
@@ -248,7 +269,8 @@ int main(int argc, char* argv[]) {
 
     std::string file_material_parameters = arg_data_mat.getValue();
     if (!std::filesystem::exists(file_material_parameters)) {
-        std::filesystem::path p_try = std::filesystem::path(PROJECT_SRC_DIR) / "parameter_files" / file_material_parameters;
+        std::filesystem::path p_try =
+            std::filesystem::path(PROJECT_SRC_DIR) / "parameter_files" / file_material_parameters;
         if (std::filesystem::exists(p_try)) {
             file_material_parameters = p_try.string();
         } else {
@@ -298,7 +320,8 @@ int main(int argc, char* argv[]) {
                          arg_res_dir.getValue(),
                          call_python_plot);
     } else if (!arg_material.isSet() && arg_path_sym_points.isSet()) {
-        std::cout << "Compute the band structure on the path " << arg_path_sym_points.getValue() << " for all the materials" << std::endl;
+        std::cout << "Compute the band structure on the path " << arg_path_sym_points.getValue()
+                  << " for all the materials" << std::endl;
         compute_all_mat(materials,
                         path_list,
                         arg_nb_bands.getValue(),

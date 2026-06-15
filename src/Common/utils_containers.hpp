@@ -1,7 +1,8 @@
 /**
  * @file utils_containers.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief This file contains some usefull function for operation on c++ std conytainers like std::vector<> that are not in the std library.
+ * @brief This file contains some usefull function for operation on c++ std conytainers like std::vector<> that are not
+ * in the std library.
  * @version 0.1
  * @date 2021-11-09
  *
@@ -47,7 +48,8 @@ std::vector<T> geomspace(T x_min, T x_max, std::size_t number_points) {
 
 /**
  * @brief Create a permutation vector from a vector of value to sort and a comparaison function.
- * From https://stackoverflow.com/questions/17074324/how-can-i-sort-two-vectors-in-the-same-way-with-criteria-that-uses-only-one-of
+ * From
+ * https://stackoverflow.com/questions/17074324/how-can-i-sort-two-vectors-in-the-same-way-with-criteria-that-uses-only-one-of
  *
  * @tparam T
  * @tparam Compare
@@ -65,7 +67,8 @@ std::vector<std::size_t> sort_permutation(const std::vector<T>& vec, Compare com
 
 /**
  * @brief Apply a given permutation to a vector and return the vector
- * From https://stackoverflow.com/questions/17074324/how-can-i-sort-two-vectors-in-the-same-way-with-criteria-that-uses-only-one-of
+ * From
+ * https://stackoverflow.com/questions/17074324/how-can-i-sort-two-vectors-in-the-same-way-with-criteria-that-uses-only-one-of
  *
  * @tparam T
  * @param vec
@@ -81,7 +84,8 @@ std::vector<T> apply_permutation(const std::vector<T>& vec, const std::vector<st
 
 /**
  * @brief Apply a given permutation directly to a container (in place)
- * From https://stackoverflow.com/questions/17074324/how-can-i-sort-two-vectors-in-the-same-way-with-criteria-that-uses-only-one-of
+ * From
+ * https://stackoverflow.com/questions/17074324/how-can-i-sort-two-vectors-in-the-same-way-with-criteria-that-uses-only-one-of
  *
  * @tparam T
  * @param vec
@@ -113,9 +117,10 @@ inline void apply_permutation_in_place(std::vector<T>& vec, const std::vector<st
  * @param vector_2
  */
 inline void sort_two_vectors_together_according_to_first(std::vector<double>& vector_1, std::vector<double>& vector_2) {
-    auto permutation_real_number_compare = sort_permutation(vector_1, [](const double& a, const double& b) { return a <= b; });
-    vector_1                             = apply_permutation(vector_1, permutation_real_number_compare);
-    vector_2                             = apply_permutation(vector_2, permutation_real_number_compare);
+    auto permutation_real_number_compare =
+        sort_permutation(vector_1, [](const double& a, const double& b) { return a <= b; });
+    vector_1 = apply_permutation(vector_1, permutation_real_number_compare);
+    vector_2 = apply_permutation(vector_2, permutation_real_number_compare);
 }
 
 template <typename T>
@@ -157,4 +162,4 @@ inline void printVectorInVector(const T& t) {
 
 }  // namespace utils
 
-} // namespace uepm
+}  // namespace uepm

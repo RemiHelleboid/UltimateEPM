@@ -35,6 +35,8 @@ struct scheduled_particle_injection {
  *
  */
 struct options_device_amc {
+    amc_material_model m_material_model = make_silicon_amc_material_model();
+
     std::string m_simulation_name  = "";
     std::string m_output_directory = "./";
 
@@ -42,8 +44,8 @@ struct options_device_amc {
     double      m_max_energy_eV                        = 2.0;
     double      m_self_scattering_safety_factor        = 1.2;
     std::size_t m_gamma_max_energy_samples             = 1000;
-    double      m_time_step                            = 1e-15;    // s
-    double      m_t_max                                = 1e-9;     // s
+    double      m_time_step                            = 1e-15;      // s
+    double      m_t_max                                = 1e-9;       // s
     std::size_t m_max_number_particle                  = 100000000;  // Hard limit on nb of particles in the simulation.
     bool        m_particle_creation_activated          = true;
     bool        m_stop_simu_when_no_electron_remaining = true;
@@ -123,29 +125,29 @@ struct vtk_time_series_record {
  */
 class device_amc_simulation {
  protected:
-    state_device_amc_simulation m_state;
-    device::device              m_device;
-    amc_transport_kernel        m_electron_transport;
-    amc_transport_kernel        m_hole_transport;
+    state_device_amc_simulation       m_state;
+    device::device                    m_device;
+    amc_transport_kernel              m_electron_transport;
+    amc_transport_kernel              m_hole_transport;
     std::vector<amc_transport_kernel> m_thread_electron_transports;
     std::vector<amc_transport_kernel> m_thread_hole_transports;
-    int                         m_dimension;
-    options_device_amc          m_simulation_options;
-    history_device_amc          m_simulation_history{};
+    int                               m_dimension;
+    options_device_amc                m_simulation_options;
+    history_device_amc                m_simulation_history{};
 
-    std::vector<std::unique_ptr<particle_amc>> m_list_particles;
+    std::vector<std::unique_ptr<particle_amc>>   m_list_particles;
     std::vector<std::optional<scattering_event>> m_scattering_events_scratch;
 
     void                        initialize_scheduled_particle_injection();
     bool                        has_pending_scheduled_particle_injection() const;
     void                        inject_scheduled_particle_if_due();
     static amc_transport_config make_transport_config(const options_device_amc &options, particle_type carrier_type);
-    void                         initialize_thread_transports(int seed_random_generator);
+    void                        initialize_thread_transports(int seed_random_generator);
     amc_transport_kernel       &transport_for(particle_type type);
     const amc_transport_kernel &transport_for(particle_type type) const;
     amc_transport_kernel       &transport_for(particle_type type, std::size_t thread_index);
     void                        initialize_particle_transport_state(particle_amc &particle);
-    std::string                 initialize_simulation_history_file() ;
+    std::string                 initialize_simulation_history_file();
     virtual void                apply_z_periodicity_to_particles();
 
     // Export functions

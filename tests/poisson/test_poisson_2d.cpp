@@ -16,27 +16,24 @@
 #include "poisson_solver_2d.hpp"
 #include "vtkWriter.hpp"
 
-
-
 TEST_CASE("Testing Poisson 2d on a PN Junction.") {
-
-    std::string material_file = PROJECT_SRC_DIR + std::string("/examples/materials/materials.yaml"); 
-    std::cout << "Material file : " << material_file << std::endl;
-    uepm::physic::material::list_materials list_of_materials;
-    list_of_materials.load_materials_from_file(material_file);
+    std::string material_file = PROJECT_SRC_DIR + std::string("/examples/materials/materials.yaml");
+    std::cout << "epm_material file : " << material_file << std::endl;
+    uepm::physics::material_database material_database;
+    material_database.load_from_file(material_file);
 
     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/tests/test_data/2D_pn_diode_5V.msh");
-    uepm::file::msh_file           fileMSH(file_input_test_msh);
+    uepm::file::msh_file     fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
     fileMSH.read_states();
     uepm::mesh::mesh* p_mesh     = fileMSH.get_p_mesh();
-    std::size_t nbVertices = p_mesh->get_nb_vertices();
+    std::size_t       nbVertices = p_mesh->get_nb_vertices();
 
     std::cout << "Start building Poisson system ..." << std::endl;
-    uepm::fem::poisson_solver_2d MyPoissonSolver(p_mesh, p_mesh->get_nb_vertices(), list_of_materials);
+    uepm::fem::poisson_solver_2d MyPoissonSolver(p_mesh, p_mesh->get_nb_vertices(), material_database);
     MyPoissonSolver.compute_stiffness_matrix();
     MyPoissonSolver.update_second_member();
-    
+
     MyPoissonSolver.apply_dirichlet_condition("kathode", 5.36);
     MyPoissonSolver.apply_dirichlet_condition("anode", -0.432793);
     // MyPoissonSolver.apply_dirichlet_condition("kathode", 0.355292);
@@ -65,5 +62,3 @@ TEST_CASE("Testing Poisson 2d on a PN Junction.") {
     // CHECK(min_solution == doctest::Approx(min_test_si_ge));
     // CHECK_EQ(max_solution, doctest::Approx(max_test_si_ge));
 }
-
-

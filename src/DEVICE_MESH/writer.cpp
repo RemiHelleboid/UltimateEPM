@@ -75,10 +75,13 @@ void writer::export_as_msh(const mesh                     &myMesh,
         std::vector<double>      flatten_vertices_coordinates(3 * number_vertices_region);
         std::vector<std::size_t> vertex_tag_list(number_vertices_region);
         for (std::size_t index_vertices = 0; index_vertices < number_vertices_region; ++index_vertices) {
-            flatten_vertices_coordinates[3 * index_vertices]     = myMesh.m_ListVertices[list_region_vertices[index_vertices]].x();
-            flatten_vertices_coordinates[3 * index_vertices + 1] = myMesh.m_ListVertices[list_region_vertices[index_vertices]].y();
-            flatten_vertices_coordinates[3 * index_vertices + 2] = myMesh.m_ListVertices[list_region_vertices[index_vertices]].z();
-            vertex_tag_list[index_vertices]                      = list_region_vertices[index_vertices] + 1;
+            flatten_vertices_coordinates[3 * index_vertices] =
+                myMesh.m_ListVertices[list_region_vertices[index_vertices]].x();
+            flatten_vertices_coordinates[3 * index_vertices + 1] =
+                myMesh.m_ListVertices[list_region_vertices[index_vertices]].y();
+            flatten_vertices_coordinates[3 * index_vertices + 2] =
+                myMesh.m_ListVertices[list_region_vertices[index_vertices]].z();
+            vertex_tag_list[index_vertices] = list_region_vertices[index_vertices] + 1;
         }
         gmsh::model::mesh::addNodes(bulk_dimension, entity_tag, vertex_tag_list, flatten_vertices_coordinates);
         std::vector<std::shared_ptr<element>> ListElements          = bulk_region.get_list_elements();
@@ -98,7 +101,10 @@ void writer::export_as_msh(const mesh                     &myMesh,
         }
         ListOfListRegionFlattenElementVertices.push_back(ListRegionFlattenedElementsVertices);
         ListOfListRegionElementsTags.push_back(ListRegionElementsTag);
-        gmsh::model::mesh::addElements(bulk_dimension, entity_tag, {bulk_element_type}, {ListRegionElementsTag},
+        gmsh::model::mesh::addElements(bulk_dimension,
+                                       entity_tag,
+                                       {bulk_element_type},
+                                       {ListRegionElementsTag},
                                        {ListRegionFlattenedElementsVertices});
 
         int tag_phy_group = gmsh::model::addPhysicalGroup(bulk_dimension, {entity_tag});
@@ -117,12 +123,18 @@ void writer::export_as_msh(const mesh                     &myMesh,
         std::vector<double>      flatten_vertices_coordinates(3 * number_vertices_region);
         std::vector<std::size_t> vertex_tag_list(number_vertices_region);
         for (std::size_t index_vertices = 0; index_vertices < number_vertices_region; ++index_vertices) {
-            flatten_vertices_coordinates[3 * index_vertices]     = myMesh.m_ListVertices[list_region_vertices[index_vertices]].x();
-            flatten_vertices_coordinates[3 * index_vertices + 1] = myMesh.m_ListVertices[list_region_vertices[index_vertices]].y();
-            flatten_vertices_coordinates[3 * index_vertices + 2] = myMesh.m_ListVertices[list_region_vertices[index_vertices]].z();
-            vertex_tag_list[index_vertices]                      = list_region_vertices[index_vertices] + 1;
+            flatten_vertices_coordinates[3 * index_vertices] =
+                myMesh.m_ListVertices[list_region_vertices[index_vertices]].x();
+            flatten_vertices_coordinates[3 * index_vertices + 1] =
+                myMesh.m_ListVertices[list_region_vertices[index_vertices]].y();
+            flatten_vertices_coordinates[3 * index_vertices + 2] =
+                myMesh.m_ListVertices[list_region_vertices[index_vertices]].z();
+            vertex_tag_list[index_vertices] = list_region_vertices[index_vertices] + 1;
         }
-        gmsh::model::mesh::addNodes(contact_interface_dimension, entity_tag, vertex_tag_list, flatten_vertices_coordinates);
+        gmsh::model::mesh::addNodes(contact_interface_dimension,
+                                    entity_tag,
+                                    vertex_tag_list,
+                                    flatten_vertices_coordinates);
         std::vector<std::shared_ptr<element>> ListElements = interface_region.get_list_elements();
         std::vector<std::size_t>              ListRegionElementsTag(0);
         std::vector<std::size_t>              ListRegionFlattenedElementsVertices(0);
@@ -139,8 +151,11 @@ void writer::export_as_msh(const mesh                     &myMesh,
         ListOfListRegionFlattenElementVertices.push_back(ListRegionFlattenedElementsVertices);
         ListOfListRegionElementsTags.push_back(ListRegionElementsTag);
 
-        gmsh::model::mesh::addElements(contact_interface_dimension, entity_tag, {contact_and_interface_element_type},
-                                       {ListRegionElementsTag}, {ListRegionFlattenedElementsVertices});
+        gmsh::model::mesh::addElements(contact_interface_dimension,
+                                       entity_tag,
+                                       {contact_and_interface_element_type},
+                                       {ListRegionElementsTag},
+                                       {ListRegionFlattenedElementsVertices});
 
         std::string region_name   = interface_region.get_name();
         int         tag_phy_group = gmsh::model::addPhysicalGroup(contact_interface_dimension, {entity_tag});
@@ -154,12 +169,18 @@ void writer::export_as_msh(const mesh                     &myMesh,
         std::vector<double>      flatten_vertices_coordinates(3 * number_vertices_region);
         std::vector<std::size_t> vertex_tag_list(number_vertices_region);
         for (std::size_t index_vertices = 0; index_vertices < number_vertices_region; ++index_vertices) {
-            flatten_vertices_coordinates[3 * index_vertices]     = myMesh.m_ListVertices[list_region_vertices[index_vertices]].x();
-            flatten_vertices_coordinates[3 * index_vertices + 1] = myMesh.m_ListVertices[list_region_vertices[index_vertices]].y();
-            flatten_vertices_coordinates[3 * index_vertices + 2] = myMesh.m_ListVertices[list_region_vertices[index_vertices]].z();
-            vertex_tag_list[index_vertices]                      = list_region_vertices[index_vertices] + 1;
+            flatten_vertices_coordinates[3 * index_vertices] =
+                myMesh.m_ListVertices[list_region_vertices[index_vertices]].x();
+            flatten_vertices_coordinates[3 * index_vertices + 1] =
+                myMesh.m_ListVertices[list_region_vertices[index_vertices]].y();
+            flatten_vertices_coordinates[3 * index_vertices + 2] =
+                myMesh.m_ListVertices[list_region_vertices[index_vertices]].z();
+            vertex_tag_list[index_vertices] = list_region_vertices[index_vertices] + 1;
         }
-        gmsh::model::mesh::addNodes(contact_interface_dimension, entity_tag, vertex_tag_list, flatten_vertices_coordinates);
+        gmsh::model::mesh::addNodes(contact_interface_dimension,
+                                    entity_tag,
+                                    vertex_tag_list,
+                                    flatten_vertices_coordinates);
         std::vector<std::shared_ptr<element>> ListElements = interface_region.get_list_elements();
         std::vector<std::size_t>              ListRegionElementsTag(0);
         std::vector<std::size_t>              ListRegionFlattenedElementsVertices(0);
@@ -176,8 +197,11 @@ void writer::export_as_msh(const mesh                     &myMesh,
         ListOfListRegionFlattenElementVertices.push_back(ListRegionFlattenedElementsVertices);
         ListOfListRegionElementsTags.push_back(ListRegionElementsTag);
 
-        gmsh::model::mesh::addElements(contact_interface_dimension, entity_tag, {contact_and_interface_element_type},
-                                       {ListRegionElementsTag}, {ListRegionFlattenedElementsVertices});
+        gmsh::model::mesh::addElements(contact_interface_dimension,
+                                       entity_tag,
+                                       {contact_and_interface_element_type},
+                                       {ListRegionElementsTag},
+                                       {ListRegionFlattenedElementsVertices});
 
         std::string region_name   = interface_region.get_name();
         int         tag_phy_group = gmsh::model::addPhysicalGroup(contact_interface_dimension, {entity_tag});
@@ -204,7 +228,9 @@ void writer::export_as_msh(const mesh                     &myMesh,
     else {
         // std::cout << "Exporting datasets ... " << std::endl;
         std::vector<std::size_t> global_vertex_tag_list(myMesh.m_ListVertices.size());
-        std::transform(myMesh.m_ListVertices.begin(), myMesh.m_ListVertices.end(), global_vertex_tag_list.begin(),
+        std::transform(myMesh.m_ListVertices.begin(),
+                       myMesh.m_ListVertices.end(),
+                       global_vertex_tag_list.begin(),
                        [&](const auto vtx) { return (vtx.get_index() + 1); });
 
         // Handling scalar data
@@ -219,7 +245,8 @@ void writer::export_as_msh(const mesh                     &myMesh,
         for (const auto &dataname : list_name_dataset_to_export) {
             // std::cout << "Exporting dataset :" << dataname << std::endl;
             if (!myMesh.scalar_dataset_exists(dataname)) {
-                // std::cout << "Error: scalar datatset " << dataname << " does not exists, it can't be exported." << std::endl;
+                // std::cout << "Error: scalar datatset " << dataname << " does not exists, it can't be exported." <<
+                // std::endl;
                 continue;
             }
             auto my_function = myMesh.get_sp_scalar_function(dataname);
@@ -229,7 +256,11 @@ void writer::export_as_msh(const mesh                     &myMesh,
 
                 std::vector<std::size_t> index_vtx(vertex_index_values_of_function.first);
                 std::for_each(index_vtx.begin(), index_vtx.end(), [](auto &idx) { ++idx; });
-                gmsh::view::addHomogeneousModelData(data_tag, 0, "mesh_discrete", "NodeData", index_vtx,
+                gmsh::view::addHomogeneousModelData(data_tag,
+                                                    0,
+                                                    "mesh_discrete",
+                                                    "NodeData",
+                                                    index_vtx,
                                                     vertex_index_values_of_function.second);
                 const int   index_view             = gmsh::view::getIndex(data_tag);
                 std::string name_object_visibility = "View[" + std::to_string(index_view) + "].Visible";
@@ -241,7 +272,11 @@ void writer::export_as_msh(const mesh                     &myMesh,
 
                 std::vector<std::size_t> index_vtx(cell_index_values_of_function.first);
                 std::for_each(index_vtx.begin(), index_vtx.end(), [](auto &idx) { ++idx; });
-                gmsh::view::addHomogeneousModelData(data_tag, 0, "mesh_discrete", "ElementData", index_vtx,
+                gmsh::view::addHomogeneousModelData(data_tag,
+                                                    0,
+                                                    "mesh_discrete",
+                                                    "ElementData",
+                                                    index_vtx,
                                                     cell_index_values_of_function.second);
                 const int   index_view             = gmsh::view::getIndex(data_tag);
                 std::string name_object_visibility = "View[" + std::to_string(index_view) + "].Visible";
@@ -253,12 +288,13 @@ void writer::export_as_msh(const mesh                     &myMesh,
         // Handling vector data
         for (auto &&dataname : list_name_dataset_to_export) {
             if (!myMesh.vector_dataset_exists(dataname)) {
-                // std::cout << "Error: vector datatset " << dataname << " does not exists, it can't be exported." << std::endl;
+                // std::cout << "Error: vector datatset " << dataname << " does not exists, it can't be exported." <<
+                // std::endl;
                 continue;
             }
             // std::cout << "Exporting: vector datatset " << dataname << std::endl;
-            std::vector<vector3>     ScalarDataValues                = myMesh.get_all_vector_dataset_values(dataname);
-            auto                     vertex_index_values_of_function = myMesh.get_vertices_index_value_of_vector_function(dataname);
+            std::vector<vector3> ScalarDataValues = myMesh.get_all_vector_dataset_values(dataname);
+            auto vertex_index_values_of_function  = myMesh.get_vertices_index_value_of_vector_function(dataname);
             std::vector<std::size_t> index_vtx(vertex_index_values_of_function.first);
             std::for_each(index_vtx.begin(), index_vtx.end(), [](auto &idx) { ++idx; });
 
@@ -270,7 +306,12 @@ void writer::export_as_msh(const mesh                     &myMesh,
                 flattened_list_data.push_back(vector_data.z());
             }
             int data_tag = gmsh::view::add(dataname);
-            gmsh::view::addHomogeneousModelData(data_tag, 0, "mesh_discrete", "NodeData", index_vtx, flattened_list_data);
+            gmsh::view::addHomogeneousModelData(data_tag,
+                                                0,
+                                                "mesh_discrete",
+                                                "NodeData",
+                                                index_vtx,
+                                                flattened_list_data);
             const int   index_view             = gmsh::view::getIndex(data_tag);
             std::string name_object_visibility = "View[" + std::to_string(index_view) + "].Visible";
             gmsh::option::setNumber(name_object_visibility, 0);

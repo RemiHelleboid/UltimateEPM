@@ -95,11 +95,14 @@ struct RateValues {
         }
     }
     double&       at(PhononMode m, PhononDirection d, PhononEvent e) { return m_rate_values[rate_index(m, d, e)]; }
-    const double& at(PhononMode m, PhononDirection d, PhononEvent e) const { return m_rate_values[rate_index(m, d, e)]; }
-    const Rate8&  as_array() const noexcept { return m_rate_values; }
+    const double& at(PhononMode m, PhononDirection d, PhononEvent e) const {
+        return m_rate_values[rate_index(m, d, e)];
+    }
+    const Rate8& as_array() const noexcept { return m_rate_values; }
 
     static const char* label(int i) noexcept {
-        static constexpr const char* L[8] = {"ac_L_ab", "ac_T_ab", "op_L_ab", "op_T_ab", "ac_L_em", "ac_T_em", "op_L_em", "op_T_em"};
+        static constexpr const char* L[8] =
+            {"ac_L_ab", "ac_T_ab", "op_L_ab", "op_T_ab", "ac_L_em", "ac_T_em", "op_L_em", "op_T_em"};
         return (i >= 0 && i < 8) ? L[i] : "invalid";
     }
 };
@@ -186,13 +189,17 @@ inline double bose_einstein_distribution(double energy_eV, double temperature_K)
  */
 inline double transport_weight_RTA(const vector3& v0, const vector3& v1) {
     const double v0sq = v0.norm_squared();
-    if (v0sq < 1e-24) return 1.0; // guard near band extrema/flat band
+    if (v0sq < 1e-24) {
+        return 1.0;  // guard near band extrema/flat band
+    }
 
     const double dot = v0.dot(v1);
-    double w = 1.0 - dot / v0sq;   // = 1 - (v'·v)/|v|^2
+    double       w   = 1.0 - dot / v0sq;  // = 1 - (v'·v)/|v|^2
 
     // Optional: enforce non-negativity if you want numerical robustness
-    if (!(w >= 0.0)) w = 0.0;
+    if (!(w >= 0.0)) {
+        w = 0.0;
+    }
     return w;
 }
 
@@ -211,21 +218,29 @@ static_assert(md_index(PhononMode::acoustic, PhononDirection::transverse) == 1);
 static_assert(md_index(PhononMode::optical, PhononDirection::longitudinal) == 2);
 static_assert(md_index(PhononMode::optical, PhononDirection::transverse) == 3);
 
-static_assert(inverse_rate_index(0).mode == PhononMode::acoustic && inverse_rate_index(0).direction == PhononDirection::longitudinal &&
+static_assert(inverse_rate_index(0).mode == PhononMode::acoustic &&
+              inverse_rate_index(0).direction == PhononDirection::longitudinal &&
               inverse_rate_index(0).event == PhononEvent::absorption);
-static_assert(inverse_rate_index(1).mode == PhononMode::acoustic && inverse_rate_index(1).direction == PhononDirection::transverse &&
+static_assert(inverse_rate_index(1).mode == PhononMode::acoustic &&
+              inverse_rate_index(1).direction == PhononDirection::transverse &&
               inverse_rate_index(1).event == PhononEvent::absorption);
-static_assert(inverse_rate_index(2).mode == PhononMode::optical && inverse_rate_index(2).direction == PhononDirection::longitudinal &&
+static_assert(inverse_rate_index(2).mode == PhononMode::optical &&
+              inverse_rate_index(2).direction == PhononDirection::longitudinal &&
               inverse_rate_index(2).event == PhononEvent::absorption);
-static_assert(inverse_rate_index(3).mode == PhononMode::optical && inverse_rate_index(3).direction == PhononDirection::transverse &&
+static_assert(inverse_rate_index(3).mode == PhononMode::optical &&
+              inverse_rate_index(3).direction == PhononDirection::transverse &&
               inverse_rate_index(3).event == PhononEvent::absorption);
-static_assert(inverse_rate_index(4).mode == PhononMode::acoustic && inverse_rate_index(4).direction == PhononDirection::longitudinal &&
+static_assert(inverse_rate_index(4).mode == PhononMode::acoustic &&
+              inverse_rate_index(4).direction == PhononDirection::longitudinal &&
               inverse_rate_index(4).event == PhononEvent::emission);
-static_assert(inverse_rate_index(5).mode == PhononMode::acoustic && inverse_rate_index(5).direction == PhononDirection::transverse &&
+static_assert(inverse_rate_index(5).mode == PhononMode::acoustic &&
+              inverse_rate_index(5).direction == PhononDirection::transverse &&
               inverse_rate_index(5).event == PhononEvent::emission);
-static_assert(inverse_rate_index(6).mode == PhononMode::optical && inverse_rate_index(6).direction == PhononDirection::longitudinal &&
+static_assert(inverse_rate_index(6).mode == PhononMode::optical &&
+              inverse_rate_index(6).direction == PhononDirection::longitudinal &&
               inverse_rate_index(6).event == PhononEvent::emission);
-static_assert(inverse_rate_index(7).mode == PhononMode::optical && inverse_rate_index(7).direction == PhononDirection::transverse &&
+static_assert(inverse_rate_index(7).mode == PhononMode::optical &&
+              inverse_rate_index(7).direction == PhononDirection::transverse &&
               inverse_rate_index(7).event == PhononEvent::emission);
 
 }  // namespace uepm::mesh_bz

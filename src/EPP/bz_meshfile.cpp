@@ -19,7 +19,9 @@
 
 void bz_mesh_points::add_k_point(Vector3D<double> kpoint) { m_kpoints.push_back(kpoint); }
 
-void bz_mesh_points::add_k_point(double k_x, double k_y, double k_z) { m_kpoints.push_back(Vector3D<double>(k_x, k_y, k_z)); }
+void bz_mesh_points::add_k_point(double k_x, double k_y, double k_z) {
+    m_kpoints.push_back(Vector3D<double>(k_x, k_y, k_z));
+}
 
 void bz_mesh_points::read_mesh_from_csv() {
     m_node_tags.clear();
@@ -117,16 +119,19 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string&                   
     // Sanity checks
     if (nb_valence_bands_to_export < 0 || nb_valence_bands_to_export > nb_valence_bands) {
         nb_valence_bands_to_export = nb_valence_bands;
-        std::cout << "Warning: nb_valence_bands_to_export is not valid. Setting it to " << nb_valence_bands << std::endl;
+        std::cout << "Warning: nb_valence_bands_to_export is not valid. Setting it to " << nb_valence_bands
+                  << std::endl;
     }
     if (nb_conduction_bands_to_export < 0 || nb_conduction_bands_to_export > (nb_bands - nb_valence_bands)) {
         nb_conduction_bands_to_export = nb_bands - nb_valence_bands;
-        std::cout << "Warning: nb_conduction_bands_to_export is not valid. Setting it to " << (nb_bands - nb_valence_bands) << std::endl;
+        std::cout << "Warning: nb_conduction_bands_to_export is not valid. Setting it to "
+                  << (nb_bands - nb_valence_bands) << std::endl;
     }
 
     int count = 0;
     if (nb_valence_bands_to_export != 0) {
-        for (int index_band = nb_valence_bands - 1; index_band >= nb_valence_bands - nb_valence_bands_to_export; --index_band) {
+        for (int index_band = nb_valence_bands - 1; index_band >= nb_valence_bands - nb_valence_bands_to_export;
+             --index_band) {
             std::string band_name = "band_" + std::to_string(count);
             count++;
             std::vector<double> band_values = my_band.get_band(index_band);
@@ -147,7 +152,8 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string&                   
     }
 
     if (nb_conduction_bands_to_export != 0) {
-        for (int index_band = nb_valence_bands; index_band < nb_valence_bands + nb_conduction_bands_to_export; ++index_band) {
+        for (int index_band = nb_valence_bands; index_band < nb_valence_bands + nb_conduction_bands_to_export;
+             ++index_band) {
             std::string band_name = "band_" + std::to_string(count);
             count++;
             std::vector<double> band_values = my_band.get_band(index_band);
@@ -174,19 +180,23 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string&                   
  * One view per band.
  *
  * The band structure is assumed to be given in band_values vector under the following format:
- * band_values[index_k_point * number_of_bands + index_band] = energy of the band with index index_band at k-point with index index_k_point.
+ * band_values[index_k_point * number_of_bands + index_band] = energy of the band with index index_band at k-point with
+ * index index_k_point.
  *
  * @param out_filename
  * @param band_values
  */
-void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, const std::vector<double>& band_values, int number_bands) {
+void bz_mesh_points::add_all_bands_on_mesh(const std::string&         out_filename,
+                                           const std::vector<double>& band_values,
+                                           int                        number_bands) {
     if (band_values.size() != number_bands * m_node_tags.size()) {
         std::cout << "band_values.size(): " << band_values.size() << std::endl;
         std::cout << "number_bands: " << number_bands << std::endl;
         std::cout << "m_node_tags.size(): " << m_node_tags.size() << std::endl;
         std::cout << "m_kpts.size(): " << m_kpoints.size() << std::endl;
         std::cout << "number_bands * m_node_tags.size(): " << number_bands * m_node_tags.size() << std::endl;
-        throw std::runtime_error("band_values vector is not the same size as the number of bands times the number of nodes. Abort.");
+        throw std::runtime_error(
+            "band_values vector is not the same size as the number of bands times the number of nodes. Abort.");
     }
     gmsh::initialize();
     gmsh::option::setNumber("General.Verbosity", 0);
@@ -220,14 +230,16 @@ void bz_mesh_points::add_all_bands_on_mesh(const std::string& out_filename, cons
  * @brief Export band structure energies to csv files (one file per band).
  *
  * The band structure is assumed to be given in band_values vector under the following format:
- * band_values[index_k_point * number_of_bands + index_band] = energy of the band with index index_band at k-point with index index_k_point.
+ * band_values[index_k_point * number_of_bands + index_band] = energy of the band with index index_band at k-point with
+ * index index_k_point.
  *
  * @param out_filename
  * @param band_values
  */
 void bz_mesh_points::export_bands_as_csv(const std::vector<double>& band_values, int number_bands) {
     // if (band_values.size() != number_bands * m_node_tags.size()) {
-    //     throw std::runtime_error("band_values vector is not the same size as the number of bands times the number of nodes. Abort.");
+    //     throw std::runtime_error("band_values vector is not the same size as the number of bands times the number of
+    //     nodes. Abort.");
     // }
     for (int index_band = 0; index_band < number_bands; ++index_band) {
         std::string         band_name = "band_" + std::to_string(index_band);

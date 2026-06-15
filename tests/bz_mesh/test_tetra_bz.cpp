@@ -32,7 +32,9 @@ static inline vector3 v3(double x, double y, double z) {
     return vector3(x, y, z);
 }
 
-static inline double dot_xyz(double ax, double ay, double az, const vector3& p) { return ax * p.x() + ay * p.y() + az * p.z(); }
+static inline double dot_xyz(double ax, double ay, double az, const vector3& p) {
+    return ax * p.x() + ay * p.y() + az * p.z();
+}
 
 // Make a tetra and keep its Vertex storage alive in the calling scope.
 struct TetraWithVerts {
@@ -47,7 +49,11 @@ struct TetraWithVerts {
           tet(0, ptrs) {}
 };
 
-static inline std::array<double, 4> values_from_linear_field(const Tetra& t, double ax, double ay, double az, double d) {
+static inline std::array<double, 4> values_from_linear_field(const Tetra& t,
+                                                             double       ax,
+                                                             double       ay,
+                                                             double       az,
+                                                             double       d) {
     const auto&           V = t.get_list_vertices();
     std::array<double, 4> vals{};
     for (int i = 0; i < 4; ++i) {

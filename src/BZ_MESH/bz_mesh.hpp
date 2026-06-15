@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "BandStructure.h"
-#include "Material.h"
+#include "epm_material.hpp"
 #include "export_octree_vtu.hpp"
 #include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
@@ -86,7 +86,7 @@ class MeshBZ {
 
     int m_nb_threads_mesh_ops = 1;
 
-    uepm::pseudopotential::Material m_material;
+    uepm::pseudopotential::epm_material m_material;
 
     vector3 m_center{0.0, 0.0, 0.0};
 
@@ -148,7 +148,7 @@ class MeshBZ {
  public:
     // ---------- ctors/dtor ----------
     MeshBZ() = default;
-    explicit MeshBZ(const uepm::pseudopotential::Material& material) : m_material(material) {}
+    explicit MeshBZ(const uepm::pseudopotential::epm_material& material) : m_material(material) {}
     MeshBZ(const MeshBZ&)                = default;
     MeshBZ& operator=(const MeshBZ&)     = default;
     MeshBZ(MeshBZ&&) noexcept            = default;
@@ -169,9 +169,9 @@ class MeshBZ {
     double get_bz_volume_correction() const noexcept { return m_bz_volume_correction; }
     void   set_bz_volume_correction(double factor) noexcept { m_bz_volume_correction = factor; }
     // Compatibility aliases for existing callers.
-    double get_reduce_bz_factor() const noexcept { return get_bz_volume_correction(); }
-    void   set_reduce_bz_factor(double factor) noexcept { set_bz_volume_correction(factor); }
-    double si_to_reduced_scale() const noexcept;
+    double  get_reduce_bz_factor() const noexcept { return get_bz_volume_correction(); }
+    void    set_reduce_bz_factor(double factor) noexcept { set_bz_volume_correction(factor); }
+    double  si_to_reduced_scale() const noexcept;
     vector3 si_to_reduced_k(const vector3& k_si) const noexcept;
     vector3 reduced_to_si_k(const vector3& k_reduced) const noexcept;
 
@@ -181,10 +181,12 @@ class MeshBZ {
 
     const std::vector<Vertex>&      get_list_vertices() const noexcept { return m_list_vertices; }
     const std::vector<Tetra>&       get_list_tetrahedra() const noexcept { return m_list_tetrahedra; }
-    const std::vector<std::size_t>& get_list_vertex_indices_in_irreducible_wedge() const noexcept { return m_list_vtx_in_iwedge; }
-    std::size_t                     get_number_vertices_in_irreducible_wedge() const noexcept { return m_list_vtx_in_iwedge.size(); }
+    const std::vector<std::size_t>& get_list_vertex_indices_in_irreducible_wedge() const noexcept {
+        return m_list_vtx_in_iwedge;
+    }
+    std::size_t get_number_vertices_in_irreducible_wedge() const noexcept { return m_list_vtx_in_iwedge.size(); }
     const std::vector<std::vector<std::size_t>>& get_kstar_ibz_to_bz() const noexcept { return m_kstar_ibz_to_bz; }
-    std::size_t                                  get_multiplicity_of_kpoint_in_ibz(std::size_t ibz_kpoint_index) const noexcept {
+    std::size_t get_multiplicity_of_kpoint_in_ibz(std::size_t ibz_kpoint_index) const noexcept {
         return m_kstar_ibz_to_bz[ibz_kpoint_index].size();
     }
 
@@ -200,7 +202,8 @@ class MeshBZ {
         return {m_valence_bands.global_start_index, m_valence_bands.global_start_index + m_valence_bands.count};
     }
     std::pair<int, int> get_start_end_conduction_band_idx() const {
-        return {m_conduction_bands.global_start_index, m_conduction_bands.global_start_index + m_conduction_bands.count};
+        return {m_conduction_bands.global_start_index,
+                m_conduction_bands.global_start_index + m_conduction_bands.count};
     }
     std::size_t get_local_band_index(int global_band_index) const {
         if (global_band_index < 0 || global_band_index >= static_cast<int>(m_nb_bands_total)) {
@@ -229,7 +232,9 @@ class MeshBZ {
     void                build_search_tree();
     std::vector<Tetra*> get_list_p_tetra() {
         std::vector<Tetra*> ptrs;
-        std::transform(m_list_tetrahedra.begin(), m_list_tetrahedra.end(), std::back_inserter(ptrs), [](Tetra& t) { return &t; });
+        std::transform(m_list_tetrahedra.begin(), m_list_tetrahedra.end(), std::back_inserter(ptrs), [](Tetra& t) {
+            return &t;
+        });
         return ptrs;
     }
     Tetra* find_tetra_at_location(const vector3& location) const;
@@ -321,9 +326,11 @@ class MeshBZ {
     const std::vector<std::size_t>& get_all_equivalent_indices_in_bz(const vector3& k_SI) const noexcept {
         return m_kstar_ibz_to_bz[get_index_irreducible_wedge(k_SI)];
     }
-    vector3                         get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
-    std::size_t                     get_nearest_k_index(const vector3& k) const;
-    const std::vector<std::size_t>& get_tetrahedra_of_vertex(std::size_t vi) const { return m_vertex_to_tetrahedra[vi]; }
+    vector3     get_k_at_index(std::size_t index) const { return m_list_vertices[index].get_position(); }
+    std::size_t get_nearest_k_index(const vector3& k) const;
+    const std::vector<std::size_t>& get_tetrahedra_of_vertex(std::size_t vi) const {
+        return m_vertex_to_tetrahedra[vi];
+    }
 
     std::pair<double, double> get_min_max_energy_at_band(const int& band_index) const {
         return {m_min_band[band_index], m_max_band[band_index]};
@@ -332,11 +339,16 @@ class MeshBZ {
     // ---------- metrics / DOS ----------
     double compute_mesh_volume() const;
     double compute_iso_surface(double iso_energy, int band_index) const;
-    double compute_dos_at_energy_and_band(double iso_energy, int band_index, bool use_interp = false, bool use_iw = false) const;
+    double compute_dos_at_energy_and_band(double iso_energy,
+                                          int    band_index,
+                                          bool   use_interp = false,
+                                          bool   use_iw     = false) const;
 
-    std::size_t draw_random_tetrahedron_index_with_dos_probability(double energy, std::size_t idx_band, std::mt19937& rng) const;
+    std::size_t draw_random_tetrahedron_index_with_dos_probability(double        energy,
+                                                                   std::size_t   idx_band,
+                                                                   std::mt19937& rng) const;
 
-    vector3                         draw_random_k_point_at_energy(double energy, std::size_t idx_band, std::mt19937& rng) const;
+    vector3 draw_random_k_point_at_energy(double energy, std::size_t idx_band, std::mt19937& rng) const;
     std::pair<vector3, std::size_t> draw_random_k_point_at_energy(double energy, std::mt19937& rng) const;
 
     std::vector<std::vector<double>> compute_dos_band_at_band(int         band_index,

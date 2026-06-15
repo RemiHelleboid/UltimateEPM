@@ -55,10 +55,10 @@ inline double electron_overlap_integral(const vector3& k1, const vector3& k2, do
  * Returns dimensionless.
  */
 inline double hole_overlap_integral(int                         n1,
-                                                  const vector3&              k1,
-                                                  int                         n2,
-                                                  const vector3&              k2,
-                                                  const HoleOverlapIntParams& params) noexcept {
+                                    const vector3&              k1,
+                                    int                         n2,
+                                    const vector3&              k2,
+                                    const HoleOverlapIntParams& params) noexcept {
     const auto   AB  = params.get_params_one_based(n1, n2);
     const double c   = cos_angle_safe(k1, k2);
     const double c2  = c * c;

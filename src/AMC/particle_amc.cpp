@@ -9,8 +9,6 @@
  */
 
 #include "particle_amc.hpp"
-#include "physical_constants.hpp"
-#include "unit_conversion.hpp"
 
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -18,6 +16,9 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+
+#include "physical_constants.hpp"
+#include "unit_conversion.hpp"
 
 namespace uepm::amc {
 
@@ -70,7 +71,8 @@ void particle_amc::set_data_from_device(int m_dimension) {
         m_state.doping_concentration_cm_3 =
             m_state.m_containing_element->interpolate_doping_at_location(interp_position);
         m_state.impurity_concentration_cm_3 = std::abs(m_state.doping_concentration_cm_3);
-        m_state.lattice_temperature_K = m_state.m_containing_element->interpolate_temperature_at_location(interp_position);
+        m_state.lattice_temperature_K =
+            m_state.m_containing_element->interpolate_temperature_at_location(interp_position);
     } else {
         std::cout << "Error no element at particle position." << std::endl;
     }
@@ -78,12 +80,13 @@ void particle_amc::set_data_from_device(int m_dimension) {
 
 double particle_amc::compute_raw_impact_ionization_coefficient() const {
     // NB II / drift distance
-    double drift_distance_m = std::abs(m_state.position.x()) * uepm::units::micron_to_meter;  // assuming drift along x and position in microns
+    double drift_distance_m = std::abs(m_state.position.x()) *
+                              uepm::units::micron_to_meter;  // assuming drift along x and position in microns
     // fmt::print("Drift distance for impact ionization coefficient: {:.3e} m\n", drift_distance_m);
     double ii_coef = 1e-2 *
-           static_cast<double>(
-               history().scattering_events()[static_cast<std::size_t>(scattering_event::impact_ionization)]) /
-           drift_distance_m;
+                     static_cast<double>(
+                         history().scattering_events()[static_cast<std::size_t>(scattering_event::impact_ionization)]) /
+                     drift_distance_m;
     return ii_coef;
 }
 

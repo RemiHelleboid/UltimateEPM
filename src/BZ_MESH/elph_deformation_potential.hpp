@@ -24,7 +24,11 @@ struct DeformationPotential {
     double     energy_threshold = 1e6;  // eV
 
     DeformationPotential() = default;
-    DeformationPotential(PhononMode m, double A_, double B_, double thr) : mode(m), A(A_), B(B_), energy_threshold(thr) {}
+    DeformationPotential(PhononMode m, double A_, double B_, double thr)
+        : mode(m),
+          A(A_),
+          B(B_),
+          energy_threshold(thr) {}
 
     double get_deformation_potential(const vector3& q, double energy) const {
         const double Ee = (energy < energy_threshold ? energy : energy_threshold);
@@ -59,7 +63,7 @@ struct DeformationPotential {
         const double boost_acc    = 2.85;
         const double boost_acc_he = 1.0;
         const double boost_opt    = 1.0;
-        const double boost_opt_he    = 1.0;
+        const double boost_opt_he = 1.0;
         if (mode == PhononMode::acoustic) {
             return (idx_band == 0 ? boost_acc * 1.8 : boost_acc_he * 2.5) * norm_q;
         } else {

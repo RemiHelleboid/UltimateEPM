@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#include "Material.h"
+#include "epm_material.hpp"
 #include "bz_mesh.hpp"
 
 namespace uepm::mesh_bz {
@@ -36,15 +36,15 @@ class DielectricMesh : public MeshBZ {
 
     /**
      * @brief Store the dielectric function for each k-point of the mesh.
-     * m_dielectric_function[idx_node][idx_energy]  is the dielectric function at the k-point idx_node and energy idx_energy (from
-     * m_energies).
+     * m_dielectric_function[idx_node][idx_energy]  is the dielectric function at the k-point idx_node and energy
+     * idx_energy (from m_energies).
      *
      */
     std::vector<std::vector<complex_d>> m_dielectric_function;
 
  public:
     DielectricMesh() = default;
-    DielectricMesh(const uepm::pseudopotential::Material& material) : MeshBZ(material) {}
+    DielectricMesh(const uepm::pseudopotential::epm_material& material) : MeshBZ(material) {}
 
     /**
      * @brief Read the dielectric function from a .msf file (created by epsilon.epm).
@@ -55,8 +55,9 @@ class DielectricMesh : public MeshBZ {
 
     /**
      * @brief Find the closest energy in the list of energies.
-     * Return the index (idx) of the stored energy directly below the given energy and the fraction (t) of the distance between the two
-     * closest energies. The dielectric function at the given energy can be interpolated as: m_dielectric_function[idx_node][idx] * (1 - t)
+     * Return the index (idx) of the stored energy directly below the given energy and the fraction (t) of the distance
+     * between the two closest energies. The dielectric function at the given energy can be interpolated as:
+     * m_dielectric_function[idx_node][idx] * (1 - t)
      * + m_dielectric_function[idx_node][idx + 1] * t
      *
      *

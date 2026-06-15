@@ -17,7 +17,7 @@
 
 #include "BandStructure.h"
 #include "Hamiltonian.h"
-#include "Material.h"
+#include "epm_material.hpp"
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_states.hpp"
@@ -26,7 +26,8 @@
 
 namespace uepm::mesh_bz {
 
-ImpactIonization::ImpactIonization(const uepm::pseudopotential::Material& material, const std::string& initial_mesh_path)
+ImpactIonization::ImpactIonization(const uepm::pseudopotential::epm_material& material,
+                                   const std::string&                     initial_mesh_path)
     : m_material(material),
       m_dielectric_mesh(material) {
     std::filesystem::path path(initial_mesh_path);
@@ -68,7 +69,9 @@ void ImpactIonization::interp_test_dielectric_function(std::string filename) {
                 double    y = y0 + j * dy;
                 double    z = z0 + k * dz;
                 vector3   position(x, y, z);
-                complex_d epsilon = m_dielectric_mesh.interpolate_dielectric_function(m_dielectric_mesh.reduced_to_si_k(position), 0.0102);
+                complex_d epsilon =
+                    m_dielectric_mesh.interpolate_dielectric_function(m_dielectric_mesh.reduced_to_si_k(position),
+                                                                      0.0102);
                 file << x << ", " << y << ", " << z << ", " << epsilon.real() << ", " << epsilon.imag() << std::endl;
                 std::cout << "Position: " << position << " epsilon: " << epsilon << std::endl;
             }
@@ -126,8 +129,8 @@ void ImpactIonization::compute_eigenstates(int nb_threads) {
 }
 
 double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t idx_k1) {
-    throw std::logic_error(
-        "ImpactIonization::compute_impact_ionization_rate is experimental and incomplete; no validated rate is available.");
+    throw std::logic_error("ImpactIonization::compute_impact_ionization_rate is experimental and incomplete; no "
+                           "validated rate is available.");
 
     constexpr int                     nb_valence_bands    = 3;
     constexpr int                     nb_conduction_bands = 4;
@@ -156,8 +159,8 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
     for (int idx_n2 = 0; idx_n2 < nb_valence_bands; ++idx_n2) {
         Sum_2[idx_n2].resize(nb_vtx);
         for (std::size_t idx_node = 0; idx_node < nb_vtx; ++idx_node) {
-            const Eigen::MatrixXcd& A_2   = m_list_BZ_states[0]->get_eigen_states()[idx_node];
-            Sum_2[idx_n2][idx_node] = A_2.col(idx_n2).sum();
+            const Eigen::MatrixXcd& A_2 = m_list_BZ_states[0]->get_eigen_states()[idx_node];
+            Sum_2[idx_n2][idx_node]     = A_2.col(idx_n2).sum();
         }
     }
 
@@ -182,7 +185,8 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
                     auto    k1       = m_list_BZ_states[0]->get_vertex_position(idx_k1);
                     auto    k1_prime = m_list_BZ_states[0]->get_vertex_position(idx_k1_prime);
                     // auto    q_a      = k1 - k1_prime + G1 + (-1 * G1_prime);
-                    double energy_w = m_list_BZ_states[0]->get_energies()[idx_n1] - m_list_BZ_states[0]->get_energies()[n1_prime];
+                    double energy_w =
+                        m_list_BZ_states[0]->get_energies()[idx_n1] - m_list_BZ_states[0]->get_energies()[n1_prime];
                     // complex_d epsilon    = m_dielectric_mesh.interpolate_dielectric_function(q_a, energy_w);
                     // complex_d epsilon    = 1.0;
                     // complex_d factor_eps = uepm::constants::q_e * uepm::constants::q_e /
@@ -195,7 +199,8 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
     }
 
     auto end_precompute = std::chrono::high_resolution_clock::now();
-    std::cout << "Precompute time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_precompute - start_precompute).count()
+    std::cout << "Precompute time: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end_precompute - start_precompute).count()
               << " ms" << std::endl;
     std::cout << "DONE PRECOMPUTE\n Start computing matrix element" << std::endl;
 
@@ -210,23 +215,25 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
                 std::size_t n2_prime = idx_n2_prime + min_conduction_band;
                 for (std::size_t idx_k1_prime = 0; idx_k1_prime < nb_vtx; ++idx_k1_prime) {
                     std::cout << "idx_n1: " << idx_n1 << " idx_n1_prime: " << idx_n1_prime << " idx_n2: " << idx_n2
-                              << " idx_n2_prime: " << idx_n2_prime << " idx_k1: " << idx_k1 << " idx_k1_prime: " << idx_k1_prime
-                              << std::endl;
+                              << " idx_n2_prime: " << idx_n2_prime << " idx_k1: " << idx_k1
+                              << " idx_k1_prime: " << idx_k1_prime << std::endl;
                     std::vector<double> FullMatrixElement(nb_vtx);
                     for (std::size_t idx_k2_prime = 0; idx_k2_prime < nb_vtx; ++idx_k2_prime) {
-                        // std::cout << "\r" << idx_k1_prime << " / " << nb_vtx << " --> " << idx_k2_prime << " / " << nb_vtx << std::flush;
-                        vector3 k_2_momentum = list_vertices[idx_k1].get_position() - list_vertices[idx_k1_prime].get_position() -
+                        // std::cout << "\r" << idx_k1_prime << " / " << nb_vtx << " --> " << idx_k2_prime << " / " <<
+                        // nb_vtx << std::flush;
+                        vector3 k_2_momentum = list_vertices[idx_k1].get_position() -
+                                               list_vertices[idx_k1_prime].get_position() -
                                                list_vertices[idx_k2_prime].get_position();
                         if (k_2_momentum.norm() > m_max_radius_G0_BZ || k_2_momentum.norm() < 1e-12) {
                             continue;
                         }
                         std::size_t idx_k2 = 18;
-                        complex_d   Ma =
-                            Sum_2_prime[idx_n2_prime][idx_k2_prime] * Sum_1_prime_1[idx_n1_prime][idx_k1_prime] * Sum_2[idx_n2][idx_k2];
-                        complex_d Mb =
-                            Sum_2_prime[idx_n1_prime][idx_k1_prime] * Sum_1_prime_1[idx_n2_prime][idx_k2_prime] * Sum_2[idx_n2][idx_k2];
-                        FullMatrixElement[idx_k2_prime] =
-                            std::abs(Ma) * std::abs(Ma) + std::abs(Mb) * std::abs(Mb) + std::abs(Ma - Mb) * std::abs(Ma - Mb);
+                        complex_d   Ma     = Sum_2_prime[idx_n2_prime][idx_k2_prime] *
+                                       Sum_1_prime_1[idx_n1_prime][idx_k1_prime] * Sum_2[idx_n2][idx_k2];
+                        complex_d Mb = Sum_2_prime[idx_n1_prime][idx_k1_prime] *
+                                       Sum_1_prime_1[idx_n2_prime][idx_k2_prime] * Sum_2[idx_n2][idx_k2];
+                        FullMatrixElement[idx_k2_prime] = std::abs(Ma) * std::abs(Ma) + std::abs(Mb) * std::abs(Mb) +
+                                                          std::abs(Ma - Mb) * std::abs(Ma - Mb);
                     }
                 }
             }
@@ -234,7 +241,8 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
     }
     std::cout << std::endl;
     auto end_compute = std::chrono::high_resolution_clock::now();
-    std::cout << "Compute time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_compute - start_compute).count() << " ms"
+    std::cout << "Compute time: "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end_compute - start_compute).count() << " ms"
               << std::endl;
     return 0.0;
 }

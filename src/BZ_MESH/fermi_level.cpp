@@ -14,6 +14,9 @@
 
 #include "fermi_level.hpp"
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
@@ -21,8 +24,6 @@
 #include <numeric>
 #include <ostream>
 #include <stdexcept>
-#include <fmt/core.h>
-#include <fmt/format.h>
 
 #include "integrals.hpp"  // uepm::integrate::trapz
 #include "physical_constants.hpp"
@@ -39,7 +40,10 @@ namespace uepm::mesh_bz::fermi {
  * @param T_K
  * @return double
  */
-static inline double electrons_in_band(const std::vector<double>& E_eV, const std::vector<double>& G_m3eV, double EF_eV, double T_K) {
+static inline double electrons_in_band(const std::vector<double>& E_eV,
+                                       const std::vector<double>& G_m3eV,
+                                       double                     EF_eV,
+                                       double                     T_K) {
     std::vector<double> w;
     w.reserve(E_eV.size());
     for (std::size_t i = 0; i < E_eV.size(); ++i) {
@@ -57,7 +61,10 @@ static inline double electrons_in_band(const std::vector<double>& E_eV, const st
  * @param T_K
  * @return double
  */
-static inline double holes_in_band(const std::vector<double>& E_eV, const std::vector<double>& G_m3eV, double EF_eV, double T_K) {
+static inline double holes_in_band(const std::vector<double>& E_eV,
+                                   const std::vector<double>& G_m3eV,
+                                   double                     EF_eV,
+                                   double                     T_K) {
     std::vector<double> w;
     w.reserve(E_eV.size());
     for (std::size_t i = 0; i < E_eV.size(); ++i) {
@@ -126,21 +133,22 @@ Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
 
     const auto valence_count    = mesh.get_band_indices(MeshParticleType::valence).size();
     const auto conduction_count = mesh.get_band_indices(MeshParticleType::conduction).size();
-    std::cout << "Compute DOS on " << valence_count << " valence bands and " << conduction_count << " conduction bands.\n";
+    std::cout << "Compute DOS on " << valence_count << " valence bands and " << conduction_count
+              << " conduction bands.\n";
     std::cout << "Using " << opt.threads << " threads for DOS computation.\n";
 
     for (int b = 0; b < nb_bands; ++b) {
-        const auto mini_max_energy = mesh.get_min_max_energy_at_band(b);
-        constexpr double eps = 1e-12;
-        double min_e = mini_max_energy.first;
-        double max_e = mini_max_energy.second;
-        if (min_e < eps){
+        const auto       mini_max_energy = mesh.get_min_max_energy_at_band(b);
+        constexpr double eps             = 1e-12;
+        double           min_e           = mini_max_energy.first;
+        double           max_e           = mini_max_energy.second;
+        if (min_e < eps) {
             // Valence band
-            min_e  = std::max(min_e, -opt.abs_max_energy_eV);
+            min_e = std::max(min_e, -opt.abs_max_energy_eV);
         } else {
             // Conduction band
             max_e = std::min(mini_max_energy.first + opt.abs_max_energy_eV, max_e);
-        }        
+        }
         auto lists = mesh.compute_dos_band_at_band(b, min_e, max_e, opt.nE, opt.use_interp, use_iw);
 
         results.energies_per_band.push_back(std::move(lists[0]));
@@ -226,16 +234,21 @@ Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
         std::cout << "Fermi level found at EF = " << results.EF_eV << " eV after " << iter << " iterations.\n";
     } else {
         results.success = false;
-        std::cout << "Fermi level not converged after " << iter << " iterations. Last EF = " << results.EF_eV << " eV.\n";
+        std::cout << "Fermi level not converged after " << iter << " iterations. Last EF = " << results.EF_eV
+                  << " eV.\n";
     }
 
     // 7) Final carriers
     results.n_m3 = results.p_m3 = 0.0;
     for (int idx_band : list_idx_cond) {
-        results.n_m3 += electrons_in_band(results.energies_per_band[idx_band], results.dos_per_band[idx_band], results.EF_eV, opt.T_K);
+        results.n_m3 += electrons_in_band(results.energies_per_band[idx_band],
+                                          results.dos_per_band[idx_band],
+                                          results.EF_eV,
+                                          opt.T_K);
     }
     for (int idx_band : list_idx_val) {
-        results.p_m3 += holes_in_band(results.energies_per_band[idx_band], results.dos_per_band[idx_band], results.EF_eV, opt.T_K);
+        results.p_m3 +=
+            holes_in_band(results.energies_per_band[idx_band], results.dos_per_band[idx_band], results.EF_eV, opt.T_K);
     }
     results.Nd_plus  = donors_ionized(results.EF_eV, Ec, opt.dop, opt.T_K);
     results.Na_minus = acceptors_ionized(results.EF_eV, Ev, opt.dop, opt.T_K);

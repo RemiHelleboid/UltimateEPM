@@ -29,14 +29,14 @@ void poisson_solver_2d::compute_stiffness_matrix() {
     m_matrix_lhs.reserve(Eigen::VectorXd::Constant(number_vertices, number_element_per_line_matrix));
 
     for (const auto &bulk_region : m_p_mesh->get_all_p_bulk_region()) {
-        std::string                material_name   = bulk_region->get_material();
-        physic::material::material region_material = m_list_materials.get_material(material_name);
-        if (region_material.m_name == "Unknown") {
-            fmt::print("UNKNOWN MATERIAL IN POISSON SOLVER : {}\n", material_name);
-            throw std::invalid_argument("The material given in Poisson solver is unknown : " + material_name);
+        const std::string &material_name = bulk_region->get_material();
+        const auto        &material      = m_material_database.require(material_name);
+        if (material.static_relative_permittivity <= 0.0) {
+            throw std::invalid_argument("epm_material '" + material_name +
+                                        "' must define a positive static relative permittivity for Poisson.");
         }
-        double relative_permittivity = region_material.m_parameters["dielectric-constant"];
-        auto   list_sp_elements      = bulk_region->get_list_elements();
+        const double relative_permittivity = material.static_relative_permittivity;
+        auto         list_sp_elements      = bulk_region->get_list_elements();
         for (auto &&sp_element : list_sp_elements) {
             m_list_bulk_elements.push_back(sp_element);
             std::vector<mesh::vertex *> p_vertices_list       = sp_element->get_vertices();

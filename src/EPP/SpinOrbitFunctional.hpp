@@ -18,7 +18,7 @@
 #include <system_error>
 #include <vector>
 
-#include "Material.h"
+#include "epm_material.hpp"
 #include "SpinOrbitParameters.hpp"
 #include "Vector3D.h"
 #include "physical_constants.hpp"
@@ -35,13 +35,13 @@ namespace uepm::pseudopotential {
 class SpinOrbitCorrection {
  protected:
     SpinOrbitParameters m_soc_parameters;
-    Material            m_material;
+    epm_material            m_material;
 
  public:
     SpinOrbitCorrection() = delete;
-    SpinOrbitCorrection(const Material& material, const SpinOrbitParameters& SpinParams)
+    SpinOrbitCorrection(const epm_material& material, const SpinOrbitParameters& SpinParams)
         : m_material(material),
-          m_soc_parameters(SpinParams){};
+          m_soc_parameters(SpinParams) {};
 
     double compute_B2_cation(const Vector3D<double>& K) const;
     double compute_B2_anion(const Vector3D<double>& K) const;
@@ -62,7 +62,8 @@ class SpinOrbitCorrection {
                                                                        const Vector3D<double>& Gp,
                                                                        const Vector3D<double>& tau) const;
 
-    static Eigen::Matrix<std::complex<double>, 2, 2> compute_pauli_state_dot_product(const Vector3D<double>& K, const Vector3D<double>& Kp);
+    static Eigen::Matrix<std::complex<double>, 2, 2> compute_pauli_state_dot_product(const Vector3D<double>& K,
+                                                                                     const Vector3D<double>& Kp);
 };
 
 }  // namespace uepm::pseudopotential

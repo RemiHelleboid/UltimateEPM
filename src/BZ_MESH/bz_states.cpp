@@ -92,7 +92,9 @@ void BZ_States::compute_shifted_eigenstates(const Vector3D<double>& q_shift, int
  * @param eta_smearing
  * @param nb_threads
  */
-void BZ_States::compute_dielectric_function(const std::vector<double>& list_energies, double eta_smearing, int nb_threads) {
+void BZ_States::compute_dielectric_function(const std::vector<double>& list_energies,
+                                            double                     eta_smearing,
+                                            int                        nb_threads) {
     m_list_energies                         = list_energies;
     const int   index_first_conduction_band = 4;
     std::size_t nb_tetra                    = m_list_tetrahedra.size();
@@ -104,31 +106,34 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads) reduction(+ : total_volume)
     for (std::size_t idx_tetra = 0; idx_tetra < nb_tetra; ++idx_tetra) {
         if (omp_get_thread_num() == 0) {
-            std::cout << "\rComputing dielectric function for tetrahedron " << idx_tetra << "/" << nb_tetra << std::flush;
+            std::cout << "\rComputing dielectric function for tetrahedron " << idx_tetra << "/" << nb_tetra
+                      << std::flush;
         }
         std::array<std::size_t, 4>    list_idx_vertices = m_list_tetrahedra[idx_tetra].get_list_indices_vertices();
         const std::array<Vertex*, 4>& list_vertices     = m_list_tetrahedra[idx_tetra].get_list_vertices();
-        double                        volume_tetra      = std::fabs(m_list_tetrahedra[idx_tetra].compute_signed_volume());
+        double                        volume_tetra = std::fabs(m_list_tetrahedra[idx_tetra].compute_signed_volume());
         total_volume += volume_tetra;
         // std::cout << "Volume tetra = " << volume_tetra << std::endl;
         std::vector<double> sum_dielectric_function_real_tetra_at_energies(list_energies.size(), 0.0);
         // Loop over the vertices of the tetrahedron
         for (std::size_t idx_vertex = 0; idx_vertex < 4; ++idx_vertex) {
             std::size_t index_k = list_idx_vertices[idx_vertex];
-            for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands_total; ++idx_conduction_band) {
+            for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands_total;
+                 ++idx_conduction_band) {
                 for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
                     double overlap_integral = pow(std::fabs(m_eigenvectors_k_plus_q[index_k]
                                                                 .col(idx_conduction_band)
                                                                 .adjoint()
                                                                 .dot(m_eigenvectors_k[index_k].col(idx_valence_band))),
                                                   2);
-                    double delta_energy = m_eigenvalues_k_plus_q[index_k][idx_conduction_band] - m_eigenvalues_k[index_k][idx_valence_band];
+                    double delta_energy     = m_eigenvalues_k_plus_q[index_k][idx_conduction_band] -
+                                          m_eigenvalues_k[index_k][idx_valence_band];
                     for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
-                        double energy = list_energies[index_energy];
-                        double factor_1 =
-                            (delta_energy - energy) / ((delta_energy - energy) * (delta_energy - energy) + eta_smearing * eta_smearing);
-                        double factor_2 =
-                            (delta_energy + energy) / ((delta_energy + energy) * (delta_energy + energy) + eta_smearing * eta_smearing);
+                        double energy   = list_energies[index_energy];
+                        double factor_1 = (delta_energy - energy) / ((delta_energy - energy) * (delta_energy - energy) +
+                                                                     eta_smearing * eta_smearing);
+                        double factor_2 = (delta_energy + energy) / ((delta_energy + energy) * (delta_energy + energy) +
+                                                                     eta_smearing * eta_smearing);
                         double total_factor = factor_1 + factor_2;
                         sum_dielectric_function_real_tetra_at_energies[index_energy] += overlap_integral * total_factor;
                     }
@@ -137,7 +142,8 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
         }
         for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
             sum_dielectric_function_real_tetra_at_energies[index_energy] *= volume_tetra * one_fourth;
-            dielectric_function_real_at_energies[index_energy] += sum_dielectric_function_real_tetra_at_energies[index_energy];
+            dielectric_function_real_at_energies[index_energy] +=
+                sum_dielectric_function_real_tetra_at_energies[index_energy];
         }
     }
     std::cout << "\n";
@@ -152,8 +158,9 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
 
     double q_squared = m_q_shift.Length() * m_q_shift.Length();
 
-    double coulomb_prefactor_eV = (uepm::constants::q_e * uepm::constants::q_e) / (uepm::constants::eps_0 * q_squared)  // J·m
-                                  / uepm::constants::q_e;                                                               // → eV·m
+    double coulomb_prefactor_eV = (uepm::constants::q_e * uepm::constants::q_e) /
+                                  (uepm::constants::eps_0 * q_squared)  // J·m
+                                  / uepm::constants::q_e;               // → eV·m
     double prefactor = coulomb_prefactor_eV * (2.0 / std::pow(2.0 * M_PI, 3));
 
     for (std::size_t index_energy = 0; index_energy < list_energies.size(); ++index_energy) {
@@ -173,7 +180,8 @@ void BZ_States::export_dielectric_function(const std::string& prefix) const {
     std::ofstream dielectric_function_file(prefix + "_dielectric_function.csv");
     dielectric_function_file << "Energy (eV),Dielectric function" << std::endl;
     for (std::size_t index_energy = 0; index_energy < m_dielectric_function_real.size(); ++index_energy) {
-        dielectric_function_file << m_list_energies[index_energy] << "," << m_dielectric_function_real[index_energy] << std::endl;
+        dielectric_function_file << m_list_energies[index_energy] << "," << m_dielectric_function_real[index_energy]
+                                 << std::endl;
     }
     dielectric_function_file.close();
 }
@@ -187,14 +195,16 @@ void BZ_States::export_full_eigenstates() const {
         std::ofstream eigenvalues_file("eigenstates/eigenvalues/eigenvalues_" + std::to_string(idx_k) + ".txt");
         eigenvalues_file << m_eigenvalues_k[idx_k].transpose() << std::endl;
         eigenvalues_file.close();
-        std::ofstream shiftedeigenvalues_file("eigenstates/eigenvalues/shiftedeigenvalues_" + std::to_string(idx_k) + ".txt");
+        std::ofstream shiftedeigenvalues_file("eigenstates/eigenvalues/shiftedeigenvalues_" + std::to_string(idx_k) +
+                                              ".txt");
         shiftedeigenvalues_file << m_eigenvalues_k_plus_q[idx_k].transpose() << std::endl;
         shiftedeigenvalues_file.close();
 
         std::ofstream eigenvectors_file("eigenstates/eigenvectors/eigenvectors_" + std::to_string(idx_k) + ".txt");
         eigenvectors_file << m_eigenvectors_k[idx_k] << std::endl;
         eigenvectors_file.close();
-        std::ofstream shiftedeigenvectors_file("eigenstates/eigenvectors/shiftedeigenvectors_" + std::to_string(idx_k) + ".txt");
+        std::ofstream shiftedeigenvectors_file("eigenstates/eigenvectors/shiftedeigenvectors_" + std::to_string(idx_k) +
+                                               ".txt");
         shiftedeigenvectors_file << m_eigenvectors_k_plus_q[idx_k] << std::endl;
         shiftedeigenvectors_file.close();
     }

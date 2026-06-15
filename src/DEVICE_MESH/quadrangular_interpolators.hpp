@@ -27,18 +27,19 @@ class quadrangle_2d {
  private:
     std::array<vector3, 4> m_vertices;
     std::array<double, 4>  m_scalar_values = {0.0, 0.0, 0.0, 0.0};
-    std::array<vector3, 4> m_vector_values {vector3{}, vector3{}, vector3{}, vector3{}};
+    std::array<vector3, 4> m_vector_values{vector3{}, vector3{}, vector3{}, vector3{}};
 
  public:
     quadrangle_2d() = delete;
-    quadrangle_2d(const vector3 &v0, const vector3 &v1, const vector3 &v2, const vector3 &v3) : m_vertices{v0, v1, v2, v3} {}
+    quadrangle_2d(const vector3 &v0, const vector3 &v1, const vector3 &v2, const vector3 &v3)
+        : m_vertices{v0, v1, v2, v3} {}
     explicit quadrangle_2d(const std::array<vector3, 4> &vertices) : m_vertices{vertices} {}
 
-    quadrangle_2d(const quadrangle_2d &other) = default;
-    quadrangle_2d(quadrangle_2d &&other)      = default;
+    quadrangle_2d(const quadrangle_2d &other)            = default;
+    quadrangle_2d(quadrangle_2d &&other)                 = default;
     quadrangle_2d &operator=(const quadrangle_2d &other) = default;
-    quadrangle_2d &operator=(quadrangle_2d &&other) = default;
-    ~quadrangle_2d()                                = default;
+    quadrangle_2d &operator=(quadrangle_2d &&other)      = default;
+    ~quadrangle_2d()                                     = default;
 
     void set_scalar_field_values(const std::array<double, 4> &values) { m_scalar_values = values; }
     void set_scalar_field_values(double v0, double v1, double v2, double v3) { m_scalar_values = {v0, v1, v2, v3}; }
@@ -63,12 +64,12 @@ class quadrangle_2d {
     }
 
     const std::array<vector3, 4> &get_vertices() const { return m_vertices; }
-    const vector3 &               get_vertex(int i) const { return m_vertices[i]; }
+    const vector3                &get_vertex(int i) const { return m_vertices[i]; }
 
     double                       get_scalar_value(int i) const { return m_scalar_values[i]; }
     const std::array<double, 4> &get_scalar_values() const { return m_scalar_values; }
 
-    const vector3 &               get_vector_value(int i) const { return m_vector_values[i]; }
+    const vector3                &get_vector_value(int i) const { return m_vector_values[i]; }
     const std::array<vector3, 4> &get_vector_values() const { return m_vector_values; }
 
     const vector3 &get_nearest_vertex(const vector3 &point) const {
@@ -136,7 +137,11 @@ class quadrangle_2d {
      * @param v3
      * @return double
      */
-    double bilinear_interpolation_scalar_at_location(const vector3 &location, double v0, double v1, double v2, double v3) const {
+    double bilinear_interpolation_scalar_at_location(const vector3 &location,
+                                                     double         v0,
+                                                     double         v1,
+                                                     double         v2,
+                                                     double         v3) const {
         const double dx = location.x() - m_vertices[0].x();
         const double dy = location.y() - m_vertices[0].y();
 
@@ -147,7 +152,8 @@ class quadrangle_2d {
         const double delta_fy  = v3 - v0;
         const double delta_fxy = v0 + v2 - v1 - v3;
 
-        const double f_xy = delta_fx * (dx / delta_x) + delta_fy * (dy / delta_y) + delta_fxy * (dx * dy / (delta_x * delta_y)) + v0;
+        const double f_xy =
+            delta_fx * (dx / delta_x) + delta_fy * (dy / delta_y) + delta_fxy * (dx * dy / (delta_x * delta_y)) + v0;
 
         return f_xy;
     }
@@ -192,9 +198,9 @@ class quadrangle_2d {
 class quadrangle_3d {
  private:
     std::array<vector3, 8> m_vertices;
-    std::array<double, 8>  m_scalar_values = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                              0.0, 0.0};
-    std::array<vector3, 8> m_vector_values {vector3{}, vector3{}, vector3{}, vector3{}, vector3{}, vector3{}, vector3{}, vector3{}};
+    std::array<double, 8>  m_scalar_values = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    std::array<vector3, 8>
+        m_vector_values{vector3{}, vector3{}, vector3{}, vector3{}, vector3{}, vector3{}, vector3{}, vector3{}};
 
  public:
     quadrangle_3d() = default;
@@ -208,13 +214,14 @@ class quadrangle_3d {
                   const vector3 &v7)
         : m_vertices{v0, v1, v2, v3, v4, v5, v6, v7} {}
     explicit quadrangle_3d(const std::array<vector3, 8> &vertices) : m_vertices{vertices} {}
-    quadrangle_3d(const quadrangle_3d &other) = default;
-    quadrangle_3d(quadrangle_3d &&other)      = default;
+    quadrangle_3d(const quadrangle_3d &other)            = default;
+    quadrangle_3d(quadrangle_3d &&other)                 = default;
     quadrangle_3d &operator=(const quadrangle_3d &other) = default;
-    quadrangle_3d &operator=(quadrangle_3d &&other) = default;
-    ~quadrangle_3d()                                = default;
+    quadrangle_3d &operator=(quadrangle_3d &&other)      = default;
+    ~quadrangle_3d()                                     = default;
     void set_scalar_field_values(const std::array<double, 8> &values) { m_scalar_values = values; }
-    void set_scalar_field_values(double v0, double v1, double v2, double v3, double v4, double v5, double v6, double v7) {
+    void
+    set_scalar_field_values(double v0, double v1, double v2, double v3, double v4, double v5, double v6, double v7) {
         m_scalar_values = {v0, v1, v2, v3, v4, v5, v6, v7};
     }
     void set_vector_field_values(const std::array<vector3, 8> &values) { m_vector_values = values; }
@@ -317,26 +324,29 @@ class quadrangle_3d {
 
         const double minus_volume = ((x1 - x2) * (y1 - y2) * (z1 - z2));
 
-        const double a_0 = (-v0 * x2 * y2 * z2 + v1 * x1 * y2 * z2 - v2 * x1 * y1 * z2 + v3 * x2 * y1 * z2 + v4 * x2 * y2 * z1 -
-                            v5 * x1 * y2 * z1 + v6 * x1 * y1 * z1 - v7 * x2 * y1 * z1) /
+        const double a_0 = (-v0 * x2 * y2 * z2 + v1 * x1 * y2 * z2 - v2 * x1 * y1 * z2 + v3 * x2 * y1 * z2 +
+                            v4 * x2 * y2 * z1 - v5 * x1 * y2 * z1 + v6 * x1 * y1 * z1 - v7 * x2 * y1 * z1) /
                            minus_volume;
-        const double a_x =
-            -(-v0 * y2 * z2 + v1 * y2 * z2 - v2 * y1 * z2 + v3 * y1 * z2 + v4 * y2 * z1 - v5 * y2 * z1 + v6 * y1 * z1 - v7 * y1 * z1) /
-            minus_volume;
-        const double a_y =
-            (v0 * x2 * z2 - v1 * x1 * z2 + v2 * x1 * z2 - v3 * x2 * z2 - v4 * x2 * z1 + v5 * x1 * z1 - v6 * x1 * z1 + v7 * x2 * z1) /
-            minus_volume;
-        const double a_z =
-            (v0 * x2 * y2 - v1 * x1 * y2 + v2 * x1 * y1 - v3 * x2 * y1 - v4 * x2 * y2 + v5 * x1 * y2 - v6 * x1 * y1 + v7 * x2 * y1) /
-            minus_volume;
-        const double a_xy  = (-v0 * z2 + v1 * z2 - v2 * z2 + v3 * z2 + v4 * z1 - v5 * z1 + v6 * z1 - v7 * z1) / minus_volume;
-        const double a_xz  = -(v0 * y2 - v1 * y2 + v2 * y1 - v3 * y1 - v4 * y2 + v5 * y2 - v6 * y1 + v7 * y1) / minus_volume;
-        const double a_yz  = (-v0 * x2 + v1 * x1 - v2 * x1 + v3 * x2 + v4 * x2 - v5 * x1 + v6 * x1 - v7 * x2) / minus_volume;
+        const double a_x = -(-v0 * y2 * z2 + v1 * y2 * z2 - v2 * y1 * z2 + v3 * y1 * z2 + v4 * y2 * z1 - v5 * y2 * z1 +
+                             v6 * y1 * z1 - v7 * y1 * z1) /
+                           minus_volume;
+        const double a_y = (v0 * x2 * z2 - v1 * x1 * z2 + v2 * x1 * z2 - v3 * x2 * z2 - v4 * x2 * z1 + v5 * x1 * z1 -
+                            v6 * x1 * z1 + v7 * x2 * z1) /
+                           minus_volume;
+        const double a_z = (v0 * x2 * y2 - v1 * x1 * y2 + v2 * x1 * y1 - v3 * x2 * y1 - v4 * x2 * y2 + v5 * x1 * y2 -
+                            v6 * x1 * y1 + v7 * x2 * y1) /
+                           minus_volume;
+        const double a_xy =
+            (-v0 * z2 + v1 * z2 - v2 * z2 + v3 * z2 + v4 * z1 - v5 * z1 + v6 * z1 - v7 * z1) / minus_volume;
+        const double a_xz =
+            -(v0 * y2 - v1 * y2 + v2 * y1 - v3 * y1 - v4 * y2 + v5 * y2 - v6 * y1 + v7 * y1) / minus_volume;
+        const double a_yz =
+            (-v0 * x2 + v1 * x1 - v2 * x1 + v3 * x2 + v4 * x2 - v5 * x1 + v6 * x1 - v7 * x2) / minus_volume;
         const double a_xyz = (v0 - v1 + v2 - v3 - v4 + v5 - v6 + v7) / minus_volume;
 
-        const double f_xyz = a_0 + a_x * location.x() + a_y * location.y() + a_z * location.z() + a_xy * location.x() * location.y() +
-                             a_xz * location.x() * location.z() + a_yz * location.y() * location.z() +
-                             a_xyz * location.x() * location.y() * location.z();
+        const double f_xyz = a_0 + a_x * location.x() + a_y * location.y() + a_z * location.z() +
+                             a_xy * location.x() * location.y() + a_xz * location.x() * location.z() +
+                             a_yz * location.y() * location.z() + a_xyz * location.x() * location.y() * location.z();
 
         return f_xyz;
     }

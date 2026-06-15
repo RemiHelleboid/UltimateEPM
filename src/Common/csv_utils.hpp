@@ -4,12 +4,11 @@
  * @brief CSV utility functions for exporting data to CSV files.
  * @version 0.1
  * @date 2025-10-14
- * 
- * 
+ *
+ *
  */
 
 #pragma once
-
 
 #include <fstream>
 #include <iostream>
@@ -27,8 +26,9 @@ inline void export_multiple_vector_to_csv(const std::string                     
     const std::size_t reference_vector_size = value_vector_of_vector[0].size();
     for (auto &&vector : value_vector_of_vector) {
         if (vector.size() != reference_vector_size) {
-            std::cout << "ERROR WHEN EXPORTING VECTORS TO : " << filename << ", mismatch between vector sizes : " << reference_vector_size
-                      << " != " << vector.size() << std::endl;
+            std::cout << "ERROR WHEN EXPORTING VECTORS TO : " << filename
+                      << ", mismatch between vector sizes : " << reference_vector_size << " != " << vector.size()
+                      << std::endl;
             return;
         }
     }

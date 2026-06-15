@@ -1,11 +1,11 @@
 /**
  * @file intervalley_phonon.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-04-13
- * 
- * 
+ *
+ *
  */
 
 #pragma once

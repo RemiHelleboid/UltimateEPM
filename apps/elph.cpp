@@ -21,7 +21,7 @@
 #include <sstream>
 
 #include "BandStructure.h"
-#include "Material.h"
+#include "epm_material.hpp"
 #include "Options.h"
 #include "electron_phonon.hpp"
 #include "fermi_level.hpp"
@@ -44,7 +44,7 @@ int export_result_mobility(const std::string     &filename,
 
     if (file) {
         file << "# Mobility tensor computed with EPP\n";
-        file << "# Material : " << my_options.materialName << "\n";
+        file << "# epm_material : " << my_options.materialName << "\n";
         file << "# Number of vertices : " << nb_vtx << "\n";
         file << "# Number of conduction bands : " << nb_conduction_bands << "\n";
         file << "# Number of valence bands : " << nb_valence_bands << "\n";
@@ -69,26 +69,52 @@ int main(int argc, char const *argv[]) {
     fmt::print("Starting UltimateEPM Electron-Phonon Calculations ... \n\n");
 
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
-    TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
-    TCLAP::ValueArg<std::string> arg_phonon_rates("P", "phononrates", "File to load BZ phonon rates.", false, "bz_phonon.csv", "string");
-    TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
+    TCLAP::ValueArg<std::string> arg_mesh_file("f",
+                                               "meshbandfile",
+                                               "File with BZ mesh and bands energy.",
+                                               true,
+                                               "bz.msh",
+                                               "string");
+    TCLAP::ValueArg<std::string> arg_phonon_rates("P",
+                                                  "phononrates",
+                                                  "File to load BZ phonon rates.",
+                                                  false,
+                                                  "bz_phonon.csv",
+                                                  "string");
+    TCLAP::ValueArg<std::string> arg_material("m",
+                                              "material",
+                                              "Symbol of the material to use (Si, Ge, GaAs, ...)",
+                                              true,
+                                              "Si",
+                                              "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
-    TCLAP::ValueArg<int>         arg_nb_conduction_bands("c", "ncbands", "Number of conduction bands to consider", false, -1, "int");
-    TCLAP::ValueArg<int>         arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
-    TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
-    TCLAP::ValueArg<double>      arg_temperature("T", "temperature", "Temperature in Kelvin.", false, 300.0, "double");
-    TCLAP::ValueArg<double>      arg_band_gap("g", "bandgap", "Band gap energy in eV.", false, 1.12, "double");
-    TCLAP::ValueArg<double>      arg_energy_range("E",
+    TCLAP::ValueArg<int>         arg_nb_conduction_bands("c",
+                                                 "ncbands",
+                                                 "Number of conduction bands to consider",
+                                                 false,
+                                                 -1,
+                                                 "int");
+    TCLAP::ValueArg<int> arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
+    TCLAP::ValueArg<int> arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
+    TCLAP::ValueArg<double> arg_temperature("T", "temperature", "Temperature in Kelvin.", false, 300.0, "double");
+    TCLAP::ValueArg<double> arg_band_gap("g", "bandgap", "Band gap energy in eV.", false, 1.12, "double");
+    TCLAP::ValueArg<double> arg_energy_range("E",
                                              "energy_window",
                                              "Energy window around the band gap to consider (in eV).",
                                              false,
                                              0.3,
                                              "double");
-    TCLAP::SwitchArg             arg_export_rates("X", "export-rates", "Export electron-phonon rates in k.", false);
-    TCLAP::SwitchArg plot_with_python("p", "plot", "Call a python script after the computation to plot the band structure.", false);
-    TCLAP::SwitchArg use_irr_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
-    TCLAP::SwitchArg plot_with_knkpnp("K", "knkpnp", "Compute and store the full (n,k) -> (n',k') transition rate matrices.", false);
-    TCLAP::SwitchArg use_unit_defpot("U", "unitdefpot", "Keep deformation potential to 1.0.", false);
+    TCLAP::SwitchArg        arg_export_rates("X", "export-rates", "Export electron-phonon rates in k.", false);
+    TCLAP::SwitchArg        plot_with_python("p",
+                                      "plot",
+                                      "Call a python script after the computation to plot the band structure.",
+                                      false);
+    TCLAP::SwitchArg        use_irr_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
+    TCLAP::SwitchArg        plot_with_knkpnp("K",
+                                      "knkpnp",
+                                      "Compute and store the full (n,k) -> (n',k') transition rate matrices.",
+                                      false);
+    TCLAP::SwitchArg        use_unit_defpot("U", "unitdefpot", "Keep deformation potential to 1.0.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -109,22 +135,22 @@ int main(int argc, char const *argv[]) {
     auto start = std::chrono::high_resolution_clock::now();
 
     uepm::pseudopotential::Materials materials;
-    const std::string                file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
+    const std::string file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
     materials.load_material_parameters(file_material_parameters);
 
     Options my_options;
-    my_options.materialName                          = arg_material.getValue();
-    my_options.nrLevels                              = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
-    my_options.nrThreads                             = arg_nb_threads.getValue();
-    const int         number_energies                = arg_nb_energies.getValue();
-    const int         nb_conduction_bands            = arg_nb_conduction_bands.getValue();
-    const int         nb_valence_bands               = arg_nb_valence_bands.getValue();
-    const double      max_energy                     = arg_energy_range.getValue();  // eV
-    const double      temperature                    = arg_temperature.getValue();
-    bool              irreducible_wedge_only         = use_irr_wedge.getValue();
-    const std::string mesh_band_input_file           = arg_mesh_file.getValue();
-    const std::string phonon_file                    = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
-    const bool        shift_conduction_band          = true;
+    my_options.materialName                  = arg_material.getValue();
+    my_options.nrLevels                      = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
+    my_options.nrThreads                     = arg_nb_threads.getValue();
+    const int         number_energies        = arg_nb_energies.getValue();
+    const int         nb_conduction_bands    = arg_nb_conduction_bands.getValue();
+    const int         nb_valence_bands       = arg_nb_valence_bands.getValue();
+    const double      max_energy             = arg_energy_range.getValue();  // eV
+    const double      temperature            = arg_temperature.getValue();
+    bool              irreducible_wedge_only = use_irr_wedge.getValue();
+    const std::string mesh_band_input_file   = arg_mesh_file.getValue();
+    const std::string phonon_file            = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
+    const bool        shift_conduction_band  = true;
     const bool        set_positive_valence_band      = false;
     const bool        export_rates                   = arg_export_rates.getValue();
     bool              use_unit_deformation_potential = use_unit_defpot.getValue();
@@ -135,7 +161,7 @@ int main(int argc, char const *argv[]) {
     }
     double band_gap = arg_band_gap.getValue();
 
-    uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
+    uepm::pseudopotential::epm_material current_material = materials.materials.at(arg_material.getValue());
 
     uepm::mesh_bz::ElectronPhonon ElectronPhonon{current_material};
     ElectronPhonon.set_temperature(temperature);
@@ -159,16 +185,17 @@ int main(int argc, char const *argv[]) {
 
     std::size_t           nb_vtx = ElectronPhonon.get_number_vertices();
     std::filesystem::path name_path(mesh_band_input_file);
-    std::string           name_stem     = name_path.stem().string();
-    auto                  stamp_params  = fmt::format("_T{}K_C{}V{}_N{}", temperature, nb_conduction_bands, nb_valence_bands, nb_vtx);
-    std::string           prefix_export = name_stem + stamp_params;
+    std::string           name_stem = name_path.stem().string();
+    auto stamp_params = fmt::format("_T{}K_C{}V{}_N{}", temperature, nb_conduction_bands, nb_valence_bands, nb_vtx);
+    std::string prefix_export = name_stem + stamp_params;
 
     const double energy_windows_guard = 10.0 * uepm::constants::k_b_eV * temperature;
     if (max_energy < energy_windows_guard) {
-        fmt::print("Warning: energy window {:.3f} eV is small compared to thermal energy scale {:.3f} eV at T = {:.1f} K.\n",
-                   max_energy,
-                   energy_windows_guard,
-                   temperature);
+        fmt::print(
+            "Warning: energy window {:.3f} eV is small compared to thermal energy scale {:.3f} eV at T = {:.1f} K.\n",
+            max_energy,
+            energy_windows_guard,
+            temperature);
     }
     if (phonon_rates_provided) {
         ElectronPhonon.read_phonon_scattering_rates_from_file(phonon_rates_file);
@@ -237,8 +264,11 @@ int main(int argc, char const *argv[]) {
     if (plot_with_python.getValue()) {
         std::string  rates_vs_Energy_file = prefix_export + "_rates_vs_energy.csv";
         const double energy_step          = 0.001;  // energy step in eV
-        ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(max_energy, energy_step, rates_vs_Energy_file);
-        std::string command = "python3 " + std::string(PROJECT_SRC_DIR) + "/python/plots/plot_phonon_rate.py -f " + prefix_export;
+        ElectronPhonon.compute_plot_electron_phonon_rates_vs_energy_over_mesh(max_energy,
+                                                                              energy_step,
+                                                                              rates_vs_Energy_file);
+        std::string command =
+            "python3 " + std::string(PROJECT_SRC_DIR) + "/python/plots/plot_phonon_rate.py -f " + prefix_export;
         fmt::print("Running command: {}\n", command);
         int pyRes = std::system(command.c_str());
         if (pyRes != 0) {

@@ -21,7 +21,8 @@
 namespace uepm::mesh_bz {
 
 Octree_mesh::Octree_mesh(const std::vector<Tetra *> &list_tetras, const bbox_mesh &bounding_box) {
-    if (list_tetras.size() <= max_number_of_elements_per_node || bounding_box.get_diagonal_size() < min_size_of_a_node) {
+    if (list_tetras.size() <= max_number_of_elements_per_node ||
+        bounding_box.get_diagonal_size() < min_size_of_a_node) {
         m_is_leaf     = true;
         m_list_tetras = list_tetras;
         m_node_box    = bounding_box;
@@ -51,7 +52,8 @@ Octree_mesh::Octree_mesh(const std::vector<Tetra *> &list_tetras, const bbox_mes
  * @param bounding_box
  * @return std::vector<Tetra *>
  */
-std::vector<Tetra *> Octree_mesh::find_overlapping_tetras(const std::vector<Tetra *> &list_p_tetras, const bbox_mesh &bounding_box) {
+std::vector<Tetra *> Octree_mesh::find_overlapping_tetras(const std::vector<Tetra *> &list_p_tetras,
+                                                          const bbox_mesh            &bounding_box) {
     std::vector<Tetra *> list_overlapping_tetras;
     list_overlapping_tetras.reserve(list_p_tetras.size() / 8);  // rough estimate
     for (auto &p_tetra : list_p_tetras) {

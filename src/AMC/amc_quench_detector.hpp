@@ -27,7 +27,7 @@ class successful_quench_detector {
         }
     }
 
-    void update(bool avalanche_detected,
+    void update(bool   avalanche_detected,
                 double time_s,
                 bool   has_high_field_particle,
                 bool   had_impact_ionization_event) {
@@ -58,7 +58,7 @@ class successful_quench_detector {
         }
     }
 
-    [[nodiscard]] double quiet_time_s() const { return m_quiet_time_s; }
+    [[nodiscard]] double                                   quiet_time_s() const { return m_quiet_time_s; }
     [[nodiscard]] const successful_quench_detection_state& state() const { return m_state; }
 
  private:

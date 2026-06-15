@@ -76,15 +76,19 @@ typedef struct vector_k {
     Vector3D<double> to_Vector3D() const { return Vector3D<double>(m_kx, m_ky, m_kz); }
 } vector_k;
 
-void export_eps_result(const std::string& filename, const std::vector<double> energies, const std::vector<double>& eps, bool python_plot) {
+void export_eps_result(const std::string&         filename,
+                       const std::vector<double>  energies,
+                       const std::vector<double>& eps,
+                       bool                       python_plot) {
     std::ofstream file(filename);
     file << "Energy,Epsilon" << std::endl;
     for (std::size_t i = 0; i < energies.size(); ++i) {
         file << energies[i] << "," << eps[i] << std::endl;
     }
     file.close();
-    const std::string python_plot_band_structure_script = std::string(PROJECT_SRC_DIR) + "/python/plots/plot_eps_vs_energy.py";
-    std::string       python_call                       = "python3 " + python_plot_band_structure_script + " --filename " + filename;
+    const std::string python_plot_band_structure_script =
+        std::string(PROJECT_SRC_DIR) + "/python/plots/plot_eps_vs_energy.py";
+    std::string python_call = "python3 " + python_plot_band_structure_script + " --filename " + filename;
     // bool              call_python_plot                  = false;
     // bool call_python_plot = true;
     if (python_plot) {
@@ -126,7 +130,7 @@ int main(int argc, char** argv) {
 
     TCLAP::CmdLine               cmd("Epsilon", ' ', "0.1");
     TCLAP::ValueArg<std::string> arg_yaml_config("c", "config", "YAML config file", true, "", "string");
-    TCLAP::ValueArg<int>         arg_crystal_dir("d", "dir", "Crystalographic direction (100, 110, 111)", false, 100, "int");
+    TCLAP::ValueArg<int> arg_crystal_dir("d", "dir", "Crystalographic direction (100, 110, 111)", false, 100, "int");
 
     cmd.add(arg_yaml_config);
     cmd.add(arg_crystal_dir);
@@ -163,7 +167,7 @@ int main(int argc, char** argv) {
     }
 
     if (process_rank == 0) {
-        std::cout << "Material: " << material_name << std::endl;
+        std::cout << "epm_material: " << material_name << std::endl;
         std::cout << "Number of nearest neighbors: " << nb_nearest_neighbors << std::endl;
         std::cout << "Number of bands: " << nb_bands << std::endl;
         std::cout << "Nonlocal corrections: " << nonlocal_epm << std::endl;
@@ -181,18 +185,20 @@ int main(int argc, char** argv) {
     bool use_irreducible_wedge = (bz_sampling == 48) ? true : false;
 
     uepm::pseudopotential::Materials materials;
-    std::string                      file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
+    std::string file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
     if (nonlocal_epm) {
         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
     }
     std::cout << "Loading material parameters from " << file_material_parameters << std::endl;
 
     materials.load_material_parameters(file_material_parameters);
-    uepm::pseudopotential::Material      current_material = materials.materials.at("Si");
+    uepm::pseudopotential::epm_material      current_material = materials.materials.at("Si");
     uepm::pseudopotential::BandStructure band_structure{};
 
     band_structure.Initialize(current_material, nb_bands, {}, nb_nearest_neighbors, nonlocal_epm, enable_soc);
-    uepm::pseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
+    uepm::pseudopotential::DielectricFunction MyDielectricFunc(current_material,
+                                                               band_structure.get_basis_vectors(),
+                                                               nb_bands);
 
     double shift = 0.0;
     MyDielectricFunc.generate_k_points_grid(Nkx, Nky, Nkz, shift, use_irreducible_wedge);
@@ -255,11 +261,13 @@ int main(int argc, char** argv) {
     const int        rem       = Ntot % number_processes;
 
     for (int p = 0; p < number_processes; ++p) {
-        counts_kpoints_per_process[p]        = base + (p < rem ? 1 : 0);
-        displacements_kpoints_per_process[p] = (p == 0) ? 0 : displacements_kpoints_per_process[p - 1] + counts_kpoints_per_process[p - 1];
+        counts_kpoints_per_process[p] = base + (p < rem ? 1 : 0);
+        displacements_kpoints_per_process[p] =
+            (p == 0) ? 0 : displacements_kpoints_per_process[p - 1] + counts_kpoints_per_process[p - 1];
     }
 
-    std::cout << "Process " << process_rank << " will handle " << counts_kpoints_per_process[process_rank] << " k-points" << std::endl;
+    std::cout << "Process " << process_rank << " will handle " << counts_kpoints_per_process[process_rank]
+              << " k-points" << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
 
     MyDielectricFunc.set_export_prefix(outdir + "/" + current_material.get_name() + "_");

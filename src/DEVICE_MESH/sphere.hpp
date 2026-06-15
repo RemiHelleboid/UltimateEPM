@@ -26,11 +26,11 @@ class sphere {
  public:
     sphere() = default;
     sphere(const vector3 &center, double radius) : m_center(center), m_radius(radius) {}
-    sphere(const sphere &other) = default;
-    sphere(sphere &&other) noexcept = default;
-    sphere &operator=(const sphere &other) = default;
+    sphere(const sphere &other)                = default;
+    sphere(sphere &&other) noexcept            = default;
+    sphere &operator=(const sphere &other)     = default;
     sphere &operator=(sphere &&other) noexcept = default;
-    ~sphere()       = default;
+    ~sphere()                                  = default;
 
     vector3 center() const { return m_center; }
     double  radius() const { return m_radius; }
@@ -53,7 +53,7 @@ class sphere {
 
         // Calculate the distance from the center of the sphere to the closest point
         vector3 closest_point(closest_x, closest_y, closest_z);
-        double distance_squared = (closest_point - m_center).norm_squared();
+        double  distance_squared = (closest_point - m_center).norm_squared();
 
         // The sphere overlaps with the bounding box if the distance is less than or equal to the radius squared
         return distance_squared <= (m_radius * m_radius);

@@ -26,20 +26,24 @@ namespace mesh {
 
 vertex *element::get_vertex(const std::size_t index) const {
     if (index >= m_vertices.size()) {
-        throw std::invalid_argument("Try to access to a vertex with an index superior to the number of vertices in the element.");
+        throw std::invalid_argument(
+            "Try to access to a vertex with an index superior to the number of vertices in the element.");
     }
     return m_vertices[index];
 }
 
 std::vector<std::size_t> element::get_vertices_index() const {
     std::vector<std::size_t> index_vertices(m_vertices.size());
-    std::transform(m_vertices.begin(), m_vertices.end(), index_vertices.begin(), [](const vertex * v) { return v->get_index(); });
+    std::transform(m_vertices.begin(), m_vertices.end(), index_vertices.begin(), [](const vertex *v) {
+        return v->get_index();
+    });
     return (index_vertices);
 }
 
 bool element::contains_vertex_with_index(std::size_t index_vtx) const {
-    return std::find_if(m_vertices.begin(), m_vertices.end(), [index_vtx](const vertex *vtx) { return vtx->get_index() == index_vtx; }) !=
-           m_vertices.end();
+    return std::find_if(m_vertices.begin(), m_vertices.end(), [index_vtx](const vertex *vtx) {
+               return vtx->get_index() == index_vtx;
+           }) != m_vertices.end();
 }
 
 /**
@@ -96,9 +100,15 @@ bbox element::compute_bounding_box() const {
     std::vector<double> X_coords(m_vertices.size());
     std::vector<double> Y_coords(m_vertices.size());
     std::vector<double> Z_coords(m_vertices.size());
-    std::transform(m_vertices.begin(), m_vertices.end(), X_coords.begin(), [&](const auto &p_vtx) { return p_vtx->x(); });
-    std::transform(m_vertices.begin(), m_vertices.end(), Y_coords.begin(), [&](const auto &p_vtx) { return p_vtx->y(); });
-    std::transform(m_vertices.begin(), m_vertices.end(), Z_coords.begin(), [&](const auto &p_vtx) { return p_vtx->z(); });
+    std::transform(m_vertices.begin(), m_vertices.end(), X_coords.begin(), [&](const auto &p_vtx) {
+        return p_vtx->x();
+    });
+    std::transform(m_vertices.begin(), m_vertices.end(), Y_coords.begin(), [&](const auto &p_vtx) {
+        return p_vtx->y();
+    });
+    std::transform(m_vertices.begin(), m_vertices.end(), Z_coords.begin(), [&](const auto &p_vtx) {
+        return p_vtx->z();
+    });
     const double x_min = *std::min_element(X_coords.begin(), X_coords.end());
     const double x_max = *std::max_element(X_coords.begin(), X_coords.end());
     const double y_min = *std::min_element(Y_coords.begin(), Y_coords.end());
@@ -143,7 +153,6 @@ double element::interpolate_temperature_at_location(const vector3 &location) con
     }
     return interpolated_value;
 }
-
 
 vector3 element::interpolate_vector_at_location(const std::string &name, const vector3 &location) const {
     const auto barycentric_coords = compute_barycentric_coordinate(location);

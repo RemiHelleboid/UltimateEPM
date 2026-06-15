@@ -88,10 +88,8 @@ void self_consistent_device_amc_simulation_3d::place_initial_charges_according_t
 
     auto* mesh = m_device.get_p_mesh();
 
-    const double total_donor_charge =
-        units::micron3_to_cm3 * mesh->integrate_over_mesh(donor_field_name);
-    const double total_acceptor_charge =
-        units::micron3_to_cm3 * mesh->integrate_over_mesh(acceptor_field_name);
+    const double      total_donor_charge    = units::micron3_to_cm3 * mesh->integrate_over_mesh(donor_field_name);
+    const double      total_acceptor_charge = units::micron3_to_cm3 * mesh->integrate_over_mesh(acceptor_field_name);
     const std::size_t number_electrons = static_cast<std::size_t>(std::floor(total_donor_charge / particle_weight));
     const std::size_t number_holes     = static_cast<std::size_t>(std::floor(total_acceptor_charge / particle_weight));
 
@@ -305,7 +303,7 @@ void self_consistent_device_amc_simulation_3d::compute_unitary_potential() {
                    unitary_potential_max,
                    unitary_potential_min);
         m_state.m_use_constant_RamoUnitaryElectricField = true;
-        const auto& bulk_elements = m_device.get_p_mesh()->get_list_bulk_element();
+        const auto& bulk_elements                       = m_device.get_p_mesh()->get_list_bulk_element();
         if (bulk_elements.empty()) {
             throw std::runtime_error("Cannot sample the unitary electric field from an empty 3D mesh.");
         }
@@ -335,14 +333,14 @@ self_consistent_device_amc_simulation_3d::self_consistent_device_amc_simulation_
     const device::device&                        simulation_device,
     const options_device_amc&                    simulation_options,
     const options_self_consistent_device_amc_3d& self_consistent_options,
-    const physic::material::list_materials&      list_materials,
+    const physics::material_database&            material_database,
     int                                          seed_random_generator)
     : self_consistent_device_amc_simulation_base(simulation_device,
                                                  simulation_options,
                                                  self_consistent_options.m_common,
                                                  seed_random_generator),
       m_self_consistent_options(self_consistent_options),
-      m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), list_materials),
+      m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(seed_random_generator + 1) {
     validate_self_consistent_options();
     initialize_contact_elements();
@@ -356,7 +354,7 @@ self_consistent_device_amc_simulation_3d::self_consistent_device_amc_simulation_
     const device::device&                        simulation_device,
     const options_device_amc&                    simulation_options,
     const options_self_consistent_device_amc_3d& self_consistent_options,
-    const physic::material::list_materials&      list_materials,
+    const physics::material_database&            material_database,
     const mesh::vector3&                         starting_position,
     std::size_t                                  number_electrons_start,
     std::size_t                                  number_holes_start,
@@ -369,7 +367,7 @@ self_consistent_device_amc_simulation_3d::self_consistent_device_amc_simulation_
                                                  number_holes_start,
                                                  seed_random_generator),
       m_self_consistent_options(self_consistent_options),
-      m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), list_materials),
+      m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(seed_random_generator + 1) {
     validate_self_consistent_options();
     initialize_contact_elements();

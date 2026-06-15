@@ -165,9 +165,9 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
     const double     qe                 = uepm::constants::q_e;
     const double     hbar_eV            = uepm::constants::h_bar_eV;
 
-    double        inv_mrta_rate          = 0.0;
-    const vector3 vnk                    = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);               // m/s
-    const vector3 v_npkp                 = tetra.interpolate_gradient_energy_at_band(k2, idx_n2) * (1.0 / hbar_eV);  // m/s
+    double        inv_mrta_rate = 0.0;
+    const vector3 vnk           = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);               // m/s
+    const vector3 v_npkp        = tetra.interpolate_gradient_energy_at_band(k2, idx_n2) * (1.0 / hbar_eV);  // m/s
     const double  transport_weight_value = transport_weight_RTA(vnk, v_npkp);
 
     // Loop 4 branches: md=0..3 → (ac/op)×(L/T)
@@ -196,10 +196,11 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
             const double Ef_eV = Ei_eV - Eph_eV;
 
             // // draw k' on iso-triangle at Ef_sel_eV
-            // vector3 k_final = Tsel.draw_random_uniform_point_at_energy(Ef_sel_eV, static_cast<std::size_t>(n2_sel), rng);
+            // vector3 k_final = Tsel.draw_random_uniform_point_at_energy(Ef_sel_eV, static_cast<std::size_t>(n2_sel),
+            // rng);
 
-            // const double interpolated_Ef = Tsel.interpolate_energy_at_band(k_final, static_cast<std::size_t>(n2_sel));
-            // if (std::abs(interpolated_Ef - Ef_sel_eV) > 1e-9) {
+            // const double interpolated_Ef = Tsel.interpolate_energy_at_band(k_final,
+            // static_cast<std::size_t>(n2_sel)); if (std::abs(interpolated_Ef - Ef_sel_eV) > 1e-9) {
             //     throw std::runtime_error("select_final_state: sampled k_final energy mismatch.");
             // }
             // // Return final state data
@@ -271,7 +272,8 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
                 continue;
             }
 
-            const Rate8 rates_n1k1_n2kT = compute_electron_phonon_transition_rates_pair(idx_n1, idx_k1, idx_n2, idx_tetra);
+            const Rate8 rates_n1k1_n2kT =
+                compute_electron_phonon_transition_rates_pair(idx_n1, idx_k1, idx_n2, idx_tetra);
             for (int ph_branch = 0; ph_branch < 8; ++ph_branch) {
                 total_out_rates_n1k1.m_rate_values[ph_branch] += rates_n1k1_n2kT[ph_branch];
                 if (rates_n1k1_n2kT[ph_branch] > threshold) {
@@ -282,7 +284,8 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
     }
     // DEBUG
     double ratio_nnz = static_cast<double>(count_nnz) / 8.0 / total_spaned * 100.0;
-    // fmt::print("compute_electron_phonon_rate: (n1={}, k1={}) nonzero transitions: {} ({:.2}%)\n", idx_n1, idx_k1, count_nnz, ratio_nnz);
+    // fmt::print("compute_electron_phonon_rate: (n1={}, k1={}) nonzero transitions: {} ({:.2}%)\n", idx_n1, idx_k1,
+    // count_nnz, ratio_nnz);
     return total_out_rates_n1k1;
 }
 
@@ -330,27 +333,31 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(std::size_t idx_n1, std::siz
                 const double Eph_eV = uepm::constants::h_bar_eV * omega;
                 const double N0     = bose_einstein_distribution(Eph_eV, m_temperature_K);
 
-                const DeformationPotential& defpot  = (mode == PhononMode::acoustic) ? m_ac_defpot_h : m_op_defpot_h;
-                const double                Delta_J = defpot.get_fischetti_deformation_potential(q_norm, idx_n1) * uepm::constants::q_e;
+                const DeformationPotential& defpot = (mode == PhononMode::acoustic) ? m_ac_defpot_h : m_op_defpot_h;
+                const double                Delta_J =
+                    defpot.get_fischetti_deformation_potential(q_norm, idx_n1) * uepm::constants::q_e;
 
                 // Emission
                 {
-                    const double Ef_eV  = Ei_eV - Eph_eV;
-                    const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
+                    const double Ef_eV = Ei_eV - Eph_eV;
+                    const double dos_eV =
+                        tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
                     if (dos_eV > 0.0) {
-                        const double dos_per_J = dos_eV / uepm::constants::q_e;
-                        double       rate_value =
-                            (uepm::constants::pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) * overlap2 * (N0 + 1.0) * dos_per_J;
+                        const double dos_per_J  = dos_eV / uepm::constants::q_e;
+                        double       rate_value = (uepm::constants::pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) *
+                                            overlap2 * (N0 + 1.0) * dos_per_J;
                         rates_k1_n1.add(mode, dir, PhononEvent::emission, rate_value);
                     }
                 }
                 // Absorption
                 {
-                    const double Ef_eV  = Ei_eV + Eph_eV;
-                    const double dos_eV = tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
+                    const double Ef_eV = Ei_eV + Eph_eV;
+                    const double dos_eV =
+                        tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
                     if (dos_eV > 0.0) {
-                        const double dos_per_J = dos_eV / uepm::constants::q_e;
-                        double rate_value = (uepm::constants::pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) * overlap2 * (N0)*dos_per_J;
+                        const double dos_per_J  = dos_eV / uepm::constants::q_e;
+                        double       rate_value = (uepm::constants::pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) *
+                                            overlap2 * (N0)*dos_per_J;
                         rates_k1_n1.add(mode, dir, PhononEvent::absorption, rate_value);
                     }
                 }
@@ -468,7 +475,8 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = end_time - start_time;
-    fmt::print("Completed electron-phonon rates computation in {:.2f} seconds.\n\n", std::chrono::duration<double>(duration).count());
+    fmt::print("Completed electron-phonon rates computation in {:.2f} seconds.\n\n",
+               std::chrono::duration<double>(duration).count());
 }
 SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_t     idx_band_initial,
                                                                       const vector3&  k_initial,
@@ -632,7 +640,12 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
                                                                       int            idx_phonon_branch,
                                                                       std::mt19937&  rng) const {
     PhononScatteringEvent PhBranch = inverse_rate_index(idx_phonon_branch);
-    return select_electron_phonon_final_state(idx_band_initial, k_initial, PhBranch.mode, PhBranch.direction, PhBranch.event, rng);
+    return select_electron_phonon_final_state(idx_band_initial,
+                                              k_initial,
+                                              PhBranch.mode,
+                                              PhBranch.direction,
+                                              PhBranch.event,
+                                              rng);
 }
 
 /**
@@ -665,7 +678,8 @@ void ElectronPhonon::export_rate_values(const std::string& filename) const {
             const auto&       r               = all_rates[local];
             // Only export if at least one rate is above threshold
             constexpr double rates_threshold = 1e-12;  // s^-1
-            if (std::find_if(r.begin(), r.end(), [rates_threshold](double v) { return v > rates_threshold; }) != r.end()) {
+            if (std::find_if(r.begin(), r.end(), [rates_threshold](double v) { return v > rates_threshold; }) !=
+                r.end()) {
                 file << idx_vtx << ',' << local << ',' << E;
                 for (double v : r) {
                     file << ',' << v;
@@ -718,7 +732,8 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(doub
     fmt::print("Computing electron-phonon rates vs energy over mesh...\n");
     std::vector<double>                energies(n_steps);
     std::vector<double>                dos_values(n_steps, 0.0);
-    std::vector<std::array<double, 8>> rate_values(n_steps, std::array<double, 8>{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
+    std::vector<std::array<double, 8>> rate_values(n_steps,
+                                                   std::array<double, 8>{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
 
     std::atomic<std::size_t> done{0};
     std::size_t              total = n_steps;
@@ -735,7 +750,8 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(doub
                 std::size_t  idx_global_band = get_global_band_index(idx_band, m_elph_particle_type);
                 const double dos_t           = tetra.compute_tetra_dos_energy_band(E, idx_global_band);
                 if (!std::isfinite(dos_t)) {
-                    throw std::runtime_error("DOS is NaN/Inf at E=" + std::to_string(E) + " band=" + std::to_string(idx_global_band));
+                    throw std::runtime_error("DOS is NaN/Inf at E=" + std::to_string(E) +
+                                             " band=" + std::to_string(idx_global_band));
                 }
                 if (dos_t <= 0.0) {
                     continue;
@@ -808,7 +824,8 @@ void ElectronPhonon::compute_plot_electron_phonon_rates_vs_energy_over_mesh(doub
  * @param idx_band The band index.
  * @return Rate8
  */
-Rate8 ElectronPhonon::interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const {
+Rate8 ElectronPhonon::interpolate_phonon_scattering_rate_at_location(const vector3&     location,
+                                                                     const std::size_t& idx_band) const {
     // Find the tetrahedron containing the location
     const Tetra* tetra = find_tetra_at_location(location);
     if (!tetra) {
@@ -858,7 +875,8 @@ void ElectronPhonon::plot_phonon_dispersion(const std::string& filename) const {
  * @param initial_filename The input Gmsh mesh filename.
  * @param final_filename The output Gmsh mesh filename with added rates.
  */
-void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename) {
+void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initial_filename,
+                                                       const std::string& final_filename) {
     // If the file exists, remove it to avoid appending to an old file
     if (std::ifstream(final_filename)) {
         std::remove(final_filename.c_str());
@@ -889,7 +907,7 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
         std::vector<double> rates_opt_tr_ab(m_list_vertices.size());
 
         for (std::size_t idx_k1 = 0; idx_k1 < m_list_vertices.size(); ++idx_k1) {
-            auto rates              = m_list_vertices[idx_k1].get_electron_phonon_rates(static_cast<std::size_t>(idx_band));
+            auto rates = m_list_vertices[idx_k1].get_electron_phonon_rates(static_cast<std::size_t>(idx_band));
             rates_ac_lo_ab[idx_k1]  = rates[0];
             rates_ac_tr_ab[idx_k1]  = rates[1];
             rates_opt_lo_ab[idx_k1] = rates[2];
@@ -918,14 +936,54 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
         int data_tag_opt_tr_em = gmsh::view::add(name_rate_opt_tr_em);
         int data_tag_opt_tr_ab = gmsh::view::add(name_rate_opt_tr_ab);
 
-        gmsh::view::addHomogeneousModelData(data_tag_ac_lo_em, 0, model_file_name, "NodeData", node_tags, rates_ac_lo_em);
-        gmsh::view::addHomogeneousModelData(data_tag_ac_lo_ab, 0, model_file_name, "NodeData", node_tags, rates_ac_lo_ab);
-        gmsh::view::addHomogeneousModelData(data_tag_ac_tr_em, 0, model_file_name, "NodeData", node_tags, rates_ac_tr_em);
-        gmsh::view::addHomogeneousModelData(data_tag_ac_tr_ab, 0, model_file_name, "NodeData", node_tags, rates_ac_tr_ab);
-        gmsh::view::addHomogeneousModelData(data_tag_opt_lo_em, 0, model_file_name, "NodeData", node_tags, rates_opt_lo_em);
-        gmsh::view::addHomogeneousModelData(data_tag_opt_lo_ab, 0, model_file_name, "NodeData", node_tags, rates_opt_lo_ab);
-        gmsh::view::addHomogeneousModelData(data_tag_opt_tr_em, 0, model_file_name, "NodeData", node_tags, rates_opt_tr_em);
-        gmsh::view::addHomogeneousModelData(data_tag_opt_tr_ab, 0, model_file_name, "NodeData", node_tags, rates_opt_tr_ab);
+        gmsh::view::addHomogeneousModelData(data_tag_ac_lo_em,
+                                            0,
+                                            model_file_name,
+                                            "NodeData",
+                                            node_tags,
+                                            rates_ac_lo_em);
+        gmsh::view::addHomogeneousModelData(data_tag_ac_lo_ab,
+                                            0,
+                                            model_file_name,
+                                            "NodeData",
+                                            node_tags,
+                                            rates_ac_lo_ab);
+        gmsh::view::addHomogeneousModelData(data_tag_ac_tr_em,
+                                            0,
+                                            model_file_name,
+                                            "NodeData",
+                                            node_tags,
+                                            rates_ac_tr_em);
+        gmsh::view::addHomogeneousModelData(data_tag_ac_tr_ab,
+                                            0,
+                                            model_file_name,
+                                            "NodeData",
+                                            node_tags,
+                                            rates_ac_tr_ab);
+        gmsh::view::addHomogeneousModelData(data_tag_opt_lo_em,
+                                            0,
+                                            model_file_name,
+                                            "NodeData",
+                                            node_tags,
+                                            rates_opt_lo_em);
+        gmsh::view::addHomogeneousModelData(data_tag_opt_lo_ab,
+                                            0,
+                                            model_file_name,
+                                            "NodeData",
+                                            node_tags,
+                                            rates_opt_lo_ab);
+        gmsh::view::addHomogeneousModelData(data_tag_opt_tr_em,
+                                            0,
+                                            model_file_name,
+                                            "NodeData",
+                                            node_tags,
+                                            rates_opt_tr_em);
+        gmsh::view::addHomogeneousModelData(data_tag_opt_tr_ab,
+                                            0,
+                                            model_file_name,
+                                            "NodeData",
+                                            node_tags,
+                                            rates_opt_tr_ab);
 
         gmsh::option::setNumber("PostProcessing.SaveMesh", 1);  // Save mesh only once
         gmsh::view::write(data_tag_ac_lo_em, final_filename, true);
@@ -960,7 +1018,7 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
     auto same_material = [&](const YAML::Node& node) { return node["name"].as<std::string>() == my_material; };
     auto it_material   = std::find_if(list_materials.begin(), list_materials.end(), same_material);
     if (it_material == list_materials.end()) {
-        throw std::runtime_error("Material " + my_material + " not found in file " + filename);
+        throw std::runtime_error("epm_material " + my_material + " not found in file " + filename);
     }
     auto material = *it_material;
 
@@ -978,8 +1036,9 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
             double c        = waveType["c"].as<double>();
             // std::cout << "w0: " << w0 << " vs: " << vs << " c: " << c << std::endl;
 
-            PhononDirection direction = (std::string(type) == "longitudinal") ? PhononDirection::longitudinal : PhononDirection::transverse;
-            PhononMode      mode      = (std::string(wave) == "acoustic") ? PhononMode::acoustic : PhononMode::optical;
+            PhononDirection direction =
+                (std::string(type) == "longitudinal") ? PhononDirection::longitudinal : PhononDirection::transverse;
+            PhononMode mode = (std::string(wave) == "acoustic") ? PhononMode::acoustic : PhononMode::optical;
 
             PhononDispersion phononDispersion(mode, direction, w0, vs, c);
             double           q_max_norm = 1.0 / m_si2red;
@@ -1101,11 +1160,19 @@ void ElectronPhonon::read_phonon_scattering_rates_from_file(const std::filesyste
             throw std::runtime_error("Vertex index out of range in phonon scattering rates file.");
         }
         if (band_index >= m_nb_bands_elph) {
-            // std::cerr << "Warning: band index " << band_index << " out of range in phonon scattering rates file. Skipping this entry.\n";
-            // throw std::runtime_error("Band index out of range in phonon scattering rates file.");
+            // std::cerr << "Warning: band index " << band_index << " out of range in phonon scattering rates file.
+            // Skipping this entry.\n"; throw std::runtime_error("Band index out of range in phonon scattering rates
+            // file.");
             continue;
         }
-        Rate8 rates = {rate_ac_L_ab, rate_ac_T_ab, rate_op_L_ab, rate_op_T_ab, rate_ac_L_em, rate_ac_T_em, rate_op_L_em, rate_op_T_em};
+        Rate8 rates = {rate_ac_L_ab,
+                       rate_ac_T_ab,
+                       rate_op_L_ab,
+                       rate_op_T_ab,
+                       rate_ac_L_em,
+                       rate_ac_T_em,
+                       rate_op_L_em,
+                       rate_op_T_em};
 
         // RAW FIT
         rates[2] *= m_fit_optical;
@@ -1127,11 +1194,13 @@ void ElectronPhonon::read_phonon_scattering_rates_from_file(const std::filesyste
     for (std::size_t idx_vtx = 0; idx_vtx < m_list_vertices.size(); ++idx_vtx) {
         for (std::size_t idx_band = 0; idx_band < m_nb_bands_elph; ++idx_band) {
             double E_file = energies[idx_vtx][idx_band];
-            double E_mesh = m_list_vertices[idx_vtx].get_energy_at_band(get_global_band_index(idx_band, m_elph_particle_type));
+            double E_mesh =
+                m_list_vertices[idx_vtx].get_energy_at_band(get_global_band_index(idx_band, m_elph_particle_type));
             if (std::abs(E_file) > 0) {
                 if (std::abs(E_file - E_mesh) > 1e-6) {
-                    throw std::runtime_error("Energy mismatch at vertex " + std::to_string(idx_vtx) + " band " + std::to_string(idx_band) +
-                                             ": file=" + std::to_string(E_file) + " mesh=" + std::to_string(E_mesh));
+                    throw std::runtime_error("Energy mismatch at vertex " + std::to_string(idx_vtx) + " band " +
+                                             std::to_string(idx_band) + ": file=" + std::to_string(E_file) +
+                                             " mesh=" + std::to_string(E_mesh));
                 }
             }
         }
@@ -1168,7 +1237,9 @@ double ElectronPhonon::compute_P_Gamma() const {
  * @param conduction_only
  * @return Eigen::Matrix3d
  */
-Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fermi_level_eV, double temperature_K, bool conduction_only) {
+Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fermi_level_eV,
+                                                                      double temperature_K,
+                                                                      bool   conduction_only) {
     using namespace uepm::physics;
 
     // Sanity checks
@@ -1176,9 +1247,8 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
         throw std::runtime_error("MRTA: mesh is empty.");
     }
     if (m_phonon_rates_transport.empty()) {
-        throw std::runtime_error(
-            "MRTA: m_phonon_rates_transport is empty. "
-            "Run compute_electron_phonon_rates_over_mesh() first.");
+        throw std::runtime_error("MRTA: m_phonon_rates_transport is empty. "
+                                 "Run compute_electron_phonon_rates_over_mesh() first.");
     }
     if (m_phonon_rates_transport.size() != m_nb_bands_elph) {
         throw std::runtime_error("MRTA: m_phonon_rates_transport size mismatch vs number of bands.");
@@ -1257,9 +1327,8 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
     }
 
     if (!(n_e > 0.0) || !std::isfinite(n_e)) {
-        throw std::runtime_error(
-            "MRTA: computed carrier density n_e is zero/invalid. "
-            "Check EF, T, and that rates were computed for conduction bands.");
+        throw std::runtime_error("MRTA: computed carrier density n_e is zero/invalid. "
+                                 "Check EF, T, and that rates were computed for conduction bands.");
     }
 
     // 3) μ = σ / (n q)  (returns m^2/(V·s))
@@ -1268,12 +1337,16 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
     return mu;
 }
 
-double ElectronPhonon::compute_electron_MRTA_mobility_isotropic(double fermi_level_eV, double temperature_K, bool conduction_only) {
+double ElectronPhonon::compute_electron_MRTA_mobility_isotropic(double fermi_level_eV,
+                                                                double temperature_K,
+                                                                bool   conduction_only) {
     const Eigen::Matrix3d mu = compute_electron_MRTA_mobility_tensor(fermi_level_eV, temperature_K, conduction_only);
     return mu.trace() / 3.0;  // isotropic average, m^2/(V·s)
 }
 
-double ElectronPhonon::mean_electron_energy_equilibrium(double fermi_level_eV, double temperature_K, bool excess_above_cbm) const {
+double ElectronPhonon::mean_electron_energy_equilibrium(double fermi_level_eV,
+                                                        double temperature_K,
+                                                        bool   excess_above_cbm) const {
     using namespace uepm::physics;
 
     if (m_list_vertices.empty() || m_list_tetrahedra.empty()) {

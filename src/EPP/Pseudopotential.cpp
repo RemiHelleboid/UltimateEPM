@@ -10,7 +10,14 @@
 
 namespace uepm::pseudopotential {
 
-Pseudopotential::Pseudopotential(double V3S, double V4S, double V8S, double V11S, double V3A, double V4A, double V8A, double V11A)
+Pseudopotential::Pseudopotential(double V3S,
+                                 double V4S,
+                                 double V8S,
+                                 double V11S,
+                                 double V3A,
+                                 double V4A,
+                                 double V8A,
+                                 double V11A)
     : m_V3S(V3S),
       m_V4S(V4S),
       m_V8S(V8S),
@@ -20,8 +27,9 @@ Pseudopotential::Pseudopotential(double V3S, double V4S, double V8S, double V11S
       m_V8A(V8A),
       m_V11A(V11A) {}
 
-
-std::complex<double> Pseudopotential::GetValue(const Vector3D<int>& G, const Vector3D<double>& tau, double lattice_constant) const {
+std::complex<double> Pseudopotential::GetValue(const Vector3D<int>&    G,
+                                               const Vector3D<double>& tau,
+                                               double                  lattice_constant) const {
     const int    G2   = G * G;
     const double kfac = 2.0 * std::numbers::pi_v<double> / lattice_constant;
     const double Gtau = kfac * (tau * G);

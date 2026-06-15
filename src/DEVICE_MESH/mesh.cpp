@@ -1107,7 +1107,6 @@ void mesh::create_scalar_function_from_values_on_vertex(const std::string       
                                                         const std::vector<double> &data_values) {
     // If the function already exists, it is first completely removed.
     if (get_sp_scalar_function(function_name) != nullptr) {
-        throw std::invalid_argument("Function " + function_name + " already exists.");
         remove_scalar_function(function_name);
     }
     DataLocationType   data_location_type = DataLocationType::vertex;

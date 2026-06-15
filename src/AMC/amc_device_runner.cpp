@@ -30,7 +30,7 @@ namespace uepm::amc {
 
 void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_run_config& config) {
     validate_material_symbol(config.material_symbol);
-    auto device_options = config.device_options;
+    auto device_options               = config.device_options;
     device_options.m_simulation_name  = config.simulation_name;
     device_options.m_output_directory = config.output_dir;
 
@@ -40,9 +40,9 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
     device_options.validate();
     self_consistent_options_2d.validate();
 
-    const std::string output_dir = config.output_dir.empty() ? make_default_output_directory(config.mesh_file)
-                                                             : config.output_dir;
-    const std::string trajectory_dir = fmt::format("{}/trajectory", output_dir);
+    const std::string output_dir =
+        config.output_dir.empty() ? make_default_output_directory(config.mesh_file) : config.output_dir;
+    const std::string trajectory_dir  = fmt::format("{}/trajectory", output_dir);
     device_options.m_output_directory = output_dir;
 
     std::filesystem::create_directories(output_dir);
@@ -69,8 +69,10 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
     fmt::print("Mesh dimension: {}D\n", mesh_dimension);
     fmt::print("Loading materials: {}\n", config.material_file);
 
-    uepm::physic::material::list_materials list_of_materials;
-    list_of_materials.load_materials_from_file(config.material_file);
+    uepm::physics::material_database material_database;
+    material_database.load_from_file(config.material_file);
+    const auto& common_material     = material_database.require(config.material_symbol);
+    device_options.m_material_model = make_silicon_amc_material_model(common_material);
 
     uepm::device::device simulation_device(mesh);
     add_default_contacts(simulation_device, *mesh);
@@ -98,8 +100,8 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
                config.starting_position.y(),
                config.starting_position.z());
 
-    const auto& common_options = mesh_dimension == 2 ? self_consistent_options_2d.m_common
-                                                      : self_consistent_options_3d.m_common;
+    const auto& common_options =
+        mesh_dimension == 2 ? self_consistent_options_2d.m_common : self_consistent_options_3d.m_common;
     simulation_manifest manifest;
     manifest.add("run", "simulation_type", "self_consistent_device_amc");
     manifest.add("run", "simulation_name", config.simulation_name);
@@ -144,12 +146,11 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
     manifest.add("transport", "impact_ionization_enabled", device_options.m_activate_impact_ionization);
     manifest.add("transport", "particle_creation_enabled", device_options.m_particle_creation_activated);
     manifest.add("transport", "impurity_scattering_enabled", device_options.m_enable_impurity_scattering);
-    manifest.add(
-        "transport",
-        "impurity_model",
-        device_options.m_impurity_scattering_model == impurity_scattering_model::mobility_empirical
-            ? "mobility-empirical"
-            : "screened-coulomb");
+    manifest.add("transport",
+                 "impurity_model",
+                 device_options.m_impurity_scattering_model == impurity_scattering_model::mobility_empirical
+                     ? "mobility-empirical"
+                     : "screened-coulomb");
     manifest.add("transport",
                  "impurity_screening",
                  impurity_screening_model_name(device_options.m_impurity_screening_model));
@@ -172,9 +173,9 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
 
     const auto& quench_options = common_options.m_passive_quench_circuit;
     manifest.add("quench_circuit", "enabled", quench_options.m_enabled);
-    manifest.add("quench_circuit", "biased_contact", common_options.m_quench_biased_contact == quench_biased_contact::anode
-                                                        ? "anode"
-                                                        : "cathode");
+    manifest.add("quench_circuit",
+                 "biased_contact",
+                 common_options.m_quench_biased_contact == quench_biased_contact::anode ? "anode" : "cathode");
     manifest.add("quench_circuit", "bias_voltage_V", quench_options.m_bias_voltage_V);
     manifest.add("quench_circuit", "initial_device_voltage_V", quench_options.m_initial_device_voltage_V);
     manifest.add("quench_circuit", "resistance_ohm", quench_options.m_resistance_ohm);
@@ -201,16 +202,16 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
                  injection.m_particle_type == particle_type::electron ? "electron" : "hole");
     manifest.add("scheduled_injection", "weight", injection.m_weight);
 
-    std::size_t remaining_electrons   = 0;
-    std::size_t remaining_holes       = 0;
-    std::size_t impact_events         = 0;
-    double      final_time_s          = 0.0;
-    double      total_electron_weight = 0.0;
-    double      total_hole_weight     = 0.0;
-    double      final_ramo_current_A  = 0.0;
-    bool        avalanche_detected       = false;
-    double      avalanche_time_s         = 0.0;
-    double      avalanche_voltage_drop_V = 0.0;
+    std::size_t remaining_electrons        = 0;
+    std::size_t remaining_holes            = 0;
+    std::size_t impact_events              = 0;
+    double      final_time_s               = 0.0;
+    double      total_electron_weight      = 0.0;
+    double      total_hole_weight          = 0.0;
+    double      final_ramo_current_A       = 0.0;
+    bool        avalanche_detected         = false;
+    double      avalanche_time_s           = 0.0;
+    double      avalanche_voltage_drop_V   = 0.0;
     bool        successful_quench_detected = false;
     double      successful_quench_time_s   = 0.0;
 
@@ -220,7 +221,7 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
         self_consistent_device_amc_simulation_2d simulation(simulation_device,
                                                             device_options,
                                                             config.self_consistent_options_2d,
-                                                            list_of_materials,
+                                                            material_database,
                                                             config.starting_position,
                                                             config.number_electrons_start,
                                                             config.number_holes_start,
@@ -250,7 +251,7 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
             final_ramo_current_A = history.m_list_ramo_current.back();
         }
         const auto& avalanche = simulation.avalanche_detection();
-        avalanche_detected = avalanche.m_detected;
+        avalanche_detected    = avalanche.m_detected;
         if (avalanche.m_time_s.has_value()) {
             avalanche_time_s = *avalanche.m_time_s;
         }
@@ -258,7 +259,7 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
             avalanche_voltage_drop_V = *avalanche.m_voltage_drop_V;
         }
         const auto& successful_quench = simulation.successful_quench_detection();
-        successful_quench_detected = successful_quench.m_detected;
+        successful_quench_detected    = successful_quench.m_detected;
         if (successful_quench.m_time_s.has_value()) {
             successful_quench_time_s = *successful_quench.m_time_s;
         }
@@ -266,7 +267,7 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
         self_consistent_device_amc_simulation_3d simulation(simulation_device,
                                                             device_options,
                                                             self_consistent_options_3d,
-                                                            list_of_materials,
+                                                            material_database,
                                                             config.starting_position,
                                                             config.number_electrons_start,
                                                             config.number_holes_start,
@@ -296,7 +297,7 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
             final_ramo_current_A = history.m_list_ramo_current.back();
         }
         const auto& avalanche = simulation.avalanche_detection();
-        avalanche_detected = avalanche.m_detected;
+        avalanche_detected    = avalanche.m_detected;
         if (avalanche.m_time_s.has_value()) {
             avalanche_time_s = *avalanche.m_time_s;
         }
@@ -304,7 +305,7 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
             avalanche_voltage_drop_V = *avalanche.m_voltage_drop_V;
         }
         const auto& successful_quench = simulation.successful_quench_detection();
-        successful_quench_detected = successful_quench.m_detected;
+        successful_quench_detected    = successful_quench.m_detected;
         if (successful_quench.m_time_s.has_value()) {
             successful_quench_time_s = *successful_quench.m_time_s;
         }
@@ -316,8 +317,7 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
                        injection.m_position_um.x(),
                        injection.m_position_um.y(),
                        injection.m_position_um.z());
-            fmt::print("    type: {}\n",
-                       injection.m_particle_type == particle_type::electron ? "electron" : "hole");
+            fmt::print("    type: {}\n", injection.m_particle_type == particle_type::electron ? "electron" : "hole");
             fmt::print("    weight: {:.6e}\n", injection.m_weight);
         }
     }
@@ -343,17 +343,14 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
     manifest.add("results", "successful_quench_detected", successful_quench_detected);
     if (successful_quench_detected) {
         manifest.add("results", "successful_quench_time_s", successful_quench_time_s);
-        manifest.add("results",
-                     "avalanche_to_successful_quench_s",
-                     successful_quench_time_s - avalanche_time_s);
+        manifest.add("results", "avalanche_to_successful_quench_s", successful_quench_time_s - avalanche_time_s);
     }
     manifest.add("outputs", "device_history_csv", fmt::format("{}/device_history.csv", output_dir));
     manifest.add("outputs", "trajectory_directory", trajectory_dir);
     manifest.add("outputs", "particle_trajectories_exported", device_options.m_keep_particles_history);
     manifest.add("outputs", "time_steps_exported", device_options.m_export_time_step);
 
-    const std::filesystem::path manifest_file =
-        std::filesystem::path(output_dir) / "simulation_manifest.txt";
+    const std::filesystem::path manifest_file = std::filesystem::path(output_dir) / "simulation_manifest.txt";
     manifest.add("outputs", "simulation_manifest", manifest_file.string());
     manifest.write(manifest_file);
     fmt::print("Wrote {}\n", manifest_file.string());

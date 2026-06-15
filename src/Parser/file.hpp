@@ -44,7 +44,9 @@ class file {
     uepm::mesh::mesh*  get_p_mesh() { return &m_Mesh; }
     uepm::mesh::mesh&& get_mesh() { return std::move(m_Mesh); }
 
-    void apply_mundfabisation(const std::string& mundfab_data_name, const double value_silicon, const std::string& silicon_region_name) {
+    void apply_mundfabisation(const std::string& mundfab_data_name,
+                              const double       value_silicon,
+                              const std::string& silicon_region_name) {
         m_Mesh.mundfabisation(mundfab_data_name, value_silicon, silicon_region_name);
     }
     virtual void read_mesh()                                                              = 0;

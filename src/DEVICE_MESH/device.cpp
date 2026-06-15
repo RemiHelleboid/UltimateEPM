@@ -1,15 +1,13 @@
 /**
  * @file device.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-05-18
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
-
-
 
 #include "device.hpp"
 
@@ -44,7 +42,8 @@ bool device::check_crossing_contact(const mesh::vector3 &point_A, const mesh::ve
 
 bool device::check_enters_contact(const mesh::vector3 &point) {
     // return std::any_of(m_list_contacts.begin(), m_list_contacts.end(),
-    //                    [&](const device_contact &device_contact) { return device_contact.point_in_contact_box(point); });
+    //                    [&](const device_contact &device_contact) { return device_contact.point_in_contact_box(point);
+    //                    });
     for (auto &device_contact : m_list_contacts) {
         if (device_contact.point_in_contact_box(point)) {
             device_contact.add_contact_current(1.0);

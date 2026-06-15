@@ -39,7 +39,7 @@ class bbox_mesh {
     double m_z_max{0.0};
 
  public:
-    bbox_mesh(){};
+    bbox_mesh() {};
     bbox_mesh(double x_min, double x_max, double y_min, double y_max, double z_min, double z_max)
         : m_x_min(x_min),
           m_x_max(x_max),
@@ -93,7 +93,7 @@ class bbox_mesh {
 
     bool is_inside(const vector3 &location) const {
         constexpr double relative_tolerance = 1e-12;
-        const double     tolerance = relative_tolerance * std::max(1.0, get_diagonal_size());
+        const double     tolerance          = relative_tolerance * std::max(1.0, get_diagonal_size());
         return (location.x() >= m_x_min - tolerance) && (location.x() <= m_x_max + tolerance) &&
                (location.y() >= m_y_min - tolerance) && (location.y() <= m_y_max + tolerance) &&
                (location.z() >= m_z_min - tolerance) && (location.z() <= m_z_max + tolerance);
@@ -127,12 +127,12 @@ class bbox_mesh {
         const double  hx     = 0.5 * factor * get_x_size();
         const double  hy     = 0.5 * factor * get_y_size();
         const double  hz     = 0.5 * factor * get_z_size();
-        m_x_min = center.x() - hx;
-        m_x_max = center.x() + hx;
-        m_y_min = center.y() - hy;
-        m_y_max = center.y() + hy;
-        m_z_min = center.z() - hz;
-        m_z_max = center.z() + hz;
+        m_x_min              = center.x() - hx;
+        m_x_max              = center.x() + hx;
+        m_y_min              = center.y() - hy;
+        m_y_max              = center.y() + hy;
+        m_z_min              = center.z() - hz;
+        m_z_max              = center.z() + hz;
     }
 
     void translate(const vector3 &translation) {

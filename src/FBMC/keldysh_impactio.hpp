@@ -4,8 +4,8 @@
  * @brief Impact ionization rates using Keldysh formula.
  * @version 0.1
  * @date 2026-02-17
- * 
- * 
+ *
+ *
  */
 
 #pragma once
@@ -19,19 +19,22 @@ namespace uepm::fbmc {
 /**
  * @brief Keldysh impact ionization model.
  * Filled with typical parameters for Si [Kamakura, 1994], but can be adapted for other materials.
- * 
+ *
  */
 struct KeldyshImpactIonization {
-    double m_P0 = 1.0e11;  // Pre-exponential factor (1/s)
-    double m_alpha = 4.6;  // Exponent
-    double m_E_threshold = 1.1;  // Threshold energy for impact ionization (eV)
+    double m_P0          = 1.0e11;  // Pre-exponential factor (1/s)
+    double m_alpha       = 4.6;     // Exponent
+    double m_E_threshold = 1.1;     // Threshold energy for impact ionization (eV)
 
     KeldyshImpactIonization() = default;
-    KeldyshImpactIonization(double P0, double alpha, double E_threshold) : m_P0(P0), m_alpha(alpha), m_E_threshold(E_threshold) {}
+    KeldyshImpactIonization(double P0, double alpha, double E_threshold)
+        : m_P0(P0),
+          m_alpha(alpha),
+          m_E_threshold(E_threshold) {}
 
     void load_from_yaml(const YAML::Node& node) {
-        m_P0 = node["P0"].as<double>();
-        m_alpha = node["alpha"].as<double>();
+        m_P0          = node["P0"].as<double>();
+        m_alpha       = node["alpha"].as<double>();
         m_E_threshold = node["energy_threshold"].as<double>();
     }
 

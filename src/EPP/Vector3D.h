@@ -4,7 +4,6 @@
 #include <iostream>
 #include <tuple>
 
-
 template <typename T>
 class Vector3D {
  public:
@@ -58,7 +57,9 @@ class Vector3D {
 
     double getTheta() const {
         double cosTheta = Z / Length();
-        if (std::isnan(cosTheta) || std::isinf(cosTheta) || cosTheta > 1. || cosTheta < -1) cosTheta = (cosTheta < 0 ? -1 : 1);
+        if (std::isnan(cosTheta) || std::isinf(cosTheta) || cosTheta > 1. || cosTheta < -1) {
+            cosTheta = (cosTheta < 0 ? -1 : 1);
+        }
 
         return std::acos(cosTheta);
     }

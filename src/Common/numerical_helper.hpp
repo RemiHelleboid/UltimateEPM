@@ -29,7 +29,7 @@ namespace uepm::numerical {
  * @param num_points Number of points to generate.
  * @return std::vector<T> Vector of linearly spaced points.
  */
-template < typename T>
+template <typename T>
 std::vector<T> linspace(T start, T end, std::size_t num_points) {
     std::vector<T> points;
     if (num_points == 0) {
@@ -48,10 +48,10 @@ std::vector<T> linspace(T start, T end, std::size_t num_points) {
 
 /**
  * @brief Compute the differences between consecutive elements in a vector.
- * 
- * @tparam T 
- * @param input 
- * @return std::vector<T> 
+ *
+ * @tparam T
+ * @param input
+ * @return std::vector<T>
  */
 template <typename T>
 std::vector<T> diff(const std::vector<T>& input) {

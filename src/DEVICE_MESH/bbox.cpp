@@ -54,14 +54,15 @@ std::vector<bbox> bbox::split_3d_box_in_octants() const {
 }
 
 bool bbox::is_overlapping(const bbox& second_box) const {
-    const bool noOverlap = this->m_x_min > second_box.m_x_max || second_box.m_x_min > this->m_x_max || this->m_y_min > second_box.m_y_max ||
-                           second_box.m_y_min > this->m_y_max || this->m_z_min > second_box.m_z_max || second_box.m_z_min > this->m_z_max;
+    const bool noOverlap = this->m_x_min > second_box.m_x_max || second_box.m_x_min > this->m_x_max ||
+                           this->m_y_min > second_box.m_y_max || second_box.m_y_min > this->m_y_max ||
+                           this->m_z_min > second_box.m_z_max || second_box.m_z_min > this->m_z_max;
     return !noOverlap;
 }
 
 bool bbox::is_overlapping_2d(const bbox& second_box) const {
-    const bool noOverlap = this->m_x_min > second_box.m_x_max || second_box.m_x_min > this->m_x_max || this->m_y_min > second_box.m_y_max ||
-                           second_box.m_y_min > this->m_y_max;
+    const bool noOverlap = this->m_x_min > second_box.m_x_max || second_box.m_x_min > this->m_x_max ||
+                           this->m_y_min > second_box.m_y_max || second_box.m_y_min > this->m_y_max;
     return !noOverlap;
 }
 
@@ -104,13 +105,14 @@ bool bbox::is_overlapping_tetra(const element& tetra) const {
 }
 
 bool bbox::is_overlapping_circle_2d(const vector3& center, double radius) const {
-    const double x_min          = m_x_min - radius;
-    const double x_max          = m_x_max + radius;
-    const double y_min          = m_y_min - radius;
-    const double y_max          = m_y_max + radius;
-    const double x_center       = center.x();
-    const double y_center       = center.y();
-    const bool   im_overlapping = (x_center - x_min) * (x_center - x_max) <= 0 && (y_center - y_min) * (y_center - y_max) <= 0;
+    const double x_min    = m_x_min - radius;
+    const double x_max    = m_x_max + radius;
+    const double y_min    = m_y_min - radius;
+    const double y_max    = m_y_max + radius;
+    const double x_center = center.x();
+    const double y_center = center.y();
+    const bool   im_overlapping =
+        (x_center - x_min) * (x_center - x_max) <= 0 && (y_center - y_min) * (y_center - y_max) <= 0;
     return im_overlapping;
 }
 
@@ -124,14 +126,15 @@ bool bbox::is_overlapping_sphere_3d(const vector3& center, double radius) const 
     const double x_center       = center.x();
     const double y_center       = center.y();
     const double z_center       = center.z();
-    const bool   im_overlapping = (x_center - x_min) * (x_center - x_max) <= 0 && (y_center - y_min) * (y_center - y_max) <= 0 &&
-                                  (z_center - z_min) * (z_center - z_max) <= 0;
+    const bool   im_overlapping = (x_center - x_min) * (x_center - x_max) <= 0 &&
+                                (y_center - y_min) * (y_center - y_max) <= 0 &&
+                                (z_center - z_min) * (z_center - z_max) <= 0;
     return im_overlapping;
 }
 
 std::ostream& operator<<(std::ostream& os, const bbox& my_box) {
-    os << my_box.get_x_min() << "," << my_box.get_x_max() << "," << my_box.get_y_min() << "," << my_box.get_y_max() << ","
-       << my_box.get_z_min() << "," << my_box.get_z_max();
+    os << my_box.get_x_min() << "," << my_box.get_x_max() << "," << my_box.get_y_min() << "," << my_box.get_y_max()
+       << "," << my_box.get_z_min() << "," << my_box.get_z_max();
     return os;
 }
 
@@ -231,33 +234,33 @@ box_line_intersect_result bbox::find_box_line_intersection(const vector3& line_s
     double t_z_max = (m_z_max - line_start.z()) / (line_end.z() - line_start.z());
 
     vector3 intersection_point_x_min = line_start + t_x_min * (line_end - line_start);
-    if (intersection_point_x_min.y() >= m_y_min && intersection_point_x_min.y() <= m_y_max && intersection_point_x_min.z() >= m_z_min &&
-        intersection_point_x_min.z() <= m_z_max) {
+    if (intersection_point_x_min.y() >= m_y_min && intersection_point_x_min.y() <= m_y_max &&
+        intersection_point_x_min.z() >= m_z_min && intersection_point_x_min.z() <= m_z_max) {
         return std::make_pair(intersection_point_x_min, box_face::x_min);
     }
     vector3 intersection_point_x_max = line_start + t_x_max * (line_end - line_start);
-    if (intersection_point_x_max.y() >= m_y_min && intersection_point_x_max.y() <= m_y_max && intersection_point_x_max.z() >= m_z_min &&
-        intersection_point_x_max.z() <= m_z_max) {
+    if (intersection_point_x_max.y() >= m_y_min && intersection_point_x_max.y() <= m_y_max &&
+        intersection_point_x_max.z() >= m_z_min && intersection_point_x_max.z() <= m_z_max) {
         return std::make_pair(intersection_point_x_max, box_face::x_max);
     }
     vector3 intersection_point_y_min = line_start + t_y_min * (line_end - line_start);
-    if (intersection_point_y_min.x() >= m_x_min && intersection_point_y_min.x() <= m_x_max && intersection_point_y_min.z() >= m_z_min &&
-        intersection_point_y_min.z() <= m_z_max) {
+    if (intersection_point_y_min.x() >= m_x_min && intersection_point_y_min.x() <= m_x_max &&
+        intersection_point_y_min.z() >= m_z_min && intersection_point_y_min.z() <= m_z_max) {
         return std::make_pair(intersection_point_y_min, box_face::y_min);
     }
     vector3 intersection_point_y_max = line_start + t_y_max * (line_end - line_start);
-    if (intersection_point_y_max.x() >= m_x_min && intersection_point_y_max.x() <= m_x_max && intersection_point_y_max.z() >= m_z_min &&
-        intersection_point_y_max.z() <= m_z_max) {
+    if (intersection_point_y_max.x() >= m_x_min && intersection_point_y_max.x() <= m_x_max &&
+        intersection_point_y_max.z() >= m_z_min && intersection_point_y_max.z() <= m_z_max) {
         return std::make_pair(intersection_point_y_max, box_face::y_max);
     }
     vector3 intersection_point_z_min = line_start + t_z_min * (line_end - line_start);
-    if (intersection_point_z_min.x() >= m_x_min && intersection_point_z_min.x() <= m_x_max && intersection_point_z_min.y() >= m_y_min &&
-        intersection_point_z_min.y() <= m_y_max) {
+    if (intersection_point_z_min.x() >= m_x_min && intersection_point_z_min.x() <= m_x_max &&
+        intersection_point_z_min.y() >= m_y_min && intersection_point_z_min.y() <= m_y_max) {
         return std::make_pair(intersection_point_z_min, box_face::z_min);
     }
     vector3 intersection_point_z_max = line_start + t_z_max * (line_end - line_start);
-    if (intersection_point_z_max.x() >= m_x_min && intersection_point_z_max.x() <= m_x_max && intersection_point_z_max.y() >= m_y_min &&
-        intersection_point_z_max.y() <= m_y_max) {
+    if (intersection_point_z_max.x() >= m_x_min && intersection_point_z_max.x() <= m_x_max &&
+        intersection_point_z_max.y() >= m_y_min && intersection_point_z_max.y() <= m_y_max) {
         return std::make_pair(intersection_point_z_max, box_face::z_max);
     }
     return std::nullopt;

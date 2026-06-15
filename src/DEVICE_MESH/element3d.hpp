@@ -55,7 +55,10 @@ class element3d : public element {
           m_signed_volume{(1.0 / 6.0) * scalar_triple_product(m_v0, m_v1, m_v2)} {}
     // Setters and Getters
     std::vector<std::size_t> get_vertices_index() const override {
-        return {m_vertices[0]->get_index(), m_vertices[1]->get_index(), m_vertices[2]->get_index(), m_vertices[3]->get_index()};
+        return {m_vertices[0]->get_index(),
+                m_vertices[1]->get_index(),
+                m_vertices[2]->get_index(),
+                m_vertices[3]->get_index()};
     }
     std::vector<std::array<std::size_t, 2>> get_edges_as_index_pair() const override;
     std::vector<element1d>                  get_list_edges() const;
@@ -76,8 +79,9 @@ class element3d : public element {
     double  integrate_scalar(const std::string &scalar_field_name) const override;
     vector3 integrate_vector(const std::string &vector_field_name) const override;
 
-    std::map<std::shared_ptr<element>, vector3> compute_element_line_intersection(const vector3 &point_A,
-                                                                                  const vector3 &point_B) const override;
+    std::map<std::shared_ptr<element>, vector3> compute_element_line_intersection(
+        const vector3 &point_A,
+        const vector3 &point_B) const override;
 
     vector3 draw_uniform_random_point_inside_element() const override;
     vector3 draw_uniform_random_point_inside_element(std::minstd_rand &random_generator) const override;

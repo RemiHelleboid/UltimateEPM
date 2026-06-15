@@ -43,7 +43,10 @@ class device {
     device(mesh::mesh *device_mesh, const std::string &filename) : m_mesh(device_mesh), m_metadata(filename) {}
 
     void add_contact(const std::string &contact_name, const mesh::bbox contact_box, double ohmic_resistance = 0.0);
-    void add_contact(const std::string &contact_name, mesh::vector3 corner1, mesh::vector3 corner2, double ohmic_resistance = 0.0);
+    void add_contact(const std::string &contact_name,
+                     mesh::vector3      corner1,
+                     mesh::vector3      corner2,
+                     double             ohmic_resistance = 0.0);
 
     /**
      * @brief Return true if the segment [point_A, point_B] is crossing one of the device contact.
@@ -68,10 +71,18 @@ class device {
     mesh::vector3 interpolate_vector_at_location(const std::string &fieldname, const mesh::vector3 &location) const {
         return m_mesh->interpolate_vector_at_location(fieldname, location);
     }
-    mesh::element *find_element_at_location(const mesh::vector3 &location) const { return m_mesh->find_element_at_location(location); }
-    const mesh::region_bulk *get_p_region_at_location(const mesh::vector3 &location) { return m_mesh->get_p_region_at_location(location); }
-    std::string get_material_name_at_location(const mesh::vector3 &location) { return m_mesh->get_material_name_at_location(location); }
-    std::string get_material_name_at_element(mesh::element *query_element) { return m_mesh->get_material_name_at_element(query_element); }
+    mesh::element *find_element_at_location(const mesh::vector3 &location) const {
+        return m_mesh->find_element_at_location(location);
+    }
+    const mesh::region_bulk *get_p_region_at_location(const mesh::vector3 &location) {
+        return m_mesh->get_p_region_at_location(location);
+    }
+    std::string get_material_name_at_location(const mesh::vector3 &location) {
+        return m_mesh->get_material_name_at_location(location);
+    }
+    std::string get_material_name_at_element(mesh::element *query_element) {
+        return m_mesh->get_material_name_at_element(query_element);
+    }
 
     double get_lattice_temperature() const { return m_lattice_temperature; }
     void   set_lattice_temperature(double new_temperature) { m_lattice_temperature = new_temperature; }

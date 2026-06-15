@@ -4,9 +4,9 @@
  * @brief  Common vector class header.
  * @version 0.1
  * @date 2026-05-18
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 
 #pragma once
@@ -40,7 +40,10 @@ class vector3 {
 
     explicit constexpr vector3(const std::array<double, 2> &array) noexcept : m_x(array[0]), m_y(array[1]), m_z(0.0) {}
 
-    explicit constexpr vector3(const std::array<double, 3> &array) noexcept : m_x(array[0]), m_y(array[1]), m_z(array[2]) {}
+    explicit constexpr vector3(const std::array<double, 3> &array) noexcept
+        : m_x(array[0]),
+          m_y(array[1]),
+          m_z(array[2]) {}
 
     explicit vector3(const std::vector<double> &values) {
         if (values.size() < 3) {
@@ -219,7 +222,9 @@ class vector3 {
         };
     }
 
-    friend double distance(const vector3 &lhs, const vector3 &rhs) noexcept { return point_pair_to_vector(lhs, rhs).norm(); }
+    friend double distance(const vector3 &lhs, const vector3 &rhs) noexcept {
+        return point_pair_to_vector(lhs, rhs).norm();
+    }
 
     friend constexpr vector3 cross_product(const vector3 &lhs, const vector3 &rhs) noexcept {
         return vector3{
@@ -245,7 +250,10 @@ class vector3 {
         return lhs.dot(rhs) / norm_product;
     }
 
-    friend bool is_point_between_two_others(const vector3 &a, const vector3 &b, const vector3 &point, double epsilon = 1.0e-9) noexcept {
+    friend bool is_point_between_two_others(const vector3 &a,
+                                            const vector3 &b,
+                                            const vector3 &point,
+                                            double         epsilon = 1.0e-9) noexcept {
         const double d_ab  = distance(a, b);
         const double d_sum = distance(a, point) + distance(point, b);
 

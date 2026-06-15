@@ -25,7 +25,9 @@ namespace uepm {
 namespace utils {
 
 template <typename Tvalue>
-void export_vector_to_csv(const std::string& filename, const std::string& header, const std::vector<Tvalue>& value_vector) {
+void export_vector_to_csv(const std::string&         filename,
+                          const std::string&         header,
+                          const std::vector<Tvalue>& value_vector) {
     std::ofstream csv_file(filename);
     fmt::print(csv_file, "{}\n", header);
     fmt::print(csv_file, "{:.6e}\n", fmt::join(value_vector, "\n"));
@@ -43,7 +45,9 @@ inline void export_multiple_vector_to_csv(const std::string&                    
     const std::size_t reference_vector_size = value_vector_of_vector[0].size();
     for (const auto& vector : value_vector_of_vector) {
         if (vector.size() != reference_vector_size) {
-            fmt::print("Error: Mismatch between vector sizes in '{}'. Reference size: {}, Found: {}\n", filename, reference_vector_size,
+            fmt::print("Error: Mismatch between vector sizes in '{}'. Reference size: {}, Found: {}\n",
+                       filename,
+                       reference_vector_size,
                        vector.size());
             return;
         }
@@ -59,7 +63,7 @@ inline void export_multiple_vector_to_csv(const std::string&                    
     fmt::print(csv_file, "{}\n", fmt::join(header_columns, ","));
 
     // Transpose the value_vector_of_vector for easier formatting
-    std::vector<std::vector<double>> transposed_values; 
+    std::vector<std::vector<double>> transposed_values;
     for (std::size_t i = 0; i < reference_vector_size; ++i) {
         transposed_values.emplace_back(value_vector_of_vector.size());
         for (std::size_t j = 0; j < value_vector_of_vector.size(); ++j) {

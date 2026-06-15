@@ -3,7 +3,7 @@
 #include <atomic>
 #include <vector>
 
-#include "Material.h"
+#include "epm_material.hpp"
 #include "SymmetryPoints.h"
 #include "Vector3D.h"
 
@@ -25,7 +25,7 @@ class BandStructure {
      * @param enable_non_local_correction
      * @param enable_soc
      */
-    void Initialize(const Material&                 material,
+    void Initialize(const epm_material&                 material,
                     std::size_t                     nb_bands,
                     const std::vector<std::string>& path,
                     unsigned int                    nrPoints,
@@ -44,7 +44,7 @@ class BandStructure {
      * @param enable_non_local_correction
      * @param enable_soc
      */
-    void Initialize(const Material&                      material,
+    void Initialize(const epm_material&                      material,
                     std::size_t                          nb_bands,
                     const std::vector<Vector3D<double>>& list_k_points,
                     unsigned int                         nearestNeighborsNumber,
@@ -66,7 +66,9 @@ class BandStructure {
 
     unsigned int        get_number_of_bands() const { return m_nb_bands; }
     std::vector<double> get_band(unsigned int band_index) const;
-    double get_energy_at_k_band(unsigned int band_index, unsigned int index_k) const { return m_energies[index_k][band_index]; }
+    double              get_energy_at_k_band(unsigned int band_index, unsigned int index_k) const {
+        return m_energies[index_k][band_index];
+    }
 
     const std::vector<Vector3D<int>>&                 get_basis_vectors() const { return basisVectors; }
     const std::vector<Vector3D<double>>&              get_kpoints() const { return m_kpoints; }
@@ -86,7 +88,7 @@ class BandStructure {
     std::vector<std::string>  m_path;
     unsigned int              m_nb_points;
 
-    Material     m_material;
+    epm_material     m_material;
     unsigned int m_nb_bands;
     unsigned int m_nearestNeighborsNumber;
     bool         m_enable_non_local_correction;
@@ -99,7 +101,9 @@ class BandStructure {
 
     double m_computation_time_s;
 
-    static bool FindBandGap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction);
+    static bool FindBandGap(const std::vector<std::vector<double>>& results,
+                            double&                                 maxValValence,
+                            double&                                 minValConduction);
     bool        GenerateBasisVectors(unsigned int nearestNeighborsNumber);
 
     void export_path_band_in_file(const std::string& filename) const;

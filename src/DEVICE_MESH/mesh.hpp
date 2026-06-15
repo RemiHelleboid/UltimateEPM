@@ -96,19 +96,19 @@ class mesh {
     std::array<double, 9> get_tranformation_matrix() const { return (m_transformation_matrix); }
     std::array<double, 3> get_translation_vector() const { return (m_translation_vector); }
     void                  set_dimension(unsigned int dim) { m_dimension = dim; }
-    void                  set_transformation_matrix(std::array<double, 9> transform_mat) { m_transformation_matrix = transform_mat; }
-    void                  set_translation_vector(std::array<double, 3> translat_vector) { m_translation_vector = translat_vector; }
-    bbox                  get_bounding_box() const;
-    void                  build_search_tree();
-    void                  reset_search_tree() { m_p_search_tree = nullptr; }
-    bbox                  compute_bounding_box() const;
+    void set_transformation_matrix(std::array<double, 9> transform_mat) { m_transformation_matrix = transform_mat; }
+    void set_translation_vector(std::array<double, 3> translat_vector) { m_translation_vector = translat_vector; }
+    bbox get_bounding_box() const;
+    void build_search_tree();
+    void reset_search_tree() { m_p_search_tree = nullptr; }
+    bbox compute_bounding_box() const;
 
     mesh &&move() { return std::move(*this); }
 
     //   Vertices
     [[deprecated("Slow")]] vertex *get_p_vertex_safe(std::size_t index);
     unsigned int                   get_nb_vertices() const { return m_ListVertices.size(); }
-    vertex                    *get_p_vertex(std::size_t index) { return index < m_ListVertices.size() ? &m_ListVertices[index] : nullptr; }
+    vertex *get_p_vertex(std::size_t index) { return index < m_ListVertices.size() ? &m_ListVertices[index] : nullptr; }
     const std::vector<vertex> &get_list_vertices() const { return m_ListVertices; }
     void                       add_vertex(double x, double y);
     void                       add_vertex(double x, double y, double z);
@@ -120,24 +120,27 @@ class mesh {
     void                       update_charge_density_from_vertex_values();
 
     //   Regions
-    unsigned int get_nb_regions() const { return (m_ListRegionsBulk.size() + m_ListRegionsContact.size() + m_ListRegionsInterface.size()); }
-    region      *get_p_region(std::size_t index);
+    unsigned int get_nb_regions() const {
+        return (m_ListRegionsBulk.size() + m_ListRegionsContact.size() + m_ListRegionsInterface.size());
+    }
+    region            *get_p_region(std::size_t index);
     const region      *get_p_region(const std::string &region_name) const;
     region            *get_p_region(const std::string &region_name);
     const region_bulk *get_p_region_bulk(std::size_t index) const;
     region_interface  *get_p_interface_region_from_bulk_indices(std::size_t index_bulk_1, std::size_t index_bulk_2);
     const region      &get_region_of_index(std::size_t search_index) const;
     void               compute_interface_region_betwwen_two_bulks(std::size_t index_bulk_1, std::size_t index_bulk_2);
-    void               compute_interface_region_betwwen_two_bulks(std::size_t                     index_bulk_1,
-                                                                  std::size_t                     index_bulk_2,
-                                                                  const std::vector<std::size_t> &list_index_element_region_2_to_check);
+    void               compute_interface_region_betwwen_two_bulks(
+                      std::size_t                     index_bulk_1,
+                      std::size_t                     index_bulk_2,
+                      const std::vector<std::size_t> &list_index_element_region_2_to_check);
 
     std::vector<int>                 get_vertices_belonging_to_other_regions(unsigned int idx_region);
     std::vector<region const *>      get_all_p_region() const;
     std::vector<region_bulk const *> get_all_p_bulk_region() const;
-    void                             add_bulk_region(const region_bulk &new_region) { m_ListRegionsBulk.push_back(std::move(new_region)); }
-    void                             add_contact_region(const region_contact &new_region) { m_ListRegionsContact.push_back(new_region); }
-    std::vector<std::size_t>         get_idx_bulk_elements_adjacent_to_contact_region(const std::string &region_name) const;
+    void add_bulk_region(const region_bulk &new_region) { m_ListRegionsBulk.push_back(std::move(new_region)); }
+    void add_contact_region(const region_contact &new_region) { m_ListRegionsContact.push_back(new_region); }
+    std::vector<std::size_t> get_idx_bulk_elements_adjacent_to_contact_region(const std::string &region_name) const;
     void add_interface_region(const region_interface &new_region) { m_ListRegionsInterface.push_back(new_region); }
     void set_nb_regions(unsigned int nb_region) { m_nb_regions = nb_region; }
     void remove_region(std::size_t index_region);
@@ -149,8 +152,10 @@ class mesh {
     std::vector<sp_element> get_list_bulk_element() const;
     std::vector<element *>  get_list_p_bulk_element() const;
     void                    transfer_element_to_other_region(sp_element p_element, region *new_region);
-    static void             transfer_element_to_other_region(sp_element p_element, region *origin_region, region *new_region);
-    static void transfer_elements_to_other_region(std::vector<std::size_t> list_element_indexes, region *origin_region, region *new_region);
+    static void transfer_element_to_other_region(sp_element p_element, region *origin_region, region *new_region);
+    static void transfer_elements_to_other_region(std::vector<std::size_t> list_element_indexes,
+                                                  region                  *origin_region,
+                                                  region                  *new_region);
 
     void compare_bulks_region_with_bounding_box() const;
 
@@ -159,37 +164,40 @@ class mesh {
     std::vector<sp_vector_dataset> get_list_vector_datasets() const;
     dataset<double>               *get_p_scalar_dataset(const std::string &name, unsigned int region_index) const;
     dataset<double>               *get_p_vector_dataset(const std::string &name, unsigned int region_index) const;
-    double                         get_scalar_data_at_vertex(std::size_t idx_vertex, const std::string &dataset_name) const;
-    double                         get_scalar_data_at_element(std::size_t idx_element, const std::string &dataset_name) const;
-    vector3                        get_vector_data_at_vertex(std::size_t idx_vertex, const std::string &dataset_name) const;
-    std::vector<double>            get_all_scalar_dataset_values(const std::string &dataset_name) const;
-    std::vector<vector3>           get_all_vector_dataset_values(const std::string &dataset_name) const;
-    std::size_t                    get_number_scalar_datasets() const { return get_list_scalar_datasets().size(); }
-    std::size_t                    get_number_vector_datasets() const { return get_list_vector_datasets().size(); }
-    std::size_t                    get_total_number_dataset() const { return get_number_scalar_datasets() + get_number_vector_datasets(); };
-    void                           create_scalar_datasets_from_idx_vertex_and_values(const std::string              &dataset_name,
-                                                                                     DataLocationType                data_location_type,
-                                                                                     const std::vector<std::size_t> &index_vertices,
-                                                                                     const std::vector<double>      &data_values);
-    void                           create_vector_datasets_from_idx_vertex_and_values(const std::string              &dataset_name,
-                                                                                     DataLocationType                data_location_type,
-                                                                                     const std::vector<std::size_t> &index_vertices,
-                                                                                     const std::vector<vector3>     &data_values);
-    void                           create_scalar_datasets_from_idx_cells_and_values(const std::string              &dataset_name,
-                                                                                    DataLocationType                data_location_type,
-                                                                                    const std::vector<std::size_t> &index_cells,
-                                                                                    const std::vector<double>      &data_values);
-    void                           add_scalar_dataset(sp_scalar_dataset new_dataset);
-    void                           add_vector_dataset(sp_vector_dataset new_dataset);
-    void                           add_scalar_data_to_vertices(const dataset<double> &dtset);
-    void                           add_scalar_data_to_elements(const dataset<double> &dtset);
-    void                           add_vector_data_to_vertices(const dataset<vector3> &dtset);
-    void                           add_vector_data_to_elements(const dataset<vector3> &dtset);
-    void                           add_scalar_data_to_all_vertices();
-    void                           add_vector_data_to_all_vertices();
-    void                           add_doping_concentration_to_vertices(const std::string &doping_fieldname);
-    void                           add_electric_field_to_vertices(const std::string &electric_field_fieldname, double factor = 1.0);
-    void add_diffusion_gradient_to_vertices(const std::string &e_gradient_fieldname, const std::string &h_gradient_fieldname);
+    double               get_scalar_data_at_vertex(std::size_t idx_vertex, const std::string &dataset_name) const;
+    double               get_scalar_data_at_element(std::size_t idx_element, const std::string &dataset_name) const;
+    vector3              get_vector_data_at_vertex(std::size_t idx_vertex, const std::string &dataset_name) const;
+    std::vector<double>  get_all_scalar_dataset_values(const std::string &dataset_name) const;
+    std::vector<vector3> get_all_vector_dataset_values(const std::string &dataset_name) const;
+    std::size_t          get_number_scalar_datasets() const { return get_list_scalar_datasets().size(); }
+    std::size_t          get_number_vector_datasets() const { return get_list_vector_datasets().size(); }
+    std::size_t          get_total_number_dataset() const {
+        return get_number_scalar_datasets() + get_number_vector_datasets();
+    };
+    void create_scalar_datasets_from_idx_vertex_and_values(const std::string              &dataset_name,
+                                                           DataLocationType                data_location_type,
+                                                           const std::vector<std::size_t> &index_vertices,
+                                                           const std::vector<double>      &data_values);
+    void create_vector_datasets_from_idx_vertex_and_values(const std::string              &dataset_name,
+                                                           DataLocationType                data_location_type,
+                                                           const std::vector<std::size_t> &index_vertices,
+                                                           const std::vector<vector3>     &data_values);
+    void create_scalar_datasets_from_idx_cells_and_values(const std::string              &dataset_name,
+                                                          DataLocationType                data_location_type,
+                                                          const std::vector<std::size_t> &index_cells,
+                                                          const std::vector<double>      &data_values);
+    void add_scalar_dataset(sp_scalar_dataset new_dataset);
+    void add_vector_dataset(sp_vector_dataset new_dataset);
+    void add_scalar_data_to_vertices(const dataset<double> &dtset);
+    void add_scalar_data_to_elements(const dataset<double> &dtset);
+    void add_vector_data_to_vertices(const dataset<vector3> &dtset);
+    void add_vector_data_to_elements(const dataset<vector3> &dtset);
+    void add_scalar_data_to_all_vertices();
+    void add_vector_data_to_all_vertices();
+    void add_doping_concentration_to_vertices(const std::string &doping_fieldname);
+    void add_electric_field_to_vertices(const std::string &electric_field_fieldname, double factor = 1.0);
+    void add_diffusion_gradient_to_vertices(const std::string &e_gradient_fieldname,
+                                            const std::string &h_gradient_fieldname);
     void add_space_charge_to_vertices(const std::string &space_charge_fieldname);
     void add_charge_density_to_vertices(const std::string &electron_charge_density_fieldname,
                                         const std::string &hole_charge_density_fieldname);
@@ -247,9 +255,10 @@ class mesh {
                                                               double                      gaussian_factor = 1.0);
     void create_density_function_from_list_positions_element_method(const std::string          &new_fieldname,
                                                                     const std::vector<vector3> &list_positions,
-                                                                    double                      conversion_factor = 1.0);
+                                                                    double conversion_factor = 1.0);
 
-    void addition_scalar_function_to_function(const std::string &name_function_to_add, const std::string &name_function_to_add_to);
+    void addition_scalar_function_to_function(const std::string &name_function_to_add,
+                                              const std::string &name_function_to_add_to);
 
     void multiplication_scalar_function_to_function(const std::string &name_new_function,
                                                     const std::string &name_function_1,
@@ -273,14 +282,14 @@ class mesh {
     void create_space_charge_function_from_vtx_values(const std::string &new_fieldname);
 
     // Interpolation
-    element                   *find_element_at_location(const vector3 &location) const;
-    double                     interpolate_scalar_at_location(const std::string &fieldname, const vector3 &location) const;
-    vector3                    interpolate_vector_at_location(const std::string &fieldname, const vector3 &location) const;
-    vector3                    interpolate_gradient_at_location(const std::string &fieldname, const vector3 &location) const;
-    const region_bulk         *get_p_region_at_location(const vector3 &location);
-    std::string                get_region_name_at_location(const vector3 &location);
-    std::string                get_material_name_at_location(const vector3 &location);
-    std::string                get_material_name_at_element(element *element_location) const;
+    element           *find_element_at_location(const vector3 &location) const;
+    double             interpolate_scalar_at_location(const std::string &fieldname, const vector3 &location) const;
+    vector3            interpolate_vector_at_location(const std::string &fieldname, const vector3 &location) const;
+    vector3            interpolate_gradient_at_location(const std::string &fieldname, const vector3 &location) const;
+    const region_bulk *get_p_region_at_location(const vector3 &location);
+    std::string        get_region_name_at_location(const vector3 &location);
+    std::string        get_material_name_at_location(const vector3 &location);
+    std::string        get_material_name_at_element(element *element_location) const;
     std::pair<vector3, double> get_argmax_max_of_function(const std::string &fieldname) const;
     std::pair<vector3, double> get_argmin_min_of_function(const std::string &fieldname) const;
     void                       create_debye_length_function(const std::string &new_fieldname,
@@ -291,16 +300,21 @@ class mesh {
     std::vector<element *> find_elements_overlapping_box(const bbox &my_box) const;
 
     // Intersection
-    std::optional<vector3> find_location_line_boundaries_intersection(const vector3 &point_A, const vector3 &point_B) const;
-    std::optional<vector3> find_location_line_region_interface_intersection(const vector3 &point_A, const vector3 &point_B) const;
+    std::optional<vector3> find_location_line_boundaries_intersection(const vector3 &point_A,
+                                                                      const vector3 &point_B) const;
+    std::optional<vector3> find_location_line_region_interface_intersection(const vector3 &point_A,
+                                                                            const vector3 &point_B) const;
 
-    std::optional<std::pair<sp_element, vector3>> find_element_face_line_boundaries_intersection(const vector3 &point_A,
-                                                                                                 const vector3 &point_B) const;
+    std::optional<std::pair<sp_element, vector3>> find_element_face_line_boundaries_intersection(
+        const vector3 &point_A,
+        const vector3 &point_B) const;
 
-    std::optional<std::pair<sp_element, vector3>> find_element_face_line_region_interface_intersection(const vector3 &point_A,
-                                                                                                       const vector3 &point_B) const;
+    std::optional<std::pair<sp_element, vector3>> find_element_face_line_region_interface_intersection(
+        const vector3 &point_A,
+        const vector3 &point_B) const;
 
-    std::optional<std::pair<sp_element, vector3>> find_line_first_intersection(const vector3 &point_A, const vector3 &point_B) const;
+    std::optional<std::pair<sp_element, vector3>> find_line_first_intersection(const vector3 &point_A,
+                                                                               const vector3 &point_B) const;
 
     // Integration
     double integrate_over_mesh(const std::string &fieldname) const;
@@ -334,7 +348,9 @@ class mesh {
     }
 
     // Other
-    void mundfabisation(const std::string &mundfab_data_name, const double value_silicon, const std::string &silicon_region_name);
+    void mundfabisation(const std::string &mundfab_data_name,
+                        const double       value_silicon,
+                        const std::string &silicon_region_name);
 };
 
 }  // namespace mesh

@@ -292,6 +292,7 @@ include_directories("${rapidcsv_SOURCE_DIR}")
 
 # ---------------------------- Subprojects ----------------------------
 add_subdirectory(src/Common)
+add_subdirectory(src/Physics)
 add_subdirectory(src/EPP)
 add_subdirectory(src/Parser)
 add_subdirectory(src/BZ_MESH)
@@ -299,7 +300,6 @@ add_subdirectory(src/FBMC)
 add_subdirectory(src/AMC)
 add_subdirectory(src/DEVICE_MESH)
 add_subdirectory(src/Poisson)
-add_subdirectory(src/Physics)
 add_subdirectory(apps)
 
 # ---------------------------- Tests ----------------------------

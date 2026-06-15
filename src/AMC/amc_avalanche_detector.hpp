@@ -36,13 +36,13 @@ class voltage_drop_avalanche_detector {
             throw std::invalid_argument("Avalanche voltage drop must be finite.");
         }
         if (std::abs(voltage_drop_V) >= m_threshold_V) {
-            m_state.m_detected         = true;
-            m_state.m_time_s           = time_s;
-            m_state.m_voltage_drop_V   = voltage_drop_V;
+            m_state.m_detected       = true;
+            m_state.m_time_s         = time_s;
+            m_state.m_voltage_drop_V = voltage_drop_V;
         }
     }
 
-    [[nodiscard]] double threshold_V() const { return m_threshold_V; }
+    [[nodiscard]] double                           threshold_V() const { return m_threshold_V; }
     [[nodiscard]] const avalanche_detection_state& state() const { return m_state; }
 
  private:

@@ -96,7 +96,7 @@ class ElectronPhonon : public BZ_States {
     const double m_fit_acoustic = 1.0;
 
  public:
-    explicit ElectronPhonon(const uepm::pseudopotential::Material& material) : BZ_States(material) {}
+    explicit ElectronPhonon(const uepm::pseudopotential::epm_material& material) : BZ_States(material) {}
 
     void   load_phonon_parameters(const std::string& filename);
     void   plot_phonon_dispersion(const std::string& filename) const;
@@ -136,16 +136,24 @@ class ElectronPhonon : public BZ_States {
                                                           std::mt19937&  rng) const;
 
     void export_rate_values(const std::string& filename) const;
-    void compute_plot_electron_phonon_rates_vs_energy_over_mesh(double max_energy, double energy_step, const std::string& filename);
+    void compute_plot_electron_phonon_rates_vs_energy_over_mesh(double             max_energy,
+                                                                double             energy_step,
+                                                                const std::string& filename);
 
-    void          read_phonon_scattering_rates_from_file(const std::filesystem::path& path);
-    Rate8         interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const;
+    void  read_phonon_scattering_rates_from_file(const std::filesystem::path& path);
+    Rate8 interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const;
     inline double sum_modes(const Rate8& r) const noexcept;
     double        compute_P_Gamma() const;
 
-    Eigen::Matrix3d compute_electron_MRTA_mobility_tensor(double fermi_level_eV, double temperature_K, bool conduction_only = true);
-    double          compute_electron_MRTA_mobility_isotropic(double fermi_level_eV, double temperature_K, bool conduction_only = true);
-    double          mean_electron_energy_equilibrium(double fermi_level_eV, double temperature_K, bool excess_above_cbm = false) const;
+    Eigen::Matrix3d compute_electron_MRTA_mobility_tensor(double fermi_level_eV,
+                                                          double temperature_K,
+                                                          bool   conduction_only = true);
+    double          compute_electron_MRTA_mobility_isotropic(double fermi_level_eV,
+                                                             double temperature_K,
+                                                             bool   conduction_only = true);
+    double          mean_electron_energy_equilibrium(double fermi_level_eV,
+                                                     double temperature_K,
+                                                     bool   excess_above_cbm = false) const;
     void            test_elph() const;
 };
 

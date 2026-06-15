@@ -16,10 +16,11 @@
 #include <fmt/ostream.h>
 #include <fmt/ranges.h>
 #include <fmt/xchar.h>
+#include <omp.h>
 
 #include <algorithm>
-#include <cmath>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -29,8 +30,6 @@
 #include <random>
 #include <string>
 #include <vector>
-
-#include <omp.h>
 
 #include "physical_constants.hpp"
 #include "unit_conversion.hpp"
@@ -181,7 +180,7 @@ void options_device_amc::validate() const {
         throw std::invalid_argument("--nthreads must be positive.");
     }
     if (m_enable_scheduled_particle_injection) {
-        const auto& injection = m_scheduled_particle_injection;
+        const auto &injection = m_scheduled_particle_injection;
         if (injection.m_time_s < 0.0) {
             throw std::invalid_argument("--inject-time must be non-negative.");
         }
@@ -269,10 +268,8 @@ void device_amc_simulation::initialize_thread_transports(int seed_random_generat
 
     for (std::size_t thread_index = 0; thread_index < number_threads; ++thread_index) {
         const auto offset = static_cast<std::uint64_t>(7919 * thread_index);
-        m_thread_electron_transports[thread_index].seed(
-            static_cast<std::uint64_t>(seed_random_generator) + offset);
-        m_thread_hole_transports[thread_index].seed(
-            static_cast<std::uint64_t>(seed_random_generator) + offset + 1);
+        m_thread_electron_transports[thread_index].seed(static_cast<std::uint64_t>(seed_random_generator) + offset);
+        m_thread_hole_transports[thread_index].seed(static_cast<std::uint64_t>(seed_random_generator) + offset + 1);
     }
 }
 
@@ -372,8 +369,12 @@ device_amc_simulation::device_amc_simulation(const device::device     &simulatio
                                              const options_device_amc &simulation_option,
                                              int                       seed_random_generator)
     : m_device(simulation_device),
-      m_electron_transport(make_transport_config(simulation_option, particle_type::electron), seed_random_generator),
-      m_hole_transport(make_transport_config(simulation_option, particle_type::hole), seed_random_generator + 1),
+      m_electron_transport(make_transport_config(simulation_option, particle_type::electron),
+                           simulation_option.m_material_model,
+                           seed_random_generator),
+      m_hole_transport(make_transport_config(simulation_option, particle_type::hole),
+                       simulation_option.m_material_model,
+                       seed_random_generator + 1),
       m_dimension(m_device.get_dimension()),
       m_simulation_options(simulation_option) {
     m_simulation_history.m_initial_seed_rng = seed_random_generator;
@@ -390,8 +391,12 @@ device_amc_simulation::device_amc_simulation(const device::device     &device_si
                                              std::size_t               number_holes_start,
                                              int                       seed_random_generator)
     : m_device(device_simulation),
-      m_electron_transport(make_transport_config(simulation_option, particle_type::electron), seed_random_generator),
-      m_hole_transport(make_transport_config(simulation_option, particle_type::hole), seed_random_generator + 1),
+      m_electron_transport(make_transport_config(simulation_option, particle_type::electron),
+                           simulation_option.m_material_model,
+                           seed_random_generator),
+      m_hole_transport(make_transport_config(simulation_option, particle_type::hole),
+                       simulation_option.m_material_model,
+                       seed_random_generator + 1),
       m_dimension(m_device.get_dimension()),
       m_simulation_options(simulation_option) {
     m_electron_transport.initialize();
@@ -537,7 +542,7 @@ double device_amc_simulation::compute_ramo_current_for_particle(const particle_a
     }
     const auto weighting_field_m    = get_RamoUnitaryElectricField_at_position(position);
     double     current_contribution = scale_factor * particle.weight() * particle.get_signed_charge() *
-                                      particle.state().velocity.dot(weighting_field_m);
+                                  particle.state().velocity.dot(weighting_field_m);
     return current_contribution;
 }
 
@@ -573,11 +578,11 @@ void device_amc_simulation::transport_particles_one_time_step() {
     inject_scheduled_particle_if_due();
     const double                             dt = m_simulation_options.m_time_step;
     std::vector<impact_ionization_pair_seed> impact_pair_seeds;
-    const auto number_particles = static_cast<std::int64_t>(m_list_particles.size());
+    const auto                               number_particles = static_cast<std::int64_t>(m_list_particles.size());
 
 #pragma omp parallel for if (m_simulation_options.m_nb_threads > 1) num_threads(m_simulation_options.m_nb_threads)
     for (std::int64_t particle_index = 0; particle_index < number_particles; ++particle_index) {
-        auto &particle = *m_list_particles[static_cast<std::size_t>(particle_index)];
+        auto &particle                     = *m_list_particles[static_cast<std::size_t>(particle_index)];
         particle.state().previous_position = particle.state().position;
         particle.set_data_from_device(m_dimension);
         const auto thread_index = static_cast<std::size_t>(omp_get_thread_num());
@@ -727,7 +732,7 @@ void device_amc_simulation::run() {
         const auto nb_impact_ionization = m_simulation_history.m_impact_ionization_positions.size();
 
         double dumb_ramo_current_e_h_total = 0.0;
-        double dumb_0 = 0.0;
+        double dumb_0                      = 0.0;
         m_simulation_history.add_data_to_history(m_state.m_time_s,
                                                  nb_electrons,
                                                  nb_holes,
@@ -791,7 +796,7 @@ std::pair<double, double> device_amc_simulation::compute_depletion_region() cons
     return {x_min, x_max};
 }
 
-std::string device_amc_simulation::initialize_simulation_history_file()  {
+std::string device_amc_simulation::initialize_simulation_history_file() {
     std::string simulation_name_for_file =
         m_simulation_options.m_simulation_name.empty() ? "simulation" : m_simulation_options.m_simulation_name;
     const std::string history_filename =

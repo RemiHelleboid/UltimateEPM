@@ -15,7 +15,7 @@
 
 namespace uepm::pseudopotential {
 
-Hamiltonian::Hamiltonian(const Material& material, const std::vector<Vector3D<int>>& basisVectors)
+Hamiltonian::Hamiltonian(const epm_material& material, const std::vector<Vector3D<int>>& basisVectors)
     : m_material(material),
       m_basisVectors(basisVectors) {
     const unsigned int basisSize   = static_cast<unsigned int>(basisVectors.size());
@@ -39,10 +39,10 @@ void Hamiltonian::SetConstantNonDiagonalMatrix() {
 
     for (Eigen::Index i = 0; i < basisSize; ++i) {
         for (Eigen::Index j = 0; j < basisSize; ++j) {
-            m_constant_non_diagonal_matrix(i, j) =
-                pseudopotential.GetValue(m_basisVectors[static_cast<std::size_t>(i)] - m_basisVectors[static_cast<std::size_t>(j)],
-                                         tau,
-                                         latticeConstant);
+            m_constant_non_diagonal_matrix(i, j) = pseudopotential.GetValue(
+                m_basisVectors[static_cast<std::size_t>(i)] - m_basisVectors[static_cast<std::size_t>(j)],
+                tau,
+                latticeConstant);
         }
     }
 }
@@ -64,12 +64,13 @@ void Hamiltonian::SetMatrix(const Vector3D<double>& k, bool add_non_local_correc
         k_plus_G[static_cast<std::size_t>(i)] = k + m_basisVectors[static_cast<std::size_t>(i)];
     }
 
-    // Diagonal kinetic energy 
-    const double diag_factor = (uepm::constants::h_bar * uepm::constants::h_bar) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
+    // Diagonal kinetic energy
+    const double diag_factor =
+        (uepm::constants::h_bar * uepm::constants::h_bar) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
 
     for (Eigen::Index i = 0; i < basisSize; ++i) {
         const Vector3D<double>& real_k_vector = k_plus_G[static_cast<std::size_t>(i)];
-        const double            KG2           = two_pi_over_a * two_pi_over_a * diag_factor * (real_k_vector * real_k_vector);
+        const double            KG2 = two_pi_over_a * two_pi_over_a * diag_factor * (real_k_vector * real_k_vector);
         matrix(i, i) += std::complex<double>(KG2, 0.0);
     }
 
@@ -135,21 +136,24 @@ void Hamiltonian::Diagonalize(bool keep_eigenvectors) {
 
 /**
  * @brief Compute the gradient of the Hamiltonian at a specific k-point and energy level using Hellmann-Feynman theorem.
- * 
+ *
  * WARING : IT ONLY TAKES INTO ACCOUNT THE LOCAL PART OF THE EPM, IF NL OR SOC ARE ENABLED, THE RESULT IS "WRONG".
- * WARNINAG : IT IS VERY IMPORTANT TO DISENTEGLE THE BANDS BEFORE CALLING THIS FUNCTION, OTHERWISE THE RESULT WILL BE LOCCALLY WRONG .
- * 
- * @param k_point 
- * @param level_index 
- * @return Vector3D<double> 
+ * WARNINAG : IT IS VERY IMPORTANT TO DISENTEGLE THE BANDS BEFORE CALLING THIS FUNCTION, OTHERWISE THE RESULT WILL BE
+ * LOCCALLY WRONG .
+ *
+ * @param k_point
+ * @param level_index
+ * @return Vector3D<double>
  */
-Vector3D<double> Hamiltonian::compute_gradient_at_level(const Vector3D<double>& k_point, unsigned int level_index) const {
+Vector3D<double> Hamiltonian::compute_gradient_at_level(const Vector3D<double>& k_point,
+                                                        unsigned int            level_index) const {
     // Uses Hellmann–Feynman on the kinetic term; local V is k-independent.
     using std::size_t;
 
     const Eigen::Index Nbasis = static_cast<Eigen::Index>(m_basisVectors.size());
     if (solver.eigenvectors().size() == 0) {
-        throw std::runtime_error("compute_gradient_at_level: eigenvectors not available. Call Diagonalize(true) first.");
+        throw std::runtime_error(
+            "compute_gradient_at_level: eigenvectors not available. Call Diagonalize(true) first.");
     }
     if (level_index >= static_cast<unsigned int>(solver.eigenvectors().cols())) {
         throw std::out_of_range("compute_gradient_at_level: level_index out of range");
@@ -158,7 +162,8 @@ Vector3D<double> Hamiltonian::compute_gradient_at_level(const Vector3D<double>& 
     const double two_pi_over_a = 2.0 * M_PI / m_material.get_lattice_constant_meter();
 
     // ħ²/(2 m_e q_e) converts J to eV
-    constexpr double diag_factor = (uepm::constants::h_bar * uepm::constants::h_bar) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
+    constexpr double diag_factor =
+        (uepm::constants::h_bar * uepm::constants::h_bar) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
 
     // For fractional-k derivative (dimensionless): pref_frac = 2 * diag_factor * (2π/a)^2
     const double pref_frac = 2.0 * diag_factor * (two_pi_over_a * two_pi_over_a);

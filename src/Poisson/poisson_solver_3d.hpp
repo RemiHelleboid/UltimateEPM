@@ -24,12 +24,12 @@ class poisson_solver_3d : public FiniteElementP1System3d {
  private:
     std::vector<std::shared_ptr<mesh::element>> m_list_bulk_elements;
     std::vector<double>                         m_pre_computed_second_member;
-    physic::material::list_materials            m_list_materials;
+    physics::material_database                  m_material_database;
 
  public:
-    poisson_solver_3d(mesh::mesh* p_mesh, std::size_t system_size, const physic::material::list_materials& mat_list)
+    poisson_solver_3d(mesh::mesh* p_mesh, std::size_t system_size, const physics::material_database& material_database)
         : FiniteElementP1System3d(p_mesh, system_size),
-          m_list_materials{mat_list} {}
+          m_material_database{material_database} {}
     void            compute_stiffness_matrix() override;
     Eigen::Vector4d compute_charge_density_elementary_second_member(const std::shared_ptr<mesh::element>& sp_tetra);
     void            update_second_member();

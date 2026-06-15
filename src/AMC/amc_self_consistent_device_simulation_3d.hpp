@@ -16,13 +16,13 @@
 #include <string>
 #include <vector>
 
+#include "amc_quench_circuit.hpp"
+#include "amc_self_consistent_device_simulation_base.hpp"
 #include "device.hpp"
 #include "device_amc_simulation.hpp"
 #include "materials.hpp"
 #include "poisson_solver_3d.hpp"
 #include "vtkWriter.hpp"
-#include "amc_quench_circuit.hpp"
-#include "amc_self_consistent_device_simulation_base.hpp"
 
 namespace uepm::amc {
 
@@ -55,13 +55,13 @@ class self_consistent_device_amc_simulation_3d : public self_consistent_device_a
     self_consistent_device_amc_simulation_3d(const device::device&                        simulation_device,
                                              const options_device_amc&                    simulation_options,
                                              const options_self_consistent_device_amc_3d& self_consistent_options,
-                                             const physic::material::list_materials&      list_materials,
+                                             const physics::material_database&            material_database,
                                              int                                          seed_random_generator = 0);
 
     self_consistent_device_amc_simulation_3d(const device::device&                        simulation_device,
                                              const options_device_amc&                    simulation_options,
                                              const options_self_consistent_device_amc_3d& self_consistent_options,
-                                             const physic::material::list_materials&      list_materials,
+                                             const physics::material_database&            material_database,
                                              const mesh::vector3&                         starting_position,
                                              std::size_t                                  number_electrons_start,
                                              std::size_t                                  number_holes_start,
@@ -74,7 +74,6 @@ class self_consistent_device_amc_simulation_3d : public self_consistent_device_a
     void recompute_vertex_space_charge_from_element_charges(std::size_t accumulation_steps);
 
     void export_current_state();
-
 };
 
 }  // namespace uepm::amc

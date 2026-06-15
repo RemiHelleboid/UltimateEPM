@@ -22,10 +22,10 @@ enum class impurity_screening_model { debye_analytic, finite_temperature_full };
 
 double bose_einstein_occupation(double phonon_energy_eV, double temperature_K);
 
-double acoustic_scattering_rate(const valley_model&                    valley,
+double acoustic_scattering_rate(const valley_model&                   valley,
                                 const acoustic_scattering_parameters& parameters,
-                                double                                 energy_eV,
-                                double                                 temperature_K);
+                                double                                energy_eV,
+                                double                                temperature_K);
 
 double intervalley_zeroth_order_rate(const valley_model&              valley,
                                      const intervalley_phonon_branch& branch,
@@ -67,13 +67,13 @@ double impurity_screening_function(double xi);
 double analytic_brooks_herring_momentum_integral(double k2, double q_screen2);
 double full_screening_momentum_integral(double k2, double q_screen2, double gamma_J, double kBT_J);
 
-double screened_coulomb_impurity_momentum_relaxation_rate(const valley_model& band_or_valley,
-                                                          double              relative_permittivity,
-                                                          double              energy_eV,
-                                                          double              impurity_density_cm_3,
-                                                          double              screening_density_cm_3,
-                                                          double              temperature_K,
-                                                          impurity_screening_model screening_model =
-                                                              impurity_screening_model::debye_analytic);
+double screened_coulomb_impurity_momentum_relaxation_rate(
+    const valley_model&      band_or_valley,
+    double                   relative_permittivity,
+    double                   energy_eV,
+    double                   impurity_density_cm_3,
+    double                   screening_density_cm_3,
+    double                   temperature_K,
+    impurity_screening_model screening_model = impurity_screening_model::debye_analytic);
 
 };  // namespace uepm::amc

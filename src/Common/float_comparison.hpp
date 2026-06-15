@@ -52,4 +52,4 @@ static inline bool doubles_are_equal(float A, float B, int maxUlps = 4) {
 
 }  //  namespace utils
 
-} // namespace uepm
+}  // namespace uepm

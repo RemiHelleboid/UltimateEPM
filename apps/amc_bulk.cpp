@@ -1,15 +1,14 @@
 /**
  * @file amc_bulk.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-06-08
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 
- 
 #include <fmt/chrono.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
@@ -54,7 +53,7 @@ int main(int argc, const char** argv) {
 
         TCLAP::ValueArg<std::string> arg_material("m",
                                                   "material",
-                                                  "Material symbol. Currently only Si is supported.",
+                                                  "epm_material symbol. Currently only Si is supported.",
                                                   false,
                                                   "Si",
                                                   "string");
@@ -120,11 +119,11 @@ int main(int argc, const char** argv) {
             1.0e10,
             "double");
 
-        TCLAP::SwitchArg arg_enable_impact_ionization("",
+        TCLAP::SwitchArg             arg_enable_impact_ionization("",
                                                       "enable-impact-ionization",
                                                       "Enable impact ionization scattering.",
                                                       false);
-        TCLAP::SwitchArg arg_enable_impurity_scattering("",
+        TCLAP::SwitchArg             arg_enable_impurity_scattering("",
                                                         "enable-impurity-scattering",
                                                         "Enable impurity scattering.",
                                                         false);
@@ -246,7 +245,7 @@ int main(int argc, const char** argv) {
         if (impurity_density_cm_3 < 0.0) {
             throw std::invalid_argument("impurity density must be non-negative");
         }
-        const std::string impurity_model = arg_impurity_model.getValue();
+        const std::string                    impurity_model = arg_impurity_model.getValue();
         uepm::amc::impurity_scattering_model parsed_impurity_model;
         if (impurity_model == "mobility") {
             parsed_impurity_model = uepm::amc::impurity_scattering_model::mobility_empirical;
@@ -262,17 +261,16 @@ int main(int argc, const char** argv) {
             if (!requested_output_dir.empty()) {
                 return requested_output_dir;
             }
-            return std::string(fmt::format("bulk_amc_{}_{}",
-                               material_symbol,
-                               particle_type_string));
+            return std::string(fmt::format("bulk_amc_{}_{}", material_symbol, particle_type_string));
         }();
         std::filesystem::create_directories(output_dir);
 
         constexpr double V_per_cm_to_V_per_m = 100.0;
 
         uepm::amc::bulk_amc_simulation_config config;
-        config.m_carrier_type                  = carrier_type;
-        config.m_record_history                = arg_export_history.getValue();
+        config.m_material_model = uepm::amc::make_silicon_amc_material_model(uepm::physics::silicon_material_info());
+        config.m_carrier_type   = carrier_type;
+        config.m_record_history = arg_export_history.getValue();
         config.m_lattice_temperature           = temperature;
         config.m_final_time                    = final_time;
         config.m_time_step                     = time_step;
@@ -290,7 +288,7 @@ int main(int argc, const char** argv) {
         config.m_impurity_screening_model      = parsed_impurity_screening;
 
         fmt::print("Running bulk AMC simulation\n");
-        fmt::print("Material: {}\n", material_symbol);
+        fmt::print("epm_material: {}\n", material_symbol);
         fmt::print("Carrier type: {}\n", particle_type_string);
         fmt::print("Runner: {}\n", runner);
         fmt::print("Number of particles: {}\n", config.m_number_of_particles);
@@ -311,8 +309,7 @@ int main(int argc, const char** argv) {
                        : "N/A");
         fmt::print("  impurity screening: {}\n",
                    config.m_enable_impurity_scattering &&
-                           config.m_impurity_scattering_model ==
-                               uepm::amc::impurity_scattering_model::screened_coulomb
+                           config.m_impurity_scattering_model == uepm::amc::impurity_scattering_model::screened_coulomb
                        ? uepm::amc::impurity_screening_model_name(config.m_impurity_screening_model)
                        : "N/A");
         fmt::print("Gamma max energy: {:.6f} eV\n", config.m_max_energy_eV);
@@ -325,7 +322,7 @@ int main(int argc, const char** argv) {
         simulation.initialize();
 
         const std::string started_at_utc = uepm::amc::current_utc_timestamp();
-        const auto start_time = std::chrono::high_resolution_clock::now();
+        const auto        start_time     = std::chrono::high_resolution_clock::now();
 
         if (runner == "self-scattering") {
             simulation.run_self_scattering_emc();
@@ -353,16 +350,15 @@ int main(int argc, const char** argv) {
             fmt::print("Plot option requested, but no plotting hook is currently configured.\n");
         }
 
-        const auto& observables = simulation.observables();
-        const auto& ii_stats    = simulation.impact_ionization_statistics();
+        const auto&  observables = simulation.observables();
+        const auto&  ii_stats    = simulation.impact_ionization_statistics();
         const double mean_velocity_x_m_per_s =
             observables.accumulated_time_s > 0.0
                 ? observables.weighted_velocity_x_m2_per_s2 / observables.accumulated_time_s
                 : 0.0;
-        const double mean_energy_eV =
-            observables.accumulated_time_s > 0.0
-                ? observables.weighted_kinetic_energy_eV_s / observables.accumulated_time_s
-                : 0.0;
+        const double mean_energy_eV = observables.accumulated_time_s > 0.0
+                                          ? observables.weighted_kinetic_energy_eV_s / observables.accumulated_time_s
+                                          : 0.0;
 
         uepm::amc::simulation_manifest manifest;
         manifest.add("run", "simulation_type", "bulk_amc");
@@ -376,9 +372,7 @@ int main(int argc, const char** argv) {
         manifest.add("build", "project_version", uepm::amc::amc_project_version());
         manifest.add("build", "build_type", uepm::amc::amc_build_type());
         manifest.add("build", "compiler", uepm::amc::amc_compiler());
-        manifest.add("build",
-                     "hardware_concurrency",
-                     static_cast<std::size_t>(std::thread::hardware_concurrency()));
+        manifest.add("build", "hardware_concurrency", static_cast<std::size_t>(std::thread::hardware_concurrency()));
 
         manifest.add("input", "material", material_symbol);
         manifest.add("input", "carrier_type", particle_type_string);
@@ -387,7 +381,9 @@ int main(int argc, const char** argv) {
 
         manifest.add("simulation", "number_of_particles", config.m_number_of_particles);
         manifest.add("simulation", "requested_threads", config.m_nb_threads);
-        manifest.add("simulation", "random_seed_policy", runner == "self-scattering" ? "thread_seed_base_1234" : "random_device");
+        manifest.add("simulation",
+                     "random_seed_policy",
+                     runner == "self-scattering" ? "thread_seed_base_1234" : "random_device");
         manifest.add("simulation", "lattice_temperature_K", config.m_lattice_temperature);
         manifest.add("simulation", "final_time_s", config.m_final_time);
         manifest.add("simulation", "fixed_time_step_s", config.m_time_step);
@@ -400,12 +396,11 @@ int main(int argc, const char** argv) {
         manifest.add("scattering", "impact_ionization_enabled", config.m_enable_impact_ionization);
         manifest.add("scattering", "impurity_scattering_enabled", config.m_enable_impurity_scattering);
         manifest.add("scattering", "impurity_density_cm_3", config.m_impurity_density_cm_3);
-        manifest.add(
-            "scattering",
-            "impurity_model",
-            config.m_impurity_scattering_model == uepm::amc::impurity_scattering_model::mobility_empirical
-                ? "mobility-empirical"
-                : "screened-coulomb");
+        manifest.add("scattering",
+                     "impurity_model",
+                     config.m_impurity_scattering_model == uepm::amc::impurity_scattering_model::mobility_empirical
+                         ? "mobility-empirical"
+                         : "screened-coulomb");
         manifest.add("scattering",
                      "impurity_screening",
                      uepm::amc::impurity_screening_model_name(config.m_impurity_screening_model));
@@ -417,14 +412,18 @@ int main(int argc, const char** argv) {
         manifest.add("results", "mean_velocity_x_m_per_s", mean_velocity_x_m_per_s);
         manifest.add("results", "mean_kinetic_energy_eV", mean_energy_eV);
         manifest.add("results", "accumulated_carrier_time_s", observables.accumulated_time_s);
-        manifest.add("results", "acoustic_events", simulation.count_scattering_events(uepm::amc::scattering_event::acoustic));
+        manifest.add("results",
+                     "acoustic_events",
+                     simulation.count_scattering_events(uepm::amc::scattering_event::acoustic));
         manifest.add("results",
                      "intervalley_absorption_events",
                      simulation.count_scattering_events(uepm::amc::scattering_event::intervalley_absorption));
         manifest.add("results",
                      "intervalley_emission_events",
                      simulation.count_scattering_events(uepm::amc::scattering_event::intervalley_emission));
-        manifest.add("results", "impurity_events", simulation.count_scattering_events(uepm::amc::scattering_event::impurity));
+        manifest.add("results",
+                     "impurity_events",
+                     simulation.count_scattering_events(uepm::amc::scattering_event::impurity));
         manifest.add("results",
                      "impact_ionization_events",
                      simulation.count_scattering_events(uepm::amc::scattering_event::impact_ionization));
@@ -440,8 +439,7 @@ int main(int argc, const char** argv) {
             manifest.add("outputs", "particle_history_prefix", file_prefix);
         }
 
-        const std::filesystem::path manifest_file =
-            std::filesystem::path(output_dir) / "simulation_manifest.txt";
+        const std::filesystem::path manifest_file = std::filesystem::path(output_dir) / "simulation_manifest.txt";
         manifest.add("outputs", "simulation_manifest", manifest_file.string());
         manifest.write(manifest_file);
         fmt::print("Wrote {}\n", manifest_file.string());

@@ -1,19 +1,18 @@
 /**
  * @file amc_quench_circuit.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-06-08
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 
 #include "amc_quench_circuit.hpp"
 
 #include <cmath>
 #include <stdexcept>
-
 
 namespace uepm::amc {
 

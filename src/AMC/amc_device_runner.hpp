@@ -34,7 +34,7 @@ struct self_consistent_device_amc_run_config {
     std::size_t   number_holes_start     = 0;
     int           seed_random_generator  = 0;
 
-    options_device_amc                   device_options{};
+    options_device_amc                    device_options{};
     options_self_consistent_device_amc_2d self_consistent_options_2d{};
     options_self_consistent_device_amc_3d self_consistent_options_3d{};
 };

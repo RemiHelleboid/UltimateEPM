@@ -87,6 +87,6 @@ inline double bose_einstein_distribution(double energy_eV, double temperature_K)
     return 1.0 / std::expm1(x);  // stable for small x
 }
 
-}  // namespace PhysicalFunctions
+}  // namespace physics
 
 }  // namespace uepm

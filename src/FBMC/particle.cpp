@@ -124,10 +124,10 @@ void particle::select_final_state_after_phonon_scattering(std::size_t idx_phonon
                                                                                          m_state.m_k_vector,
                                                                                          idx_phonon_branch,
                                                                                          m_random_generator);
-    m_state.m_k_vector         = Sf.k_final;
-    m_state.m_energy           = Sf.E_final_eV;
-    m_containing_bz_mesh_tetra = Sf.ptr_final_tetra;
-    m_state.m_band_index       = Sf.idx_final_band;
+    m_state.m_k_vector                   = Sf.k_final;
+    m_state.m_energy                     = Sf.E_final_eV;
+    m_containing_bz_mesh_tetra           = Sf.ptr_final_tetra;
+    m_state.m_band_index                 = Sf.idx_final_band;
 
     update_group_velocity();
 }

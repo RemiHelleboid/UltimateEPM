@@ -14,21 +14,20 @@
 #include <cmath>
 
 #include "doctest/doctest.h"
-
-
 #include "finite_element2d.hpp"
-
 #include "materials.hpp"
 #include "msh_file.hpp"
 #include "vtkWriter.hpp"
 
 TEST_CASE("Test the stiffness elementary matrix on ref element") {
     // Construct the element.
-    uepm::mesh::vertex V1(0, 0.0, 0.0, 0.0);
-    uepm::mesh::vertex V2(1, 1.0, 0.0, 0.0);
-    uepm::mesh::vertex V3(2, 0.0, 1.0, 0.0);
-    std::shared_ptr<uepm::mesh::element2d> sp_reference_element = std::make_shared<uepm::mesh::element2d>(&V1, &V2, &V3);
-    const Eigen::Matrix3d MatrixElementRef = uepm::fem::FiniteElementP1System2d::compute_elementary_stiffness_matrix(sp_reference_element);
+    uepm::mesh::vertex                     V1(0, 0.0, 0.0, 0.0);
+    uepm::mesh::vertex                     V2(1, 1.0, 0.0, 0.0);
+    uepm::mesh::vertex                     V3(2, 0.0, 1.0, 0.0);
+    std::shared_ptr<uepm::mesh::element2d> sp_reference_element =
+        std::make_shared<uepm::mesh::element2d>(&V1, &V2, &V3);
+    const Eigen::Matrix3d MatrixElementRef =
+        uepm::fem::FiniteElementP1System2d::compute_elementary_stiffness_matrix(sp_reference_element);
     const Eigen::Matrix3d THEORETICAL_MATRIX{{2.0, -1.0, -1.0}, {-1.0, 1.0, 0.0}, {-1.0, 0.0, 1.0}};
     const Eigen::Matrix3d DIFFERENCE_MATRIX = 0.5 * THEORETICAL_MATRIX - MatrixElementRef;
     CHECK(DIFFERENCE_MATRIX.squaredNorm() < 1e-9);
@@ -36,7 +35,7 @@ TEST_CASE("Test the stiffness elementary matrix on ref element") {
 
 TEST_CASE("Testing Poisson 2d on a unit circle.") {
     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/circle_r1.msh");
-    uepm::file::msh_file           fileMSH(file_input_test_msh);
+    uepm::file::msh_file     fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
     uepm::mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
     uepm::fem::FiniteElementP1System2d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
@@ -64,7 +63,7 @@ TEST_CASE("Testing Poisson 2d on a unit circle.") {
 
 TEST_CASE("Testing Poisson 2d on a unit square.") {
     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/square_test.msh");
-    uepm::file::msh_file           fileMSH(file_input_test_msh);
+    uepm::file::msh_file     fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
     uepm::mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
     uepm::fem::FiniteElementP1System2d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
@@ -95,7 +94,7 @@ TEST_CASE("Testing Poisson 2d on a unit square.") {
 
 TEST_CASE("Testing Poisson 2d on a unit square with Neuman BC.") {
     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/square_1234.msh");
-    uepm::file::msh_file           fileMSH(file_input_test_msh);
+    uepm::file::msh_file     fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
     uepm::mesh::mesh* p_mesh = fileMSH.get_p_mesh();
 
@@ -127,14 +126,14 @@ TEST_CASE("Testing Poisson 2d on a unit square with Neuman BC.") {
 
 TEST_CASE("Testing Poisson 2d with a strong arctan profile.") {
     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/square_1234.msh");
-    uepm::file::msh_file           fileMSH(file_input_test_msh);
+    uepm::file::msh_file     fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
     uepm::mesh::mesh* p_mesh = fileMSH.get_p_mesh();
 
     uepm::fem::FiniteElementP1System2d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
     MyPoissonTest.compute_stiffness_matrix();
 
-    auto arctan_profile = [&](double x, double y) {return (- 1000.0 * atan(x-0.5));};
+    auto arctan_profile = [&](double x, double y) { return (-1000.0 * atan(x - 0.5)); };
     MyPoissonTest.compute_second_member(arctan_profile);
     MyPoissonTest.apply_dirichlet_condition("Contact_2", 20);
     MyPoissonTest.apply_dirichlet_condition("Contact_4", 0);
@@ -149,8 +148,6 @@ TEST_CASE("Testing Poisson 2d with a strong arctan profile.") {
 
     const double min_test_square_poisson = -1.56298;
     const double max_test_square_poisson = 1.81292;
-
-
 
     // CHECK(min_solution == doctest::Approx(min_test_square_poisson));
     // CHECK_EQ(max_solution, doctest::Approx(max_test_square_poisson));

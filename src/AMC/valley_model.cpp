@@ -1,14 +1,13 @@
 /**
  * @file valley_model.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-04-12
- * 
- * 
+ *
+ *
  */
 
- 
 #include "valley_model.hpp"
 
 #include <algorithm>

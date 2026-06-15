@@ -1,12 +1,12 @@
 /**
  * @file test_vector3.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-05-18
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 
 #include <optional>
@@ -14,11 +14,10 @@
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest/doctest.h"
-
 #include "vector_bz.hpp"
 
-using uepm::mesh_bz::vector3;
 using uepm::mesh_bz::permutation_type;
+using uepm::mesh_bz::vector3;
 
 TEST_SUITE("[vector3] basics") {
     TEST_CASE("default and value construction + accessors") {

@@ -35,7 +35,12 @@ bbox_mesh Tetra::compute_bounding_box() const {
     auto min_max_x = std::minmax_element(coordinates_x.begin(), coordinates_x.end());
     auto min_max_y = std::minmax_element(coordinates_y.begin(), coordinates_y.end());
     auto min_max_z = std::minmax_element(coordinates_z.begin(), coordinates_z.end());
-    return bbox_mesh(*min_max_x.first, *min_max_x.second, *min_max_y.first, *min_max_y.second, *min_max_z.first, *min_max_z.second);
+    return bbox_mesh(*min_max_x.first,
+                     *min_max_x.second,
+                     *min_max_y.first,
+                     *min_max_y.second,
+                     *min_max_z.first,
+                     *min_max_z.second);
 }
 
 const bbox_mesh& Tetra::get_bounding_box() const { return m_bbox; }
@@ -66,8 +71,8 @@ Tetra::Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices)
 }
 
 vector3 Tetra::compute_barycenter() const {
-    return (m_list_vertices[0]->get_position() + m_list_vertices[1]->get_position() + m_list_vertices[2]->get_position() +
-            m_list_vertices[3]->get_position()) /
+    return (m_list_vertices[0]->get_position() + m_list_vertices[1]->get_position() +
+            m_list_vertices[2]->get_position() + m_list_vertices[3]->get_position()) /
            4.0;
 }
 
@@ -161,8 +166,8 @@ vector3 Tetra::compute_edge(std::size_t index_vtx_1, std::size_t index_vtx_2) co
 
 /**
  * @brief Compute the barycentric coordinate of a given location within the tetrahedra.
- * The returned array of size 4 contains the barycentric coordinates with respect to the vertices in the following order :
- *  0, 1, 2 and 3, respectively.
+ * The returned array of size 4 contains the barycentric coordinates with respect to the vertices in the following order
+ * : 0, 1, 2 and 3, respectively.
  *
  * @warning warning message: Do not use this function to check if the location lies in the tetrahedra,
  * The computation relies on the hypothesis that the location do lies in it. Use Tetra::is_location_inside instead.
@@ -175,7 +180,8 @@ std::array<double, 4> Tetra::compute_barycentric_coordinates(const vector3& loca
     const double  tetra_determinant = 6.0 * m_signed_volume;
     // DEBUG: check if tetra_determinant is zero to avoid division by zero
     if (std::abs(tetra_determinant) < 1e-14) {
-        std::cerr << "Warning: Tetrahedron " << m_index << " has a very small volume (|6*V| = " << std::abs(tetra_determinant)
+        std::cerr << "Warning: Tetrahedron " << m_index
+                  << " has a very small volume (|6*V| = " << std::abs(tetra_determinant)
                   << "). This may lead to numerical instability in barycentric coordinate computation." << std::endl;
         std::cout << m_list_vertices[0]->get_position() << std::endl;
         std::cout << m_list_vertices[1]->get_position() << std::endl;
@@ -193,8 +199,8 @@ std::array<double, 4> Tetra::compute_barycentric_coordinates(const vector3& loca
 
 double Tetra::interpolate_scalar_at_position(const vector3& location, const std::vector<double>& scalar_field) const {
     const auto barycentric_coord = compute_barycentric_coordinates(location);
-    return scalar_field[0] * barycentric_coord[0] + scalar_field[1] * barycentric_coord[1] + scalar_field[2] * barycentric_coord[2] +
-           scalar_field[3] * barycentric_coord[3];
+    return scalar_field[0] * barycentric_coord[0] + scalar_field[1] * barycentric_coord[1] +
+           scalar_field[2] * barycentric_coord[2] + scalar_field[3] * barycentric_coord[3];
 }
 
 /**
@@ -219,7 +225,8 @@ vector3 Tetra::interpolate_gradient_energy_at_band(const vector3& location, std:
         gradient_at_location += m_list_vertices[i]->get_energy_gradient_at_band(band_index) * barycentric_coord[i];
     }
     // DEBUG
-    if (std::isnan(gradient_at_location.x()) || std::isnan(gradient_at_location.y()) || std::isnan(gradient_at_location.z())) {
+    if (std::isnan(gradient_at_location.x()) || std::isnan(gradient_at_location.y()) ||
+        std::isnan(gradient_at_location.z())) {
         std::cerr << "Warning: NaN gradient at location " << location << " for band " << band_index
                   << ". This may indicate a van Hove singularity or insufficient mesh resolution." << std::endl;
         for (int i = 0; i < 4; ++i) {
@@ -241,13 +248,13 @@ vector3 Tetra::interpolate_gradient_energy_at_band(const vector3& location, std:
  * @return false
  */
 bool Tetra::is_location_inside(const vector3& location) const {
-    const vector3 v_loc1            = location - m_list_vertices[0]->get_position();
-    const vector3 v_loc2            = location - m_list_vertices[1]->get_position();
-    const double  tetra_determinant = 6.0 * m_signed_volume;
-    const double  lambda_1          = scalar_triple_product(v_loc2, m_list_edges[4], m_list_edges[3]) / tetra_determinant;
-    const double  lambda_2          = scalar_triple_product(v_loc1, m_list_edges[1], m_list_edges[2]) / tetra_determinant;
-    const double  lambda_3          = scalar_triple_product(v_loc1, m_list_edges[2], m_list_edges[0]) / tetra_determinant;
-    const double  lambda_4          = scalar_triple_product(v_loc1, m_list_edges[0], m_list_edges[1]) / tetra_determinant;
+    const vector3    v_loc1            = location - m_list_vertices[0]->get_position();
+    const vector3    v_loc2            = location - m_list_vertices[1]->get_position();
+    const double     tetra_determinant = 6.0 * m_signed_volume;
+    const double     lambda_1 = scalar_triple_product(v_loc2, m_list_edges[4], m_list_edges[3]) / tetra_determinant;
+    const double     lambda_2 = scalar_triple_product(v_loc1, m_list_edges[1], m_list_edges[2]) / tetra_determinant;
+    const double     lambda_3 = scalar_triple_product(v_loc1, m_list_edges[2], m_list_edges[0]) / tetra_determinant;
+    const double     lambda_4 = scalar_triple_product(v_loc1, m_list_edges[0], m_list_edges[1]) / tetra_determinant;
     constexpr double barycentric_tolerance = 1e-12;
     return (lambda_1 >= -barycentric_tolerance && lambda_2 >= -barycentric_tolerance &&
             lambda_3 >= -barycentric_tolerance && lambda_4 >= -barycentric_tolerance);
@@ -260,9 +267,10 @@ bool Tetra::is_location_inside(const vector3& location) const {
  * @return vector3
  */
 vector3 Tetra::compute_euclidean_coordinates(const std::array<double, 4>& barycentric_coordinates) const {
-    return (
-        barycentric_coordinates[0] * m_list_vertices[0]->get_position() + barycentric_coordinates[1] * m_list_vertices[1]->get_position() +
-        barycentric_coordinates[2] * m_list_vertices[2]->get_position() + barycentric_coordinates[3] * m_list_vertices[3]->get_position());
+    return (barycentric_coordinates[0] * m_list_vertices[0]->get_position() +
+            barycentric_coordinates[1] * m_list_vertices[1]->get_position() +
+            barycentric_coordinates[2] * m_list_vertices[2]->get_position() +
+            barycentric_coordinates[3] * m_list_vertices[3]->get_position());
 }
 
 /**
@@ -327,8 +335,8 @@ void Tetra::pre_compute_sorted_slots_per_band() {
  *
  * The case of energy being smaller than the minimum energy of the tetrahedra is not taken into account.
  * Same thing for the case of energy being greater than the maximum energy of the tetrahedra.
- * Those two cases are handle by the caller function. This is done to avoid computing the sorted index which is computationallly intensive.
- * The minimum and maximum energies are stored in the member variables
+ * Those two cases are handle by the caller function. This is done to avoid computing the sorted index which is
+ * computationallly intensive. The minimum and maximum energies are stored in the member variables
  * m_min_energy_at_vertices and m_max_energy_at_vertices at the construction of the tetrahedra.
  *
  * This is very important because those 2 trivial cases represent usually more than 95% of the cases.
@@ -507,10 +515,12 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
 
     // DEBUG
     if (std::isnan(inv_grad_avg) || std::isinf(inv_grad_avg)) {
-        std::cerr << "Warning: inv_grad_avg is " << inv_grad_avg << " at energy " << energy_eV << " eV in band " << band_index
-                  << ". This may indicate a van Hove singularity or insufficient mesh resolution." << std::endl;
+        std::cerr << "Warning: inv_grad_avg is " << inv_grad_avg << " at energy " << energy_eV << " eV in band "
+                  << band_index << ". This may indicate a van Hove singularity or insufficient mesh resolution."
+                  << std::endl;
         for (const auto& kpt : iso) {
-            std::cerr << "  k: " << kpt << " |∇E|: " << interpolate_gradient_energy_at_band(kpt, band_index).norm() << std::endl;
+            std::cerr << "  k: " << kpt << " |∇E|: " << interpolate_gradient_energy_at_band(kpt, band_index).norm()
+                      << std::endl;
         }
     }
 
@@ -595,13 +605,16 @@ vector3 Tetra::draw_random_uniform_point_at_energy(double iso_energy, std::size_
     // std::cout << "Draw random point at energy: " << iso_energy << " in band: " << band_index << std::endl;
     if (iso_energy < m_min_energy_per_band[band_index] || iso_energy > m_max_energy_per_band[band_index]) {
         std::cout << "Band index: " << band_index << std::endl;
-        std::cout << "Energie bound: " << m_min_energy_per_band[band_index] << " " << m_max_energy_per_band[band_index] << std::endl;
+        std::cout << "Energie bound: " << m_min_energy_per_band[band_index] << " " << m_max_energy_per_band[band_index]
+                  << std::endl;
         std::cout << "iso_energy: " << iso_energy << std::endl;
-        throw std::invalid_argument("Energy is not in the band for this tetrahedron. Cannot draw a random point at this energy.");
+        throw std::invalid_argument(
+            "Energy is not in the band for this tetrahedron. Cannot draw a random point at this energy.");
     }
     const std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(iso_energy, band_index);
     if (vertices_iso_surface.empty()) {
-        throw std::invalid_argument("Energy is not in the band for this tetrahedron. Cannot draw a random point at this energy.");
+        throw std::invalid_argument(
+            "Energy is not in the band for this tetrahedron. Cannot draw a random point at this energy.");
     } else if (vertices_iso_surface.size() == 3) {
         IsoTriangle triangle(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], iso_energy);
         auto        point = triangle.draw_random_uniform_point_in_triangle(rng);
@@ -642,9 +655,11 @@ std::array<double, 8> Tetra::get_tetra_electron_phonon_rates(int band_index) con
     return mean_rates;
 }
 
-std::array<double, 8> Tetra::interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& band_index) const {
+std::array<double, 8> Tetra::interpolate_phonon_scattering_rate_at_location(const vector3&     location,
+                                                                            const std::size_t& band_index) const {
     if (is_location_inside(location) == false) {
-        throw std::invalid_argument("In Tetra::interpolate_phonon_scattering_rate_at_location, the location is not inside the tetrahedra.");
+        throw std::invalid_argument(
+            "In Tetra::interpolate_phonon_scattering_rate_at_location, the location is not inside the tetrahedra.");
     }
     const auto            barycentric_coord = compute_barycentric_coordinates(location);
     std::array<double, 8> interpolated_rates;

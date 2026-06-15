@@ -28,7 +28,7 @@
 #include <string>
 
 #include "BandStructure.h"
-#include "Material.h"
+#include "epm_material.hpp"
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_states.hpp"
@@ -106,31 +106,63 @@ int main(int argc, const char** argv) try {
 
     TCLAP::CmdLine cmd("FBMC PROGRAM. SINGLE PARTICLE MONTE CARLO SIMULATION.", ' ', "1.1");
 
-    TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and band energies.", true, "bz.msh", "string");
-    TCLAP::ValueArg<std::string> arg_phonon_file("p", "phononfile", "File with phonon scattering rates.", true, "rates_all.csv", "string");
-    TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
+    TCLAP::ValueArg<std::string> arg_mesh_file("f",
+                                               "meshbandfile",
+                                               "File with BZ mesh and band energies.",
+                                               true,
+                                               "bz.msh",
+                                               "string");
+    TCLAP::ValueArg<std::string> arg_phonon_file("p",
+                                                 "phononfile",
+                                                 "File with phonon scattering rates.",
+                                                 true,
+                                                 "rates_all.csv",
+                                                 "string");
+    TCLAP::ValueArg<std::string> arg_material("m",
+                                              "material",
+                                              "Symbol of the material to use (Si, Ge, GaAs, ...)",
+                                              true,
+                                              "Si",
+                                              "string");
     TCLAP::ValueArg<std::string> arg_outputdir("d", "outdir", "Output directory for results", false, "", "string");
 
     TCLAP::ValueArg<int> arg_nb_part("N", "npart", "Number of particles to simulate", false, 1, "int");
-    TCLAP::ValueArg<int> arg_nb_conduction_bands("c", "ncbands", "Number of conduction bands to consider", false, -1, "int");
+    TCLAP::ValueArg<int> arg_nb_conduction_bands("c",
+                                                 "ncbands",
+                                                 "Number of conduction bands to consider",
+                                                 false,
+                                                 -1,
+                                                 "int");
     TCLAP::ValueArg<int> arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
     TCLAP::ValueArg<int> arg_nb_threads("j", "nthreads", "Number of threads to use", false, 1, "int");
 
-    TCLAP::ValueArg<double> arg_max_energy("e", "maxenergy", "Maximum energy to consider (eV)", false, 1.0e10, "double");
+    TCLAP::ValueArg<double> arg_max_energy("e",
+                                           "maxenergy",
+                                           "Maximum energy to consider (eV)",
+                                           false,
+                                           1.0e10,
+                                           "double");
     TCLAP::ValueArg<double> arg_time("t", "time", "Simulation time (s)", false, 1e-12, "double");
     TCLAP::ValueArg<double> arg_temperature("T", "temperature", "Simulation temperature (K)", false, 300.0, "double");
-    TCLAP::ValueArg<double> arg_electric_field_x("", "Ex", "Electric field in x direction (V/cm)", false, 0.0, "double");
+    TCLAP::ValueArg<double> arg_electric_field_x("",
+                                                 "Ex",
+                                                 "Electric field in x direction (V/cm)",
+                                                 false,
+                                                 0.0,
+                                                 "double");
 
-    TCLAP::SwitchArg arg_plot_with_python("P",
-                                          "plot",
-                                          "Call a python script after the MC runs (currently not wired in this executable).",
-                                          cmd,
-                                          false);
-    TCLAP::SwitchArg arg_plot_with_wedge("w",
-                                         "wedge",
-                                         "Consider only the irreducible wedge of the BZ (currently not wired in this executable).",
-                                         cmd,
-                                         false);
+    TCLAP::SwitchArg arg_plot_with_python(
+        "P",
+        "plot",
+        "Call a python script after the MC runs (currently not wired in this executable).",
+        cmd,
+        false);
+    TCLAP::SwitchArg arg_plot_with_wedge(
+        "w",
+        "wedge",
+        "Consider only the irreducible wedge of the BZ (currently not wired in this executable).",
+        cmd,
+        false);
     TCLAP::SwitchArg arg_test_elph("", "test-elph", "Run electron-phonon diagnostic before the MC run.", cmd, false);
 
     cmd.add(arg_mesh_file);
@@ -166,7 +198,8 @@ int main(int argc, const char** argv) try {
     require_existing_file(file_mesh, "Mesh file");
     require_existing_file(file_phonon_scattering, "Phonon scattering-rate file");
 
-    const auto output_dir = make_output_directory(init_output_directory, material_symbol, temperature_K, electric_field_x_V_per_cm);
+    const auto output_dir =
+        make_output_directory(init_output_directory, material_symbol, temperature_K, electric_field_x_V_per_cm);
 
     write_run_metadata(output_dir,
                        file_mesh.string(),
@@ -191,10 +224,10 @@ int main(int argc, const char** argv) try {
     uepm::pseudopotential::Materials materials;
     const std::filesystem::path      file_material_parameters =
         std::filesystem::path(PROJECT_SRC_DIR) / "parameter_files" / "materials-chel.yaml";
-    require_existing_file(file_material_parameters, "Material parameter file");
+    require_existing_file(file_material_parameters, "epm_material parameter file");
 
     materials.load_material_parameters(file_material_parameters.string());
-    const uepm::pseudopotential::Material current_material = materials.materials.at(material_symbol);
+    const uepm::pseudopotential::epm_material current_material = materials.materials.at(material_symbol);
 
     uepm::mesh_bz::ElectronPhonon mesh(current_material);
     mesh.set_number_threads_mesh_ops(nb_threads);
@@ -204,7 +237,10 @@ int main(int argc, const char** argv) try {
     mesh.build_search_tree();
 
     const bool shift_conduction_band = true;
-    mesh.read_mesh_bands_from_msh_file(file_mesh.string(), nb_conduction_bands, nb_valence_bands, shift_conduction_band);
+    mesh.read_mesh_bands_from_msh_file(file_mesh.string(),
+                                       nb_conduction_bands,
+                                       nb_valence_bands,
+                                       shift_conduction_band);
 
     mesh.set_particle_type(uepm::mesh_bz::MeshParticleType::conduction);
     mesh.set_nb_bands_elph(nb_conduction_bands);
@@ -215,7 +251,8 @@ int main(int argc, const char** argv) try {
         mesh.export_energies_and_gradients_to_vtk(vtk_file.string());
     }
 
-    const std::filesystem::path phonon_parameter_file = std::filesystem::path(PROJECT_SRC_DIR) / "parameter_files" / "phonon_kamakura.yaml";
+    const std::filesystem::path phonon_parameter_file =
+        std::filesystem::path(PROJECT_SRC_DIR) / "parameter_files" / "phonon_kamakura.yaml";
     require_existing_file(phonon_parameter_file, "Phonon parameter file");
 
     mesh.load_phonon_parameters(phonon_parameter_file.string());

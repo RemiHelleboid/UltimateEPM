@@ -14,6 +14,6 @@
 #include "../Common/vector.hpp"
 
 namespace uepm::mesh {
-using vector3 = uepm::common::vector3;
+using vector3          = uepm::common::vector3;
 using permutation_type = uepm::common::permutation_type;
 }  // namespace uepm::mesh

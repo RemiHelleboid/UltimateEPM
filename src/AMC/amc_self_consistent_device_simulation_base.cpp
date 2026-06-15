@@ -39,8 +39,7 @@ void options_self_consistent_device_amc_common::validate() const {
     if (!std::isfinite(m_avalanche_voltage_drop_threshold_V) || m_avalanche_voltage_drop_threshold_V <= 0.0) {
         throw std::invalid_argument("Avalanche voltage-drop threshold must be positive and finite.");
     }
-    if (!std::isfinite(m_quench_high_field_threshold_V_per_cm) ||
-        m_quench_high_field_threshold_V_per_cm <= 0.0) {
+    if (!std::isfinite(m_quench_high_field_threshold_V_per_cm) || m_quench_high_field_threshold_V_per_cm <= 0.0) {
         throw std::invalid_argument("Quench high-field threshold must be positive and finite.");
     }
     if (!std::isfinite(m_quench_quiet_time_s) || m_quench_quiet_time_s <= 0.0) {
@@ -130,11 +129,10 @@ void self_consistent_device_amc_simulation_base::update_successful_quench_detect
         m_simulation_history.m_impact_ionization_positions.size() > impact_events_before_step;
     const bool has_high_field_particle =
         max_particle_electric_field_V_per_cm() >= m_common_options.m_quench_high_field_threshold_V_per_cm;
-    m_successful_quench_detector.update(
-        m_avalanche_detector.state().m_detected,
-        sample_time_s,
-        has_high_field_particle,
-        had_impact_ionization_event);
+    m_successful_quench_detector.update(m_avalanche_detector.state().m_detected,
+                                        sample_time_s,
+                                        has_high_field_particle,
+                                        had_impact_ionization_event);
 }
 
 double self_consistent_device_amc_simulation_base::max_particle_electric_field_V_per_cm() const {
@@ -186,8 +184,8 @@ const avalanche_detection_state& self_consistent_device_amc_simulation_base::ava
     return m_avalanche_detector.state();
 }
 
-const successful_quench_detection_state&
-self_consistent_device_amc_simulation_base::successful_quench_detection() const {
+const successful_quench_detection_state& self_consistent_device_amc_simulation_base::successful_quench_detection()
+    const {
     return m_successful_quench_detector.state();
 }
 

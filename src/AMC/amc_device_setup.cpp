@@ -70,7 +70,7 @@ std::string make_default_output_directory(const std::string& mesh_file) {
 
 void add_default_contacts(uepm::device::device& simulation_device, uepm::mesh::mesh& mesh) {
     constexpr double contact_collection_depth = 0.001;  // µm
-    constexpr double contact_margin           = 10.0;    // µm
+    constexpr double contact_margin           = 10.0;   // µm
     constexpr double ohmic_resistance         = 0.0;
 
     const double min_x = mesh.get_bounding_box().get_x_min();
@@ -86,9 +86,7 @@ void add_default_contacts(uepm::device::device& simulation_device, uepm::mesh::m
                                         max_z + contact_margin);
 
     simulation_device.add_contact("cathode", cathode_corner1, cathode_corner2, ohmic_resistance);
-    const mesh::vector3 anode_corner1(max_x - contact_collection_depth,
-                                      min_y - contact_margin,
-                                      min_z - contact_margin);
+    const mesh::vector3 anode_corner1(max_x - contact_collection_depth, min_y - contact_margin, min_z - contact_margin);
 
     const mesh::vector3 anode_corner2(max_x + contact_margin, max_y + contact_margin, max_z + contact_margin);
     simulation_device.add_contact("anode", anode_corner1, anode_corner2, ohmic_resistance);

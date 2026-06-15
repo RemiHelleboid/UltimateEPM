@@ -12,8 +12,7 @@
 namespace {
 
 std::filesystem::path write_config(const std::string& contents) {
-    const auto path =
-        std::filesystem::temp_directory_path() / "ultimate_epm_amc_device_config.yaml";
+    const auto    path = std::filesystem::temp_directory_path() / "ultimate_epm_amc_device_config.yaml";
     std::ofstream stream(path);
     stream << contents;
     return path;
@@ -47,8 +46,7 @@ scheduled_injection:
     CHECK(config.device_options.m_nb_threads == 8);
     CHECK(config.device_options.m_t_max == doctest::Approx(2.0e-12));
     CHECK(config.self_consistent_options_2d.m_common.m_cathode_voltage == doctest::Approx(30.0));
-    CHECK(config.device_options.m_scheduled_particle_injection.m_particle_type ==
-          uepm::amc::particle_type::hole);
+    CHECK(config.device_options.m_scheduled_particle_injection.m_particle_type == uepm::amc::particle_type::hole);
     CHECK(config.device_options.m_scheduled_particle_injection.m_weight == doctest::Approx(4.5));
     CHECK(std::filesystem::path(config.mesh_file) == config_file.parent_path() / "mesh/device.msh");
 }
@@ -75,14 +73,12 @@ input:
 }
 
 TEST_CASE("generated AMC device config contains the complete schema and is loadable") {
-    const auto config_file =
-        std::filesystem::temp_directory_path() / "ultimate_epm_basic_amc_device_config.yaml";
+    const auto config_file = std::filesystem::temp_directory_path() / "ultimate_epm_basic_amc_device_config.yaml";
     uepm::amc::write_basic_device_amc_config(config_file);
 
     std::ifstream stream(config_file);
     REQUIRE(stream.is_open());
-    const std::string contents{std::istreambuf_iterator<char>(stream),
-                               std::istreambuf_iterator<char>()};
+    const std::string contents{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
 
     CHECK(contents.find("transport:") != std::string::npos);
     CHECK(contents.find("particles:") != std::string::npos);

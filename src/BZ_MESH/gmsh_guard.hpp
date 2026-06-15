@@ -1,11 +1,11 @@
 /**
  * @file gmsh_guard.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2025-10-17
- * 
- * 
+ *
+ *
  */
 
 #include "gmsh.h"

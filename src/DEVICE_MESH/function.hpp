@@ -40,7 +40,7 @@ class function {
         : m_name(function_name),
           m_datatype(datatype),
           m_data_location_type(data_location_type) {}
-    function(const std::string &                       function_name,
+    function(const std::string                        &function_name,
              DataType                                  datatype,
              DataLocationType                          data_location_type,
              const std::vector<sp_dataset<data_type>> &list_sp_datasets)
@@ -49,10 +49,10 @@ class function {
           m_data_location_type(data_location_type),
           m_list_sp_datasets(list_sp_datasets) {}
     // Copy
-    function(const function &other) = default;
+    function(const function &other)            = default;
     function &operator=(const function &other) = default;
     // Move
-    function(function &&other) = default;
+    function(function &&other)            = default;
     function &operator=(function &&other) = default;
 
     function get_function_copy(const std::string &new_name) const {
@@ -60,7 +60,8 @@ class function {
         function new_function(new_name, m_datatype, m_data_location_type);
         for (const auto &my_sp_dataset : m_list_sp_datasets) {
             index_dataset++;
-            sp_dataset<data_type> new_dataset = std::make_shared<dataset<data_type>>(my_sp_dataset->get_dataset_copy(new_name, 0));
+            sp_dataset<data_type> new_dataset =
+                std::make_shared<dataset<data_type>>(my_sp_dataset->get_dataset_copy(new_name, 0));
             // New values
             auto values = new_dataset->get_values();
             // Mean value
@@ -72,7 +73,7 @@ class function {
     }
 
     // Getters
-    const std::string &                       get_name() const { return m_name; }
+    const std::string                        &get_name() const { return m_name; }
     DataType                                  get_datatype() const { return m_datatype; }
     DataLocationType                          get_location_type() const { return m_data_location_type; }
     const std::vector<sp_dataset<data_type>> &get_list_sp_datasets() const { return m_list_sp_datasets; }
@@ -86,10 +87,11 @@ class function {
     }
 
     std::optional<sp_dataset<data_type>> get_dataset_with_region_index(const unsigned int &region_index) const {
-        auto it_sp_dataset =
-            std::find_if(m_list_sp_datasets.begin(), m_list_sp_datasets.end(), [&region_index](const sp_dataset<data_type> &sp_dataset) {
-                return sp_dataset->get_index_region_validity() == region_index;
-            });
+        auto it_sp_dataset = std::find_if(m_list_sp_datasets.begin(),
+                                          m_list_sp_datasets.end(),
+                                          [&region_index](const sp_dataset<data_type> &sp_dataset) {
+                                              return sp_dataset->get_index_region_validity() == region_index;
+                                          });
         if (it_sp_dataset == m_list_sp_datasets.end()) {
             return std::nullopt;
         }
@@ -104,7 +106,9 @@ class function {
     void remove_all_datasets() { m_list_sp_datasets.clear(); }
 
     void add(data_type value) {
-        std::for_each(m_list_sp_datasets.begin(), m_list_sp_datasets.end(), [&value](auto &sp_dataset) { sp_dataset->add(value); });
+        std::for_each(m_list_sp_datasets.begin(), m_list_sp_datasets.end(), [&value](auto &sp_dataset) {
+            sp_dataset->add(value);
+        });
     }
 
     void add(const function &function_to_add) {
@@ -112,11 +116,13 @@ class function {
             throw std::runtime_error("Error: add() does not support adding two functions with different data types.");
         }
         if (m_data_location_type != function_to_add.m_data_location_type) {
-            throw std::runtime_error("Error: add() does not support adding two functions with different data location types.");
+            throw std::runtime_error(
+                "Error: add() does not support adding two functions with different data location types.");
         }
         for (auto &sp_dataset : m_list_sp_datasets) {
             std::cout << "Adding " << sp_dataset->get_name() << " to " << m_name << std::endl;
-            auto opt_sp_dataset_to_add = function_to_add.get_dataset_with_region_index(sp_dataset->get_index_region_validity());
+            auto opt_sp_dataset_to_add =
+                function_to_add.get_dataset_with_region_index(sp_dataset->get_index_region_validity());
             if (opt_sp_dataset_to_add.has_value()) {
                 sp_dataset->add(*(opt_sp_dataset_to_add.value()));
             } else {
@@ -127,10 +133,12 @@ class function {
 
     void multiply(const function &function_to_multiply) {
         // if (m_datatype != function_to_multiply.m_datatype) {
-        //     throw std::runtime_error("Error: multiply() does not support multiplying two functions with different data types.");
+        //     throw std::runtime_error("Error: multiply() does not support multiplying two functions with different
+        //     data types.");
         // }
         // if (m_data_location_type != function_to_multiply.m_data_location_type) {
-        //     throw std::runtime_error("Error: multiply() does not support multiplying two functions with different data location types.");
+        //     throw std::runtime_error("Error: multiply() does not support multiplying two functions with different
+        //     data location types.");
         // }
         const std::string name_other         = function_to_multiply.get_name();
         std::size_t       number_of_datasets = m_list_sp_datasets.size();
@@ -148,7 +156,9 @@ class function {
     }
 
     void multiply(data_type value) {
-        std::for_each(m_list_sp_datasets.begin(), m_list_sp_datasets.end(), [&value](auto &sp_dataset) { sp_dataset->multiply(value); });
+        std::for_each(m_list_sp_datasets.begin(), m_list_sp_datasets.end(), [&value](auto &sp_dataset) {
+            sp_dataset->multiply(value);
+        });
     }
 
     void apply_function(const std::function<data_type(data_type)> &function_to_apply) {

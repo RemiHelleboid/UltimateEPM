@@ -1,6 +1,6 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
-#include "Material.h"
+#include "epm_material.hpp"
 #include "bz_mesh.hpp"
 #include "doctest/doctest.h"
 
@@ -8,9 +8,9 @@ using uepm::mesh_bz::MeshBZ;
 using uepm::mesh_bz::vector3;
 
 TEST_CASE("reduced and SI k-space conversions round trip") {
-    const uepm::pseudopotential::Material material("test", 5.0, 0.0, 0.0, 0.0, 0.0);
-    const MeshBZ                           mesh(material);
-    const vector3                          reduced(0.25, -0.5, 1.0);
+    const uepm::pseudopotential::epm_material material("test", 5.0, 0.0, 0.0, 0.0, 0.0);
+    const MeshBZ                          mesh(material);
+    const vector3                         reduced(0.25, -0.5, 1.0);
 
     const vector3 si         = mesh.reduced_to_si_k(reduced);
     const vector3 round_trip = mesh.si_to_reduced_k(si);
@@ -21,12 +21,12 @@ TEST_CASE("reduced and SI k-space conversions round trip") {
 }
 
 TEST_CASE("reciprocal lattice vectors fold back into the first BZ") {
-    const uepm::pseudopotential::Material material("test", 5.0, 0.0, 0.0, 0.0, 0.0);
+    const uepm::pseudopotential::epm_material material("test", 5.0, 0.0, 0.0, 0.0, 0.0);
     MeshBZ                                mesh(material);
-    const double reciprocal_scale = 1.0 / mesh.si_to_reduced_scale();
-    const Eigen::Vector3d b1 = reciprocal_scale * Eigen::Vector3d{-1.0, 1.0, 1.0};
-    const Eigen::Vector3d b2 = reciprocal_scale * Eigen::Vector3d{1.0, -1.0, 1.0};
-    const Eigen::Vector3d b3 = reciprocal_scale * Eigen::Vector3d{1.0, 1.0, -1.0};
+    const double                          reciprocal_scale = 1.0 / mesh.si_to_reduced_scale();
+    const Eigen::Vector3d                 b1               = reciprocal_scale * Eigen::Vector3d{-1.0, 1.0, 1.0};
+    const Eigen::Vector3d                 b2               = reciprocal_scale * Eigen::Vector3d{1.0, -1.0, 1.0};
+    const Eigen::Vector3d                 b3               = reciprocal_scale * Eigen::Vector3d{1.0, 1.0, -1.0};
     mesh.init_reciprocal_basis(b1, b2, b3, 1.0, mesh.si_to_reduced_scale());
 
     const vector3 reciprocal_vector(b1.x() + b2.x(), b1.y() + b2.y(), b1.z() + b2.z());

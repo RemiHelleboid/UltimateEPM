@@ -42,15 +42,18 @@ enum class DataLocationType { vertex, cell, unknown };
  * @brief Matching between GMSH and Armin location type (vertex, cell(element)) for datasets.
  *
  */
-static const std::map<std::string, DataLocationType> msh_to_armin_data_location_type{{"NodeData", DataLocationType::vertex},
-                                                                                     {"ElementData", DataLocationType::cell}};
+static const std::map<std::string, DataLocationType> msh_to_armin_data_location_type{
+    {"NodeData", DataLocationType::vertex},
+    {"ElementData", DataLocationType::cell}};
 
 /**
  * @brief Matching between STF and Armin location type (vertex, cell(element)) for datasets.
  *
  */
-static const std::map<int, DataLocationType> STF_to_armin_data_location_type{{0, DataLocationType::vertex}, {3, DataLocationType::cell}};
-static const std::map<DataLocationType, int> armin_to_STF_data_location_type{{DataLocationType::vertex, 0}, {DataLocationType::cell, 3}};
+static const std::map<int, DataLocationType> STF_to_armin_data_location_type{{0, DataLocationType::vertex},
+                                                                             {3, DataLocationType::cell}};
+static const std::map<DataLocationType, int> armin_to_STF_data_location_type{{DataLocationType::vertex, 0},
+                                                                             {DataLocationType::cell, 3}};
 
 /**
  * @brief struct that contains multiple metedata attached to a dataset
@@ -82,7 +85,9 @@ struct STF_dataset_infos {
      * @param name name of the metadata field
      * @param value int value of the metadata
      */
-    void add_integer_list_attribute(std::string name, std::vector<int> value) { integer_list_attributes.insert({name, value}); }
+    void add_integer_list_attribute(std::string name, std::vector<int> value) {
+        integer_list_attributes.insert({name, value});
+    }
 
     /**
      * @brief add a double metadata to the struct
@@ -98,7 +103,9 @@ struct STF_dataset_infos {
      * @param name
      * @param value
      */
-    void add_string_attribute(const std::string &name, const std::string &value) { string_attributes.insert({name, value}); }
+    void add_string_attribute(const std::string &name, const std::string &value) {
+        string_attributes.insert({name, value});
+    }
 
     /**
      * @brief Check if the metadata struct is empty
@@ -106,7 +113,9 @@ struct STF_dataset_infos {
      * @return true if there is no metadata of any kind
      * @return false if there is at least one metadata of any kind
      */
-    bool is_empty() const { return (integer_attributes.empty() && double_attributes.empty() && string_attributes.empty()); }
+    bool is_empty() const {
+        return (integer_attributes.empty() && double_attributes.empty() && string_attributes.empty());
+    }
 };
 
 static const STF_dataset_infos empty_dataset_info_struct{};
@@ -129,7 +138,7 @@ class dataset {
     DataType                              m_data_type;
     DataLocationType                      m_data_location_type;  // vertex or cell
     int                                   m_dimension;           // scalar: 1  , 2d vector: 2, 3d vector: 3  etc...
-    STF_dataset_infos                    m_dataset_metadata{};
+    STF_dataset_infos                     m_dataset_metadata{};
 
  public:
     /**
@@ -171,15 +180,15 @@ class dataset {
      * @param dimension Dimension of the dataset (scalar -> 1, vector -> 2 ou 3 etc.)
      * @param dataset_metadata Metadata for the dataset (can be empty)
      */
-    dataset(const std::string &             name,
+    dataset(const std::string              &name,
             unsigned int                    index,
             unsigned int                    index_region_validity,
-            const std::vector<T> &          values,
+            const std::vector<T>           &values,
             const std::vector<std::size_t> &index_geometry_elements,
             DataType                        data_type,
             DataLocationType                data_location_type,
             int                             dimension,
-            const STF_dataset_infos &      dataset_metadata = empty_dataset_info_struct)
+            const STF_dataset_infos        &dataset_metadata = empty_dataset_info_struct)
         : m_name(name),
           m_index(index),
           m_index_region_validity(index_region_validity),
@@ -195,7 +204,7 @@ class dataset {
     // Move constructor
     dataset(dataset &&other) = default;
 
-    dataset get_dataset_copy(const std::string& new_name, unsigned int new_index) const {
+    dataset get_dataset_copy(const std::string &new_name, unsigned int new_index) const {
         std::vector<T> new_values(*m_values);
         return dataset(new_name,
                        new_index,
@@ -330,7 +339,11 @@ class dataset {
             throw std::runtime_error("Size of dataset to multiply is not the same as the current one");
         }
         const std::vector<T> &other_values = other.get_values();
-        std::transform(m_values->begin(), m_values->end(), other_values.begin(), m_values->begin(), std::multiplies<T>());
+        std::transform(m_values->begin(),
+                       m_values->end(),
+                       other_values.begin(),
+                       m_values->begin(),
+                       std::multiplies<T>());
     }
 
     void apply_function(const std::function<T(T)> &function) {

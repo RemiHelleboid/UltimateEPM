@@ -36,13 +36,19 @@ std::vector<std::array<std::size_t, 2>> element3d::get_edges_as_index_pair() con
 }
 
 std::vector<element1d> element3d::get_list_edges() const {
-    return {element1d(m_vertices[0], m_vertices[1]), element1d(m_vertices[1], m_vertices[2]), element1d(m_vertices[2], m_vertices[0]),
-            element1d(m_vertices[3], m_vertices[0]), element1d(m_vertices[3], m_vertices[1]), element1d(m_vertices[3], m_vertices[2])};
+    return {element1d(m_vertices[0], m_vertices[1]),
+            element1d(m_vertices[1], m_vertices[2]),
+            element1d(m_vertices[2], m_vertices[0]),
+            element1d(m_vertices[3], m_vertices[0]),
+            element1d(m_vertices[3], m_vertices[1]),
+            element1d(m_vertices[3], m_vertices[2])};
 }
 
 std::vector<element2d> element3d::get_faces_as_element2d() const {
-    return {element2d(m_vertices[0], m_vertices[1], m_vertices[3]), element2d(m_vertices[0], m_vertices[3], m_vertices[2]),
-            element2d(m_vertices[1], m_vertices[2], m_vertices[3]), element2d(m_vertices[2], m_vertices[1], m_vertices[0])};
+    return {element2d(m_vertices[0], m_vertices[1], m_vertices[3]),
+            element2d(m_vertices[0], m_vertices[3], m_vertices[2]),
+            element2d(m_vertices[1], m_vertices[2], m_vertices[3]),
+            element2d(m_vertices[2], m_vertices[1], m_vertices[0])};
 }
 
 vector3 element3d::compute_surface_normal() const {
@@ -111,16 +117,18 @@ vector3 element3d::compute_gradient(const std::string &scalar_field_name) const 
 double element3d::integrate_scalar(const std::string &scalar_field_name) const {
     constexpr double CM_TO_MICRON = 1e-12;
     double           volume       = this->get_volume() * CM_TO_MICRON;
-    double           integral     = m_vertices[0]->get_scalar_data(scalar_field_name) + m_vertices[1]->get_scalar_data(scalar_field_name) +
-                      m_vertices[2]->get_scalar_data(scalar_field_name) + m_vertices[3]->get_scalar_data(scalar_field_name);
+    double           integral =
+        m_vertices[0]->get_scalar_data(scalar_field_name) + m_vertices[1]->get_scalar_data(scalar_field_name) +
+        m_vertices[2]->get_scalar_data(scalar_field_name) + m_vertices[3]->get_scalar_data(scalar_field_name);
     constexpr double NUM_VERTICES = 4.0;
     return integral * volume / NUM_VERTICES;
 }
 
 vector3 element3d::integrate_vector(const std::string &vector_field_name) const {
-    double  volume   = this->get_volume();
-    vector3 integral = m_vertices[0]->get_vector_data(vector_field_name) + m_vertices[1]->get_vector_data(vector_field_name) +
-                       m_vertices[2]->get_vector_data(vector_field_name) + m_vertices[3]->get_vector_data(vector_field_name);
+    double  volume = this->get_volume();
+    vector3 integral =
+        m_vertices[0]->get_vector_data(vector_field_name) + m_vertices[1]->get_vector_data(vector_field_name) +
+        m_vertices[2]->get_vector_data(vector_field_name) + m_vertices[3]->get_vector_data(vector_field_name);
     constexpr double NUM_VERTICES = 4.0;
     return integral * volume / NUM_VERTICES;
 }
@@ -161,8 +169,8 @@ vector3 element3d::draw_uniform_random_point_inside_element() const {
     lambda_random_vtxC /= lambda_sum;
     lambda_vtxD /= lambda_sum;
 
-    vector3 random_point = lambda_random_vtxA * *m_vertices[0] + lambda_random_vtxB * *m_vertices[1] + lambda_random_vtxC * *m_vertices[2] +
-                           lambda_vtxD * *m_vertices[3];
+    vector3 random_point = lambda_random_vtxA * *m_vertices[0] + lambda_random_vtxB * *m_vertices[1] +
+                           lambda_random_vtxC * *m_vertices[2] + lambda_vtxD * *m_vertices[3];
 
     return random_point;
 }
@@ -180,12 +188,11 @@ vector3 element3d::draw_uniform_random_point_inside_element(std::minstd_rand &ra
     lambda_random_vtxC /= lambda_sum;
     lambda_vtxD /= lambda_sum;
 
-    vector3 random_point = lambda_random_vtxA * *m_vertices[0] + lambda_random_vtxB * *m_vertices[1] + lambda_random_vtxC * *m_vertices[2] +
-                           lambda_vtxD * *m_vertices[3];
+    vector3 random_point = lambda_random_vtxA * *m_vertices[0] + lambda_random_vtxB * *m_vertices[1] +
+                           lambda_random_vtxC * *m_vertices[2] + lambda_vtxD * *m_vertices[3];
 
     return random_point;
 }
-
 
 }  // namespace mesh
 

@@ -33,7 +33,9 @@ std::vector<std::pair<vertex *, vertex *>> element2d::get_edges_as_vertex_pair()
 }
 
 std::vector<element1d> element2d::get_list_edges() const {
-    return {element1d(m_vertices[0], m_vertices[1]), element1d(m_vertices[1], m_vertices[2]), element1d(m_vertices[2], m_vertices[0])};
+    return {element1d(m_vertices[0], m_vertices[1]),
+            element1d(m_vertices[1], m_vertices[2]),
+            element1d(m_vertices[2], m_vertices[0])};
 }
 
 double element2d::get_perimeters() const {
@@ -69,11 +71,11 @@ vector3 element2d::compute_surface_normal() const {
 }
 
 void element2d::compute_precomputed_field_for_barycentric_coordinates() {
-    m_bary_coord_precomputed_v00 = m_precomputed_v0.dot(m_precomputed_v0);
-    m_bary_coord_precomputed_v01 = m_precomputed_v0.dot(m_precomputed_v1);
-    m_bary_coord_precomputed_v11 = m_precomputed_v1.dot(m_precomputed_v1);
-    m_inverse_bary_coord_precomputed_divisor = 1.0 / (
-        m_bary_coord_precomputed_v00 * m_bary_coord_precomputed_v11 - m_bary_coord_precomputed_v01 * m_bary_coord_precomputed_v01);
+    m_bary_coord_precomputed_v00             = m_precomputed_v0.dot(m_precomputed_v0);
+    m_bary_coord_precomputed_v01             = m_precomputed_v0.dot(m_precomputed_v1);
+    m_bary_coord_precomputed_v11             = m_precomputed_v1.dot(m_precomputed_v1);
+    m_inverse_bary_coord_precomputed_divisor = 1.0 / (m_bary_coord_precomputed_v00 * m_bary_coord_precomputed_v11 -
+                                                      m_bary_coord_precomputed_v01 * m_bary_coord_precomputed_v01);
 }
 
 std::vector<double> element2d::compute_barycentric_coordinate(const vector3 &location) const {
@@ -81,10 +83,10 @@ std::vector<double> element2d::compute_barycentric_coordinate(const vector3 &loc
     const double  value_20 = v2.dot(m_precomputed_v0);
     const double  value_21 = v2.dot(m_precomputed_v1);
 
-    const double lambda_2 =
-        (m_bary_coord_precomputed_v11 * value_20 - m_bary_coord_precomputed_v01 * value_21) * m_inverse_bary_coord_precomputed_divisor;
-    const double lambda_3 =
-        (m_bary_coord_precomputed_v00 * value_21 - m_bary_coord_precomputed_v01 * value_20) * m_inverse_bary_coord_precomputed_divisor;
+    const double lambda_2 = (m_bary_coord_precomputed_v11 * value_20 - m_bary_coord_precomputed_v01 * value_21) *
+                            m_inverse_bary_coord_precomputed_divisor;
+    const double lambda_3 = (m_bary_coord_precomputed_v00 * value_21 - m_bary_coord_precomputed_v01 * value_20) *
+                            m_inverse_bary_coord_precomputed_divisor;
     const double lambda_1 = 1 - lambda_2 - lambda_3;
 
     return {lambda_1, lambda_2, lambda_3};
@@ -92,7 +94,9 @@ std::vector<double> element2d::compute_barycentric_coordinate(const vector3 &loc
 
 bool element2d::is_location_inside_element(const vector3 &location) const {
     const std::vector<double> barycentric_coords = compute_barycentric_coordinate(location);
-    return std::none_of(barycentric_coords.begin(), barycentric_coords.end(), [](const double &value) { return value < 0.0; });
+    return std::none_of(barycentric_coords.begin(), barycentric_coords.end(), [](const double &value) {
+        return value < 0.0;
+    });
 }
 
 vector3 element2d::compute_gradient(const std::string &scalar_field_name) const {
@@ -114,9 +118,11 @@ vector3 element2d::compute_gradient(const std::string &scalar_field_name) const 
     }
 
     const double grad_x =
-        (value_0 * y_1 - value_0 * y_2 - value_1 * y_0 + value_1 * y_2 + value_2 * y_0 - value_2 * y_1) / (surface * micron_to_cm);
+        (value_0 * y_1 - value_0 * y_2 - value_1 * y_0 + value_1 * y_2 + value_2 * y_0 - value_2 * y_1) /
+        (surface * micron_to_cm);
     const double grad_y =
-        (-value_0 * x_1 + value_0 * x_2 + value_1 * x_0 - value_1 * x_2 - value_2 * x_0 + value_2 * x_1) / (surface * micron_to_cm);
+        (-value_0 * x_1 + value_0 * x_2 + value_1 * x_0 - value_1 * x_2 - value_2 * x_0 + value_2 * x_1) /
+        (surface * micron_to_cm);
 
     return {grad_x, grad_y, 0.0};
 }
@@ -181,7 +187,8 @@ std::map<std::shared_ptr<element>, vector3> element2d::compute_element_line_inte
     std::map<std::shared_ptr<element>, vector3> map_position_face_intersections;
     const auto                                  list_edges_as_vtx_pair = get_edges_as_vertex_pair();
     for (const auto &pair_vtx : list_edges_as_vtx_pair) {
-        auto intersection_result = compute_line_line_intersection(point_A, point_B, *(pair_vtx.first), *(pair_vtx.second));
+        auto intersection_result =
+            compute_line_line_intersection(point_A, point_B, *(pair_vtx.first), *(pair_vtx.second));
         if (intersection_result.has_value()) {
             mesh::element1d face{pair_vtx.first, pair_vtx.second};
             map_position_face_intersections[std::make_shared<element1d>(face)] = intersection_result.value();
@@ -200,7 +207,8 @@ std::map<std::shared_ptr<element>, vector3> element2d::compute_element_line_inte
  * @param point_B
  * @return std::optional<vector3>
  */
-std::optional<vector3> element2d::compute_line_triangle_intersection_3d(const vector3 &point_A, const vector3 &point_B) const {
+std::optional<vector3> element2d::compute_line_triangle_intersection_3d(const vector3 &point_A,
+                                                                        const vector3 &point_B) const {
     const double  epsilon_intersection = 1e-12;
     const vector3 vtx_0                = *m_vertices[0];
     const vector3 vtx_1                = *m_vertices[1];
@@ -258,7 +266,8 @@ vector3 element2d::draw_uniform_random_point_inside_element() const {
     double lambda_random_vtxB = sqrt_r1 * (1 - r2);
     double lambda_vtxC        = sqrt_r1 * r2;
 
-    vector3 random_point = lambda_random_vtxA * *m_vertices[0] + lambda_random_vtxB * *m_vertices[1] + lambda_vtxC * *m_vertices[2];
+    vector3 random_point =
+        lambda_random_vtxA * *m_vertices[0] + lambda_random_vtxB * *m_vertices[1] + lambda_vtxC * *m_vertices[2];
 
     // Check if the point is inside the triangle.
     if (!is_location_inside_element(random_point)) {
@@ -281,7 +290,8 @@ vector3 element2d::draw_uniform_random_point_inside_element(std::minstd_rand &ra
     double lambda_random_vtxB = sqrt_r1 * (1 - r2);
     double lambda_vtxC        = sqrt_r1 * r2;
 
-    vector3 random_point = lambda_random_vtxA * *m_vertices[0] + lambda_random_vtxB * *m_vertices[1] + lambda_vtxC * *m_vertices[2];
+    vector3 random_point =
+        lambda_random_vtxA * *m_vertices[0] + lambda_random_vtxB * *m_vertices[1] + lambda_vtxC * *m_vertices[2];
 
     // Check if the point is inside the triangle.
     if (!is_location_inside_element(random_point)) {
@@ -290,7 +300,6 @@ vector3 element2d::draw_uniform_random_point_inside_element(std::minstd_rand &ra
     }
     return random_point;
 }
-
 
 }  // namespace mesh
 

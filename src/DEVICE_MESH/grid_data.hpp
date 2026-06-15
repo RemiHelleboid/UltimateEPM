@@ -30,7 +30,7 @@ namespace mesh {
 
 class grid_data {
  private:
-    int                 m_dimension = 2;
+    int                 m_dimension      = 2;
     std::size_t         m_number_point_x = 1;
     std::size_t         m_number_point_y = 1;
     std::size_t         m_number_point_z = 1;
@@ -101,7 +101,8 @@ class grid_data {
             std::swap(m_y_coordinates, m_z_coordinates);
             std::swap(m_number_point_y, m_number_point_z);
         } else {
-            throw std::invalid_argument("Invalid permutation. Permutation must be one of the following: xy, xz, yz, yx, zx, zy.");
+            throw std::invalid_argument(
+                "Invalid permutation. Permutation must be one of the following: xy, xz, yz, yx, zx, zy.");
         }
         compute_bbox();
     }
@@ -175,11 +176,23 @@ class grid_data {
         compute_bbox();
     }
 
-    void generate_grid_from_mesh(const mesh& Mesh, std::size_t number_point_x, std::size_t number_point_y, std::size_t number_point_z) {
+    void generate_grid_from_mesh(const mesh& Mesh,
+                                 std::size_t number_point_x,
+                                 std::size_t number_point_y,
+                                 std::size_t number_point_z) {
         m_dimension = Mesh.get_dimension();
         bbox box    = Mesh.get_bounding_box();
         if (m_dimension == 2) {
-            generate_grid(2, number_point_x, number_point_y, 1, box.get_x_min(), box.get_x_max(), box.get_y_min(), box.get_y_max(), 0, 0);
+            generate_grid(2,
+                          number_point_x,
+                          number_point_y,
+                          1,
+                          box.get_x_min(),
+                          box.get_x_max(),
+                          box.get_y_min(),
+                          box.get_y_max(),
+                          0,
+                          0);
         } else {
             generate_grid(3,
                           number_point_x,
@@ -224,8 +237,8 @@ class grid_data {
         std::cout << "Number values data: " << data_values.size() << std::endl;
 
         // Check if the coordinates are sorted in the right way which is:
-        // (x0, y0, z0), (x0, y0, z1), ..., (x0, y1, z0), (x0, y1, z1), ..., (x1, y0, z0), (x1, y0, z1), ..., (x1, y1, z0), (x1, y1,
-        // z1),
+        // (x0, y0, z0), (x0, y0, z1), ..., (x0, y1, z0), (x0, y1, z1), ..., (x1, y0, z0), (x1, y0, z1), ..., (x1, y1,
+        // z0), (x1, y1, z1),
         // ...
 
         // Get unique x, y, z values
@@ -272,9 +285,12 @@ class grid_data {
             return std::nullopt;
         }
 
-        std::size_t i = std::distance(m_x_coordinates.begin(), std::lower_bound(m_x_coordinates.begin(), m_x_coordinates.end(), x));
-        std::size_t j = std::distance(m_y_coordinates.begin(), std::lower_bound(m_y_coordinates.begin(), m_y_coordinates.end(), y));
-        std::size_t k = std::distance(m_z_coordinates.begin(), std::lower_bound(m_z_coordinates.begin(), m_z_coordinates.end(), z));
+        std::size_t i =
+            std::distance(m_x_coordinates.begin(), std::lower_bound(m_x_coordinates.begin(), m_x_coordinates.end(), x));
+        std::size_t j =
+            std::distance(m_y_coordinates.begin(), std::lower_bound(m_y_coordinates.begin(), m_y_coordinates.end(), y));
+        std::size_t k =
+            std::distance(m_z_coordinates.begin(), std::lower_bound(m_z_coordinates.begin(), m_z_coordinates.end(), z));
 
         if (i > 0) {
             i--;
@@ -325,7 +341,8 @@ class grid_data {
         for (std::size_t ii = 0; ii < 2; ii++) {
             for (std::size_t jj = 0; jj < 2; jj++) {
                 for (std::size_t kk = 0; kk < 2; kk++) {
-                    double distance = std::pow(m_x_coordinates[i + ii] - x, 2) + std::pow(m_y_coordinates[j + jj] - y, 2) +
+                    double distance = std::pow(m_x_coordinates[i + ii] - x, 2) +
+                                      std::pow(m_y_coordinates[j + jj] - y, 2) +
                                       std::pow(m_z_coordinates[k + kk] - z, 2);
                     if (distance < min_distance) {
                         min_distance = distance;
@@ -341,12 +358,15 @@ class grid_data {
 
     quadrangle_2d get_quadrangle_2d(const std::size_t i, const std::size_t j) const {
         if (m_dimension == 2) {
-            vector3 p0(m_x_coordinates[i], m_y_coordinates[j], 0.0);
-            vector3 p1(m_x_coordinates[i + 1], m_y_coordinates[j], 0.0);
-            vector3 p2(m_x_coordinates[i + 1], m_y_coordinates[j + 1], 0.0);
-            vector3 p3(m_x_coordinates[i], m_y_coordinates[j + 1], 0.0);
-            quadrangle_2d         my_quad2d(p0, p1, p2, p3);
-            my_quad2d.set_scalar_field_values(get_data(i, j), get_data(i + 1, j), get_data(i + 1, j + 1), get_data(i, j + 1));
+            vector3       p0(m_x_coordinates[i], m_y_coordinates[j], 0.0);
+            vector3       p1(m_x_coordinates[i + 1], m_y_coordinates[j], 0.0);
+            vector3       p2(m_x_coordinates[i + 1], m_y_coordinates[j + 1], 0.0);
+            vector3       p3(m_x_coordinates[i], m_y_coordinates[j + 1], 0.0);
+            quadrangle_2d my_quad2d(p0, p1, p2, p3);
+            my_quad2d.set_scalar_field_values(get_data(i, j),
+                                              get_data(i + 1, j),
+                                              get_data(i + 1, j + 1),
+                                              get_data(i, j + 1));
             return my_quad2d;
         } else {
             throw std::runtime_error("The dimension is not 2.");
@@ -356,20 +376,20 @@ class grid_data {
     quadrangle_3d get_quadrangle_3d(const std::size_t i, const std::size_t j, const std::size_t k) const {
         // Check if indices ar in bounded
         if (i >= m_number_point_x - 1 || j >= m_number_point_y - 1 || k >= m_number_point_z - 1) {
-            throw std::out_of_range("The indices are out of bounds." + std::to_string(i) + " " + std::to_string(j) + " " +
-                                    std::to_string(k));
+            throw std::out_of_range("The indices are out of bounds." + std::to_string(i) + " " + std::to_string(j) +
+                                    " " + std::to_string(k));
         }
 
         if (m_dimension == 3) {
-            vector3 p0(m_x_coordinates[i], m_y_coordinates[j], m_z_coordinates[k]);
-            vector3 p1(m_x_coordinates[i + 1], m_y_coordinates[j], m_z_coordinates[k]);
-            vector3 p2(m_x_coordinates[i + 1], m_y_coordinates[j + 1], m_z_coordinates[k]);
-            vector3 p3(m_x_coordinates[i], m_y_coordinates[j + 1], m_z_coordinates[k]);
-            vector3 p4(m_x_coordinates[i], m_y_coordinates[j], m_z_coordinates[k + 1]);
-            vector3 p5(m_x_coordinates[i + 1], m_y_coordinates[j], m_z_coordinates[k + 1]);
-            vector3 p6(m_x_coordinates[i + 1], m_y_coordinates[j + 1], m_z_coordinates[k + 1]);
-            vector3 p7(m_x_coordinates[i], m_y_coordinates[j + 1], m_z_coordinates[k + 1]);
-            quadrangle_3d         my_quad3d(p0, p1, p2, p3, p4, p5, p6, p7);
+            vector3       p0(m_x_coordinates[i], m_y_coordinates[j], m_z_coordinates[k]);
+            vector3       p1(m_x_coordinates[i + 1], m_y_coordinates[j], m_z_coordinates[k]);
+            vector3       p2(m_x_coordinates[i + 1], m_y_coordinates[j + 1], m_z_coordinates[k]);
+            vector3       p3(m_x_coordinates[i], m_y_coordinates[j + 1], m_z_coordinates[k]);
+            vector3       p4(m_x_coordinates[i], m_y_coordinates[j], m_z_coordinates[k + 1]);
+            vector3       p5(m_x_coordinates[i + 1], m_y_coordinates[j], m_z_coordinates[k + 1]);
+            vector3       p6(m_x_coordinates[i + 1], m_y_coordinates[j + 1], m_z_coordinates[k + 1]);
+            vector3       p7(m_x_coordinates[i], m_y_coordinates[j + 1], m_z_coordinates[k + 1]);
+            quadrangle_3d my_quad3d(p0, p1, p2, p3, p4, p5, p6, p7);
             my_quad3d.set_scalar_field_values(get_data(i, j, k),
                                               get_data(i + 1, j, k),
                                               get_data(i + 1, j + 1, k),
@@ -430,7 +450,7 @@ class grid_data {
         std::cout << "The number of points in z direction is " << m_number_point_z << std::endl;
         std::cout << "The number of data values is " << m_data_values.size() << std::endl;
     }
-}; 
+};
 
 }  // namespace mesh
 

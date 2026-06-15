@@ -24,16 +24,23 @@ namespace {
 valley_model::mat3 rotation_local_z_to_global_z() { return valley_model::identity_matrix(); }
 
 // Local z -> global x
-valley_model::mat3 rotation_local_z_to_global_x() { return {{{{0.0, 0.0, 1.0}}, {{0.0, 1.0, 0.0}}, {{-1.0, 0.0, 0.0}}}}; }
+valley_model::mat3 rotation_local_z_to_global_x() {
+    return {{{{0.0, 0.0, 1.0}}, {{0.0, 1.0, 0.0}}, {{-1.0, 0.0, 0.0}}}};
+}
 
 // Local z -> global y
-valley_model::mat3 rotation_local_z_to_global_y() { return {{{{1.0, 0.0, 0.0}}, {{0.0, 0.0, 1.0}}, {{0.0, -1.0, 0.0}}}}; }
+valley_model::mat3 rotation_local_z_to_global_y() {
+    return {{{{1.0, 0.0, 0.0}}, {{0.0, 0.0, 1.0}}, {{0.0, -1.0, 0.0}}}};
+}
 
-} // namespace
+}  // namespace
 
-dielectric_properties make_silicon_dielectric_properties() {
+dielectric_properties make_dielectric_properties(const uepm::physics::material_info& material) {
+    if (material.static_relative_permittivity <= 0.0) {
+        throw std::invalid_argument("AMC material requires a positive common static relative permittivity.");
+    }
     dielectric_properties props;
-    props.epsilon_r = 11.7;
+    props.epsilon_r = material.static_relative_permittivity;
     return props;
 }
 
@@ -56,7 +63,7 @@ carrier_impurity_mobility_parameters make_silicon_impurity_mobility_parameters()
 carrier_impact_ionization_parameters make_silicon_impact_ionization_parameters() {
     carrier_impact_ionization_parameters parameters;
 
-    parameters.m_electron.m_threshold_eV  = 1.12;
+    parameters.m_electron.m_threshold_eV = 1.12;
     // parameters.m_electron.m_prefactor_s_1 = 1.0e11;
     parameters.m_electron.m_prefactor_s_1 = 1.1e14;
     parameters.m_electron.m_exponent      = 2.5;
@@ -157,9 +164,6 @@ std::vector<hole_optical_transition> make_silicon_hole_optical_transitions() {
 }
 
 void amc_material_model::validate() const {
-    if (m_name.empty() || m_symbol.empty()) {
-        throw std::invalid_argument("AMC material name and symbol must not be empty");
-    }
     if (m_dielectric.epsilon_r <= 0.0) {
         throw std::invalid_argument("AMC material relative permittivity must be positive");
     }
@@ -191,46 +195,53 @@ void amc_material_model::validate() const {
         if (transition.name.empty()) {
             throw std::invalid_argument("AMC hole optical transition name must not be empty");
         }
-        if (transition.initial_band >= m_hole_bands.size() ||
-            transition.final_band >= m_hole_bands.size()) {
+        if (transition.initial_band >= m_hole_bands.size() || transition.final_band >= m_hole_bands.size()) {
             throw std::invalid_argument("AMC hole optical transition references an invalid band");
         }
     }
 }
 
-amc_material_model make_silicon_amc_material_model() {
-    constexpr double silicon_mass_density_kg_per_m3 = 2.329e3;
+amc_material_model make_silicon_amc_material_model(const uepm::physics::material_info& common_material) {
+    if (common_material.id != uepm::physics::material_id::silicon) {
+        throw std::invalid_argument("The analytical silicon AMC model requires common material 'Si'.");
+    }
+    if (common_material.mass_density_kg_m3 <= 0.0) {
+        throw std::invalid_argument("The silicon AMC model requires a positive common mass density.");
+    }
+
     constexpr double electron_longitudinal_sound_velocity_m_per_s = 9.002e3;
     constexpr double electron_transverse_sound_velocity_m_per_s   = 5.409e3;
 
     amc_material_model material;
-    material.m_name       = "Silicon";
-    material.m_symbol     = "Si";
-    material.m_dielectric = make_silicon_dielectric_properties();
+    material.m_id         = common_material.id;
+    material.m_dielectric = make_dielectric_properties(common_material);
 
     material.m_electron_acoustic = acoustic_scattering_parameters{
-        .mass_density_kg_per_m3   = silicon_mass_density_kg_per_m3,
-        .sound_velocity_m_per_s   = (electron_longitudinal_sound_velocity_m_per_s +
-                                   2.0 * electron_transverse_sound_velocity_m_per_s) /
-                                  3.0,
+        .mass_density_kg_per_m3 = common_material.mass_density_kg_m3,
+        .sound_velocity_m_per_s =
+            (electron_longitudinal_sound_velocity_m_per_s + 2.0 * electron_transverse_sound_velocity_m_per_s) / 3.0,
         .deformation_potential_eV = 6.55,
         .overlap_factor           = 1.0,
     };
     material.m_hole_acoustic = acoustic_scattering_parameters{
-        .mass_density_kg_per_m3   = silicon_mass_density_kg_per_m3,
+        .mass_density_kg_per_m3   = common_material.mass_density_kg_m3,
         .sound_velocity_m_per_s   = 6.606e3,
         .deformation_potential_eV = 5.5,
         .overlap_factor           = 0.5,
     };
 
-    material.m_electron_valleys                = make_silicon_delta_valleys();
+    material.m_electron_valleys                 = make_silicon_delta_valleys();
     material.m_electron_intervalley_transitions = make_silicon_intervalley_phonon_branches();
-    material.m_hole_bands                      = make_silicon_hole_bands();
-    material.m_hole_optical_transitions        = make_silicon_hole_optical_transitions();
-    material.m_impurity_mobility               = make_silicon_impurity_mobility_parameters();
-    material.m_impact_ionization               = make_silicon_impact_ionization_parameters();
+    material.m_hole_bands                       = make_silicon_hole_bands();
+    material.m_hole_optical_transitions         = make_silicon_hole_optical_transitions();
+    material.m_impurity_mobility                = make_silicon_impurity_mobility_parameters();
+    material.m_impact_ionization                = make_silicon_impact_ionization_parameters();
     material.validate();
     return material;
+}
+
+amc_material_model make_silicon_amc_material_model() {
+    return make_silicon_amc_material_model(uepm::physics::silicon_material_info());
 }
 
 }  // namespace uepm::amc

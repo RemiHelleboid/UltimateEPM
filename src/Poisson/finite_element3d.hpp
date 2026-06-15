@@ -41,8 +41,8 @@ class FiniteElementP1System3d : public FiniteElementSystem {
     void                   compute_second_member(double constant_value) override;
     void                   compute_second_member(std::function<double(double, double, double)> function);
     void                   apply_dirichlet_condition(const std::string& region_name, const double boundary_value);
-    void                   apply_dirichlet_condition_second_member(const std::string& region_name, const double boundary_value);
-    void                   apply_neuman_condition(const std::string& region_name, const double boundary_value);
+    void apply_dirichlet_condition_second_member(const std::string& region_name, const double boundary_value);
+    void apply_neuman_condition(const std::string& region_name, const double boundary_value);
 };
 
 }  // namespace uepm::fem

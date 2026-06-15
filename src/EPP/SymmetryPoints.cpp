@@ -1,11 +1,11 @@
 /**
  * @file SymmetryPoints.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2025-11-01
- * 
- * 
+ *
+ *
  */
 
 #include "SymmetryPoints.h"
@@ -34,15 +34,14 @@ SymmetryPoints::SymmetryPoints() {
  * The number of points will be the total of points in the output.
  * The symmetryPointsPositions will be the positions (indexes) of the symmetry points in the output.
  *
- * The points are spaced in such way that the number of points between two symmetry points is "proportional" to the distance between them.
+ * The points are spaced in such way that the number of points between two symmetry points is "proportional" to the
+ * distance between them.
  *
  * @param path
  * @param nrPoints
  * @param symmetryPointsPositions
  * @return std::vector<Vector3D<double>>
  */
-
-
 
 std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<std::string>& path,
                                                              unsigned int                    nrPoints,
@@ -131,7 +130,8 @@ std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<s
             for (unsigned i = 1; i <= ms; ++i) {
                 double t = static_cast<double>(i) / denom;
                 result.push_back(A + d * t);
-                // std::cout << "Added point at t=" << t <<  " : " << result.back().X << " " << result.back().Y << " " << result.back().Z << std::endl;
+                // std::cout << "Added point at t=" << t <<  " : " << result.back().X << " " << result.back().Y << " "
+                // << result.back().Z << std::endl;
             }
         }
 
@@ -141,7 +141,6 @@ std::vector<Vector3D<double>> SymmetryPoints::GeneratePoints(const std::vector<s
     // for (auto &V : result) {
     //     std::cout << "K-point: " << V.X << " " << V.Y << " " << V.Z << std::endl;
     // }
-
 
     return result;
 }

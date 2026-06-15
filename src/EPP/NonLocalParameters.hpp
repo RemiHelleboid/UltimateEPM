@@ -25,8 +25,8 @@ enum class non_local_well_type { square, gaussian, unknown };
 /**
  * @brief Struct to store the non-local parameters.
  *
- * The formalism is taken from: 1. Pötz, W. & Vogl, P. Theory of optical-phonon deformation potentials in tetrahedral semiconductors.
- *  Phys. Rev. B 24, 2025–2037 (1981).
+ * The formalism is taken from: 1. Pötz, W. & Vogl, P. Theory of optical-phonon deformation potentials in tetrahedral
+ * semiconductors. Phys. Rev. B 24, 2025–2037 (1981).
  *
  */
 struct NonLocalParameters {

@@ -1,4 +1,4 @@
-#include "Material.h"
+#include "epm_material.hpp"
 
 #include <cmath>
 
@@ -8,9 +8,32 @@
 
 namespace uepm::pseudopotential {
 
-const double Bohr = 0.52917721092;  // in Angstroms
+const double     Bohr          = 0.52917721092;  // in Angstroms
+constexpr double angstrom_to_m = 1.0e-10;
 
-Material::Material(const std::string& Name,
+namespace {
+
+uepm::physics::material_id legacy_material_id(const std::string& name_or_symbol) {
+    try {
+        return uepm::physics::material_id_from_name_or_symbol(name_or_symbol);
+    } catch (const std::invalid_argument&) {
+        return uepm::physics::material_id::custom;
+    }
+}
+
+uepm::physics::material_info legacy_material_info(const std::string& name_or_symbol,
+                                                  double             lattice_constant_angstrom) {
+    return {
+        .id                 = legacy_material_id(name_or_symbol),
+        .name               = name_or_symbol,
+        .symbol             = name_or_symbol,
+        .lattice_constant_m = lattice_constant_angstrom * angstrom_to_m,
+    };
+}
+
+}  // namespace
+
+epm_material::epm_material(const std::string& Name,
                    double             a,
                    double             V3S,
                    double             V4S,
@@ -20,23 +43,46 @@ Material::Material(const std::string& Name,
                    double             V4A,
                    double             V8A,
                    double             V11A)
-    : m_name(Name),
-      m_lattice_constant(a),
+    : m_material_info(legacy_material_info(Name, a)),
       m_pseudopotential(V3S, V4S, V8S, V11S, V3A, V4A, V8A, V11A) {}
+
+epm_material::epm_material(const uepm::physics::material_info& material,
+                   double                              V3S,
+                   double                              V4S,
+                   double                              V8S,
+                   double                              V11S,
+                   double                              V3A,
+                   double                              V4A,
+                   double                              V8A,
+                   double                              V11A)
+    : m_material_info(material),
+      m_pseudopotential(V3S, V4S, V8S, V11S, V3A, V4A, V8A, V11A) {
+    if (m_material_info.lattice_constant_m <= 0.0) {
+        throw std::invalid_argument("EPP material '" + material.symbol +
+                                    "' requires a positive common lattice constant.");
+    }
+}
 
 /**
  * @brief Load material parameters from the passed filename.
- * The file is a YAML file containing the parameters for each material (lattice constant, pseudopotential parameters, etc.).
+ * The file is a YAML file containing the parameters for each material (lattice constant, pseudopotential parameters,
+ * etc.).
  *
  * @param filename
  */
 void Materials::load_material_parameters(const std::string& filename) {
+    uepm::physics::material_database material_database;
+    material_database.load_from_file(filename);
+    load_material_parameters(filename, material_database);
+}
+
+void Materials::load_material_parameters(const std::string&                      filename,
+                                         const uepm::physics::material_database& material_database) {
     YAML::Node config         = YAML::LoadFile(filename);
     auto       list_materials = config["materials"];
     for (const auto& material : list_materials) {
-        std::string name                 = material["name"].as<std::string>();
         std::string symbol               = material["symbol"].as<std::string>();
-        double      a                    = material["lattice-constant"].as<double>();
+        const auto& common_material      = material_database.require(symbol);
         auto        node_pseudopotential = material["pseudo-potential-parameters"];
         double      V3S                  = uepm::constants::Ryd_to_eV * node_pseudopotential["V3S"].as<double>();
         double      V8S                  = uepm::constants::Ryd_to_eV * node_pseudopotential["V8S"].as<double>();
@@ -52,18 +98,16 @@ void Materials::load_material_parameters(const std::string& filename) {
         if (node_pseudopotential["V8A"]) {
             V8A = uepm::constants::Ryd_to_eV * node_pseudopotential["V8A"].as<double>();
         }
-        materials[symbol] = Material(symbol, a, V3S, V4S, V8S, V11S, V3A, V4A, V8A, V11A);
+        materials[symbol] = epm_material(common_material, V3S, V4S, V8S, V11S, V3A, V4A, V8A, V11A);
 
         auto node_non_local_parameters = material["non-local-parameters"];
         if (node_non_local_parameters) {
             materials[symbol].populate_non_local_parameters(node_non_local_parameters);
-            materials[symbol].set_is_non_local_parameters_populated(true);
         }
 
         auto node_spin_orbit_parameters = material["spin-orbit-parameters"];
         if (node_spin_orbit_parameters) {
             materials[symbol].populate_spin_orbit_parameters(node_spin_orbit_parameters);
-            materials[symbol].set_is_spin_orbit_parameters_populated(true);
             std::cout << "Spin-orbit parameters for " << symbol << " exists." << std::endl;
             materials[symbol].get_spin_orbit_parameters().print_parameters();
         }
@@ -72,11 +116,11 @@ void Materials::load_material_parameters(const std::string& filename) {
 
 /**
  * @brief Compute the so called F_l function, which is used in the non-local pseudopotential correction.
- * (See Chelikowsky, J. R. & Cohen, M. L. Nonlocal pseudopotential calculations for the electronic structure of eleven diamond
- * and zinc-blende semiconductors. Phys. Rev. B 14, 556–582 (1976).)
+ * (See Chelikowsky, J. R. & Cohen, M. L. Nonlocal pseudopotential calculations for the electronic structure of eleven
+ * diamond and zinc-blende semiconductors. Phys. Rev. B 14, 556–582 (1976).)
  *
- * For the values of function, see: Bloomfield, J. K., Face, S. H. P. & Moss, Z. Indefinite Integrals of Spherical Bessel
- * Functions. Preprint at http://arxiv.org/abs/1703.06428 (2017). Equations 49 and 59.
+ * For the values of function, see: Bloomfield, J. K., Face, S. H. P. & Moss, Z. Indefinite Integrals of Spherical
+ * Bessel Functions. Preprint at http://arxiv.org/abs/1703.06428 (2017). Equations 49 and 59.
  *
  * @param K1
  * @param K2
@@ -94,14 +138,17 @@ double F_l_function(const Vector3D<double>& K1, const Vector3D<double>& K2, doub
     // std::cout << "F_l_function: norm_K1 = " << norm_K1 << ", norm_K2 = " << norm_K2 << std::endl;
     if (fabs(norm_K1 - norm_K2) > EPSILON) {
         const double pre_factor = pow(atomic_radii, 2.0) / (norm_K1 * norm_K1 - norm_K2 * norm_K2);
-        const double F = norm_K1 * generalized_bessel(l + 1, norm_K1 * atomic_radii) * generalized_bessel(l, norm_K2 * atomic_radii) -
-                         norm_K2 * generalized_bessel(l + 1, norm_K2 * atomic_radii) * generalized_bessel(l, norm_K1 * atomic_radii);
+        const double F =
+            norm_K1 * generalized_bessel(l + 1, norm_K1 * atomic_radii) *
+                generalized_bessel(l, norm_K2 * atomic_radii) -
+            norm_K2 * generalized_bessel(l + 1, norm_K2 * atomic_radii) * generalized_bessel(l, norm_K1 * atomic_radii);
         return pre_factor * F;
     } else if (norm_K1 > EPSILON) {
         const double pre_factor = pow(atomic_radii, 3.0) / (2.0);
         // const double pre_factor = 1.0 / (2.0 * atomi c_radii * atomic_radii);
-        const double F          = pow(generalized_bessel(l, norm_K1 * atomic_radii), 2.0) -
-                         generalized_bessel(l - 1, norm_K1 * atomic_radii) * generalized_bessel(l + 1, norm_K1 * atomic_radii);
+        const double F =
+            pow(generalized_bessel(l, norm_K1 * atomic_radii), 2.0) -
+            generalized_bessel(l - 1, norm_K1 * atomic_radii) * generalized_bessel(l + 1, norm_K1 * atomic_radii);
         return pre_factor * F;
     } else {
         return (l == 0) ? pow(atomic_radii, 3.0) / (3.0) : 0.0;
@@ -112,15 +159,15 @@ double F_2_function_gaussian(const Vector3D<double>& K1, const Vector3D<double>&
     const double norm_K1    = K1.Length();
     const double norm_K2    = K2.Length();
     const double bessel_arg = 0.5 * (atomic_radii * atomic_radii) * norm_K1 * norm_K2;
-    return bessel_2nd_order_first_kind(bessel_arg) * exp(-0.25 * (norm_K1 * norm_K1 + norm_K2 * norm_K2) * atomic_radii * atomic_radii);
+    return bessel_2nd_order_first_kind(bessel_arg) *
+           exp(-0.25 * (norm_K1 * norm_K1 + norm_K2 * norm_K2) * atomic_radii * atomic_radii);
 }
 
 /**
  * @brief Compute the non local correction to the EPM Hamiltonian.
- * It follows: Chelikowsky, J. R. & Cohen, M. L. Nonlocal pseudopotential calculations for the electronic structure of eleven diamond
- * and zinc-blende semiconductors. Phys. Rev. B 14, 556–582 (1976).
- * See also: Pötz, W. & Vogl, P. Theory of optical-phonon deformation
- * potentials in tetrahedral semiconductors. Phys. Rev. B 24, 2025–2037 (1981)
+ * It follows: Chelikowsky, J. R. & Cohen, M. L. Nonlocal pseudopotential calculations for the electronic structure of
+ * eleven diamond and zinc-blende semiconductors. Phys. Rev. B 14, 556–582 (1976). See also: Pötz, W. & Vogl, P. Theory
+ * of optical-phonon deformation potentials in tetrahedral semiconductors. Phys. Rev. B 24, 2025–2037 (1981)
  *
  * K1 = (k + G)
  * K2 = (k + G')
@@ -136,11 +183,11 @@ double F_2_function_gaussian(const Vector3D<double>& K1, const Vector3D<double>&
  * @param tau
  * @return std::complex<double>
  */
-std::complex<double> Material::compute_pseudopotential_non_local_correction(const Vector3D<double>& K1_normalized,
+std::complex<double> epm_material::compute_pseudopotential_non_local_correction(const Vector3D<double>& K1_normalized,
                                                                             const Vector3D<double>& K2_normalized,
                                                                             const Vector3D<double>& tau) const {
-    const double           diag_factor       = pow(uepm::constants::h_bar, 2) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
-    const double           fourier_factor    = 2.0 * M_PI / get_lattice_constant_meter();
+    const double diag_factor    = pow(uepm::constants::h_bar, 2) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
+    const double fourier_factor = 2.0 * M_PI / get_lattice_constant_meter();
     const Vector3D<double> G_diff_normalized = (K1_normalized - K2_normalized);
     const Vector3D<double> K1                = K1_normalized * fourier_factor;
     const Vector3D<double> K2                = K2_normalized * fourier_factor;
@@ -154,9 +201,11 @@ std::complex<double> Material::compute_pseudopotential_non_local_correction(cons
     // First atomic species: anion
     double V_anion = 0;
     // l = 0
-    const double A_0_anion = m_non_local_parameters.m_alpha_0_anion + diag_factor * m_non_local_parameters.m_beta_0_anion *
-                                                                          (norm_K1 * norm_K2 - pow(this->get_fermi_momentum(), 2.0));
-    const double F_0_anion = (m_non_local_parameters.m_R0_anion == 0.0) ? 0.0 : F_l_function(K1, K2, m_non_local_parameters.m_R0_anion, 0);
+    const double A_0_anion =
+        m_non_local_parameters.m_alpha_0_anion + diag_factor * m_non_local_parameters.m_beta_0_anion *
+                                                     (norm_K1 * norm_K2 - pow(this->get_fermi_momentum(), 2.0));
+    const double F_0_anion =
+        (m_non_local_parameters.m_R0_anion == 0.0) ? 0.0 : F_l_function(K1, K2, m_non_local_parameters.m_R0_anion, 0);
     V_anion += V_pre_factor * A_0_anion * (2 * 0 + 1) * 1.0 * F_0_anion;
     // l = 2
     double V_anion_2 = 0.0;
@@ -168,8 +217,8 @@ std::complex<double> Material::compute_pseudopotential_non_local_correction(cons
             V_anion_2 = V_pre_factor * A_2_anion * (2 * 2 + 1) * legendre_2 * F_2_anion;
         } else {
             F_2_anion = F_2_function_gaussian(K1, K2, m_non_local_parameters.m_R2_anion);
-            V_anion_2 = 5.0 * pow(M_PI, 1.5) * (pow(m_non_local_parameters.m_R2_anion, 3.0) / get_atomic_volume()) * A_2_anion *
-                        legendre_2 * F_2_anion;
+            V_anion_2 = 5.0 * pow(M_PI, 1.5) * (pow(m_non_local_parameters.m_R2_anion, 3.0) / get_atomic_volume()) *
+                        A_2_anion * legendre_2 * F_2_anion;
         }
         V_anion += V_anion_2;
     }
@@ -177,9 +226,11 @@ std::complex<double> Material::compute_pseudopotential_non_local_correction(cons
     // Second atomic species: cation
     double V_cation = 0;
     // l = 0
-    const double F_0_cation = (m_non_local_parameters.m_R0_cation == 0) ? 0.0 : F_l_function(K1, K2, m_non_local_parameters.m_R0_cation, 0);
-    const double A_0_cation = m_non_local_parameters.m_alpha_0_cation + m_non_local_parameters.m_beta_0_cation * diag_factor *
-                                                                            (norm_K1 * norm_K2 - pow(this->get_fermi_momentum(), 2.0));
+    const double F_0_cation =
+        (m_non_local_parameters.m_R0_cation == 0) ? 0.0 : F_l_function(K1, K2, m_non_local_parameters.m_R0_cation, 0);
+    const double A_0_cation =
+        m_non_local_parameters.m_alpha_0_cation + m_non_local_parameters.m_beta_0_cation * diag_factor *
+                                                      (norm_K1 * norm_K2 - pow(this->get_fermi_momentum(), 2.0));
     V_cation += V_pre_factor * A_0_cation * (2 * 0 + 1) * legendre_0 * F_0_cation;
     // l = 2
     double V_cation_2 = 0.0;
@@ -191,8 +242,8 @@ std::complex<double> Material::compute_pseudopotential_non_local_correction(cons
             V_cation_2 = V_pre_factor * A_2_cation * (2 * 2 + 1) * legendre_2 * F_2_cation;
         } else {
             F_2_cation = F_2_function_gaussian(K1, K2, m_non_local_parameters.m_R2_cation);
-            V_cation_2 = 5.0 * pow(M_PI, 1.5) * (pow(m_non_local_parameters.m_R2_cation, 3.0) / get_atomic_volume()) * A_2_cation *
-                         legendre_2 * F_2_cation;
+            V_cation_2 = 5.0 * pow(M_PI, 1.5) * (pow(m_non_local_parameters.m_R2_cation, 3.0) / get_atomic_volume()) *
+                         A_2_cation * legendre_2 * F_2_cation;
         }
         V_cation += V_cation_2;
     }
@@ -204,7 +255,8 @@ std::complex<double> Material::compute_pseudopotential_non_local_correction(cons
     const double     lattice_constant = this->get_lattice_constant_meter();
     const double     Gtau             = (tau / lattice_constant) * (G_diff_normalized);
 
-    return std::complex<double>(cos(const_two * M_PI * Gtau) * V_symmetric, sin(const_two * M_PI * Gtau) * V_antisymmetric);
+    return std::complex<double>(cos(const_two * M_PI * Gtau) * V_symmetric,
+                                sin(const_two * M_PI * Gtau) * V_antisymmetric);
 }
 
 void Materials::print_materials_list() const {
@@ -215,11 +267,11 @@ void Materials::print_materials_list() const {
 
 void Materials::print_material_parameters(const std::string& name) const {
     if (materials.find(name) == materials.end()) {
-        std::cout << "Material " << name << " not found" << std::endl;
+        std::cout << "epm_material " << name << " not found" << std::endl;
         return;
     }
-    const Material& material = materials.at(name);
-    std::cout << "Material: " << name << std::endl;
+    const epm_material& material = materials.at(name);
+    std::cout << "epm_material: " << name << std::endl;
     std::cout << "Lattice constant: " << material.get_lattice_constant_meter() << " Bohr" << std::endl;
     std::cout << "-------------------------------------" << std::endl;
 }

@@ -11,7 +11,6 @@
 
 // #pragma once
 
-
 // #include <algorithm>
 // #include <cmath>
 // #include <complex>
@@ -21,7 +20,7 @@
 // #include <vector>
 
 // #include "physical_constants.hpp"
-// #include "Material.h"
+// #include "epm_material.hpp"
 // #include "NonLocalParameters.hpp"
 // #include "Vector3D.h"
 
@@ -37,7 +36,7 @@
 // class NonLocalFunctor {
 //  private:
 //     NonLocalParameters      m_non_local_parameters;
-//     Material                m_material;
+//     epm_material                m_material;
 //     Vector3D<double>        m_tau;
 //     const double            m_cinetic_factor;
 //     const double            m_fourrier_factor;
@@ -48,7 +47,8 @@
 
 //  public:
 //     NonLocalFunctor() = delete;
-//     NonLocalFunctor(const NonLocalParameters& non_local_parameters, const Material& material, const Vector3D<double>& tau);
+//     NonLocalFunctor(const NonLocalParameters& non_local_parameters, const epm_material& material, const Vector3D<double>&
+//     tau);
 
 //     double F_0_Gamma(double atomic_radii) const;
 //     double F_0_diag(double norm_K, double atomic_radii) const;
@@ -59,10 +59,12 @@
 //     double F_2_coupling_square_potential(double norm_K1, double norm_K2, double atomic_radii) const;
 //     double F_2_gaussian(double norm_K1, double norm_K2, double atomic_radii) const;
 
-//     double compute_anion_non_local_correction(const Vector3D<double>& K1_normalized, const Vector3D<double>& K2_normalized2) const;
-//     double compute_cation_non_local_correction(const Vector3D<double>& K1_normalized, const Vector3D<double>& K2_normalized) const;
+//     double compute_anion_non_local_correction(const Vector3D<double>& K1_normalized, const Vector3D<double>&
+//     K2_normalized2) const; double compute_cation_non_local_correction(const Vector3D<double>& K1_normalized, const
+//     Vector3D<double>& K2_normalized) const;
 
-//     std::complex<double> operator()(const Vector3D<double>& K1_normalized, const Vector3D<double>& K2_normalized) const;
+//     std::complex<double> operator()(const Vector3D<double>& K1_normalized, const Vector3D<double>& K2_normalized)
+//     const;
 // };
 
 // }  // namespace uepm::pseudopotential

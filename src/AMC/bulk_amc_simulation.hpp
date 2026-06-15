@@ -25,22 +25,23 @@
 namespace uepm::amc {
 
 struct bulk_amc_simulation_config {
-    particle_type             m_carrier_type               = particle_type::electron;
-    std::size_t               m_number_of_particles        = 10000;
-    uepm::mesh::vector3       m_electric_field             = {0.0, 0.0, 0.0};  // V/m
-    double                    m_lattice_temperature        = 300.0;            // K
-    double                    m_final_time                 = 5.0e-12;          // s
-    
-    double                    m_doping_concentration       = 1.0e16;           // m^-3
+    amc_material_model  m_material_model      = make_silicon_amc_material_model();
+    particle_type       m_carrier_type        = particle_type::electron;
+    std::size_t         m_number_of_particles = 10000;
+    uepm::mesh::vector3 m_electric_field      = {0.0, 0.0, 0.0};  // V/m
+    double              m_lattice_temperature = 300.0;            // K
+    double              m_final_time          = 5.0e-12;          // s
+
+    double                    m_doping_concentration       = 1.0e16;  // m^-3
     bool                      m_enable_impurity_scattering = false;
     impurity_scattering_model m_impurity_scattering_model  = impurity_scattering_model::screened_coulomb;
     impurity_screening_model  m_impurity_screening_model   = impurity_screening_model::debye_analytic;
-    double                    m_impurity_density_cm_3      = 0.0;     // cm^-3, positive scattering center density
-    
-    double                    m_max_self_scattering_rate   = 1.0e15;  // s^-1
-    bool                      m_record_history             = true;
-    double                    m_time_step                  = 5.0e-15;
-    double                    m_warmup_fraction            = 0.2;
+    double                    m_impurity_density_cm_3      = 0.0;  // cm^-3, positive scattering center density
+
+    double m_max_self_scattering_rate = 1.0e15;  // s^-1
+    bool   m_record_history           = true;
+    double m_time_step                = 5.0e-15;
+    double m_warmup_fraction          = 0.2;
 
     bool m_enable_impact_ionization = true;
 
@@ -107,10 +108,10 @@ class bulk_amc_simulation {
     static amc_transport_config make_transport_config(const bulk_amc_simulation_config& cfg);
 
  public:
-    bulk_amc_simulation() : m_transport(make_transport_config(m_cfg)) {}
+    bulk_amc_simulation() : m_transport(make_transport_config(m_cfg), m_cfg.m_material_model) {}
     explicit bulk_amc_simulation(const bulk_amc_simulation_config& cfg)
         : m_cfg(cfg),
-          m_transport(make_transport_config(m_cfg)) {}
+          m_transport(make_transport_config(m_cfg), m_cfg.m_material_model) {}
 
     void initialize();
     void run();
@@ -123,7 +124,7 @@ class bulk_amc_simulation {
     void        accumulate_particle_observables(const particle_amc& p, double dt);
     void        export_observables_to_csv(const std::string& filename) const;
 
-    const bulk_observables& observables() const noexcept { return m_observables; }
+    const bulk_observables&                         observables() const noexcept { return m_observables; }
     const impact_ionization_coefficient_statistics& impact_ionization_statistics() const noexcept {
         return m_impact_ionization_coefficient_statistics;
     }

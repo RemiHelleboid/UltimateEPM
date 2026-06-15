@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "intervalley_phonon.hpp"
+#include "materials.hpp"
 #include "valley_model.hpp"
 
 namespace uepm::amc {
@@ -25,10 +26,10 @@ struct dielectric_properties {
 };
 
 struct acoustic_scattering_parameters {
-    double mass_density_kg_per_m3       = 0.0;
-    double sound_velocity_m_per_s       = 0.0;
-    double deformation_potential_eV     = 0.0;
-    double overlap_factor               = 1.0;
+    double mass_density_kg_per_m3   = 0.0;
+    double sound_velocity_m_per_s   = 0.0;
+    double deformation_potential_eV = 0.0;
+    double overlap_factor           = 1.0;
 };
 
 struct impact_ionization_parameters {
@@ -64,8 +65,7 @@ struct hole_optical_transition {
 };
 
 struct amc_material_model {
-    std::string m_name;
-    std::string m_symbol;
+    uepm::physics::material_id m_id = uepm::physics::material_id::silicon;
 
     dielectric_properties          m_dielectric;
     acoustic_scattering_parameters m_electron_acoustic;
@@ -82,12 +82,13 @@ struct amc_material_model {
     void validate() const;
 };
 
-dielectric_properties                make_silicon_dielectric_properties();
+dielectric_properties                make_dielectric_properties(const uepm::physics::material_info& material);
 carrier_impurity_mobility_parameters make_silicon_impurity_mobility_parameters();
 std::vector<valley_model>            make_silicon_delta_valleys();
 std::vector<valley_model>            make_silicon_hole_bands();
 std::vector<hole_optical_transition> make_silicon_hole_optical_transitions();
 carrier_impact_ionization_parameters make_silicon_impact_ionization_parameters();
+amc_material_model                   make_silicon_amc_material_model(const uepm::physics::material_info& material);
 amc_material_model                   make_silicon_amc_material_model();
 
 }  // namespace uepm::amc

@@ -14,7 +14,6 @@
 #include <iostream>
 #include <vector>
 
-
 #include "mesh.hpp"
 
 namespace uepm::fem {
@@ -83,9 +82,12 @@ class FiniteElementSystem {
 
 inline void print_time_different_units(double time_nanoseconds) {
     std::cout << "TIME TO RUN THE SOLVING ITERATIONS           : " << time_nanoseconds << " nanoseconds" << std::endl;
-    std::cout << "TIME TO RUN THE SOLVING ITERATIONS           : " << time_nanoseconds / 1.0e3 << " microseconds" << std::endl;
-    std::cout << "TIME TO RUN THE SOLVING ITERATIONS           : " << time_nanoseconds / 1.0e6 << " miliseconds" << std::endl;
-    std::cout << "TIME TO RUN THE SOLVING ITERATIONS           : " << time_nanoseconds / 1.0e9 << " seconds" << std::endl;
+    std::cout << "TIME TO RUN THE SOLVING ITERATIONS           : " << time_nanoseconds / 1.0e3 << " microseconds"
+              << std::endl;
+    std::cout << "TIME TO RUN THE SOLVING ITERATIONS           : " << time_nanoseconds / 1.0e6 << " miliseconds"
+              << std::endl;
+    std::cout << "TIME TO RUN THE SOLVING ITERATIONS           : " << time_nanoseconds / 1.0e9 << " seconds"
+              << std::endl;
 }
 
 }  // namespace uepm::fem

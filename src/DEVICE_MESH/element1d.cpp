@@ -102,7 +102,6 @@ vector3 element1d::draw_uniform_random_point_inside_element(std::minstd_rand &ra
     return random_distance_to_vtxA * *m_vertices[0] + (1 - random_distance_to_vtxA) * *m_vertices[1];
 }
 
-
 }  // namespace mesh
 
 }  // namespace uepm

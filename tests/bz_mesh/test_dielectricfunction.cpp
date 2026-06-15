@@ -21,7 +21,7 @@
 
 #include "BandStructure.h"
 #include "DielectricFunction.hpp"
-#include "Material.h"
+#include "epm_material.hpp"
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
@@ -38,10 +38,12 @@ class SyntheticDielectricMesh : public uepm::mesh_bz::DielectricMesh {
             uepm::mesh_bz::Vertex(2, 0.0, 1.0, 0.0),
             uepm::mesh_bz::Vertex(3, 0.0, 0.0, 1.0),
         };
-        std::array<uepm::mesh_bz::Vertex*, 4> vertices = {
-            &m_list_vertices[0], &m_list_vertices[1], &m_list_vertices[2], &m_list_vertices[3]};
+        std::array<uepm::mesh_bz::Vertex*, 4> vertices = {&m_list_vertices[0],
+                                                          &m_list_vertices[1],
+                                                          &m_list_vertices[2],
+                                                          &m_list_vertices[3]};
         m_list_tetrahedra.emplace_back(0, vertices);
-        m_energies = {1.0, 3.0};
+        m_energies            = {1.0, 3.0};
         m_dielectric_function = {
             {{0.0, 0.0}, {10.0, 20.0}},
             {{1.0, 2.0}, {11.0, 22.0}},
@@ -87,7 +89,7 @@ TEST_CASE("Epsilon_Si") {
     // uepm::pseudopotential::Materials materials;
     // const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) +
     // "/parameter_files/materials-chel.yaml"; materials.load_material_parameters(file_material_parameters);
-    // uepm::pseudopotential::Material current_material = materials.materials.at("Si");
+    // uepm::pseudopotential::epm_material current_material = materials.materials.at("Si");
 
     // uepm::pseudopotential::BandStructure band_structure{};
     // const std::size_t                       nb_bands           = 18;
@@ -95,15 +97,16 @@ TEST_CASE("Epsilon_Si") {
     // const bool                              non_local_corr     = false;
     // band_structure.Initialize(current_material, nb_bands, {}, nearest_neightbors, non_local_corr);
 
-    // uepm::pseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(), nb_bands);
+    // uepm::pseudopotential::DielectricFunction MyDielectricFunc(current_material, band_structure.get_basis_vectors(),
+    // nb_bands);
     // // const std::size_t                            nb_kpoints = 2000;
     // // MyDielectricFunc.generate_k_points_random(nb_kpoints);
 
     // std::size_t Nxyz              = 100;
     // bool        irreducible_wedge = true;
     // MyDielectricFunc.generate_k_points_grid(Nxyz, Nxyz, Nxyz, 0.0, irreducible_wedge);
-    // std::cout << "Number of kpoints in the irreducible wedge: " << MyDielectricFunc.get_kpoints().size() << std::endl;
-    // MyDielectricFunc.export_kpoints("TestKpoints.csv");
+    // std::cout << "Number of kpoints in the irreducible wedge: " << MyDielectricFunc.get_kpoints().size() <<
+    // std::endl; MyDielectricFunc.export_kpoints("TestKpoints.csv");
 
     // int    nb_threads   = 32;
     // double eta_smearing = 2.0e-2;
@@ -122,8 +125,9 @@ TEST_CASE("Epsilon_Si") {
     //     std::cout << "q_x : " << qx << std::endl;
 
     //     Vector3D<double> q_vect{qx, 0, 0};
-    //     std::vector<double> list_epsilon = MyDielectricFunc.compute_dielectric_function(q_vect, list_energy, eta_smearing);
-    //     std::string filename = std::string("Experiment_qx/") + "epsilon_Smearing" + std::to_string(eta_smearing) + "_Qx" +
+    //     std::vector<double> list_epsilon = MyDielectricFunc.compute_dielectric_function(q_vect, list_energy,
+    //     eta_smearing); std::string filename = std::string("Experiment_qx/") + "epsilon_Smearing" +
+    //     std::to_string(eta_smearing) + "_Qx" +
     //                            std::to_string(qx) + "Nxyz" + std::to_string(Nxyz) + ".csv";
     //     std::ofstream file_dielectric_function(filename);
     //     file_dielectric_function << "energy,epsilon" << std::endl;
@@ -131,9 +135,9 @@ TEST_CASE("Epsilon_Si") {
     //         file_dielectric_function << list_energy[i] << "," << list_epsilon[i] << std::endl;
     //     }
     //     file_dielectric_function.close();
-    //     const std::string python_plot_band_structure_script = std::string(PROJECT_SRC_DIR) + "/python/plots/plot_eps_vs_energy.py";
-    //     std::string       python_call                       = "python3 " + python_plot_band_structure_script + " --filename " + filename;
-    //     bool              call_python_plot                  = false;
+    //     const std::string python_plot_band_structure_script = std::string(PROJECT_SRC_DIR) +
+    //     "/python/plots/plot_eps_vs_energy.py"; std::string       python_call                       = "python3 " +
+    //     python_plot_band_structure_script + " --filename " + filename; bool              call_python_plot = false;
     //     // bool call_python_plot = true;
     //     if (call_python_plot) {
     //         std::cout << "Executing: " << python_call << std::endl;

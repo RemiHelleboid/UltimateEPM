@@ -16,7 +16,7 @@
 #include <atomic>
 #include <vector>
 
-#include "Material.h"
+#include "epm_material.hpp"
 #include "SymmetryPoints.h"
 #include "Vector3D.h"
 
@@ -26,7 +26,7 @@ class DielectricFunction {
  protected:
     std::vector<Vector3D<int>>    m_basisVectors;
     std::vector<Vector3D<double>> m_kpoints;
-    const Material&               m_material;
+    const epm_material&               m_material;
     const int                     m_nb_bands;
     bool                          m_nonlocal_epm = false;
 
@@ -75,7 +75,7 @@ class DielectricFunction {
     std::vector<std::vector<double>> m_dielectric_function_imag;
 
  public:
-    DielectricFunction(const Material& material, const std::vector<Vector3D<int>>& basisVectors, const int nb_bands);
+    DielectricFunction(const epm_material& material, const std::vector<Vector3D<int>>& basisVectors, const int nb_bands);
 
     DielectricFunction& operator=(const DielectricFunction&) = default;
     DielectricFunction(const DielectricFunction&)            = default;
@@ -181,9 +181,10 @@ class DielectricFunction {
      * @param nb_kpoints_per_instance
      * @return std::vector<std::vector<double>>
      */
-    static DielectricFunction merge_results(DielectricFunction                                   RootDielectricFunction,
-                                            const std::vector<std::vector<std::vector<double>>>& dielectric_function_results,
-                                            std::vector<int>                                     nb_kpoints_per_instance);
+    static DielectricFunction merge_results(
+        DielectricFunction                                   RootDielectricFunction,
+        const std::vector<std::vector<std::vector<double>>>& dielectric_function_results,
+        std::vector<int>                                     nb_kpoints_per_instance);
 
     /**
      * @brief Apply Kramer's Kronig relations to the dielectric function to obtain the real part.

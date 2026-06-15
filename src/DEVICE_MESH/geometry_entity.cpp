@@ -16,9 +16,9 @@ namespace uepm {
 namespace mesh {
 
 void geometry_entity::add_scalar_data(const std::string &name, double *new_value) {
-    const auto it_scalar_data = std::find_if(m_ListScalarData.begin(), m_ListScalarData.end(), [&](const auto &scalar_dataset) {
-        return scalar_dataset.m_name == name;
-    });
+    const auto it_scalar_data = std::find_if(m_ListScalarData.begin(),
+                                             m_ListScalarData.end(),
+                                             [&](const auto &scalar_dataset) { return scalar_dataset.m_name == name; });
     if (it_scalar_data != m_ListScalarData.end()) {
         it_scalar_data->m_value = new_value;
     } else {
@@ -27,9 +27,9 @@ void geometry_entity::add_scalar_data(const std::string &name, double *new_value
 }
 
 double geometry_entity::get_scalar_data(const std::string &fieldname) const {
-    const auto it_data = std::find_if(m_ListScalarData.begin(), m_ListScalarData.end(), [&](const auto &scalar_dataset) {
-        return scalar_dataset.m_name == fieldname;
-    });
+    const auto it_data = std::find_if(m_ListScalarData.begin(),
+                                      m_ListScalarData.end(),
+                                      [&](const auto &scalar_dataset) { return scalar_dataset.m_name == fieldname; });
     if (it_data != m_ListScalarData.end()) {
         return *(it_data->m_value);
     }
@@ -37,9 +37,9 @@ double geometry_entity::get_scalar_data(const std::string &fieldname) const {
 }
 
 void geometry_entity::add_vector_data(const std::string &name, vector3 *new_value) {
-    const auto it_vector_data = std::find_if(m_ListVectorData.begin(), m_ListVectorData.end(), [&](const auto &vector_dataset) {
-        return vector_dataset.m_name == name;
-    });
+    const auto it_vector_data = std::find_if(m_ListVectorData.begin(),
+                                             m_ListVectorData.end(),
+                                             [&](const auto &vector_dataset) { return vector_dataset.m_name == name; });
     if (it_vector_data != m_ListVectorData.end()) {
         it_vector_data->m_value = new_value;
     } else {
@@ -48,9 +48,10 @@ void geometry_entity::add_vector_data(const std::string &name, vector3 *new_valu
 }
 
 vector3 geometry_entity::get_vector_data(const std::string &fieldname) const {
-    const auto it_vector_data = std::find_if(m_ListVectorData.begin(), m_ListVectorData.end(), [&](const auto &vector_dataset) {
-        return vector_dataset.m_name == fieldname;
-    });
+    const auto it_vector_data =
+        std::find_if(m_ListVectorData.begin(), m_ListVectorData.end(), [&](const auto &vector_dataset) {
+            return vector_dataset.m_name == fieldname;
+        });
     if (it_vector_data != m_ListVectorData.end()) {
         return *(it_vector_data->m_value);
     }

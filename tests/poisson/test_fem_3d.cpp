@@ -19,17 +19,21 @@
 #include "msh_file.hpp"
 #include "vtkWriter.hpp"
 
-
 TEST_CASE("Test the stiffness elementary matrix on ref element") {
     // Construct the element.
     uepm::mesh::vertex                     V1(0, 0.0, 0.0, 0.0);
     uepm::mesh::vertex                     V2(1, 1.0, 0.0, 0.0);
     uepm::mesh::vertex                     V3(2, 0.0, 1.0, 0.0);
     uepm::mesh::vertex                     V4(3, 0.0, 0.0, 1.0);
-    std::shared_ptr<uepm::mesh::element3d> sp_reference_element = std::make_shared<uepm::mesh::element3d>(&V1, &V2, &V3, &V4);
-    const Eigen::Matrix4d MatrixElementRef = uepm::fem::FiniteElementP1System3d::compute_elementary_stiffness_matrix(sp_reference_element);
-    Eigen::Matrix4d THEORETICAL_MATRIX{{3.0, -1.0, -1.0, -1.0}, {-1.0, 1.0, 0.0, 0.0}, {-1.0, 0.0, 1.0, 0.0}, {-1.0, 0.0, 0.0, 1.0}};
-    THEORETICAL_MATRIX = THEORETICAL_MATRIX * -1.0; 
+    std::shared_ptr<uepm::mesh::element3d> sp_reference_element =
+        std::make_shared<uepm::mesh::element3d>(&V1, &V2, &V3, &V4);
+    const Eigen::Matrix4d MatrixElementRef =
+        uepm::fem::FiniteElementP1System3d::compute_elementary_stiffness_matrix(sp_reference_element);
+    Eigen::Matrix4d THEORETICAL_MATRIX{{3.0, -1.0, -1.0, -1.0},
+                                       {-1.0, 1.0, 0.0, 0.0},
+                                       {-1.0, 0.0, 1.0, 0.0},
+                                       {-1.0, 0.0, 0.0, 1.0}};
+    THEORETICAL_MATRIX                      = THEORETICAL_MATRIX * -1.0;
     const Eigen::Matrix4d DIFFERENCE_MATRIX = (1.0 / 6.0) * THEORETICAL_MATRIX - MatrixElementRef;
     std::cout << THEORETICAL_MATRIX << std::endl << std::endl << std::endl;
     std::cout << MatrixElementRef << std::endl;
@@ -39,7 +43,7 @@ TEST_CASE("Test the stiffness elementary matrix on ref element") {
 
 TEST_CASE("Testing Poisson 3d on a unit sphere.") {
     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/example/data/sphere_r1.msh");
-    uepm::file::msh_file           fileMSH(file_input_test_msh);
+    uepm::file::msh_file     fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
     uepm::mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
     uepm::fem::FiniteElementP1System3d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());

@@ -1,11 +1,11 @@
 /**
  * @file export_octree_vtu.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2025-10-12
- * 
- * 
+ *
+ *
  */
 
 #pragma once
@@ -16,12 +16,11 @@
 #include <memory>
 #include <string>
 
-#include "vector_bz.hpp"
 #include "bbox_mesh.hpp"
 #include "octree_bz.hpp"
+#include "vector_bz.hpp"
 
 namespace uepm::mesh_bz {
-
 
 struct VTUBuffer {
     std::vector<double>        points;   // xyz triples
@@ -127,8 +126,8 @@ inline bool write_octree_as_vtu(const Octree_mesh& root, const std::string& file
 )";
     // Connectivity
     for (size_t i = 0; i < buf.conn.size(); i += 8) {
-        out << buf.conn[i] << " " << buf.conn[i + 1] << " " << buf.conn[i + 2] << " " << buf.conn[i + 3] << " " << buf.conn[i + 4] << " "
-            << buf.conn[i + 5] << " " << buf.conn[i + 6] << " " << buf.conn[i + 7] << "\n";
+        out << buf.conn[i] << " " << buf.conn[i + 1] << " " << buf.conn[i + 2] << " " << buf.conn[i + 3] << " "
+            << buf.conn[i + 4] << " " << buf.conn[i + 5] << " " << buf.conn[i + 6] << " " << buf.conn[i + 7] << "\n";
     }
     out <<
         R"(        </DataArray>

@@ -1,12 +1,12 @@
 /**
  * @file string_utils.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-06-10
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 
 #pragma once
@@ -29,7 +29,7 @@
 #include <utility>
 #include <vector>
 
-namespace uepm::utils{
+namespace uepm::utils {
 
 bool starts_with_string(const std::string& text, const std::string& prefix) {
     return text.size() >= prefix.size() && text.compare(0, prefix.size(), prefix) == 0;
@@ -135,4 +135,4 @@ std::filesystem::path find_kstar_file_for_mesh(const std::filesystem::path& mesh
     throw std::runtime_error("find_kstar_file_for_mesh: no k-star file found next to mesh " + mesh_path.string() +
                              " using prefixes derived from mesh stem '" + mesh_stem + "'");
 }
-}  // namespace
+}  // namespace uepm::utils

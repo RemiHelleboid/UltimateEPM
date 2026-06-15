@@ -303,7 +303,7 @@ void self_consistent_device_amc_simulation_2d::add_missing_contact_charge_to_poi
     }
     const double accumulation_factor = static_cast<double>(accumulation_steps);
     for (std::size_t i = 0; i < m_list_element_contact_ptr.size(); ++i) {
-        auto& element = m_list_element_contact_ptr[i];
+        auto&        element                   = m_list_element_contact_ptr[i];
         const double equilibrium_charge        = m_list_element_contact_equilibrium_charge[i];
         const double accumulated_mobile_charge = element->get_n_charge() - element->get_p_charge();
         const double target_accumulated_charge = equilibrium_charge * accumulation_factor;
@@ -362,14 +362,14 @@ self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_
     const device::device&                        simulation_device,
     const options_device_amc&                    simulation_options,
     const options_self_consistent_device_amc_2d& self_consistent_options,
-    const physic::material::list_materials&      list_materials,
+    const physics::material_database&            material_database,
     int                                          seed_random_generator)
     : self_consistent_device_amc_simulation_base(simulation_device,
                                                  simulation_options,
                                                  self_consistent_options.m_common,
                                                  seed_random_generator),
       m_self_consistent_options(self_consistent_options),
-      m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), list_materials),
+      m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(seed_random_generator + 1) {
     validate_self_consistent_options();
     initialize_contact_elements();
@@ -383,7 +383,7 @@ self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_
     const device::device&                        simulation_device,
     const options_device_amc&                    simulation_options,
     const options_self_consistent_device_amc_2d& self_consistent_options,
-    const physic::material::list_materials&      list_materials,
+    const physics::material_database&            material_database,
     const mesh::vector3&                         starting_position,
     std::size_t                                  number_electrons_start,
     std::size_t                                  number_holes_start,
@@ -396,7 +396,7 @@ self_consistent_device_amc_simulation_2d::self_consistent_device_amc_simulation_
                                                  number_holes_start,
                                                  seed_random_generator),
       m_self_consistent_options(self_consistent_options),
-      m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), list_materials),
+      m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(seed_random_generator + 1) {
     validate_self_consistent_options();
     initialize_contact_elements();

@@ -35,7 +35,12 @@ struct PhononDispersion {
     std::vector<double> omega_samples;  // size N
 
     PhononDispersion() = default;
-    PhononDispersion(PhononMode m, PhononDirection d, double w0_, double vs_, double c_) : mode(m), direction(d), w0(w0_), vs(vs_), c(c_) {}
+    PhononDispersion(PhononMode m, PhononDirection d, double w0_, double vs_, double c_)
+        : mode(m),
+          direction(d),
+          w0(w0_),
+          vs(vs_),
+          c(c_) {}
 
     inline double omega_analytic(double q) const noexcept { return std::fma(c, q * q, std::fma(vs, q, w0)); }
 

@@ -45,11 +45,11 @@ struct options_self_consistent_device_amc_common {
     quench_biased_contact m_quench_biased_contact = quench_biased_contact::cathode;
 
     // Converts signed Ramo current into current drawn from the biased circuit node.
-    double m_ramo_current_to_quench_current_sign   = 1.0;
-    double m_background_ramo_current_A             = 0.0;
-    double m_avalanche_voltage_drop_threshold_V = 1.0;
+    double m_ramo_current_to_quench_current_sign  = 1.0;
+    double m_background_ramo_current_A            = 0.0;
+    double m_avalanche_voltage_drop_threshold_V   = 1.0;
     double m_quench_high_field_threshold_V_per_cm = 1.0e5;
-    double m_quench_quiet_time_s                   = 1.0e-11;
+    double m_quench_quiet_time_s                  = 1.0e-11;
 
     void validate() const;
 };
@@ -84,8 +84,8 @@ class self_consistent_device_amc_simulation_base : public device_amc_simulation 
     double cathode_voltage_for_poisson() const;
     double device_bias_voltage_for_history() const;
 
-    void advance_quench_circuit(double averaged_ramo_current_A, double dt_s, double sample_time_s);
-    void update_successful_quench_detection(double sample_time_s, std::size_t impact_events_before_step);
+    void   advance_quench_circuit(double averaged_ramo_current_A, double dt_s, double sample_time_s);
+    void   update_successful_quench_detection(double sample_time_s, std::size_t impact_events_before_step);
     double max_particle_electric_field_V_per_cm() const;
 
     bool   quench_enabled() const;
@@ -96,7 +96,7 @@ class self_consistent_device_amc_simulation_base : public device_amc_simulation 
     double quench_voltage_drop_for_history() const;
 
  public:
-    [[nodiscard]] const avalanche_detection_state& avalanche_detection() const;
+    [[nodiscard]] const avalanche_detection_state&         avalanche_detection() const;
     [[nodiscard]] const successful_quench_detection_state& successful_quench_detection() const;
 };
 

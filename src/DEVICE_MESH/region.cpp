@@ -45,7 +45,9 @@ void region::add_element(const std::shared_ptr<element> &sp_elem) {
     m_ListElements.insert({sp_elem->get_index(), sp_elem});
 }
 
-bool region::is_element_in_region(std::size_t element_index) { return m_ListElements.find(element_index) != m_ListElements.end(); }
+bool region::is_element_in_region(std::size_t element_index) {
+    return m_ListElements.find(element_index) != m_ListElements.end();
+}
 
 std::shared_ptr<element> region::get_p_element(std::size_t index_element) { return m_ListElements.at(index_element); }
 
@@ -60,18 +62,20 @@ void region::remove_elements(const std::vector<std::size_t> &list_element_index)
 std::vector<std::shared_ptr<element>> region::get_list_elements() const {
     std::vector<std::shared_ptr<element>> list_sp_elements;
     list_sp_elements.reserve(m_ListElements.size());
-    std::transform(m_ListElements.begin(), m_ListElements.end(), std::back_inserter(list_sp_elements), [](const auto &maps_element) {
-        return maps_element.second;
-    });
+    std::transform(m_ListElements.begin(),
+                   m_ListElements.end(),
+                   std::back_inserter(list_sp_elements),
+                   [](const auto &maps_element) { return maps_element.second; });
     return list_sp_elements;
 }
 
 std::vector<std::size_t> region::get_list_elements_index() const {
     std::vector<std::size_t> hey_elements_idx_list{};
     hey_elements_idx_list.reserve(m_ListElements.size());
-    std::transform(m_ListElements.begin(), m_ListElements.end(), std::back_inserter(hey_elements_idx_list), [](const auto &maps_element) {
-        return maps_element.first;
-    });
+    std::transform(m_ListElements.begin(),
+                   m_ListElements.end(),
+                   std::back_inserter(hey_elements_idx_list),
+                   [](const auto &maps_element) { return maps_element.first; });
     return hey_elements_idx_list;
 }
 
@@ -108,9 +112,15 @@ bbox region::compute_bounding_box() const {
     std::vector<double> X_coords(list_all_vertices.size());
     std::vector<double> Y_coords(list_all_vertices.size());
     std::vector<double> Z_coords(list_all_vertices.size());
-    std::transform(list_all_vertices.begin(), list_all_vertices.end(), X_coords.begin(), [&](const auto &p_vtx) { return p_vtx->x(); });
-    std::transform(list_all_vertices.begin(), list_all_vertices.end(), Y_coords.begin(), [&](const auto &p_vtx) { return p_vtx->y(); });
-    std::transform(list_all_vertices.begin(), list_all_vertices.end(), Z_coords.begin(), [&](const auto &p_vtx) { return p_vtx->z(); });
+    std::transform(list_all_vertices.begin(), list_all_vertices.end(), X_coords.begin(), [&](const auto &p_vtx) {
+        return p_vtx->x();
+    });
+    std::transform(list_all_vertices.begin(), list_all_vertices.end(), Y_coords.begin(), [&](const auto &p_vtx) {
+        return p_vtx->y();
+    });
+    std::transform(list_all_vertices.begin(), list_all_vertices.end(), Z_coords.begin(), [&](const auto &p_vtx) {
+        return p_vtx->z();
+    });
     const double x_min = *std::min_element(X_coords.begin(), X_coords.end());
     const double x_max = *std::max_element(X_coords.begin(), X_coords.end());
     const double y_min = *std::min_element(Y_coords.begin(), Y_coords.end());

@@ -57,11 +57,11 @@ constexpr T lerp_on_segment(T x0, T y0, T x1, T y1, T xq) noexcept {
 
 /**
  * @brief Segment index for value q in array x.
- * 
- * @tparam T 
- * @param x 
- * @param q 
- * @return std::size_t 
+ *
+ * @tparam T
+ * @param x
+ * @param q
+ * @return std::size_t
  */
 template <Real T>
 inline std::size_t segment_index(std::span<const T> x, T q) {

@@ -25,6 +25,4 @@ enum class scattering_event : std::size_t {
     count
 };
 
-
-
 }  // namespace uepm::amc

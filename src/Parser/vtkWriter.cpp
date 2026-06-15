@@ -82,8 +82,8 @@ void write_vtk_data(std::ofstream&                  file,
                     bool                            export_all_fields) {
     // Scalar fields on vertices
     // auto list_scalar_fields = (export_all_fields) ? MyMesh.get_scalar_functions_name() : scalar_fields;
-    auto                            list_scalar_functions = MyMesh.get_list_scalar_functions();
-    auto                            list_vector_functions = MyMesh.get_list_vector_functions();
+    auto                                  list_scalar_functions = MyMesh.get_list_scalar_functions();
+    auto                                  list_vector_functions = MyMesh.get_list_vector_functions();
     std::vector<mesh::sp_scalar_function> list_scalar_vertex_function;
     std::vector<mesh::sp_scalar_function> list_scalar_element_function;
     std::vector<mesh::sp_vector_function> list_vector_vertex_function;
@@ -327,4 +327,4 @@ void export_as_vtu(const mesh::mesh&               mesh,
 
 }  // namespace file
 
-}
+}  // namespace uepm

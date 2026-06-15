@@ -35,12 +35,13 @@ class FiniteElementP1System2d : public FiniteElementSystem {
     static Eigen::Matrix3d compute_elementary_stiffness_matrix(std::shared_ptr<mesh::element>);
     static Eigen::Matrix3d compute_elementary_mass_matrix(std::shared_ptr<mesh::element>);
     static Eigen::Vector3d compute_elementary_second_member(std::shared_ptr<mesh::element>, double constant_value);
-    static Eigen::Vector3d compute_elementary_second_member(std::shared_ptr<mesh::element>, std::function<double(double, double)> function);
+    static Eigen::Vector3d compute_elementary_second_member(std::shared_ptr<mesh::element>,
+                                                            std::function<double(double, double)> function);
     void                   compute_stiffness_matrix() override;
     void                   compute_mass_matrix() override;
     void                   compute_second_member(double constant_value) override;
     void                   compute_second_member(std::function<double(double, double)> function);
-    void apply_dirichlet_condition(const std::string& region_name, const double boundary_value);
+    void                   apply_dirichlet_condition(const std::string& region_name, const double boundary_value);
     void apply_dirichlet_condition_second_member(const std::string& region_name, const double boundary_value);
     void apply_neuman_condition(const std::string& region_name, const double boundary_value);
 };

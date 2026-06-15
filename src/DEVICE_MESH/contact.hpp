@@ -1,13 +1,12 @@
 /**
  * @file contact.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-05-04
- * 
- * 
+ *
+ *
  */
-
 
 #pragma once
 #include "bbox.hpp"
@@ -66,7 +65,10 @@ class device_contact {
      * @param contact_name
      * @param contact_box
      */
-    device_contact(const std::string &contact_name, mesh::vector3 corner1, mesh::vector3 corner2, double ohmic_resistance)
+    device_contact(const std::string &contact_name,
+                   mesh::vector3      corner1,
+                   mesh::vector3      corner2,
+                   double             ohmic_resistance)
         : m_contact_name{contact_name},
           m_contact_box{corner1, corner2},
           m_ohmic_resistance{ohmic_resistance} {}
@@ -111,8 +113,8 @@ class device_contact {
         for (auto &&p_elem : m_contact_elements_list) {
             auto intersection = p_elem->compute_element_line_intersection(point_A, point_B);
             if (!intersection.empty()) {
-                // std::cout << "Intersection contact at : " << intersection.value().m_intersection_location << std::endl;
-                // std::cout << "with line: " << point_A << "  ,   " << point_B << std::endl;
+                // std::cout << "Intersection contact at : " << intersection.value().m_intersection_location <<
+                // std::endl; std::cout << "with line: " << point_A << "  ,   " << point_B << std::endl;
                 return true;
             }
         }
@@ -141,7 +143,9 @@ class device_contact {
     void   set_contact_current(double contact_current) { m_contact_current = contact_current; }
     void   reset_contact_current() { m_contact_current = 0.0; }
     void   add_contact_current(double contact_current) { m_contact_current += contact_current; }
-    void   get_contact_current(double contact_current, double mult_factor) { m_contact_current += contact_current * mult_factor; }
+    void   get_contact_current(double contact_current, double mult_factor) {
+        m_contact_current += contact_current * mult_factor;
+    }
 };
 
 }  // namespace uepm::device

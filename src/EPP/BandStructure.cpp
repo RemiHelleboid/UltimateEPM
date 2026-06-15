@@ -25,11 +25,12 @@ std::string BandStructure::get_path_as_string() const {
 
 bool BandStructure::GenerateBasisVectors(unsigned int nearestNeighborsNumber) {
     static const std::vector<unsigned int> G2{
-        0,   3,   4,   8,   11,  12,  16,  19,  20,  24,  27,  32,  35,  36,  40,  43,  44,  48,  51,  52,  56,  59,  67,  68,
-        75,  76,  80,  83,  84,  88,  96,  99,  104, 107, 108, 115, 116, 120, 123, 128, 131, 132, 136, 139, 140, 144, 147, 152,
-        155, 160, 163, 164, 168, 171, 172, 176, 179, 180, 184, 187, 192, 195, 196, 200, 203, 204, 208, 211, 212, 216, 219, 224,
-        227, 228, 232, 236, 243, 244, 248, 251, 259, 260, 264, 267, 268, 272, 275, 276, 280, 283, 291, 296, 299, 300, 304, 307,
-        308, 312, 315, 320, 323, 324, 331, 332, 339, 355, 356, 360, 363, 371, 376, 384, 387, 395, 420, 451};
+        0,   3,   4,   8,   11,  12,  16,  19,  20,  24,  27,  32,  35,  36,  40,  43,  44,  48,  51,  52,
+        56,  59,  67,  68,  75,  76,  80,  83,  84,  88,  96,  99,  104, 107, 108, 115, 116, 120, 123, 128,
+        131, 132, 136, 139, 140, 144, 147, 152, 155, 160, 163, 164, 168, 171, 172, 176, 179, 180, 184, 187,
+        192, 195, 196, 200, 203, 204, 208, 211, 212, 216, 219, 224, 227, 228, 232, 236, 243, 244, 248, 251,
+        259, 260, 264, 267, 268, 272, 275, 276, 280, 283, 291, 296, 299, 300, 304, 307, 308, 312, 315, 320,
+        323, 324, 331, 332, 339, 355, 356, 360, 363, 371, 376, 384, 387, 395, 420, 451};
 
     if (nearestNeighborsNumber < 2 || nearestNeighborsNumber > G2.size()) {
         std::cout << "Error: nearestNeighborsNumber must be between 2 and " << G2.size() << std::endl;
@@ -56,7 +57,7 @@ bool BandStructure::GenerateBasisVectors(unsigned int nearestNeighborsNumber) {
     return true;
 }
 
-void BandStructure::Initialize(const Material&                 material,
+void BandStructure::Initialize(const epm_material&                 material,
                                std::size_t                     nb_bands,
                                const std::vector<std::string>& path,
                                unsigned int                    nbPoints,
@@ -87,13 +88,12 @@ void BandStructure::Initialize(const Material&                 material,
     m_kpoints   = symmetryPoints.GeneratePoints(m_path, m_nb_points, symmetryPointsPositions);
     m_nb_points = m_kpoints.size();
     if (m_nb_points == 0) {
-        throw std::runtime_error(
-            "BandStructure::Initialize: GeneratePoints failed. No points generated.\
+        throw std::runtime_error("BandStructure::Initialize: GeneratePoints failed. No points generated.\
         \nPlease increase the number of points such as there is twice as many points as the number of symetry points.");
     }
 }
 
-void BandStructure::Initialize(const Material&                      material,
+void BandStructure::Initialize(const epm_material&                      material,
                                std::size_t                          nb_bands,
                                const std::vector<Vector3D<double>>& list_k_points,
                                unsigned int                         nearestNeighborsNumber,
@@ -175,7 +175,9 @@ void BandStructure::Compute_parallel(bool compute_gradient, int nb_threads) {
 #pragma omp parallel for schedule(dynamic) num_threads(nb_threads)
     for (unsigned int index_k = 0; index_k < m_nb_points; ++index_k) {
         int tid = omp_get_thread_num();
-        hamiltonian_per_thread[tid].SetMatrix(m_kpoints[index_k], m_enable_non_local_correction, m_enable_spin_orbit_coupling);
+        hamiltonian_per_thread[tid].SetMatrix(m_kpoints[index_k],
+                                              m_enable_non_local_correction,
+                                              m_enable_spin_orbit_coupling);
 
         hamiltonian_per_thread[tid].Diagonalize(keep_eigenvectors);
 
@@ -183,7 +185,8 @@ void BandStructure::Compute_parallel(bool compute_gradient, int nb_threads) {
         for (unsigned int level = 0; level < m_nb_bands && level < eigenvals.rows(); ++level) {
             m_energies[index_k][level] = eigenvals(level);
             if (compute_gradient) {
-                Vector3D<double> grad               = hamiltonian_per_thread[tid].compute_gradient_at_level(m_kpoints[index_k], level);
+                Vector3D<double> grad =
+                    hamiltonian_per_thread[tid].compute_gradient_at_level(m_kpoints[index_k], level);
                 m_energies_gradient[index_k][level] = grad;
             }
         }
@@ -227,7 +230,9 @@ double BandStructure::AdjustValues(bool minConductionBandToZero) {
     return band_gap;
 }
 
-bool BandStructure::FindBandGap(const std::vector<std::vector<double>>& results, double& maxValValence, double& minValConduction) {
+bool BandStructure::FindBandGap(const std::vector<std::vector<double>>& results,
+                                double&                                 maxValValence,
+                                double&                                 minValConduction) {
     if (results.empty() || results.front().size() < 2) {
         return false;
     }
@@ -290,7 +295,7 @@ void BandStructure::export_k_points_to_file(std::string filename) const {
 void BandStructure::export_result_in_file(const std::string& filename) const {
     std::cout << "Exporting band structure to file:     " << filename << std::endl;
     std::ofstream file(filename);
-    file << "# Material " << m_material.get_name() << std::endl;
+    file << "# epm_material " << m_material.get_name() << std::endl;
     file << "# NBands " << m_nb_bands << std::endl;
     file << "# Nonlocal " << (m_enable_non_local_correction ? "Yes" : "No") << std::endl;
     file << "# Path " << get_path_as_string() << std::endl;
@@ -339,8 +344,8 @@ std::string BandStructure::path_band_filename() const {
             path_string += point;
         }
     }
-    std::string filename = "EPM_" + m_material.get_name() + "_nb_bands_" + std::to_string(m_energies.front().size()) + "_path_" +
-                           path_string + "_size_basis_" + std::to_string(basisVectors.size());
+    std::string filename = "EPM_" + m_material.get_name() + "_nb_bands_" + std::to_string(m_energies.front().size()) +
+                           "_path_" + path_string + "_size_basis_" + std::to_string(basisVectors.size());
     return filename;
 }
 

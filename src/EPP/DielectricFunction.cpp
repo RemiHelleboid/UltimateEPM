@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "Hamiltonian.h"
-#include "Material.h"
+#include "epm_material.hpp"
 
 namespace uepm::pseudopotential {
 
@@ -39,7 +39,9 @@ bool is_in_first_BZ(const Vector3D<double>& k, bool one_eighth = false) {
     return cond_1 && cond_2 && (one_eighth ? cond_eighth : true);
 }
 
-DielectricFunction::DielectricFunction(const Material& material, const std::vector<Vector3D<int>>& basisVectors, const int nb_bands)
+DielectricFunction::DielectricFunction(const epm_material&                   material,
+                                       const std::vector<Vector3D<int>>& basisVectors,
+                                       const int                         nb_bands)
     : m_basisVectors(basisVectors),
       m_material(material),
       m_nb_bands(nb_bands) {}
@@ -56,7 +58,11 @@ void DielectricFunction::generate_k_points_random(std::size_t nb_points) {
     }
 }
 
-void DielectricFunction::generate_k_points_grid(std::size_t Nx, std::size_t Ny, std::size_t Nz, double shift, bool irreducible_wedge) {
+void DielectricFunction::generate_k_points_grid(std::size_t Nx,
+                                                std::size_t Ny,
+                                                std::size_t Nz,
+                                                double      shift,
+                                                bool        irreducible_wedge) {
     m_kpoints.clear();
     double min = -1.0 - shift;
     double max = 1.0 + shift;
@@ -97,9 +103,10 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing, int mp
             q_vect = Vector3D<double>(1e-15, 1e-15, 1e-15);
         }
         std::vector<Vector3D<double>> k_plus_q_vects(m_kpoints.size());
-        std::transform(m_kpoints.begin(), m_kpoints.end(), k_plus_q_vects.begin(), [&q_vect](const Vector3D<double>& k) {
-            return k + q_vect;
-        });
+        std::transform(m_kpoints.begin(),
+                       m_kpoints.end(),
+                       k_plus_q_vects.begin(),
+                       [&q_vect](const Vector3D<double>& k) { return k + q_vect; });
         std::vector<double> list_total_sum(m_energies.size());
         for (std::size_t index_k = m_offset_k_index; index_k < m_offset_k_index + m_nb_kpoints; ++index_k) {
             if (index_q == 0) {
@@ -118,19 +125,21 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing, int mp
             const auto&         eigenvalues_k_plus_q  = hamiltonian_k_plus_q.eigenvalues();
             const auto&         eigenvectors_k_plus_q = hamiltonian_k_plus_q.get_eigenvectors();
             std::vector<double> list_k_sum(m_energies.size());
-            for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands; ++idx_conduction_band) {
+            for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands;
+                 ++idx_conduction_band) {
                 for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
-                    double overlap_integral = pow(
-                        std::abs(
-                            eigenvectors_k_plus_q.col(idx_conduction_band).adjoint().dot(m_eigenvectors_k[index_k].col(idx_valence_band))),
-                        2);
-                    double delta_energy = (eigenvalues_k_plus_q[idx_conduction_band]) - m_eigenvalues_k[index_k][idx_valence_band];
+                    double overlap_integral = pow(std::abs(eigenvectors_k_plus_q.col(idx_conduction_band)
+                                                               .adjoint()
+                                                               .dot(m_eigenvectors_k[index_k].col(idx_valence_band))),
+                                                  2);
+                    double delta_energy =
+                        (eigenvalues_k_plus_q[idx_conduction_band]) - m_eigenvalues_k[index_k][idx_valence_band];
                     for (std::size_t index_energy = 0; index_energy < m_energies.size(); ++index_energy) {
-                        double energy = m_energies[index_energy];
-                        double factor_1 =
-                            (delta_energy - energy) / ((delta_energy - energy) * (delta_energy - energy) + eta_smearing * eta_smearing);
-                        double factor_2 =
-                            (delta_energy + energy) / ((delta_energy + energy) * (delta_energy + energy) + eta_smearing * eta_smearing);
+                        double energy   = m_energies[index_energy];
+                        double factor_1 = (delta_energy - energy) / ((delta_energy - energy) * (delta_energy - energy) +
+                                                                     eta_smearing * eta_smearing);
+                        double factor_2 = (delta_energy + energy) / ((delta_energy + energy) * (delta_energy + energy) +
+                                                                     eta_smearing * eta_smearing);
                         double total_factor = factor_1 + factor_2;
                         list_k_sum[index_energy] += overlap_integral * total_factor;
                     }
@@ -152,17 +161,18 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing, int mp
         auto end     = std::chrono::high_resolution_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0;
         if (mpi_rank == 0) {
-            std::cout << "Computed dielectric function for q = " << m_qpoints[index_q] << " -> " << index_q + 1 << "/" << m_qpoints.size()
-                      << " in " << elapsed << " s" << std::endl;
+            std::cout << "Computed dielectric function for q = " << m_qpoints[index_q] << " -> " << index_q + 1 << "/"
+                      << m_qpoints.size() << " in " << elapsed << " s" << std::endl;
         }
         start = std::chrono::high_resolution_clock::now();
         m_dielectric_function_real.push_back(list_epsilon);
     }
 }
 
-DielectricFunction DielectricFunction::merge_results(DielectricFunction                                   RootDielectricFunction,
-                                                     const std::vector<std::vector<std::vector<double>>>& dielectric_function_results,
-                                                     std::vector<int>                                     nb_kpoints_per_instance) {
+DielectricFunction DielectricFunction::merge_results(
+    DielectricFunction                                   RootDielectricFunction,
+    const std::vector<std::vector<std::vector<double>>>& dielectric_function_results,
+    std::vector<int>                                     nb_kpoints_per_instance) {
     std::vector<std::vector<double>> total_dielectric_function;
     if (dielectric_function_results.size() == 0) {
         throw std::runtime_error("No results to merge");
@@ -182,9 +192,11 @@ DielectricFunction DielectricFunction::merge_results(DielectricFunction         
             if (index_instance == 0) {
                 total_dielectric_function.push_back(dielectric_function_results[index_instance][index_q]);
             } else {
-                for (std::size_t index_energy = 0; index_energy < dielectric_function_results[index_instance][index_q].size();
+                for (std::size_t index_energy = 0;
+                     index_energy < dielectric_function_results[index_instance][index_q].size();
                      ++index_energy) {
-                    total_dielectric_function[index_q][index_energy] += dielectric_function_results[index_instance][index_q][index_energy];
+                    total_dielectric_function[index_q][index_energy] +=
+                        dielectric_function_results[index_instance][index_q][index_energy];
                 }
             }
         }
@@ -218,7 +230,8 @@ Eigen::MatrixXd create_kramers_matrix(std::size_t N) {
             if (idx_line == idx_col) {
                 kramers_matrix(idx_line, idx_col) = 0.0;
             } else {
-                double a = double(idx_line) / double(static_cast<long>(idx_col * idx_col) - static_cast<long>(idx_line * idx_line));
+                double a = double(idx_line) /
+                           double(static_cast<long>(idx_col * idx_col) - static_cast<long>(idx_line * idx_line));
                 kramers_matrix(idx_line, idx_col) = a;
             }
         }
@@ -251,7 +264,9 @@ void DielectricFunction::apply_kramers_kronig() {
     }
 }
 
-void DielectricFunction::export_dielectric_function_at_q(const std::string& filename, std::size_t idx_q, bool name_auto) const {
+void DielectricFunction::export_dielectric_function_at_q(const std::string& filename,
+                                                         std::size_t        idx_q,
+                                                         bool               name_auto) const {
     std::string outname;
     if (name_auto) {
         // outname = m_export_prefix + '_' + std::to_string(idx_q) + '_' + std::to_string(m_qpoints[idx_q].X) + "_" +

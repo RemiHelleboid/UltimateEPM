@@ -15,7 +15,7 @@
 #include <array>
 #include <memory>
 
-#include "Material.h"
+#include "epm_material.hpp"
 #include "bz_mesh.hpp"
 #include "bz_states.hpp"
 #include "dielectric_mesh.hpp"
@@ -52,10 +52,10 @@ class ImpactIonization {
     double m_max_radius_G0_BZ = 0.0;
 
     /**
-     * @brief Material of the system.
+     * @brief epm_material of the system.
      *
      */
-    uepm::pseudopotential::Material m_material;
+    uepm::pseudopotential::epm_material m_material;
 
     /**
      * @brief Mesh of the dielectric function.
@@ -70,7 +70,7 @@ class ImpactIonization {
     std::vector<double> m_impact_ionization_results;
 
  public:
-    ImpactIonization(const uepm::pseudopotential::Material& material, const std::string& initial_mesh_path);
+    ImpactIonization(const uepm::pseudopotential::epm_material& material, const std::string& initial_mesh_path);
     void read_dielectric_file(const std::string& filename);
     void interp_test_dielectric_function(std::string filename);
 

@@ -85,11 +85,15 @@ Vec3 operator+(const Vec3& a, const Vec3& b) { return {a[0] + b[0], a[1] + b[1],
 
 Vec3 operator-(const Vec3& a, const Vec3& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
 
-Vec3 cross(const Vec3& a, const Vec3& b) { return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]}; }
+Vec3 cross(const Vec3& a, const Vec3& b) {
+    return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
+}
 
 double dot(const Vec3& a, const Vec3& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
 
-double signed_six_volume(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& d) { return dot(b - a, cross(c - a, d - a)); }
+double signed_six_volume(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& d) {
+    return dot(b - a, cross(c - a, d - a));
+}
 
 Vec3 mul(const Mat3& M, const Vec3& p) {
     Vec3 r{0.0, 0.0, 0.0};
@@ -168,7 +172,8 @@ std::vector<Mat3> symmetry_ops_full() {
     };
 
     std::sort(ops.begin(), ops.end(), [&](const Mat3& A, const Mat3& B) { return key(A) < key(B); });
-    ops.erase(std::unique(ops.begin(), ops.end(), [&](const Mat3& A, const Mat3& B) { return key(A) == key(B); }), ops.end());
+    ops.erase(std::unique(ops.begin(), ops.end(), [&](const Mat3& A, const Mat3& B) { return key(A) == key(B); }),
+              ops.end());
 
     if (ops.size() != 48) {
         throw std::runtime_error("symmetry_ops_full: expected 48 cubic operations");
@@ -519,8 +524,9 @@ IbzMesh extract_ibz_mesh(int volumeTag) {
 
     for (std::size_t i = 0; i < nodeTags.size(); ++i) {
         localFromTag.emplace(nodeTags[i], i);
-        mesh.nodes.push_back(
-            {canonical_zero(nodeCoords[3 * i + 0]), canonical_zero(nodeCoords[3 * i + 1]), canonical_zero(nodeCoords[3 * i + 2])});
+        mesh.nodes.push_back({canonical_zero(nodeCoords[3 * i + 0]),
+                              canonical_zero(nodeCoords[3 * i + 1]),
+                              canonical_zero(nodeCoords[3 * i + 2])});
     }
 
     std::vector<int>                      elemTypes;
@@ -646,7 +652,8 @@ ExpandedMesh expand_mesh_by_symmetry(const IbzMesh& ibz, const std::vector<Mat3>
                 continue;
             }
 
-            const double v6 = signed_six_volume(out.nodes[tFull[0]], out.nodes[tFull[1]], out.nodes[tFull[2]], out.nodes[tFull[3]]);
+            const double v6 =
+                signed_six_volume(out.nodes[tFull[0]], out.nodes[tFull[1]], out.nodes[tFull[2]], out.nodes[tFull[3]]);
             if (std::abs(v6) < kDegenerateTetTol) {
                 continue;
             }
@@ -732,7 +739,12 @@ int main(int argc, char** argv) try {
 
     TCLAP::SwitchArg        tubeOn("", "tube", "Force-enable Gamma-X tube", cmd, false);
     TCLAP::SwitchArg        tubeOff("", "no-tube", "Disable Gamma-X tube", cmd, false);
-    TCLAP::ValueArg<double> tubeFacArg("", "tube-size-min-factor", "Min size factor on Gamma-X tube core (x h)", false, 0.0, "float");
+    TCLAP::ValueArg<double> tubeFacArg("",
+                                       "tube-size-min-factor",
+                                       "Min size factor on Gamma-X tube core (x h)",
+                                       false,
+                                       0.0,
+                                       "float");
     TCLAP::ValueArg<double> tubeRminArg("", "tube-rmin", "Gamma-X tube inner radius", false, 0.0, "float");
     TCLAP::ValueArg<double> tubeRmaxArg("", "tube-rmax", "Gamma-X tube outer radius", false, 0.0, "float");
 
@@ -743,11 +755,21 @@ int main(int argc, char** argv) try {
 
     TCLAP::SwitchArg        LTubesOn("", "L-tubes", "Force-enable L-star tubes", cmd, false);
     TCLAP::SwitchArg        LTubesOff("", "no-L-tubes", "Disable L-star tubes", cmd, false);
-    TCLAP::ValueArg<double> LTubesFacArg("", "L-tube-size-min-factor", "Min size factor on L-star tube cores (x h)", false, 0.0, "float");
+    TCLAP::ValueArg<double> LTubesFacArg("",
+                                         "L-tube-size-min-factor",
+                                         "Min size factor on L-star tube cores (x h)",
+                                         false,
+                                         0.0,
+                                         "float");
     TCLAP::ValueArg<double> LTubesRminArg("", "L-tube-rmin", "L-star tube inner radius", false, 0.0, "float");
     TCLAP::ValueArg<double> LTubesRmaxArg("", "L-tube-rmax", "L-star tube outer radius", false, 0.0, "float");
 
-    TCLAP::ValueArg<std::string> outArg("o", "outfile", "Output full-BZ mesh filename (.msh)", false, "bz.msh", "string");
+    TCLAP::ValueArg<std::string> outArg("o",
+                                        "outfile",
+                                        "Output full-BZ mesh filename (.msh)",
+                                        false,
+                                        "bz.msh",
+                                        "string");
     TCLAP::SwitchArg             noGuiArg("", "nogui", "Do not open the GUI", cmd, false);
 
     cmd.add(modeArg);

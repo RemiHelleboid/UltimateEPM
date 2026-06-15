@@ -9,10 +9,10 @@
  *
  */
 #include "dataset.hpp"
-#include "export_vector_to_csv.hpp"
-
 
 #include <cassert>
+
+#include "export_vector_to_csv.hpp"
 
 namespace uepm {
 
@@ -41,10 +41,9 @@ void dataset<double>::print_info() const {
 }
 
 template <>
-void dataset<double>::dump_values_in_file(const std::string &filename) const{
+void dataset<double>::dump_values_in_file(const std::string &filename) const {
     utils::export_vector_to_csv(filename, m_name, *m_values);
 }
-
 
 }  //  namespace mesh
 

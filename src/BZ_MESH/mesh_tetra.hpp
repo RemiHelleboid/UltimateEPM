@@ -175,7 +175,7 @@ class Tetra {
     vector3 get_barycenter() const { return m_barycenter; }
 
     std::size_t                   get_index() const { return m_index; }
-    void                         set_index(std::size_t index) { m_index = index; }
+    void                          set_index(std::size_t index) { m_index = index; }
     const std::array<Vertex*, 4>& get_list_vertices() const { return m_list_vertices; }
     std::array<std::size_t, 4>    get_list_indices_vertices() const {
         return {m_list_vertices[0]->get_index(),
@@ -198,8 +198,8 @@ class Tetra {
     bool                  is_location_inside(const vector3& location) const;
     std::array<double, 4> compute_barycentric_coordinates(const vector3& location) const;
     vector3               compute_euclidean_coordinates(const std::array<double, 4>& barycentric_coordinates) const;
-    vector3               compute_euclidean_coordinates_with_indices(const std::array<double, 4>& barycentric_coordinates,
-                                                                     const std::array<int, 4>&    indices_vertex) const;
+    vector3 compute_euclidean_coordinates_with_indices(const std::array<double, 4>& barycentric_coordinates,
+                                                       const std::array<int, 4>&    indices_vertex) const;
 
     void                      pre_compute_sorted_slots_per_band();
     const std::array<int, 4>& get_index_vertices_with_sorted_energy_at_band(std::size_t index_band) const {
@@ -210,17 +210,20 @@ class Tetra {
     double interpolate_dos_at_energy_per_band(double energy, std::size_t band_index) const;
 
     const std::vector<vector3>& get_gradient_energies() const { return m_gradient_energy_per_band; }
-    const vector3&              get_gradient_energy_at_band(std::size_t band_index) const { return m_gradient_energy_per_band[band_index]; }
+    const vector3&              get_gradient_energy_at_band(std::size_t band_index) const {
+        return m_gradient_energy_per_band[band_index];
+    }
 
     bool                 is_energy_inside_band(double energy, std::size_t index_band) const;
     bool                 does_intersect_band_energy_range(double e_min, double e_max, std::size_t index_band) const;
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
     double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;
     double               compute_tetra_dos_energy_band(double energy, std::size_t band_index) const;
-    vector3              draw_random_uniform_point_at_energy(double iso_energy, std::size_t band_index, std::mt19937& rng) const;
+    vector3 draw_random_uniform_point_at_energy(double iso_energy, std::size_t band_index, std::mt19937& rng) const;
 
     std::array<double, 8> get_tetra_electron_phonon_rates(int band_index) const;
-    std::array<double, 8> interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& band_index) const;
+    std::array<double, 8> interpolate_phonon_scattering_rate_at_location(const vector3&     location,
+                                                                         const std::size_t& band_index) const;
 
     double  interpolate_scalar_at_position(const vector3& location, const std::vector<double>& scalar_field) const;
     double  interpolate_energy_at_band(const vector3& location, std::size_t band_index) const;

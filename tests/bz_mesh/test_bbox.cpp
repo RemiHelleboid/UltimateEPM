@@ -130,7 +130,7 @@ TEST_SUITE("[bbox_mesh] operations: split/transform/overlap") {
     }
 
     TEST_CASE("dilate preserves the box center") {
-        bbox_mesh b(-1.0, 2.0, -2.0, 4.0, -3.0, 1.0);
+        bbox_mesh  b(-1.0, 2.0, -2.0, 4.0, -3.0, 1.0);
         const auto center_before = b.get_center();
         b.dilate(2.5);
         CHECK_EQ(b.get_center().x(), doctest::Approx(center_before.x()));

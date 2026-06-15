@@ -3,28 +3,32 @@
 ---
 - name: Silicon
   symbol: Si
-  lattice-constant: 5.43
-  dielectric-constant: 11.7
+  lattice_constant_m: 5.43e-10
+  mass_density_kg_m3: 2329.0
+  static_relative_permittivity: 11.7
   e-ionization-threshold: 1.2
   h-ionization-threshold: 1.4
   
 - name: Germanium
   symbol: Ge
-  lattice-constant: 5.658
-  dielectric-constant: 16.2
+  lattice_constant_m: 5.658e-10
+  mass_density_kg_m3: 5323.0
+  static_relative_permittivity: 16.2
   e-ionization-threshold: 0.0
   h-ionization-threshold: 0.0
   
 - name: Gallium Arsenide
   symbol: GaAs
-  lattice-constant: 5.65325 
-  dielectric-constant: 12.9
+  lattice_constant_m: 5.65325e-10
+  mass_density_kg_m3: 5317.6
+  static_relative_permittivity: 12.9
   e-ionization-threshold: 0
   h-ionization-threshold: 0
 
 - name: SiliconDiOxide
   symbol: SiO2
-  lattice-constant: 0
-  dielectric-constant: 3.9
+  lattice_constant_m: 0
+  mass_density_kg_m3: 2200.0
+  static_relative_permittivity: 3.9
   e-ionization-threshold: 0
   h-ionization-threshold: 0

@@ -66,7 +66,8 @@ void DielectricMesh::read_dielectric_file(const std::string& filename) {
         std::vector<double>      data_view;
         gmsh::view::getHomogeneousModelData(tag, 0, type, tags, data_view, time, numComp);
         if (numComp != 1 || tags.size() != data_view.size()) {
-            throw std::runtime_error("Dielectric view '" + name_view + "' must contain one scalar value per tagged node.");
+            throw std::runtime_error("Dielectric view '" + name_view +
+                                     "' must contain one scalar value per tagged node.");
         }
 
         std::vector<double> values_by_local_node(m_list_vertices.size());
@@ -74,7 +75,8 @@ void DielectricMesh::read_dielectric_file(const std::string& filename) {
         for (std::size_t value_index = 0; value_index < tags.size(); ++value_index) {
             const auto local_it = local_index_from_node_tag.find(tags[value_index]);
             if (local_it == local_index_from_node_tag.end()) {
-                throw std::runtime_error("Dielectric view references unknown node tag " + std::to_string(tags[value_index]) + ".");
+                throw std::runtime_error("Dielectric view references unknown node tag " +
+                                         std::to_string(tags[value_index]) + ".");
             }
             values_by_local_node[local_it->second] = data_view[value_index];
             node_was_set[local_it->second]         = true;
@@ -91,7 +93,8 @@ void DielectricMesh::read_dielectric_file(const std::string& filename) {
             values_at_energy.real = std::move(values_by_local_node);
         } else if (name_view.starts_with("eps_i")) {
             if (values_at_energy.imag) {
-                throw std::runtime_error("Duplicate imaginary dielectric view at energy " + std::to_string(energy) + " eV.");
+                throw std::runtime_error("Duplicate imaginary dielectric view at energy " + std::to_string(energy) +
+                                         " eV.");
             }
             values_at_energy.imag = std::move(values_by_local_node);
         } else {
@@ -103,7 +106,8 @@ void DielectricMesh::read_dielectric_file(const std::string& filename) {
     m_dielectric_function.assign(m_list_vertices.size(), {});
     for (const auto& [energy, values] : data_by_energy) {
         if (!values.real || !values.imag) {
-            throw std::runtime_error("Missing real or imaginary dielectric view at energy " + std::to_string(energy) + " eV.");
+            throw std::runtime_error("Missing real or imaginary dielectric view at energy " + std::to_string(energy) +
+                                     " eV.");
         }
         m_energies.push_back(energy);
     }
@@ -113,8 +117,8 @@ void DielectricMesh::read_dielectric_file(const std::string& filename) {
             m_dielectric_function[idx_node].emplace_back((*values.real)[idx_node], (*values.imag)[idx_node]);
         }
     }
-    std::cout << "Size of the dielectric function: " << m_dielectric_function.size() << " x " << m_dielectric_function[0].size()
-              << std::endl;
+    std::cout << "Size of the dielectric function: " << m_dielectric_function.size() << " x "
+              << m_dielectric_function[0].size() << std::endl;
     std::cout << "Dielectric function read." << std::endl;
 }
 
@@ -163,7 +167,7 @@ complex_d DielectricMesh::interpolate_dielectric_function(const vector3& k, doub
     std::vector<std::complex<double>> dielectric_function_low(4);
     std::vector<std::complex<double>> dielectric_function_high(4);
     for (std::size_t idx_vertex = 0; idx_vertex < 4; ++idx_vertex) {
-        const std::size_t vertex_index = list_indices_vertices[idx_vertex];
+        const std::size_t vertex_index      = list_indices_vertices[idx_vertex];
         dielectric_function_low[idx_vertex] = m_dielectric_function[vertex_index][idx_energy];
         dielectric_function_high[idx_vertex] =
             m_dielectric_function[vertex_index][std::min(idx_energy + 1, m_energies.size() - 1)];

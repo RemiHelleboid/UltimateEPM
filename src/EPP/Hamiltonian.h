@@ -3,13 +3,13 @@
 #include <Eigen/Sparse>
 #include <complex>
 
-#include "Material.h"
+#include "epm_material.hpp"
 
 namespace uepm::pseudopotential {
 
 class Hamiltonian {
  public:
-    Hamiltonian(const Material& material, const std::vector<Vector3D<int>>& basisVectors);
+    Hamiltonian(const epm_material& material, const std::vector<Vector3D<int>>& basisVectors);
     void SetConstantNonDiagonalMatrix();
 
     void SetMatrix(const Vector3D<double>& k, bool add_non_local_correction = false, bool enable_soc = false);
@@ -23,7 +23,7 @@ class Hamiltonian {
     Vector3D<double>       compute_gradient_at_level(const Vector3D<double>& k_point, unsigned int level_index) const;
 
  protected:
-    const Material&                   m_material;
+    const epm_material&                   m_material;
     const std::vector<Vector3D<int>>& m_basisVectors;
 
     Eigen::MatrixXcd                                m_constant_non_diagonal_matrix;

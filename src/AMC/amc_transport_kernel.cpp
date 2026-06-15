@@ -138,7 +138,6 @@ amc_transport_kernel::amc_transport_kernel(const amc_transport_config& cfg,
       m_material_model(std::move(material)),
       m_rng(seed) {}
 
-
 void amc_transport_kernel::initialize() {
     m_material_model.validate();
     if (m_cfg.m_carrier_type == particle_type::electron) {
@@ -161,7 +160,9 @@ void amc_transport_kernel::initialize() {
         for (std::size_t i = 0; i < m_cfg.m_gamma_max_energy_samples; ++i) {
             const double x         = static_cast<double>(i) / static_cast<double>(m_cfg.m_gamma_max_energy_samples - 1);
             const double energy_eV = x * m_cfg.m_max_energy_eV;
-            valley_gamma_max = std::max(valley_gamma_max, total_scattering_rate_for_energy(valley_index, energy_eV, m_cfg.m_lattice_temperature));
+            valley_gamma_max =
+                std::max(valley_gamma_max,
+                         total_scattering_rate_for_energy(valley_index, energy_eV, m_cfg.m_lattice_temperature));
         }
         valley_gamma_max *= m_cfg.m_self_scattering_safety_factor;
         m_gamma_max_by_valley_s_1[valley_index] = valley_gamma_max;
@@ -344,7 +345,9 @@ double amc_transport_kernel::impurity_rate_for_particle(const particle_amc& p,
     throw std::runtime_error("unknown impurity scattering model");
 }
 
-double amc_transport_kernel::impurity_rate_for_energy(const valley_model& band_or_valley, double energy_eV, double temperature_K) const {
+double amc_transport_kernel::impurity_rate_for_energy(const valley_model& band_or_valley,
+                                                      double              energy_eV,
+                                                      double              temperature_K) const {
     const double impurity_density_cm_3 = m_cfg.m_background_impurity_density_cm_3;
     if (impurity_density_cm_3 <= 0.0) {
         return 0.0;
@@ -578,10 +581,8 @@ double amc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_o
     double      total_rate     = 0.0;
 
     if (m_cfg.m_carrier_type == particle_type::hole) {
-        total_rate += acoustic_scattering_rate(band_or_valley,
-                                               m_material_model.m_hole_acoustic,
-                                               energy_eV,
-                                               max_temperature_K);
+        total_rate +=
+            acoustic_scattering_rate(band_or_valley, m_material_model.m_hole_acoustic, energy_eV, max_temperature_K);
 
         for (const auto& transition : m_hole_optical_transitions) {
             if (transition.initial_band != band_or_valley_index) {
@@ -616,10 +617,8 @@ double amc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_o
         return total_rate;
     }
 
-    total_rate += acoustic_scattering_rate(band_or_valley,
-                                           m_material_model.m_electron_acoustic,
-                                           energy_eV,
-                                           max_temperature_K);
+    total_rate +=
+        acoustic_scattering_rate(band_or_valley, m_material_model.m_electron_acoustic, energy_eV, max_temperature_K);
 
     for (const auto& branch : m_intervalley_branches) {
         total_rate += intervalley_scattering_rate(band_or_valley,

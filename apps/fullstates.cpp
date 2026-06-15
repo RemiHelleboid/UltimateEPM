@@ -17,7 +17,7 @@
 #include <iostream>
 
 #include "BandStructure.h"
-#include "Material.h"
+#include "epm_material.hpp"
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
@@ -25,12 +25,25 @@
 
 int main(int argc, char *argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
-    TCLAP::ValueArg<std::string> arg_mesh_file("f", "meshbandfile", "File with BZ mesh and bands energy.", true, "bz.msh", "string");
-    TCLAP::ValueArg<std::string> arg_material("m", "material", "Symbol of the material to use (Si, Ge, GaAs, ...)", true, "Si", "string");
+    TCLAP::ValueArg<std::string> arg_mesh_file("f",
+                                               "meshbandfile",
+                                               "File with BZ mesh and bands energy.",
+                                               true,
+                                               "bz.msh",
+                                               "string");
+    TCLAP::ValueArg<std::string> arg_material("m",
+                                              "material",
+                                              "Symbol of the material to use (Si, Ge, GaAs, ...)",
+                                              true,
+                                              "Si",
+                                              "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
     TCLAP::ValueArg<int>         arg_nb_bands("b", "nbands", "Number of bands to consider", false, 12, "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
-    TCLAP::SwitchArg plot_with_python("P", "plot", "Call a python script after the computation to plot the band structure.", false);
+    TCLAP::SwitchArg             plot_with_python("P",
+                                      "plot",
+                                      "Call a python script after the computation to plot the band structure.",
+                                      false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -43,7 +56,7 @@ int main(int argc, char *argv[]) {
     bool                             nonlocal_epm = false;
     bool                             enable_soc   = false;
     uepm::pseudopotential::Materials materials;
-    std::string                      file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-cohen.yaml";
+    std::string file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-cohen.yaml";
     if (nonlocal_epm) {
         file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
     }
@@ -58,7 +71,7 @@ int main(int argc, char *argv[]) {
     int  nb_bands_to_use = arg_nb_bands.getValue();
     auto start           = std::chrono::high_resolution_clock::now();
 
-    uepm::pseudopotential::Material current_material = materials.materials.at(arg_material.getValue());
+    uepm::pseudopotential::epm_material current_material = materials.materials.at(arg_material.getValue());
 
     uepm::mesh_bz::BZ_States my_bz_mesh(current_material);
     my_bz_mesh.set_nb_bands(nb_bands_to_use);
@@ -100,19 +113,19 @@ int main(int argc, char *argv[]) {
     std::chrono::duration<double> elapsed_seconds2 = end2 - start2;
     std::cout << "Time Dielectric Function : " << elapsed_seconds2.count() << "s" << std::endl;
 
-    std::string python_script =
-        "import matplotlib.pyplot as plt\n"
-        "import numpy as np\n"
-        "energy, eps = np.loadtxt('./TEST_DIELECTRIC_FUNCTION__dielectric_function.csv', delimiter=',', unpack=True, skiprows=1)\n"
-        "fig, ax = plt.subplots(figsize=(8, 6))\n"
-        "ax.plot(energy, eps, label='Dielectric Function')\n"
-        "ax.set_xlabel('Energy (eV)')\n"
-        "ax.set_ylabel('Dielectric Function (ε)')\n"
-        "ax.set_title('Dielectric Function vs Energy')\n"
-        "ax.legend()\n"
-        "ax.grid()\n"
-        "plt.savefig('dielectric_function.png')\n"
-        "plt.show()\n";
+    std::string python_script = "import matplotlib.pyplot as plt\n"
+                                "import numpy as np\n"
+                                "energy, eps = np.loadtxt('./TEST_DIELECTRIC_FUNCTION__dielectric_function.csv', "
+                                "delimiter=',', unpack=True, skiprows=1)\n"
+                                "fig, ax = plt.subplots(figsize=(8, 6))\n"
+                                "ax.plot(energy, eps, label='Dielectric Function')\n"
+                                "ax.set_xlabel('Energy (eV)')\n"
+                                "ax.set_ylabel('Dielectric Function (ε)')\n"
+                                "ax.set_title('Dielectric Function vs Energy')\n"
+                                "ax.legend()\n"
+                                "ax.grid()\n"
+                                "plt.savefig('dielectric_function.png')\n"
+                                "plt.show()\n";
     std::cout << "Run python script to plot dielectric function." << std::endl;
     std::string command = "python -c \"" + python_script + "\"";
     system(command.c_str());

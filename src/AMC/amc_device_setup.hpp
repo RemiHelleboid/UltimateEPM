@@ -15,9 +15,9 @@
 #include <string_view>
 
 #include "amc_transport_kernel.hpp"
-#include "particle_amc.hpp"
 #include "device.hpp"
 #include "mesh.hpp"
+#include "particle_amc.hpp"
 
 namespace uepm::amc {
 

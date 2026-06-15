@@ -86,7 +86,8 @@ double SpinOrbitCorrection::compute_lambda_antisym(const Vector3D<double>& K, co
     return lambda_antisym;
 }
 
-// Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_pauli_state_dot_product(const Vector3D<double>& myVect) {
+// Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_pauli_state_dot_product(const
+// Vector3D<double>& myVect) {
 //     using namespace std::complex_literals;
 //     std::complex<double>                      a00 = myVect.Z;
 //     std::complex<double>                      a01 = myVect.X - myVect.Y * 1i;
@@ -97,22 +98,25 @@ double SpinOrbitCorrection::compute_lambda_antisym(const Vector3D<double>& K, co
 //     return res_matrix;
 // }
 
-Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_pauli_state_dot_product(const Vector3D<double>& K, const Vector3D<double>& Kp) {
+Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_pauli_state_dot_product(
+    const Vector3D<double>& K,
+    const Vector3D<double>& Kp) {
     using namespace std::complex_literals;
     Eigen::Matrix<std::complex<double>, 2, 2> res_matrix;
-    auto a00 = K.X * Kp.Y - K.Y * Kp.X;
-    auto a01 = K.Y * Kp.Z - K.Z * Kp.Y + 1i * (K.X * Kp.Z - K.Z * Kp.X);
-    auto a10 = K.Y * Kp.Z - K.Z * Kp.Y - 1i * (K.X * Kp.Z - K.Z * Kp.X);
-    auto a11 = -(K.X * Kp.Y - K.Y * Kp.X);
+    auto                                      a00 = K.X * Kp.Y - K.Y * Kp.X;
+    auto                                      a01 = K.Y * Kp.Z - K.Z * Kp.Y + 1i * (K.X * Kp.Z - K.Z * Kp.X);
+    auto                                      a10 = K.Y * Kp.Z - K.Z * Kp.Y - 1i * (K.X * Kp.Z - K.Z * Kp.X);
+    auto                                      a11 = -(K.X * Kp.Y - K.Y * Kp.X);
     res_matrix << a00, a01, a10, a11;
     return res_matrix;
 }
 
-Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contribution(const Vector3D<double>& K,
-                                                                                        const Vector3D<double>& Kp,
-                                                                                        const Vector3D<double>& G,
-                                                                                        const Vector3D<double>& Gp,
-                                                                                        const Vector3D<double>& tau) const {
+Eigen::Matrix<std::complex<double>, 2, 2> SpinOrbitCorrection::compute_soc_contribution(
+    const Vector3D<double>& K,
+    const Vector3D<double>& Kp,
+    const Vector3D<double>& G,
+    const Vector3D<double>& Gp,
+    const Vector3D<double>& tau) const {
     using namespace std::complex_literals;
 
     const double a    = m_material.get_lattice_constant_meter();

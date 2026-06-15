@@ -29,18 +29,18 @@ void poisson_solver_3d::compute_stiffness_matrix() {
 
     int index_element = 0;
     for (const auto &bulk_region : m_p_mesh->get_all_p_bulk_region()) {
-        std::string                material_name   = bulk_region->get_material();
-        physic::material::material region_material = m_list_materials.get_material(material_name);
-        if (region_material.m_name == "Unknown") {
-            fmt::print("UNKNOWN MATERIAL IN POISSON SOLVER : {}\n", material_name);
-            throw std::invalid_argument("The material given in Poisson solver is unknown : " + material_name);
-        }
-        if (region_material.m_name == "Gas") {
+        const std::string &material_name = bulk_region->get_material();
+        const auto        &material      = m_material_database.require(material_name);
+        if (material.id == physics::material_id::gas) {
             continue;
         }
-        double relative_permittivity = region_material.m_parameters["dielectric-constant"];
-        auto   list_sp_elements      = bulk_region->get_list_elements();
-        double absolute_permittivity = relative_permittivity * uepm::constants::eps_0;
+        if (material.static_relative_permittivity <= 0.0) {
+            throw std::invalid_argument("epm_material '" + material_name +
+                                        "' must define a positive static relative permittivity for Poisson.");
+        }
+        const double relative_permittivity = material.static_relative_permittivity;
+        auto         list_sp_elements      = bulk_region->get_list_elements();
+        double       absolute_permittivity = relative_permittivity * uepm::constants::eps_0;
         for (auto &&sp_element : list_sp_elements) {
             ++index_element;
             m_list_bulk_elements.push_back(sp_element);

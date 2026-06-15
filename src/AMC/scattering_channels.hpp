@@ -1,11 +1,11 @@
 /**
  * @file scattering_channels.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-04-16
- * 
- * 
+ *
+ *
  */
 
 #pragma once
@@ -47,13 +47,11 @@ class scattering_channel_list {
         m_channels[m_size++] = channel;
     }
 
-    bool empty() const noexcept { return m_size == 0; }
-    std::size_t size() const noexcept { return m_size; }
+    bool                      empty() const noexcept { return m_size == 0; }
+    std::size_t               size() const noexcept { return m_size; }
     const scattering_channel& front() const { return m_channels.front(); }
-    const_iterator begin() const noexcept { return m_channels.begin(); }
-    const_iterator end() const noexcept {
-        return m_channels.begin() + static_cast<std::ptrdiff_t>(m_size);
-    }
+    const_iterator            begin() const noexcept { return m_channels.begin(); }
+    const_iterator            end() const noexcept { return m_channels.begin() + static_cast<std::ptrdiff_t>(m_size); }
 
  private:
     std::array<scattering_channel, capacity> m_channels{};
