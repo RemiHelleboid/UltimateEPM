@@ -39,7 +39,7 @@ bool is_in_first_BZ(const Vector3D<double>& k, bool one_eighth = false) {
     return cond_1 && cond_2 && (one_eighth ? cond_eighth : true);
 }
 
-DielectricFunction::DielectricFunction(const epm_material&                   material,
+DielectricFunction::DielectricFunction(const epm_material&               material,
                                        const std::vector<Vector3D<int>>& basisVectors,
                                        const int                         nb_bands)
     : m_basisVectors(basisVectors),

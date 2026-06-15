@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -67,22 +68,38 @@ class material_database {
     const std::vector<material_info>& materials() const noexcept { return m_materials; }
     void                              print_materials() const;
 
-    // Transitional names retained for callers using the previous API.
-    void load_materials_from_file(const std::string& filename) { load_from_file(filename); }
-    bool is_material_available(const std::string& name_or_symbol) const { return contains(name_or_symbol); }
-    const material_info& get_material(const std::string& name_or_symbol) const { return require(name_or_symbol); }
-
  private:
     std::vector<material_info> m_materials;
+};
+
+class material_repository {
+ public:
+    material_repository();
+    explicit material_repository(std::filesystem::path root);
+
+    static std::filesystem::path default_root();
+
+    const std::filesystem::path& root() const noexcept { return m_root; }
+
+    std::filesystem::path material_file(const std::string& material_symbol) const;
+    std::filesystem::path parameter_file(const std::string& material_symbol,
+                                         const std::string& module,
+                                         const std::string& parameter_set) const;
+
+    bool has_parameter_set(const std::string& material_symbol,
+                           const std::string& module,
+                           const std::string& parameter_set) const;
+
+    material_info     load_material(const std::string& material_symbol) const;
+    material_database load_all_materials() const;
+
+    std::vector<std::string> material_symbols() const;
+    std::vector<std::string> parameter_sets(const std::string& material_symbol, const std::string& module) const;
+
+ private:
+    std::filesystem::path m_root;
 };
 
 material_info silicon_material_info();
 
 }  // namespace uepm::physics
-
-namespace uepm::physic::material {
-
-using material       = uepm::physics::material_info;
-using list_materials = uepm::physics::material_database;
-
-}  // namespace uepm::physic::material

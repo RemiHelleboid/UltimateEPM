@@ -49,32 +49,22 @@ class epm_material {
 
  public:
     epm_material() = default;
-    epm_material(const std::string& Name,
-             double             a,
-             double             V3S,
-             double             V4S,
-             double             V8S,
-             double             V11S,
-             double             V3A  = 0,
-             double             V4A  = 0,
-             double             V8A  = 0,
-             double             V11A = 0);
     epm_material(const uepm::physics::material_info& material,
-             double                              V3S,
-             double                              V4S,
-             double                              V8S,
-             double                              V11S,
-             double                              V3A  = 0,
-             double                              V4A  = 0,
-             double                              V8A  = 0,
-             double                              V11A = 0);
+                 double                              V3S,
+                 double                              V4S,
+                 double                              V8S,
+                 double                              V11S,
+                 double                              V3A  = 0,
+                 double                              V4A  = 0,
+                 double                              V8A  = 0,
+                 double                              V11A = 0);
     epm_material(const epm_material&)            = default;
     epm_material& operator=(const epm_material&) = default;
     epm_material(epm_material&&)                 = default;
 
     const uepm::physics::material_info& get_material_info() const noexcept { return m_material_info; }
-    const std::string& get_name() const noexcept { return m_material_info.symbol; }
-    uepm::physics::material_id get_id() const noexcept { return m_material_info.id; }
+    const std::string&                  get_name() const noexcept { return m_material_info.symbol; }
+    uepm::physics::material_id          get_id() const noexcept { return m_material_info.id; }
 
     /**
      * @brief Populate the non-local parameters of the material from a YAML parameter node.
@@ -112,9 +102,7 @@ class epm_material {
      */
     double get_lattice_constant_meter() const { return m_material_info.lattice_constant_m; }
 
-    double get_fourier_factor() const {
-        return 2.0 * std::numbers::pi / m_material_info.lattice_constant_m;
-    }
+    double get_fourier_factor() const { return 2.0 * std::numbers::pi / m_material_info.lattice_constant_m; }
 
     /**
      * @brief Get the atomic volume of the material in angstrom^3 (per atom).
@@ -183,9 +171,10 @@ class epm_material {
 class Materials {
  public:
     Materials() = default;
-    void load_material_parameters(const std::string& filename);
-    void load_material_parameters(const std::string&                      filename,
-                                  const uepm::physics::material_database& material_database);
+    void load_material(const uepm::physics::material_repository& repository,
+                       const std::string&                        material_symbol,
+                       const std::string&                        parameter_set);
+    void load_parameter_set(const uepm::physics::material_repository& repository, const std::string& parameter_set);
 
     std::map<std::string, epm_material> materials;
 

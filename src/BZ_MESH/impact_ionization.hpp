@@ -15,10 +15,10 @@
 #include <array>
 #include <memory>
 
-#include "epm_material.hpp"
 #include "bz_mesh.hpp"
 #include "bz_states.hpp"
 #include "dielectric_mesh.hpp"
+#include "epm_material.hpp"
 
 namespace uepm::mesh_bz {
 

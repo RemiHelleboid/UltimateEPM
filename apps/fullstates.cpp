@@ -17,11 +17,11 @@
 #include <iostream>
 
 #include "BandStructure.h"
-#include "epm_material.hpp"
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
 #include "bz_states.hpp"
+#include "epm_material.hpp"
 
 int main(int argc, char *argv[]) {
     TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
@@ -53,15 +53,12 @@ int main(int argc, char *argv[]) {
 
     cmd.parse(argc, argv);
 
-    bool                             nonlocal_epm = false;
-    bool                             enable_soc   = false;
-    uepm::pseudopotential::Materials materials;
-    std::string file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-cohen.yaml";
-    if (nonlocal_epm) {
-        file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
-    }
-    std::cout << "Loading material parameters from " << file_material_parameters << std::endl;
-    materials.load_material_parameters(file_material_parameters);
+    bool                                     nonlocal_epm = false;
+    bool                                     enable_soc   = false;
+    uepm::pseudopotential::Materials         materials;
+    const uepm::physics::material_repository material_repository;
+    const std::string                        epm_parameter_set = nonlocal_epm ? "potz-vogl" : "cohen";
+    materials.load_material(material_repository, arg_material.getValue(), epm_parameter_set);
 
     Options my_options;
     my_options.materialName = arg_material.getValue();

@@ -98,8 +98,8 @@ class ElectronPhonon : public BZ_States {
  public:
     explicit ElectronPhonon(const uepm::pseudopotential::epm_material& material) : BZ_States(material) {}
 
-    void   load_phonon_parameters(const std::string& filename);
-    void   plot_phonon_dispersion(const std::string& filename) const;
+    void load_phonon_parameters(const uepm::physics::material_repository& repository, const std::string& parameter_set);
+    void plot_phonon_dispersion(const std::string& filename) const;
     double get_max_phonon_energy() const;
     void   export_phonon_dispersion(const std::string& filename) const;
 

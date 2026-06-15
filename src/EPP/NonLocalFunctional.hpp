@@ -47,8 +47,8 @@
 
 //  public:
 //     NonLocalFunctor() = delete;
-//     NonLocalFunctor(const NonLocalParameters& non_local_parameters, const epm_material& material, const Vector3D<double>&
-//     tau);
+//     NonLocalFunctor(const NonLocalParameters& non_local_parameters, const epm_material& material, const
+//     Vector3D<double>& tau);
 
 //     double F_0_Gamma(double atomic_radii) const;
 //     double F_0_diag(double norm_K, double atomic_radii) const;

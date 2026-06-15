@@ -23,7 +23,7 @@ class Hamiltonian {
     Vector3D<double>       compute_gradient_at_level(const Vector3D<double>& k_point, unsigned int level_index) const;
 
  protected:
-    const epm_material&                   m_material;
+    const epm_material&               m_material;
     const std::vector<Vector3D<int>>& m_basisVectors;
 
     Eigen::MatrixXcd                                m_constant_non_diagonal_matrix;

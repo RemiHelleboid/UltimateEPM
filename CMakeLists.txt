@@ -30,6 +30,18 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_compile_definitions(PROJECT_SRC_DIR=\"${PROJECT_SOURCE_DIR}\")
 
+# ---------------------------- Project data ----------------------------
+set(UEPM_MATERIAL_DATA_DIR
+    "${PROJECT_SOURCE_DIR}/data/materials"
+    CACHE PATH "Root directory of the UltimateEPM material repository")
+
+if(NOT IS_DIRECTORY "${UEPM_MATERIAL_DATA_DIR}")
+  message(FATAL_ERROR
+          "UEPM material repository does not exist: ${UEPM_MATERIAL_DATA_DIR}")
+endif()
+
+message(STATUS "Material repository: ${UEPM_MATERIAL_DATA_DIR}")
+
 # ---------------------------- Build type default ----------------------------
 set(default_build_type "Release")
 if(EXISTS "${CMAKE_SOURCE_DIR}/.git")

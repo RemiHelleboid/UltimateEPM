@@ -65,10 +65,9 @@ def parse_args() -> argparse.Namespace:
         help="Path to BandsOnBZ.",
     )
     parser.add_argument(
-        "--material-file",
-        type=Path,
-        default=repo_root / "parameter_files/materials-local-cohen.yaml",
-        help="Material parameter YAML file.",
+        "--epm-set",
+        default="local-cohen",
+        help="Named EPM parameter set.",
     )
     parser.add_argument("--outdir", type=Path, required=True, help="Output directory.")
     parser.add_argument("--prefix", default="bz", help="Iteration filename prefix.")
@@ -443,7 +442,6 @@ def main() -> int:
 
     mesher = checked_path(args.mesher, "mesher executable")
     bands = checked_path(args.bands, "band executable")
-    material_file = checked_path(args.material_file, "material file")
     outdir = args.outdir.expanduser().resolve()
     outdir.mkdir(parents=True, exist_ok=True)
 
@@ -613,8 +611,8 @@ def main() -> int:
             mesh_name,
             "--material",
             args.material,
-            "--file-data",
-            str(material_file),
+            "--epm-set",
+            args.epm_set,
             "--IrrWedge",
             "--nvbands",
             str(args.valence_bands),

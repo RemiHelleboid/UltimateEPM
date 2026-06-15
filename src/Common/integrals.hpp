@@ -27,6 +27,8 @@ template <Real T>
 inline bool is_strictly_increasing(std::span<const T> x) noexcept {
     for (std::size_t i = 1; i < x.size(); ++i) {
         if (!(x[i] > x[i - 1])) {
+            std::cerr << "Array is not strictly increasing at index " << i << ": x[" << i - 1 << "] = " << x[i - 1]
+                      << ", x[" << i << "] = " << x[i] << std::endl;
             return false;
         }
     }

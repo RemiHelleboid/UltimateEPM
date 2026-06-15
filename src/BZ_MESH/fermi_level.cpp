@@ -49,6 +49,7 @@ static inline double electrons_in_band(const std::vector<double>& E_eV,
     for (std::size_t i = 0; i < E_eV.size(); ++i) {
         w.push_back(G_m3eV[i] * uepm::physics::fermi_dirac_distribution(E_eV[i], EF_eV, T_K));
     }
+    std::cout << "Integrating to get total number of electrons in band..." << std::endl;
     return uepm::integrate::trapz(E_eV, w);  // states / m^3
 }
 
@@ -70,7 +71,12 @@ static inline double holes_in_band(const std::vector<double>& E_eV,
     for (std::size_t i = 0; i < E_eV.size(); ++i) {
         w.push_back(G_m3eV[i] * (1.0 - uepm::physics::fermi_dirac_distribution(E_eV[i], EF_eV, T_K)));
     }
-    return uepm::integrate::trapz(E_eV, w);  // states / m^3
+    std::vector<double> E_eV_reversed = E_eV;
+    // std::reverse(E_eV_reversed.begin(), E_eV_reversed.end());  // Reverse the order for holes
+    // std::reverse(w.begin(), w.end());                          // Reverse the order for holes
+    // DEBUG
+    std::cout << E_eV_reversed[0] << " " << E_eV_reversed[1] << std::endl;
+    return uepm::integrate::trapz(E_eV_reversed, w);  // states / m^3
 }
 
 /**
@@ -142,13 +148,20 @@ Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
         constexpr double eps             = 1e-12;
         double           min_e           = mini_max_energy.first;
         double           max_e           = mini_max_energy.second;
-        if (min_e < eps) {
-            // Valence band
-            min_e = std::max(min_e, -opt.abs_max_energy_eV);
-        } else {
-            // Conduction band
-            max_e = std::min(mini_max_energy.first + opt.abs_max_energy_eV, max_e);
+        // Check minmax order...
+        if (min_e > max_e) {
+            std::cerr << "Warning: min energy > max energy for band " << b << ": min = " << min_e
+                      << ", max = " << max_e << ". Swapping values.\n";
+            std::swap(min_e, max_e);
         }
+
+        // if (min_e < eps) {
+        //     // Valence band
+        //     min_e = std::max(min_e, -opt.abs_max_energy_eV);
+        // } else {
+        //     // Conduction band
+        //     max_e = std::min(mini_max_energy.first + opt.abs_max_energy_eV, max_e);
+        // }
         auto lists = mesh.compute_dos_band_at_band(b, min_e, max_e, opt.nE, opt.use_interp, use_iw);
 
         results.energies_per_band.push_back(std::move(lists[0]));

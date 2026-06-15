@@ -23,7 +23,7 @@ namespace uepm::amc {
 
 struct self_consistent_device_amc_run_config {
     std::string mesh_file;
-    std::string material_file;
+    std::string material_root;
     std::string material_symbol = "Si";
     std::string output_dir;
     std::string simulation_name = "self_consistent_amc";

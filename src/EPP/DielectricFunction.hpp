@@ -16,9 +16,9 @@
 #include <atomic>
 #include <vector>
 
-#include "epm_material.hpp"
 #include "SymmetryPoints.h"
 #include "Vector3D.h"
+#include "epm_material.hpp"
 
 namespace uepm::pseudopotential {
 
@@ -26,7 +26,7 @@ class DielectricFunction {
  protected:
     std::vector<Vector3D<int>>    m_basisVectors;
     std::vector<Vector3D<double>> m_kpoints;
-    const epm_material&               m_material;
+    const epm_material&           m_material;
     const int                     m_nb_bands;
     bool                          m_nonlocal_epm = false;
 
@@ -75,7 +75,9 @@ class DielectricFunction {
     std::vector<std::vector<double>> m_dielectric_function_imag;
 
  public:
-    DielectricFunction(const epm_material& material, const std::vector<Vector3D<int>>& basisVectors, const int nb_bands);
+    DielectricFunction(const epm_material&               material,
+                       const std::vector<Vector3D<int>>& basisVectors,
+                       const int                         nb_bands);
 
     DielectricFunction& operator=(const DielectricFunction&) = default;
     DielectricFunction(const DielectricFunction&)            = default;

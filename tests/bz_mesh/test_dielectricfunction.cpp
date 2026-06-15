@@ -21,12 +21,12 @@
 
 #include "BandStructure.h"
 #include "DielectricFunction.hpp"
-#include "epm_material.hpp"
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
 #include "dielectric_mesh.hpp"
 #include "doctest/doctest.h"
+#include "epm_material.hpp"
 
 namespace {
 class SyntheticDielectricMesh : public uepm::mesh_bz::DielectricMesh {
@@ -88,7 +88,6 @@ TEST_CASE("Epsilon_Si") {
 
     // uepm::pseudopotential::Materials materials;
     // const std::string                   file_material_parameters = std::string(PROJECT_SRC_DIR) +
-    // "/parameter_files/materials-chel.yaml"; materials.load_material_parameters(file_material_parameters);
     // uepm::pseudopotential::epm_material current_material = materials.materials.at("Si");
 
     // uepm::pseudopotential::BandStructure band_structure{};

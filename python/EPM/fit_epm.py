@@ -5,11 +5,11 @@ import yaml
 import argparse
 import subprocess
 
-# Command : ./apps/EmpiricalPseudoPotentialMain -m Si -b 12 -N 500 -n 10 -r output_dir -j 1 -p LGXK -P -d ../parameter_files/materials-kim-fischetti.yaml
+# Command : ./apps/EmpiricalPseudoPotentialMain -m Si -b 12 -N 500 -n 10 -r output_dir -j 1 -p LGXK -P -d kim-fischetti
 
 BIN_EPM = "./apps/EmpiricalPseudoPotentialMain"
 
-def run_epm(config_path):
+def run_epm(parameter_set):
     cmd = [
         BIN_EPM,
         "-m", "Si",
@@ -20,7 +20,7 @@ def run_epm(config_path):
         "-j", "1",
         "-p", "LGXK",
         "-P",
-        "-d", config_path
+        "-d", parameter_set
     ]
     subprocess.run(cmd)
     print("EPM run completed.")

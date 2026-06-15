@@ -28,10 +28,10 @@
 #include <vector>
 
 #include "BandStructure.h"
-#include "epm_material.hpp"
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
+#include "epm_material.hpp"
 
 namespace {
 
@@ -421,12 +421,7 @@ int main(int argc, char* argv[]) {
                                               true,
                                               "Si",
                                               "string");
-    TCLAP::ValueArg<std::string> arg_data_mat("d",
-                                              "file-data",
-                                              "epm_material data file",
-                                              false,
-                                              "materials-local-cohen.yaml",
-                                              "string");
+    TCLAP::ValueArg<std::string> arg_epm_set("d", "epm-set", "Named EPM parameter set", false, "local-cohen", "string");
     TCLAP::ValueArg<std::string> arg_outfile("o", "outfile", "Name of the output file", false, "", "string");
     TCLAP::ValueArg<int> arg_nb_valence_bands("v", "nvbands", "Number of valence bands to export", false, 4, "int");
     TCLAP::ValueArg<int> arg_nb_conduction_bands("c",
@@ -484,7 +479,7 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_enable_nonlocal_correction);
     cmd.add(arg_enable_soc);
     cmd.add(arg_cond_band_zero);
-    cmd.add(arg_data_mat);
+    cmd.add(arg_epm_set);
     cmd.add(arg_irr_wedge);
     cmd.add(arg_refinement_map);
     cmd.add(arg_adaptive_energy_target);
@@ -493,22 +488,10 @@ int main(int argc, char* argv[]) {
 
     cmd.parse(argc, argv);
 
-    uepm::pseudopotential::Materials materials;
-
-    std::string file_material_parameters = arg_data_mat.getValue();
-    if (!std::filesystem::exists(file_material_parameters)) {
-        std::filesystem::path p_try =
-            std::filesystem::path(PROJECT_SRC_DIR) / "parameter_files" / file_material_parameters;
-        if (std::filesystem::exists(p_try)) {
-            file_material_parameters = p_try.string();
-        } else {
-            std::cerr << "Error: material data file " << file_material_parameters << " does not exist!" << std::endl;
-            return -1;
-        }
-    }
-    fmt::print("Loading material parameters from file: {}\n", file_material_parameters);
-
-    materials.load_material_parameters(file_material_parameters);
+    uepm::pseudopotential::Materials         materials;
+    const uepm::physics::material_repository material_repository;
+    materials.load_material(material_repository, arg_material.getValue(), arg_epm_set.getValue());
+    fmt::print("Loaded EPM parameter set '{}' for {}\n", arg_epm_set.getValue(), arg_material.getValue());
     bool enable_nonlocal_correction = arg_enable_nonlocal_correction.isSet();
     bool enable_soc                 = arg_enable_soc.isSet();
 

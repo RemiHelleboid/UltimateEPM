@@ -20,10 +20,9 @@ namespace {
 YAML::Node make_default_config() {
     YAML::Node config;
 
-    config["input"]["device_mesh"] = "";
-    config["input"]["material_file"] =
-        (std::filesystem::path(PROJECT_SRC_DIR) / "examples/materials/materials.yaml").string();
-    config["input"]["material"] = "Si";
+    config["input"]["device_mesh"]   = "";
+    config["input"]["material_root"] = "";
+    config["input"]["material"]      = "Si";
 
     config["run"]["name"]             = "self_consistent_amc";
     config["run"]["output_directory"] = "";
@@ -210,7 +209,7 @@ self_consistent_device_amc_run_config load_device_amc_config(const std::filesyst
 
     self_consistent_device_amc_run_config result;
     result.mesh_file       = resolve_input_path(config_file, value_at<std::string>(config, "input", "device_mesh"));
-    result.material_file   = resolve_input_path(config_file, value_at<std::string>(config, "input", "material_file"));
+    result.material_root   = resolve_input_path(config_file, value_at<std::string>(config, "input", "material_root"));
     result.material_symbol = value_at<std::string>(config, "input", "material");
     result.output_dir      = value_at<std::string>(config, "run", "output_directory");
     result.simulation_name = value_at<std::string>(config, "run", "name");

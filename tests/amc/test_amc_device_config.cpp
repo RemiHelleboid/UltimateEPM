@@ -24,7 +24,7 @@ TEST_CASE("AMC device config loads YAML and applies CLI overrides last") {
     const auto config_file = write_config(R"(
 input:
   device_mesh: mesh/device.msh
-  material_file: materials.yaml
+  material_root: materials
 run:
   threads: 3
 simulation:

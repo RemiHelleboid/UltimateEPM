@@ -67,12 +67,14 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
     }
 
     fmt::print("Mesh dimension: {}D\n", mesh_dimension);
-    fmt::print("Loading materials: {}\n", config.material_file);
+    const uepm::physics::material_repository material_repository =
+        config.material_root.empty() ? uepm::physics::material_repository{}
+                                     : uepm::physics::material_repository{config.material_root};
+    fmt::print("Loading materials from repository: {}\n", material_repository.root().string());
 
-    uepm::physics::material_database material_database;
-    material_database.load_from_file(config.material_file);
-    const auto& common_material     = material_database.require(config.material_symbol);
-    device_options.m_material_model = make_silicon_amc_material_model(common_material);
+    uepm::physics::material_database material_database = material_repository.load_all_materials();
+    const auto&                      common_material   = material_database.require(config.material_symbol);
+    device_options.m_material_model                    = make_silicon_amc_material_model(common_material);
 
     uepm::device::device simulation_device(mesh);
     add_default_contacts(simulation_device, *mesh);
@@ -116,7 +118,8 @@ void run_self_consistent_device_amc_simulation(const self_consistent_device_amc_
     manifest.add("build", "hardware_concurrency", static_cast<std::size_t>(std::thread::hardware_concurrency()));
 
     manifest.add("input", "device_mesh", std::filesystem::absolute(config.mesh_file).string());
-    manifest.add("input", "material_file", std::filesystem::absolute(config.material_file).string());
+    manifest.add("input", "material_root", material_repository.root().string());
+    manifest.add("input", "material_file", material_repository.material_file(config.material_symbol).string());
     manifest.add("input", "material", config.material_symbol);
     manifest.add("input", "output_directory", std::filesystem::absolute(output_dir).string());
     manifest.add("input", "mesh_dimension", mesh_dimension);

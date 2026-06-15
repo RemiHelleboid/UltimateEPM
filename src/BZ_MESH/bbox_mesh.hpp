@@ -14,9 +14,12 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <iostream>
 #include <memory>
 #include <random>
 #include <stdexcept>
+// #include <fmt/core.h>
+// #include <fmt/format.h>
 #include <vector>
 
 #include "vector_bz.hpp"
@@ -119,20 +122,63 @@ class bbox_mesh {
         return octants;
     }
 
+    // void dilate(double factor) {
+    //     if (factor < 0.0) {
+    //         throw std::invalid_argument("A bounding-box dilation factor cannot be negative.");
+    //     }
+    //     // FORCE TO DO THIS WEIRD THING BECAUSE OF A COMPILATOR BUG!!!
+    //     vector3 center = {get_center().x(), get_center().y(), get_center().z()};
+    //     // std::cout << "Dilating bounding box by a factor of " << factor << " around center " << center <<
+    //     std::endl; const double  hx     = 0.5 * factor * get_x_size(); const double  hy     = 0.5 * factor *
+    //     get_y_size(); const double  hz     = 0.5 * factor * get_z_size();
+    //     // std::cout << "Half-sizes after dilation: hx = " << hx << ", hy = " << hy << ", hz = " << hz << std::endl;
+    //     m_x_min              = center.x() - hx;
+    //     m_x_max              = center.x() + hx;
+    //     // std::cout << "Dilated bounding box: x_min = " << m_x_min << ", x_max = " << m_x_max << std::endl;
+    //     m_y_min              = center.y() - hy;
+    //     m_y_max              = center.y() + hy;
+    //     // std::cout << "Dilated bounding box: y_min = " << m_y_min << ", y_max = " << m_y_max << std::endl;
+    //     m_z_min              = center.z() - hz;
+    //     m_z_max              = center.z() + hz;
+    // }
+
+    // Don't mind the weirdness of the dilate function, it's a workaround for a compiler bug that was causing issues
+    // with the original implementation. The new implementation calculates the center of the box and then adjusts the
+    // min and max coordinates based on the dilation factor. This ensures that the box is dilated correctly around its
+    // center.
     void dilate(double factor) {
         if (factor < 0.0) {
             throw std::invalid_argument("A bounding-box dilation factor cannot be negative.");
         }
-        const vector3 center = get_center();
-        const double  hx     = 0.5 * factor * get_x_size();
-        const double  hy     = 0.5 * factor * get_y_size();
-        const double  hz     = 0.5 * factor * get_z_size();
-        m_x_min              = center.x() - hx;
-        m_x_max              = center.x() + hx;
-        m_y_min              = center.y() - hy;
-        m_y_max              = center.y() + hy;
-        m_z_min              = center.z() - hz;
-        m_z_max              = center.z() + hz;
+
+        double old_x_min = m_x_min;
+        double old_x_max = m_x_max;
+        double old_y_min = m_y_min;
+        double old_y_max = m_y_max;
+        double old_z_min = m_z_min;
+        double old_z_max = m_z_max;
+        double cx        = 0.5 * (old_x_min + old_x_max);
+        double cy        = 0.5 * (old_y_min + old_y_max);
+        double cz        = 0.5 * (old_z_min + old_z_max);
+        double hx        = 0.5 * factor * (old_x_max - old_x_min);
+        double hy        = 0.5 * factor * (old_y_max - old_y_min);
+        double hz        = 0.5 * factor * (old_z_max - old_z_min);
+        std::cout << "Dilating bounding box by a factor of " << factor << " around center (" << cx << ", " << cy << ", "
+                  << cz << ")" << std::endl;
+        std::cout << "Half-sizes after dilation: hx = " << hx << ", hy = " << hy << ", hz = " << hz << std::endl;
+        m_x_min = cx - hx;
+        m_x_max = cx + hx;
+        std::cout << "Dilated bounding box: x_min = " << m_x_min << ", x_max = " << m_x_max << std::endl;
+        m_y_min = cy - hy;
+        m_y_max = cy + hy;
+        std::cout << "Dilated bounding box: y_min = " << m_y_min << ", y_max = " << m_y_max << std::endl;
+        m_z_min = cz - hz;
+        m_z_max = cz + hz;
+        std::cout << "Dilated bounding box: z_min = " << m_z_min << ", z_max = " << m_z_max << std::endl;
+
+        std::cout << "Dilated bounding box: x_min = " << m_x_min << ", x_max = " << m_x_max << std::endl;
+        std::cout << "Dilated bounding box: y_min = " << m_y_min << ", y_max = " << m_y_max << std::endl;
+        std::cout << "Dilated bounding box: z_min = " << m_z_min << ", z_max = " << m_z_max << std::endl;
     }
 
     void translate(const vector3 &translation) {

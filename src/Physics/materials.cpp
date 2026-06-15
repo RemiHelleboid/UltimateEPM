@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
+#include <string_view>
 #include <utility>
 
 #include "yaml-cpp/yaml.h"
@@ -11,8 +12,6 @@
 namespace uepm::physics {
 
 namespace {
-
-constexpr double angstrom_to_m = 1.0e-10;
 
 struct material_name_entry {
     material_id      id;
@@ -38,43 +37,37 @@ constexpr material_name_entry material_names[] = {
     {material_id::gas, "Gas", "Gas"},
 };
 
-double optional_double(const YAML::Node& node, std::string_view key) {
-    const auto value = node[std::string(key)];
-    return value ? value.as<double>() : 0.0;
-}
-
-double read_lattice_constant_m(const YAML::Node& node) {
-    if (const auto value = node["lattice_constant_m"]) {
-        return value.as<double>();
-    }
-    if (const auto value = node["lattice-constant"]) {
-        return value.as<double>() * angstrom_to_m;
-    }
-    return 0.0;
-}
-
-double read_mass_density_kg_m3(const YAML::Node& node) {
-    if (const auto value = node["mass_density_kg_m3"]) {
-        return value.as<double>();
-    }
-    if (const auto value = node["mass-density-kg-m3"]) {
-        return value.as<double>();
-    }
-    return 0.0;
-}
-
-double read_static_relative_permittivity(const YAML::Node& node) {
-    if (const auto value = node["static_relative_permittivity"]) {
-        return value.as<double>();
-    }
-    return optional_double(node, "dielectric-constant");
-}
-
 void validate_non_negative(const material_info& material) {
     if (material.lattice_constant_m < 0.0 || material.mass_density_kg_m3 < 0.0 ||
         material.static_relative_permittivity < 0.0) {
-        throw std::runtime_error("epm_material '" + material.symbol + "' contains a negative physical property.");
+        throw std::runtime_error("Material '" + material.symbol + "' contains a negative physical property.");
     }
+}
+
+void validate_path_component(std::string_view value, std::string_view label) {
+    if (value.empty() || value == "." || value == ".." || value.find_first_of("/\\") != std::string_view::npos) {
+        throw std::invalid_argument("Invalid " + std::string(label) + " '" + std::string(value) + "'.");
+    }
+}
+
+material_info parse_material_node(const YAML::Node& node) {
+    if (!node.IsMap() || !node["schema_version"] || !node["id"] || !node["name"] || !node["symbol"] ||
+        !node["lattice_constant_m"] || !node["mass_density_kg_m3"] || !node["static_relative_permittivity"]) {
+        throw std::runtime_error("Material files must use the complete schema_version 1 material schema.");
+    }
+    if (node["schema_version"].as<int>() != 1) {
+        throw std::runtime_error("Unsupported material schema version.");
+    }
+
+    material_info material;
+    material.name                         = node["name"].as<std::string>();
+    material.symbol                       = node["symbol"].as<std::string>();
+    material.id                           = material_id_from_name_or_symbol(material.symbol);
+    material.lattice_constant_m           = node["lattice_constant_m"].as<double>();
+    material.mass_density_kg_m3           = node["mass_density_kg_m3"].as<double>();
+    material.static_relative_permittivity = node["static_relative_permittivity"].as<double>();
+    validate_non_negative(material);
+    return material;
 }
 
 }  // namespace
@@ -95,46 +88,28 @@ material_id material_id_from_name_or_symbol(std::string_view name_or_symbol) {
             return entry.name == name_or_symbol || entry.symbol == name_or_symbol;
         });
     if (it == std::end(material_names)) {
-        throw std::invalid_argument("epm_material '" + std::string(name_or_symbol) + "' has no registered material_id.");
+        throw std::invalid_argument("Material '" + std::string(name_or_symbol) + "' has no registered material_id.");
     }
     return it->id;
 }
 
 void material_database::load_from_file(const std::string& filename) {
     if (!std::filesystem::exists(filename)) {
-        throw std::runtime_error("epm_material file '" + filename + "' does not exist.");
+        throw std::runtime_error("Material file '" + filename + "' does not exist.");
     }
 
     const YAML::Node config = YAML::LoadFile(filename);
-    const YAML::Node nodes  = config["materials"] ? config["materials"] : config;
-    if (!nodes.IsSequence()) {
-        throw std::runtime_error("epm_material file '" + filename + "' must contain a material sequence.");
-    }
-
     m_materials.clear();
-    for (const auto& node : nodes) {
-        if (!node["name"] || !node["symbol"]) {
-            throw std::runtime_error("Every material must define both 'name' and 'symbol'.");
-        }
-
-        material_info material;
-        material.name                         = node["name"].as<std::string>();
-        material.symbol                       = node["symbol"].as<std::string>();
-        material.id                           = material_id_from_name_or_symbol(material.symbol);
-        material.lattice_constant_m           = read_lattice_constant_m(node);
-        material.mass_density_kg_m3           = read_mass_density_kg_m3(node);
-        material.static_relative_permittivity = read_static_relative_permittivity(node);
-        add(std::move(material));
-    }
+    add(parse_material_node(config));
 }
 
 void material_database::add(material_info material) {
     if (material.name.empty() || material.symbol.empty()) {
-        throw std::invalid_argument("epm_material name and symbol must not be empty.");
+        throw std::invalid_argument("Material name and symbol must not be empty.");
     }
     validate_non_negative(material);
     if (contains(material.id)) {
-        throw std::invalid_argument("epm_material '" + material.symbol + "' already exists in material database.");
+        throw std::invalid_argument("Material '" + material.symbol + "' already exists in material database.");
     }
     m_materials.push_back(std::move(material));
 }
@@ -155,7 +130,7 @@ const material_info& material_database::require(material_id id) const {
     const auto it =
         std::find_if(m_materials.begin(), m_materials.end(), [id](const auto& material) { return material.id == id; });
     if (it == m_materials.end()) {
-        throw std::runtime_error("epm_material '" + std::string(to_string(id)) +
+        throw std::runtime_error("Material '" + std::string(to_string(id)) +
                                  "' is not available in material database.");
     }
     return *it;
@@ -166,18 +141,113 @@ const material_info& material_database::require(const std::string& name_or_symbo
         return material.name == name_or_symbol || material.symbol == name_or_symbol;
     });
     if (it == m_materials.end()) {
-        throw std::runtime_error("epm_material '" + name_or_symbol + "' is not available in material database.");
+        throw std::runtime_error("Material '" + name_or_symbol + "' is not available in material database.");
     }
     return *it;
 }
 
 void material_database::print_materials() const {
     for (const auto& material : m_materials) {
-        std::cout << "epm_material " << material.name << " (" << material.symbol << ")\n"
+        std::cout << "Material " << material.name << " (" << material.symbol << ")\n"
                   << "  lattice_constant_m = " << material.lattice_constant_m << '\n'
                   << "  mass_density_kg_m3 = " << material.mass_density_kg_m3 << '\n'
                   << "  static_relative_permittivity = " << material.static_relative_permittivity << '\n';
     }
+}
+
+material_repository::material_repository() : material_repository(default_root()) {}
+
+material_repository::material_repository(std::filesystem::path root)
+    : m_root(std::filesystem::absolute(std::move(root)).lexically_normal()) {
+    if (!std::filesystem::is_directory(m_root)) {
+        throw std::runtime_error("Material repository '" + m_root.string() + "' does not exist.");
+    }
+}
+
+std::filesystem::path material_repository::default_root() {
+#ifdef UEPM_MATERIAL_DATA_DIR
+    return UEPM_MATERIAL_DATA_DIR;
+#else
+    return std::filesystem::path("data") / "materials";
+#endif
+}
+
+std::filesystem::path material_repository::material_file(const std::string& material_symbol) const {
+    validate_path_component(material_symbol, "material symbol");
+    const auto path = m_root / material_symbol / "material.yaml";
+    if (!std::filesystem::is_regular_file(path)) {
+        throw std::runtime_error("Material '" + material_symbol + "' is not available in repository '" +
+                                 m_root.string() + "'.");
+    }
+    return path;
+}
+
+std::filesystem::path material_repository::parameter_file(const std::string& material_symbol,
+                                                          const std::string& module,
+                                                          const std::string& parameter_set) const {
+    validate_path_component(material_symbol, "material symbol");
+    validate_path_component(module, "material module");
+    validate_path_component(parameter_set, "parameter set");
+    const auto path = m_root / material_symbol / module / (parameter_set + ".yaml");
+    if (!std::filesystem::is_regular_file(path)) {
+        throw std::runtime_error("Parameter set '" + module + "/" + parameter_set +
+                                 "' is not available for material '" + material_symbol + "'.");
+    }
+    return path;
+}
+
+bool material_repository::has_parameter_set(const std::string& material_symbol,
+                                            const std::string& module,
+                                            const std::string& parameter_set) const {
+    try {
+        (void)parameter_file(material_symbol, module, parameter_set);
+        return true;
+    } catch (const std::runtime_error&) {
+        return false;
+    }
+}
+
+material_info material_repository::load_material(const std::string& material_symbol) const {
+    material_database database(material_file(material_symbol).string());
+    return database.require(material_symbol);
+}
+
+material_database material_repository::load_all_materials() const {
+    material_database database;
+    for (const auto& symbol : material_symbols()) {
+        database.add(load_material(symbol));
+    }
+    return database;
+}
+
+std::vector<std::string> material_repository::material_symbols() const {
+    std::vector<std::string> symbols;
+    for (const auto& entry : std::filesystem::directory_iterator(m_root)) {
+        if (entry.is_directory() && std::filesystem::is_regular_file(entry.path() / "material.yaml")) {
+            symbols.push_back(entry.path().filename().string());
+        }
+    }
+    std::sort(symbols.begin(), symbols.end());
+    return symbols;
+}
+
+std::vector<std::string> material_repository::parameter_sets(const std::string& material_symbol,
+                                                             const std::string& module) const {
+    validate_path_component(material_symbol, "material symbol");
+    validate_path_component(module, "material module");
+    const auto directory = m_root / material_symbol / module;
+
+    std::vector<std::string> profiles;
+    if (!std::filesystem::is_directory(directory)) {
+        return profiles;
+    }
+    for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".yaml") {
+            profiles.push_back(entry.path().stem().string());
+        }
+    }
+    std::sort(profiles.begin(), profiles.end());
+    return profiles;
 }
 
 material_info silicon_material_info() {

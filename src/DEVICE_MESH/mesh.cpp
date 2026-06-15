@@ -104,11 +104,11 @@ void mesh::build_search_tree() {
     const double dilatation_factor = 1.005;
     if (m_dimension == 2) {
         bbox primary_bbox = get_bounding_box();
-        primary_bbox.dilate(dilatation_factor);
+        // primary_bbox.dilate(dilatation_factor);
         m_p_search_tree = std::make_unique<quadtree_node>(get_list_p_bulk_element(), primary_bbox);
     } else if (m_dimension == 3) {
         bbox primary_bbox = get_bounding_box();
-        primary_bbox.dilate(dilatation_factor);
+        // primary_bbox.dilate(dilatation_factor);
         m_p_search_tree = std::make_unique<octree_node>(get_list_p_bulk_element(), primary_bbox);
     }
     auto stop     = std::chrono::high_resolution_clock::now();

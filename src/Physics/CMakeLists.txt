@@ -11,4 +11,4 @@ add_library(uepm::physics ALIAS libphysics)
 target_include_directories(libphysics PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(libphysics PUBLIC yaml-cpp)
 target_link_libraries(libphysics PUBLIC uepm::common)
-
+target_compile_definitions(libphysics PRIVATE UEPM_MATERIAL_DATA_DIR="${UEPM_MATERIAL_DATA_DIR}")

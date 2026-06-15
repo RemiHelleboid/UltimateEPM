@@ -184,15 +184,11 @@ int main(int argc, char** argv) {
 
     bool use_irreducible_wedge = (bz_sampling == 48) ? true : false;
 
-    uepm::pseudopotential::Materials materials;
-    std::string file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
-    if (nonlocal_epm) {
-        file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials.yaml";
-    }
-    std::cout << "Loading material parameters from " << file_material_parameters << std::endl;
-
-    materials.load_material_parameters(file_material_parameters);
-    uepm::pseudopotential::epm_material      current_material = materials.materials.at("Si");
+    uepm::pseudopotential::Materials         materials;
+    const uepm::physics::material_repository material_repository;
+    const std::string                        epm_parameter_set = nonlocal_epm ? "potz-vogl" : "chel";
+    materials.load_material(material_repository, material_name, epm_parameter_set);
+    uepm::pseudopotential::epm_material  current_material = materials.materials.at(material_name);
     uepm::pseudopotential::BandStructure band_structure{};
 
     band_structure.Initialize(current_material, nb_bands, {}, nb_nearest_neighbors, nonlocal_epm, enable_soc);

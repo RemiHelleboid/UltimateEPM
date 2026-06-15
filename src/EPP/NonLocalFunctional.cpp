@@ -107,7 +107,8 @@
 //  * @param tau
 //  * @return std::complex<double>
 //  */
-// std::complex<double> epm_material::compute_pseudopotential_non_local_correction(const Vector3D<double>& K1_normalized,
+// std::complex<double> epm_material::compute_pseudopotential_non_local_correction(const Vector3D<double>&
+// K1_normalized,
 //                                                                             const Vector3D<double>& K2_normalized,
 //                                                                             const Vector3D<double>& tau) const {
 //     const double           diag_factor       = pow(uepm::constants::h_bar, 2) / (2.0 * uepm::constants::m_e *

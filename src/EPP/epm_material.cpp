@@ -8,53 +8,17 @@
 
 namespace uepm::pseudopotential {
 
-const double     Bohr          = 0.52917721092;  // in Angstroms
-constexpr double angstrom_to_m = 1.0e-10;
-
-namespace {
-
-uepm::physics::material_id legacy_material_id(const std::string& name_or_symbol) {
-    try {
-        return uepm::physics::material_id_from_name_or_symbol(name_or_symbol);
-    } catch (const std::invalid_argument&) {
-        return uepm::physics::material_id::custom;
-    }
-}
-
-uepm::physics::material_info legacy_material_info(const std::string& name_or_symbol,
-                                                  double             lattice_constant_angstrom) {
-    return {
-        .id                 = legacy_material_id(name_or_symbol),
-        .name               = name_or_symbol,
-        .symbol             = name_or_symbol,
-        .lattice_constant_m = lattice_constant_angstrom * angstrom_to_m,
-    };
-}
-
-}  // namespace
-
-epm_material::epm_material(const std::string& Name,
-                   double             a,
-                   double             V3S,
-                   double             V4S,
-                   double             V8S,
-                   double             V11S,
-                   double             V3A,
-                   double             V4A,
-                   double             V8A,
-                   double             V11A)
-    : m_material_info(legacy_material_info(Name, a)),
-      m_pseudopotential(V3S, V4S, V8S, V11S, V3A, V4A, V8A, V11A) {}
+const double Bohr = 0.52917721092;  // in Angstroms
 
 epm_material::epm_material(const uepm::physics::material_info& material,
-                   double                              V3S,
-                   double                              V4S,
-                   double                              V8S,
-                   double                              V11S,
-                   double                              V3A,
-                   double                              V4A,
-                   double                              V8A,
-                   double                              V11A)
+                           double                              V3S,
+                           double                              V4S,
+                           double                              V8S,
+                           double                              V11S,
+                           double                              V3A,
+                           double                              V4A,
+                           double                              V8A,
+                           double                              V11A)
     : m_material_info(material),
       m_pseudopotential(V3S, V4S, V8S, V11S, V3A, V4A, V8A, V11A) {
     if (m_material_info.lattice_constant_m <= 0.0) {
@@ -63,53 +27,53 @@ epm_material::epm_material(const uepm::physics::material_info& material,
     }
 }
 
-/**
- * @brief Load material parameters from the passed filename.
- * The file is a YAML file containing the parameters for each material (lattice constant, pseudopotential parameters,
- * etc.).
- *
- * @param filename
- */
-void Materials::load_material_parameters(const std::string& filename) {
-    uepm::physics::material_database material_database;
-    material_database.load_from_file(filename);
-    load_material_parameters(filename, material_database);
+void Materials::load_material(const uepm::physics::material_repository& repository,
+                              const std::string&                        material_symbol,
+                              const std::string&                        parameter_set) {
+    const auto common_material = repository.load_material(material_symbol);
+    const auto filename        = repository.parameter_file(material_symbol, "epm", parameter_set);
+    const auto config          = YAML::LoadFile(filename.string());
+
+    if (config["material"].as<std::string>() != material_symbol || config["model"].as<std::string>() != "epm" ||
+        config["parameter_set"].as<std::string>() != parameter_set) {
+        throw std::runtime_error("Invalid EPM parameter file '" + filename.string() + "'.");
+    }
+
+    const auto node_pseudopotential = config["pseudo-potential-parameters"];
+    if (!node_pseudopotential) {
+        throw std::runtime_error("EPM parameter file '" + filename.string() +
+                                 "' does not define pseudo-potential-parameters.");
+    }
+
+    const auto rydberg_value = [&](const char* key, double default_value = 0.0) {
+        const auto value = node_pseudopotential[key];
+        return value ? uepm::constants::Ryd_to_eV * value.as<double>() : default_value;
+    };
+
+    materials[material_symbol] = epm_material(common_material,
+                                              rydberg_value("V3S"),
+                                              rydberg_value("V4S"),
+                                              rydberg_value("V8S"),
+                                              rydberg_value("V11S"),
+                                              rydberg_value("V3A"),
+                                              rydberg_value("V4A"),
+                                              rydberg_value("V8A"),
+                                              rydberg_value("V11A"));
+
+    if (const auto node = config["non-local-parameters"]) {
+        materials[material_symbol].populate_non_local_parameters(node);
+    }
+    if (const auto node = config["spin-orbit-parameters"]) {
+        materials[material_symbol].populate_spin_orbit_parameters(node);
+    }
 }
 
-void Materials::load_material_parameters(const std::string&                      filename,
-                                         const uepm::physics::material_database& material_database) {
-    YAML::Node config         = YAML::LoadFile(filename);
-    auto       list_materials = config["materials"];
-    for (const auto& material : list_materials) {
-        std::string symbol               = material["symbol"].as<std::string>();
-        const auto& common_material      = material_database.require(symbol);
-        auto        node_pseudopotential = material["pseudo-potential-parameters"];
-        double      V3S                  = uepm::constants::Ryd_to_eV * node_pseudopotential["V3S"].as<double>();
-        double      V8S                  = uepm::constants::Ryd_to_eV * node_pseudopotential["V8S"].as<double>();
-        double      V11S                 = uepm::constants::Ryd_to_eV * node_pseudopotential["V11S"].as<double>();
-        double      V3A                  = uepm::constants::Ryd_to_eV * node_pseudopotential["V3A"].as<double>();
-        double      V4A                  = uepm::constants::Ryd_to_eV * node_pseudopotential["V4A"].as<double>();
-        double      V11A                 = uepm::constants::Ryd_to_eV * node_pseudopotential["V11A"].as<double>();
-        double      V4S                  = 0.0;
-        double      V8A                  = 0.0;
-        if (node_pseudopotential["V4S"]) {
-            V4S = uepm::constants::Ryd_to_eV * node_pseudopotential["V4S"].as<double>();
-        }
-        if (node_pseudopotential["V8A"]) {
-            V8A = uepm::constants::Ryd_to_eV * node_pseudopotential["V8A"].as<double>();
-        }
-        materials[symbol] = epm_material(common_material, V3S, V4S, V8S, V11S, V3A, V4A, V8A, V11A);
-
-        auto node_non_local_parameters = material["non-local-parameters"];
-        if (node_non_local_parameters) {
-            materials[symbol].populate_non_local_parameters(node_non_local_parameters);
-        }
-
-        auto node_spin_orbit_parameters = material["spin-orbit-parameters"];
-        if (node_spin_orbit_parameters) {
-            materials[symbol].populate_spin_orbit_parameters(node_spin_orbit_parameters);
-            std::cout << "Spin-orbit parameters for " << symbol << " exists." << std::endl;
-            materials[symbol].get_spin_orbit_parameters().print_parameters();
+void Materials::load_parameter_set(const uepm::physics::material_repository& repository,
+                                   const std::string&                        parameter_set) {
+    materials.clear();
+    for (const auto& symbol : repository.material_symbols()) {
+        if (repository.has_parameter_set(symbol, "epm", parameter_set)) {
+            load_material(repository, symbol, parameter_set);
         }
     }
 }
@@ -184,8 +148,8 @@ double F_2_function_gaussian(const Vector3D<double>& K1, const Vector3D<double>&
  * @return std::complex<double>
  */
 std::complex<double> epm_material::compute_pseudopotential_non_local_correction(const Vector3D<double>& K1_normalized,
-                                                                            const Vector3D<double>& K2_normalized,
-                                                                            const Vector3D<double>& tau) const {
+                                                                                const Vector3D<double>& K2_normalized,
+                                                                                const Vector3D<double>& tau) const {
     const double diag_factor    = pow(uepm::constants::h_bar, 2) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
     const double fourier_factor = 2.0 * M_PI / get_lattice_constant_meter();
     const Vector3D<double> G_diff_normalized = (K1_normalized - K2_normalized);

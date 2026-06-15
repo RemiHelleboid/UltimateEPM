@@ -18,9 +18,9 @@
 #include <system_error>
 #include <vector>
 
-#include "epm_material.hpp"
 #include "SpinOrbitParameters.hpp"
 #include "Vector3D.h"
+#include "epm_material.hpp"
 #include "physical_constants.hpp"
 
 namespace uepm::pseudopotential {
@@ -35,7 +35,7 @@ namespace uepm::pseudopotential {
 class SpinOrbitCorrection {
  protected:
     SpinOrbitParameters m_soc_parameters;
-    epm_material            m_material;
+    epm_material        m_material;
 
  public:
     SpinOrbitCorrection() = delete;

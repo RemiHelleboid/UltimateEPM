@@ -21,9 +21,9 @@
 #include <sstream>
 
 #include "BandStructure.h"
-#include "epm_material.hpp"
 #include "Options.h"
 #include "electron_phonon.hpp"
+#include "epm_material.hpp"
 #include "fermi_level.hpp"
 
 template <typename Derived>
@@ -134,25 +134,24 @@ int main(int argc, char const *argv[]) {
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    uepm::pseudopotential::Materials materials;
-    const std::string file_material_parameters = std::string(PROJECT_SRC_DIR) + "/parameter_files/materials-chel.yaml";
-    materials.load_material_parameters(file_material_parameters);
+    uepm::pseudopotential::Materials         materials;
+    const uepm::physics::material_repository material_repository;
+    materials.load_material(material_repository, arg_material.getValue(), "chel");
 
     Options my_options;
-    my_options.materialName                  = arg_material.getValue();
-    my_options.nrLevels                      = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
-    my_options.nrThreads                     = arg_nb_threads.getValue();
-    const int         number_energies        = arg_nb_energies.getValue();
-    const int         nb_conduction_bands    = arg_nb_conduction_bands.getValue();
-    const int         nb_valence_bands       = arg_nb_valence_bands.getValue();
-    const double      max_energy             = arg_energy_range.getValue();  // eV
-    const double      temperature            = arg_temperature.getValue();
-    bool              irreducible_wedge_only = use_irr_wedge.getValue();
-    const std::string mesh_band_input_file   = arg_mesh_file.getValue();
-    const std::string phonon_file            = std::string(PROJECT_SRC_DIR) + "/parameter_files/phonon_kamakura.yaml";
-    const bool        shift_conduction_band  = true;
-    const bool        set_positive_valence_band      = false;
-    const bool        export_rates                   = arg_export_rates.getValue();
+    my_options.materialName                     = arg_material.getValue();
+    my_options.nrLevels                         = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
+    my_options.nrThreads                        = arg_nb_threads.getValue();
+    const int         number_energies           = arg_nb_energies.getValue();
+    const int         nb_conduction_bands       = arg_nb_conduction_bands.getValue();
+    const int         nb_valence_bands          = arg_nb_valence_bands.getValue();
+    const double      max_energy                = arg_energy_range.getValue();  // eV
+    const double      temperature               = arg_temperature.getValue();
+    bool              irreducible_wedge_only    = use_irr_wedge.getValue();
+    const std::string mesh_band_input_file      = arg_mesh_file.getValue();
+    const bool        shift_conduction_band     = true;
+    const bool        set_positive_valence_band = false;
+    const bool        export_rates              = arg_export_rates.getValue();
     bool              use_unit_deformation_potential = use_unit_defpot.getValue();
     bool              phonon_rates_provided          = arg_phonon_rates.isSet();
     std::string       phonon_rates_file              = "";
@@ -180,7 +179,7 @@ int main(int argc, char const *argv[]) {
         ElectronPhonon.export_energies_and_gradients_to_vtk(vtk_file);
     }
 
-    ElectronPhonon.load_phonon_parameters(phonon_file);
+    ElectronPhonon.load_phonon_parameters(material_repository, "kamakura");
     ElectronPhonon.set_nb_bands_elph(nb_conduction_bands);
 
     std::size_t           nb_vtx = ElectronPhonon.get_number_vertices();

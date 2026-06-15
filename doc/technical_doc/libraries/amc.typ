@@ -674,8 +674,9 @@ expected, invalid scalar types, and invalid enum strings are errors. This
 strict behavior is intentional: a misspelled key must not silently leave a
 default active.
 
-The paths `input.device_mesh` and `input.material_file` are resolved relative
-to the directory containing the YAML file unless they are absolute.
+The paths `input.device_mesh` and `input.material_root` are resolved relative
+to the directory containing the YAML file unless they are absolute. An empty
+`input.material_root` uses the material repository compiled with the project.
 `run.output_directory` is not rebased against the YAML file; a relative output
 directory is interpreted from the process working directory.
 
@@ -688,9 +689,9 @@ directory is interpreted from the process working directory.
   [`input.device_mesh`], [required],
   [Gmsh device mesh and state file. The loaded mesh must be two- or
    three-dimensional. A relative path is based on the YAML directory.],
-  [`input.material_file`], [project example],
-  [Material-parameter YAML used by the Poisson solver. A relative path is based
-   on the YAML directory.],
+  [`input.material_root`], [empty],
+  [Optional root of the unified material repository. A relative path is based
+   on the YAML directory. Empty selects the repository compiled with the project.],
   [`input.material`], [`Si`],
   [Transport material symbol. The analytical device model currently accepts
    only silicon.],
@@ -944,7 +945,7 @@ default. It is the preferred starting point for a new run:
 ```yaml
 input:
   device_mesh: device.msh
-  material_file: /path/to/examples/materials/materials.yaml
+  material_root: ""
   material: Si
 run:
   name: self_consistent_amc

@@ -341,14 +341,30 @@ bbox_mesh MeshBZ::compute_bounding_box() const {
 }
 
 void MeshBZ::build_search_tree() {
+    fmt::print("Building octree search tree for {} tetrahedra ...\n", m_list_tetrahedra.size());
     bbox_mesh mesh_bbox = compute_bounding_box();
-    std::cout << "Mesh bounding box: " << mesh_bbox << std::endl;
-    mesh_bbox.dilate(1.10);
+    fmt::print("Mesh bounding box: x=[{}, {}], y=[{}, {}], z=[{}, {}]\n",
+               mesh_bbox.get_x_min(),
+               mesh_bbox.get_x_max(),
+               mesh_bbox.get_y_min(),
+               mesh_bbox.get_y_max(),
+               mesh_bbox.get_z_min(),
+               mesh_bbox.get_z_max());
+    const double dilatation_factor = 1.10;
+    mesh_bbox.dilate(dilatation_factor);
+    fmt::print("Dilated x{} mesh bounding box: x=[{}, {}], y=[{}, {}], z=[{}, {}]\n",
+               dilatation_factor,
+               mesh_bbox.get_x_min(),
+               mesh_bbox.get_x_max(),
+               mesh_bbox.get_y_min(),
+               mesh_bbox.get_y_max(),
+               mesh_bbox.get_z_min(),
+               mesh_bbox.get_z_max());
     auto start    = std::chrono::high_resolution_clock::now();
     m_search_tree = std::make_unique<Octree_mesh>(get_list_p_tetra(), mesh_bbox);
     auto end      = std::chrono::high_resolution_clock::now();
     auto total    = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "Octree built in " << total / 1000.0 << "s" << std::endl;
+    fmt::print("Octree built in {}s\n", total / 1000.0);
 }
 
 Tetra* MeshBZ::find_tetra_at_location(const vector3& location) const {
@@ -677,8 +693,8 @@ void MeshBZ::recompute_tetra_ordered_energies(double max_energy) {
                 min_energies_tetra[sorted_indices[idx_tetra]];
         }
         auto        it_last  = std::upper_bound(m_tetra_ordered_energy_min[idx_band].m_ordered_energies.begin(),
-                                        m_tetra_ordered_energy_min[idx_band].m_ordered_energies.end(),
-                                        max_energy);
+                                                m_tetra_ordered_energy_min[idx_band].m_ordered_energies.end(),
+                                                max_energy);
         std::size_t idx_last = std::distance(m_tetra_ordered_energy_min[idx_band].m_ordered_energies.begin(), it_last);
         fmt::print("Band {}: {} tetras have min energy <= {:.3f} eV (out of {} = {:.3f} %)\n",
                    idx_band,
@@ -973,7 +989,7 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
     std::vector<double> list_energies(nb_points);
     std::vector<double> list_dos(nb_points);
 
-#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
+// #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
         double energy               = min_energy + index_energy * energy_step;
         double dos                  = compute_dos_at_energy_and_band(energy, band_index, use_interp, use_iw);

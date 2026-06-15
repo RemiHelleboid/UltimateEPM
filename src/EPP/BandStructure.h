@@ -3,9 +3,9 @@
 #include <atomic>
 #include <vector>
 
-#include "epm_material.hpp"
 #include "SymmetryPoints.h"
 #include "Vector3D.h"
+#include "epm_material.hpp"
 
 namespace uepm::pseudopotential {
 
@@ -25,7 +25,7 @@ class BandStructure {
      * @param enable_non_local_correction
      * @param enable_soc
      */
-    void Initialize(const epm_material&                 material,
+    void Initialize(const epm_material&             material,
                     std::size_t                     nb_bands,
                     const std::vector<std::string>& path,
                     unsigned int                    nrPoints,
@@ -44,7 +44,7 @@ class BandStructure {
      * @param enable_non_local_correction
      * @param enable_soc
      */
-    void Initialize(const epm_material&                      material,
+    void Initialize(const epm_material&                  material,
                     std::size_t                          nb_bands,
                     const std::vector<Vector3D<double>>& list_k_points,
                     unsigned int                         nearestNeighborsNumber,
@@ -88,7 +88,7 @@ class BandStructure {
     std::vector<std::string>  m_path;
     unsigned int              m_nb_points;
 
-    epm_material     m_material;
+    epm_material m_material;
     unsigned int m_nb_bands;
     unsigned int m_nearestNeighborsNumber;
     bool         m_enable_non_local_correction;

@@ -28,11 +28,11 @@
 #include <string>
 
 #include "BandStructure.h"
-#include "epm_material.hpp"
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_states.hpp"
 #include "electron_phonon.hpp"
+#include "epm_material.hpp"
 #include "single_part_fbmc.hpp"
 
 namespace {
@@ -221,12 +221,9 @@ int main(int argc, const char** argv) try {
         fmt::print(stderr, "[warn] --wedge is parsed but not wired in this executable yet.\n");
     }
 
-    uepm::pseudopotential::Materials materials;
-    const std::filesystem::path      file_material_parameters =
-        std::filesystem::path(PROJECT_SRC_DIR) / "parameter_files" / "materials-chel.yaml";
-    require_existing_file(file_material_parameters, "epm_material parameter file");
-
-    materials.load_material_parameters(file_material_parameters.string());
+    uepm::pseudopotential::Materials         materials;
+    const uepm::physics::material_repository material_repository;
+    materials.load_material(material_repository, material_symbol, "chel");
     const uepm::pseudopotential::epm_material current_material = materials.materials.at(material_symbol);
 
     uepm::mesh_bz::ElectronPhonon mesh(current_material);
@@ -251,11 +248,7 @@ int main(int argc, const char** argv) try {
         mesh.export_energies_and_gradients_to_vtk(vtk_file.string());
     }
 
-    const std::filesystem::path phonon_parameter_file =
-        std::filesystem::path(PROJECT_SRC_DIR) / "parameter_files" / "phonon_kamakura.yaml";
-    require_existing_file(phonon_parameter_file, "Phonon parameter file");
-
-    mesh.load_phonon_parameters(phonon_parameter_file.string());
+    mesh.load_phonon_parameters(material_repository, "kamakura");
     mesh.export_phonon_dispersion((output_dir / "phonon_dispersion.data").string());
 
     mesh.read_phonon_scattering_rates_from_file(file_phonon_scattering.string());

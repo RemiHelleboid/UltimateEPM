@@ -17,10 +17,8 @@
 #include "vtkWriter.hpp"
 
 TEST_CASE("Testing Poisson 2d on a PN Junction.") {
-    std::string material_file = PROJECT_SRC_DIR + std::string("/examples/materials/materials.yaml");
-    std::cout << "epm_material file : " << material_file << std::endl;
-    uepm::physics::material_database material_database;
-    material_database.load_from_file(material_file);
+    const uepm::physics::material_repository repository;
+    const auto                               material_database = repository.load_all_materials();
 
     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/tests/test_data/2D_pn_diode_5V.msh");
     uepm::file::msh_file     fileMSH(file_input_test_msh);

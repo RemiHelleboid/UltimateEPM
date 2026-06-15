@@ -54,14 +54,14 @@ void print_arguments(const std::vector<std::string>& path,
 }
 
 int compute_path_mat(const uepm::pseudopotential::epm_material& material,
-                     const std::vector<std::string>&        path,
-                     unsigned int                           nb_points,
-                     unsigned int                           nb_bands,
-                     unsigned int                           nearestNeighbors,
-                     bool                                   enable_non_local_correction,
-                     bool                                   enable_soc,
-                     const std::string&                     result_dir,
-                     bool                                   call_python_plot) {
+                     const std::vector<std::string>&            path,
+                     unsigned int                               nb_points,
+                     unsigned int                               nb_bands,
+                     unsigned int                               nearestNeighbors,
+                     bool                                       enable_non_local_correction,
+                     bool                                       enable_soc,
+                     const std::string&                         result_dir,
+                     bool                                       call_python_plot) {
     Options my_options;
     my_options.nearestNeighbors = nearestNeighbors;
     my_options.nrPoints         = nb_points;
@@ -217,12 +217,7 @@ int main(int argc, char* argv[]) {
                                                "int");
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<std::string> arg_res_dir("r", "resultdir", "directory to store the results.", false, "./", "str");
-    TCLAP::ValueArg<std::string> arg_data_mat("d",
-                                              "file-data",
-                                              "Name of the material data file",
-                                              false,
-                                              "materials-local-cohen.yaml",
-                                              "string");
+    TCLAP::ValueArg<std::string> arg_epm_set("d", "epm-set", "Named EPM parameter set", false, "local-cohen", "string");
     TCLAP::SwitchArg             arg_enable_nonlocal_correction("C",
                                                     "nonlocal-correction",
                                                     "Enable the non-local-correction for the EPM model",
@@ -248,7 +243,7 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_enable_soc);
     cmd.add(all_path_mat);
     cmd.add(plot_with_python);
-    cmd.add(arg_data_mat);
+    cmd.add(arg_epm_set);
 
     cmd.parse(argc, argv);
 
@@ -265,22 +260,10 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    uepm::pseudopotential::Materials materials;
-
-    std::string file_material_parameters = arg_data_mat.getValue();
-    if (!std::filesystem::exists(file_material_parameters)) {
-        std::filesystem::path p_try =
-            std::filesystem::path(PROJECT_SRC_DIR) / "parameter_files" / file_material_parameters;
-        if (std::filesystem::exists(p_try)) {
-            file_material_parameters = p_try.string();
-        } else {
-            std::cerr << "Error: material data file " << file_material_parameters << " does not exist!" << std::endl;
-            return -1;
-        }
-    }
-    fmt::print("Loading material parameters from file: {}\n", file_material_parameters);
-
-    materials.load_material_parameters(file_material_parameters);
+    uepm::pseudopotential::Materials         materials;
+    const uepm::physics::material_repository material_repository;
+    materials.load_parameter_set(material_repository, arg_epm_set.getValue());
+    fmt::print("Loaded EPM parameter set '{}'\n", arg_epm_set.getValue());
     materials.print_material_parameters();
 
     print_arguments(path_list,

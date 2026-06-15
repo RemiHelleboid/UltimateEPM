@@ -17,17 +17,17 @@
 
 #include "BandStructure.h"
 #include "Hamiltonian.h"
-#include "epm_material.hpp"
 #include "Options.h"
 #include "bz_mesh.hpp"
 #include "bz_states.hpp"
+#include "epm_material.hpp"
 #include "omp.h"
 #include "physical_constants.hpp"
 
 namespace uepm::mesh_bz {
 
 ImpactIonization::ImpactIonization(const uepm::pseudopotential::epm_material& material,
-                                   const std::string&                     initial_mesh_path)
+                                   const std::string&                         initial_mesh_path)
     : m_material(material),
       m_dielectric_mesh(material) {
     std::filesystem::path path(initial_mesh_path);

@@ -57,7 +57,7 @@ bool BandStructure::GenerateBasisVectors(unsigned int nearestNeighborsNumber) {
     return true;
 }
 
-void BandStructure::Initialize(const epm_material&                 material,
+void BandStructure::Initialize(const epm_material&             material,
                                std::size_t                     nb_bands,
                                const std::vector<std::string>& path,
                                unsigned int                    nbPoints,
@@ -93,7 +93,7 @@ void BandStructure::Initialize(const epm_material&                 material,
     }
 }
 
-void BandStructure::Initialize(const epm_material&                      material,
+void BandStructure::Initialize(const epm_material&                  material,
                                std::size_t                          nb_bands,
                                const std::vector<Vector3D<double>>& list_k_points,
                                unsigned int                         nearestNeighborsNumber,

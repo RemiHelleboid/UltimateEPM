@@ -1000,27 +1000,27 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
 }
 
 /**
- * @brief Load phonon parameters from a YAML configuration file.
+ * @brief Load phonon parameters from a material repository profile.
  *
- * @param filename The path to the YAML configuration file.
+ * @param repository Material repository.
+ * @param parameter_set Electron-phonon parameter set name.
  */
-void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
-    fmt::print("Loading phonon parameters from file {} ...\n", filename);
+void ElectronPhonon::load_phonon_parameters(const uepm::physics::material_repository& repository,
+                                            const std::string&                        parameter_set) {
+    const std::string material_symbol = m_material.get_name();
+    const auto        filename        = repository.parameter_file(material_symbol, "electron_phonon", parameter_set);
+    fmt::print("Loading phonon parameters from file {} ...\n", filename.string());
 
-    YAML::Node config = YAML::LoadFile(filename);
+    YAML::Node config = YAML::LoadFile(filename.string());
     if (config.IsNull()) {
-        throw std::runtime_error("File " + filename + " is empty");
+        throw std::runtime_error("File " + filename.string() + " is empty");
     }
-
-    auto               list_materials = config["materials"];
-    const std::string& my_material    = m_material.get_name();
-
-    auto same_material = [&](const YAML::Node& node) { return node["name"].as<std::string>() == my_material; };
-    auto it_material   = std::find_if(list_materials.begin(), list_materials.end(), same_material);
-    if (it_material == list_materials.end()) {
-        throw std::runtime_error("epm_material " + my_material + " not found in file " + filename);
+    if (config["material"].as<std::string>() != material_symbol ||
+        config["model"].as<std::string>() != "electron_phonon" ||
+        config["parameter_set"].as<std::string>() != parameter_set) {
+        throw std::runtime_error("Invalid electron-phonon parameter file '" + filename.string() + "'.");
     }
-    auto material = *it_material;
+    const auto material = config;
 
     double radiusWS         = material["Radius-WS"].as<double>();
     m_radius_wigner_seitz_m = radiusWS;
@@ -1081,7 +1081,7 @@ void ElectronPhonon::load_phonon_parameters(const std::string& filename) {
             }
         }
     }
-    fmt::print("Finished loading phonon parameters for material {}.\n", my_material);
+    fmt::print("Finished loading phonon parameters for material {}.\n", material_symbol);
 }
 
 /**
