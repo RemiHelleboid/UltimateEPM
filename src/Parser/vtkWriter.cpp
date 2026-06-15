@@ -75,13 +75,7 @@ void write_vtk_geometry(std::ofstream& file, const mesh::mesh& MyMesh) {
     file << "\n";
 }
 
-void write_vtk_data(std::ofstream&                  file,
-                    const mesh::mesh&               MyMesh,
-                    const std::vector<std::string>& scalar_fields,
-                    const std::vector<std::string>& vector_fields,
-                    bool                            export_all_fields) {
-    // Scalar fields on vertices
-    // auto list_scalar_fields = (export_all_fields) ? MyMesh.get_scalar_functions_name() : scalar_fields;
+void write_vtk_data(std::ofstream& file, const mesh::mesh& MyMesh) {
     auto                                  list_scalar_functions = MyMesh.get_list_scalar_functions();
     auto                                  list_vector_functions = MyMesh.get_list_vector_functions();
     std::vector<mesh::sp_scalar_function> list_scalar_vertex_function;
@@ -153,25 +147,16 @@ void write_vtk_data(std::ofstream&                  file,
     file.close();
 }
 
-void export_as_vtk(const mesh::mesh&               mesh,
-                   const std::string&              filename,
-                   const std::vector<std::string>& scalar_fields,
-                   const std::vector<std::string>& vector_fields,
-                   bool                            export_all_fields) {
+void export_as_vtk(const mesh::mesh& mesh, const std::string& filename) {
     std::ofstream file;
     file.open(filename);
     write_vtk_geometry(file, mesh);
-    if (!scalar_fields.empty() || !vector_fields.empty() || export_all_fields) {
-        write_vtk_data(file, mesh, scalar_fields, vector_fields, export_all_fields);
-    }
+    write_vtk_data(file, mesh);
     file.close();
 }
 
 void export_as_vtu(const mesh::mesh&               mesh,
-                   const std::string&              filename,
-                   const std::vector<std::string>& scalar_fields,
-                   const std::vector<std::string>& vector_fields,
-                   bool                            export_all_fields) {
+                   const std::string&              filename) {
     std::ofstream file(filename);
 
     if (!file.is_open()) {

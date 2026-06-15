@@ -42,7 +42,7 @@ TEST_CASE("Testing Poisson 2d on a PN Junction.") {
     // MyPoissonSolver.add_solution_to_mesh_functions("Poisson_Solution");
     // fileMSH.export_as_msh("TEST_POISSON_DIODE_PN_5V.msh", {}, 1);
     // const std::string FileName = "TEST_POISSON_DIODE_PN_5V.vtk";
-    // uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    // uepm::file::export_as_vtk(*(p_mesh), FileName);
 
     // // p_mesh->export_all_vertices_data_to_csv("POISSON_PN_CSV.csv");
 

@@ -58,7 +58,7 @@ TEST_CASE("Testing Poisson 2d on a unit disk.") {
     CHECK_EQ(max_solution, doctest::Approx(max_test_disk_poisson).epsilon(1e-2));
 
     const std::string FileName = "result_poisson_2d_disk_dirichlet.vtk";
-    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName);
 }
 
 TEST_CASE("Testing Poisson 2d on a unit square.") {
@@ -89,7 +89,7 @@ TEST_CASE("Testing Poisson 2d on a unit square.") {
     CHECK_EQ(max_solution, doctest::Approx(max_test_square_poisson).epsilon(1e-2));
 
     const std::string FileName = "result_poisson_2d_square_dirichlet.vtk";
-    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName);
 }
 
 TEST_CASE("Testing Poisson 2d on a unit square with Neuman BC.") {
@@ -121,7 +121,7 @@ TEST_CASE("Testing Poisson 2d on a unit square with Neuman BC.") {
     CHECK_EQ(max_solution, doctest::Approx(max_test_square_poisson).epsilon(1e-2));
 
     const std::string FileName = "result_poisson_2d_square_neuman.vtk";
-    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName);
 }
 TEST_CASE("Testing Poisson 2d linear patch test") {
     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/tests/test_data/square.msh");

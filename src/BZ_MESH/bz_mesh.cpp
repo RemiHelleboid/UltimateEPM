@@ -320,6 +320,9 @@ void MeshBZ::load_kstar_ibz_to_bz(const std::string& kstarFilePath) {
 }
 
 bbox_mesh MeshBZ::compute_bounding_box() const {
+    if (m_list_vertices.empty()) {
+        throw std::logic_error("Cannot compute the bounding box of an empty BZ mesh.");
+    }
     double x_min = std::numeric_limits<double>::max();
     double y_min = std::numeric_limits<double>::max();
     double z_min = std::numeric_limits<double>::max();
@@ -350,16 +353,16 @@ void MeshBZ::build_search_tree() {
                mesh_bbox.get_y_max(),
                mesh_bbox.get_z_min(),
                mesh_bbox.get_z_max());
-    const double dilatation_factor = 1.10;
-    mesh_bbox.dilate(dilatation_factor);
-    fmt::print("Dilated x{} mesh bounding box: x=[{}, {}], y=[{}, {}], z=[{}, {}]\n",
-               dilatation_factor,
-               mesh_bbox.get_x_min(),
-               mesh_bbox.get_x_max(),
-               mesh_bbox.get_y_min(),
-               mesh_bbox.get_y_max(),
-               mesh_bbox.get_z_min(),
-               mesh_bbox.get_z_max());
+    // const double dilatation_factor = 1.10;
+    // mesh_bbox.dilate(dilatation_factor);
+    // fmt::print("Dilated x{} mesh bounding box: x=[{}, {}], y=[{}, {}], z=[{}, {}]\n",
+    //            dilatation_factor,
+    //            mesh_bbox.get_x_min(),
+    //            mesh_bbox.get_x_max(),
+    //            mesh_bbox.get_y_min(),
+    //            mesh_bbox.get_y_max(),
+    //            mesh_bbox.get_z_min(),
+    //            mesh_bbox.get_z_max());
     auto start    = std::chrono::high_resolution_clock::now();
     m_search_tree = std::make_unique<Octree_mesh>(get_list_p_tetra(), mesh_bbox);
     auto end      = std::chrono::high_resolution_clock::now();
@@ -368,6 +371,9 @@ void MeshBZ::build_search_tree() {
 }
 
 Tetra* MeshBZ::find_tetra_at_location(const vector3& location) const {
+    if (!m_search_tree) {
+        throw std::logic_error("The BZ search tree has not been built.");
+    }
     return m_search_tree->find_tetra_at_location(location);
 }
 
@@ -572,7 +578,6 @@ void MeshBZ::apply_scissor(double scissor_value) {
 
 void MeshBZ::precompute_dos_tetra(double energy_step, double energy_max) {
     fmt::print("Precomputing DOS per tetrahedra with energy step = {:.3f} eV ...\n", energy_step);
-    auto start = std::chrono::high_resolution_clock::now();
 #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t i = 0; i < m_list_tetrahedra.size(); ++i) {
         m_list_tetrahedra[i].precompute_dos_on_energy_grid_per_band(energy_step, energy_max);
@@ -621,6 +626,9 @@ void MeshBZ::set_energy_gradient_at_vertices_by_averaging_tetras() {
 }
 
 void MeshBZ::recompute_min_max_energies() {
+    if (m_list_vertices.empty()) {
+        throw std::logic_error("Cannot compute band extrema on an empty BZ mesh.");
+    }
     m_min_band.clear();
     m_max_band.clear();
     int nb_bands = m_list_vertices[0].get_number_bands();
@@ -705,6 +713,10 @@ void MeshBZ::recompute_tetra_ordered_energies(double max_energy) {
 
         m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices.resize(idx_last);
         m_tetra_ordered_energy_min[idx_band].m_ordered_energies.resize(idx_last);
+        if (idx_last == 0) {
+            m_tetra_ordered_energy_min[idx_band].m_max_energy_spread = 0.0;
+            continue;
+        }
         std::vector<double> diffsE(m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices.size());
         for (std::size_t idx_tetra = 0; idx_tetra < diffsE.size(); ++idx_tetra) {
             std::size_t actual_idx_tetra = m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices[idx_tetra];
@@ -719,8 +731,6 @@ void MeshBZ::recompute_tetra_ordered_energies(double max_energy) {
                    min_diffE,
                    max_diffE,
                    idx_max_diffE);
-        const Tetra& T_max_diffE =
-            m_list_tetrahedra[m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices[idx_max_diffE]];
         m_tetra_ordered_energy_min[idx_band].m_max_energy_spread = max_diffE;
     }
     fmt::print("Done recomputing tetra ordered energies.\n");
@@ -983,6 +993,12 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         ba
                                                                   std::size_t nb_points,
                                                                   bool        use_interp,
                                                                   bool        use_iw) const {
+    if (band_index < 0 || static_cast<std::size_t>(band_index) >= get_number_bands_total()) {
+        throw std::out_of_range("Band index out of range in compute_dos_band_at_band.");
+    }
+    if (nb_points < 2) {
+        throw std::invalid_argument("DOS computation requires at least two energy points.");
+    }
     auto   start       = std::chrono::high_resolution_clock::now();
     double energy_step = (max_energy - min_energy) / (nb_points - 1);
 
@@ -1008,6 +1024,9 @@ std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int      
                                                                        bool        use_iw) const {
     if (band_index < 0 || band_index >= static_cast<int>(m_min_band.size())) {
         throw std::out_of_range("Band index out of range in compute_dos_band_at_band_auto.");
+    }
+    if (nb_points < 2) {
+        throw std::invalid_argument("DOS computation requires at least two energy points.");
     }
 
     const double margin_energy = 0.1;
@@ -1057,7 +1076,6 @@ std::size_t MeshBZ::draw_random_tetrahedron_index_with_dos_probability(double   
     }
     // Check that we have some non-zero DOS to avoid errors in the distribution
     double dos_sum = std::accumulate(list_dos.begin(), list_dos.end(), 0.0);
-    std::cout << "Total DOS at energy " << energy << " eV for band " << idx_band << ": " << dos_sum << std::endl;
     if (dos_sum <= 0.0) {
         throw std::runtime_error("Total DOS is zero or negative at the given energy. Cannot draw tetrahedron index.");
     }
@@ -1233,62 +1251,30 @@ void MeshBZ::init_reciprocal_basis(const Eigen::Vector3d& b1_SI,
  * @return Folded wavevector inside the first BZ (SI, 1/m)
  */
 vector3 MeshBZ::fold_ws_bcc(const vector3& k_SI) const noexcept {
-    // Convert to Eigen for the tiny linear algebra steps
-    Eigen::Vector3d ke(k_SI.x(), k_SI.y(), k_SI.z());
+    const Eigen::Vector3d k(k_SI.x(), k_SI.y(), k_SI.z());
+    const Eigen::Vector3d reduced = m_recip_Bi * k;
+    const Eigen::Vector3d nearest = reduced.array().round().matrix();
 
-    // A) Nearest-lattice wrap (Babai rounding) into the primitive parallelepiped
-    Eigen::Vector3d r  = m_recip_Bi * ke;    // reduced coords in basis of reciprocal vectors
-    Eigen::Array3d  n  = r.array().round();  // nearest reciprocal-lattice node
-    Eigen::Vector3d k0 = ke - m_recip_B * n.matrix();
+    Eigen::Vector3d best = k - m_recip_B * nearest;
+    double          best_norm_squared = best.squaredNorm();
 
-    // B) Apply WS (truncated-octahedron) plane tests in your reduced frame
-    Eigen::Vector3d kr = m_si2red * k0;
-
-    const double hw      = m_bz_halfwidth;
-    const double sum_lim = 1.5 * hw;
-    const double eps     = 1e-12 * std::max(1.0, hw);
-
-    // A few corrections always suffice after Babai; 3 passes is plenty.
-    for (int it = 0; it < 3; ++it) {
-        const double ax = std::abs(kr.x()), ay = std::abs(kr.y()), az = std::abs(kr.z());
-        bool         moved = false;
-
-        // 6 square faces: |x|,|y|,|z| ≤ hw
-        if (ax > hw + eps) {
-            kr.x() -= (kr.x() > 0 ? 1.0 : -1.0) * 2.0 * hw;
-            moved = true;
-        }
-        if (ay > hw + eps) {
-            kr.y() -= (kr.y() > 0 ? 1.0 : -1.0) * 2.0 * hw;
-            moved = true;
-        }
-        if (az > hw + eps) {
-            kr.z() -= (kr.z() > 0 ? 1.0 : -1.0) * 2.0 * hw;
-            moved = true;
-        }
-
-        // 8 hex faces: |x| + |y| + |z| ≤ 1.5*hw
-        if ((ax + ay + az) > (sum_lim + eps)) {
-            const int    idx    = (ax >= ay && ax >= az) ? 0 : (ay >= az ? 1 : 2);
-            const double excess = (ax + ay + az) - sum_lim;
-            if (idx == 0) {
-                kr.x() -= (kr.x() > 0 ? 1.0 : -1.0) * excess;
-            } else if (idx == 1) {
-                kr.y() -= (kr.y() > 0 ? 1.0 : -1.0) * excess;
-            } else {
-                kr.z() -= (kr.z() > 0 ? 1.0 : -1.0) * excess;
+    // The reciprocal primitive basis is oblique. Search neighboring lattice
+    // points around the rounded estimate to obtain the true Wigner-Seitz image.
+    for (int i = -2; i <= 2; ++i) {
+        for (int j = -2; j <= 2; ++j) {
+            for (int l = -2; l <= 2; ++l) {
+                const Eigen::Vector3d lattice_coordinates =
+                    nearest + Eigen::Vector3d(static_cast<double>(i), static_cast<double>(j), static_cast<double>(l));
+                const Eigen::Vector3d candidate = k - m_recip_B * lattice_coordinates;
+                const double candidate_norm_squared = candidate.squaredNorm();
+                if (candidate_norm_squared < best_norm_squared) {
+                    best_norm_squared = candidate_norm_squared;
+                    best = candidate;
+                }
             }
-            moved = true;
-        }
-
-        if (!moved) {
-            break;  // inside WS
         }
     }
-
-    // Back to SI and convert to your vector3
-    Eigen::Vector3d kf = kr / m_si2red;
-    return vector3{kf.x(), kf.y(), kf.z()};
+    return vector3{best.x(), best.y(), best.z()};
 }
 
 /**
@@ -1345,7 +1331,6 @@ std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const {
     // Now search for the closest vertex in the IW
     double       min_dist = std::numeric_limits<double>::max();
     std::size_t  idx_min  = 0;
-    const double s        = si_to_reduced_scale();
     for (const auto& vtx : m_list_vertices) {
         if (is_irreducible_wedge(vtx.get_position())) {
             double dist = (vtx.get_position() - k_folded).norm_squared();
@@ -1393,7 +1378,6 @@ void MeshBZ::compute_band_structure_over_mesh(uepm::pseudopotential::BandStructu
 
 #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t i = 0; i < nb_vtx_used; ++i) {
-        const auto& vtx              = full_list_vertices[list_vtx_used[i]];
         const auto& energies_at_vtx  = band_structure.get_band_energies().at(i);
         const auto& gradients_at_vtx = band_structure.get_band_energy_gradients().at(i);
         // Convert Vector3D<double> to vector3
@@ -1516,7 +1500,6 @@ inline vector3 apply_same_symmetry_operation(const vector3& k_iw, const vector3&
 
 void MeshBZ::distribute_energies_from_iw_wedge_to_full_bz() {
     std::cout << "Distributing band energies from irreducible wedge to full BZ ..." << std::endl;
-    std::size_t nb_vertices_full_bz = m_list_vertices.size();
     if (m_list_vtx_in_iwedge.empty()) {
         throw std::runtime_error("No vertices in irreducible wedge. Cannot distribute energies to full BZ.");
     }
@@ -1674,8 +1657,8 @@ void MeshBZ::export_selected_bands_to_gmsh(const std::string& out_filename,
 
     // Conduction
     if (nb_conduction_to_export > 0) {
-        for (int g = 0; g < nb_conduction_to_export; ++g) {
-            int global_g = get_global_band_index(g, MeshParticleType::conduction);
+        for (std::size_t g = 0; g < nb_conduction_to_export; ++g) {
+            int global_g = get_global_band_index(static_cast<int>(g), MeshParticleType::conduction);
             write_one_view("band_" + std::to_string(out_idx++), gather_band(global_g));
             if (write_gradients) {
                 write_one_vector_view("grad_band_" + std::to_string(out_idx - 1), gather_grad_vector(global_g));
@@ -1689,7 +1672,6 @@ void MeshBZ::export_selected_bands_to_gmsh(const std::string& out_filename,
 static inline void bz_write_vtk_scalars(std::ofstream&             out,
                                         const std::string&         name,
                                         const std::vector<double>& vals,
-                                        const char* loc_keyword,  // "POINT_DATA" or "CELL_DATA" already emitted
                                         std::size_t expected_count) {
     if (vals.size() != expected_count) {
         throw std::runtime_error("VTK export: scalar field '" + name + "' has size " + std::to_string(vals.size()) +
@@ -1706,7 +1688,6 @@ static inline void bz_write_vtk_scalars(std::ofstream&             out,
 static inline void bz_write_vtk_vectors(std::ofstream&              out,
                                         const std::string&          name,
                                         const std::vector<vector3>& vecs,
-                                        const char*                 loc_keyword,
                                         std::size_t                 expected_count) {
     if (vecs.size() != expected_count) {
         throw std::runtime_error("VTK export: vector field '" + name + "' has size " + std::to_string(vecs.size()) +
@@ -1766,10 +1747,10 @@ void MeshBZ::export_to_vtk(const std::string&        filename,
     if (!point_scalars.empty() || !point_vectors.empty()) {
         out << "POINT_DATA " << n_points << "\n";
         for (const auto& [name, vals] : point_scalars) {
-            bz_write_vtk_scalars(out, name, vals, "POINT_DATA", n_points);
+            bz_write_vtk_scalars(out, name, vals, n_points);
         }
         for (const auto& [name, vecs] : point_vectors) {
-            bz_write_vtk_vectors(out, name, vecs, "POINT_DATA", n_points);
+            bz_write_vtk_vectors(out, name, vecs, n_points);
         }
     }
 
@@ -1777,10 +1758,10 @@ void MeshBZ::export_to_vtk(const std::string&        filename,
     if (!cell_scalars.empty() || !cell_vectors.empty()) {
         out << "CELL_DATA " << n_cells << "\n";
         for (const auto& [name, vals] : cell_scalars) {
-            bz_write_vtk_scalars(out, name, vals, "CELL_DATA", n_cells);
+            bz_write_vtk_scalars(out, name, vals, n_cells);
         }
         for (const auto& [name, vecs] : cell_vectors) {
-            bz_write_vtk_vectors(out, name, vecs, "CELL_DATA", n_cells);
+            bz_write_vtk_vectors(out, name, vecs, n_cells);
         }
     }
     out.close();

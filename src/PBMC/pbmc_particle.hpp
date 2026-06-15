@@ -157,8 +157,8 @@ class pbmc_particle {
     pbmc_particle(std::size_t index, particle_type type, const particle_state& initial_state, double weight = 1.0)
         : m_index(index),
           m_type(type),
-          m_state(initial_state),
           m_weight(weight),
+          m_state(initial_state),
           m_history(index) {
         if (weight <= 0.0) {
             throw std::invalid_argument("particle weight must be > 0");

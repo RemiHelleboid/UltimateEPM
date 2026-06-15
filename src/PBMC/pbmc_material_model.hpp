@@ -33,16 +33,16 @@ struct acoustic_scattering_parameters {
 };
 
 struct impact_ionization_parameters {
-    double m_threshold_eV  = 1.1;
-    double m_prefactor_s_1 = 1.0e11;
-    double m_exponent      = 4.6;
+    double m_threshold_eV  = 0.0;
+    double m_prefactor_s_1 = 0.0;
+    double m_exponent      = 0.0;
 };
 
 struct impurity_mobility_parameters {
-    double m_mu0_cm2_per_V_s    = 1400.0;
-    double m_mu_min_cm2_per_V_s = 50.0;
-    double m_n_ref_cm_3         = 1.0e17;
-    double m_alpha              = 0.7;
+    double m_mu0_cm2_per_V_s    = 0.0;
+    double m_mu_min_cm2_per_V_s = 0.0;
+    double m_n_ref_cm_3         = 0.0;
+    double m_alpha              = 0.0;
 };
 
 struct carrier_impurity_mobility_parameters {
@@ -88,7 +88,15 @@ std::vector<valley_model>            make_silicon_delta_valleys();
 std::vector<valley_model>            make_silicon_hole_bands();
 std::vector<hole_optical_transition> make_silicon_hole_optical_transitions();
 carrier_impact_ionization_parameters make_silicon_impact_ionization_parameters();
-pbmc_material_model                   make_silicon_pbmc_material_model(const uepm::physics::material_info& material);
-pbmc_material_model                   make_silicon_pbmc_material_model();
+pbmc_material_model                  load_pbmc_material_model(const uepm::physics::material_repository& repository,
+                                                              const uepm::physics::material_info&       material,
+                                                              const std::string&                        parameter_set = "default");
+pbmc_material_model                  load_pbmc_material_model(const uepm::physics::material_repository& repository,
+                                                              const std::string&                        material_symbol,
+                                                              const std::string&                        parameter_set = "default");
+pbmc_material_model                  load_pbmc_material_model(const std::string& material_symbol = "Si",
+                                                              const std::string& parameter_set   = "default");
+pbmc_material_model                  make_silicon_pbmc_material_model(const uepm::physics::material_info& material);
+pbmc_material_model                  make_silicon_pbmc_material_model();
 
 }  // namespace uepm::PBMC

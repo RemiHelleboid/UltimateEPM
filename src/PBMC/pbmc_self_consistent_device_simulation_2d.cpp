@@ -110,8 +110,6 @@ void self_consistent_device_pbmc_simulation_2d::place_initial_charges_according_
         throw std::invalid_argument("particle_weight must be positive.");
     }
 
-    constexpr double micron3_to_cm3 = 1.0e-12;
-
     const std::string donor_field_name    = "DonorConcentration";
     const std::string acceptor_field_name = "AcceptorConcentration";
 

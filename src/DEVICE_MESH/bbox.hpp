@@ -83,14 +83,14 @@ class bbox {
     std::vector<bbox> split_2d_box_in_quadrants() const;
     std::vector<bbox> split_3d_box_in_octants() const;
 
-    // void dilate(double factor) {
-    //     m_x_min *= factor;
-    //     m_x_max *= factor;
-    //     m_y_min *= factor;
-    //     m_y_max *= factor;
-    //     m_z_min *= factor;
-    //     m_z_max *= factor;
-    // }
+    void dilate(double factor) {
+        m_x_min *= factor;
+        m_x_max *= factor;
+        m_y_min *= factor;
+        m_y_max *= factor;
+        m_z_min *= factor;
+        m_z_max *= factor;
+    }
 
     bool is_overlapping(const bbox &second_box) const;
     bool is_overlapping_2d(const bbox &second_box) const;

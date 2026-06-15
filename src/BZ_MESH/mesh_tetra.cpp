@@ -22,6 +22,25 @@
 #include "physical_constants.hpp"
 
 namespace uepm::mesh_bz {
+namespace {
+
+double geometry_scale(const std::array<vector3, 6>& edges) {
+    return std::max({edges[0].norm() * edges[1].norm() * edges[2].norm(), 1.0});
+}
+
+bool nearly_same_point(const vector3& lhs, const vector3& rhs, double tolerance) {
+    return (lhs - rhs).norm() <= tolerance;
+}
+
+void add_unique_point(std::vector<vector3>& points, const vector3& point, double tolerance) {
+    if (std::none_of(points.begin(), points.end(), [&](const vector3& existing) {
+            return nearly_same_point(existing, point, tolerance);
+        })) {
+        points.push_back(point);
+    }
+}
+
+}  // namespace
 
 bbox_mesh Tetra::compute_bounding_box() const {
     std::array<double, 4> coordinates_x;
@@ -53,7 +72,18 @@ const bbox_mesh& Tetra::get_bounding_box() const { return m_bbox; }
 Tetra::Tetra(std::size_t index, const std::array<Vertex*, 4>& list_vertices)
     : m_index(index),
       m_list_vertices(list_vertices),
-      m_nb_bands{m_list_vertices[0]->get_number_bands()} {
+      m_nb_bands{0} {
+    if (std::any_of(m_list_vertices.begin(), m_list_vertices.end(), [](const Vertex* vertex) {
+            return vertex == nullptr;
+        })) {
+        throw std::invalid_argument("A tetrahedron cannot contain null vertex pointers.");
+    }
+    m_nb_bands = m_list_vertices[0]->get_number_bands();
+    if (std::any_of(m_list_vertices.begin(), m_list_vertices.end(), [&](const Vertex* vertex) {
+            return vertex->get_number_bands() != m_nb_bands;
+        })) {
+        throw std::invalid_argument("All tetrahedron vertices must contain the same number of bands.");
+    }
     m_list_edges[0] = compute_edge(1, 0);
     m_list_edges[1] = compute_edge(2, 0);
     m_list_edges[2] = compute_edge(3, 0);
@@ -92,16 +122,16 @@ vector3 Tetra::compute_gradient_at_tetra(const array4d& values_at_vertices) cons
     const double du3 = values_at_vertices[3] - values_at_vertices[0];
 
     const double     det = dot(a, cross_product(b, c));
-    constexpr double eps = 1e-14;
-    if (std::abs(det) < eps) {
-        return vector3{0.0, 0.0, 0.0};
+    constexpr double relative_tolerance = 1e-14;
+    if (std::abs(det) <= relative_tolerance * geometry_scale(m_list_edges)) {
+        throw std::domain_error("Cannot compute a gradient in a degenerate tetrahedron.");
     }
     return (cross_product(b, c) * du1 + cross_product(c, a) * du2 + cross_product(a, b) * du3) / det;
 }
 
 void Tetra::compute_gradient_energy_at_bands() {
     m_gradient_energy_per_band.clear();
-    std::size_t m_nb_bands = m_list_vertices[0]->get_number_bands();
+    m_nb_bands = m_list_vertices[0]->get_number_bands();
     m_gradient_energy_per_band.reserve(m_nb_bands);
     for (std::size_t band_index = 0; band_index < m_nb_bands; band_index++) {
         const std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
@@ -178,15 +208,9 @@ vector3 Tetra::compute_edge(std::size_t index_vtx_1, std::size_t index_vtx_2) co
 std::array<double, 4> Tetra::compute_barycentric_coordinates(const vector3& location) const {
     const vector3 v_loc1            = location - m_list_vertices[0]->get_position();
     const double  tetra_determinant = 6.0 * m_signed_volume;
-    // DEBUG: check if tetra_determinant is zero to avoid division by zero
-    if (std::abs(tetra_determinant) < 1e-14) {
-        std::cerr << "Warning: Tetrahedron " << m_index
-                  << " has a very small volume (|6*V| = " << std::abs(tetra_determinant)
-                  << "). This may lead to numerical instability in barycentric coordinate computation." << std::endl;
-        std::cout << m_list_vertices[0]->get_position() << std::endl;
-        std::cout << m_list_vertices[1]->get_position() << std::endl;
-        std::cout << m_list_vertices[2]->get_position() << std::endl;
-        std::cout << m_list_vertices[3]->get_position() << std::endl << std::endl;
+    constexpr double relative_tolerance = 1e-14;
+    if (std::abs(tetra_determinant) <= relative_tolerance * geometry_scale(m_list_edges)) {
+        throw std::domain_error("Cannot compute barycentric coordinates in a degenerate tetrahedron.");
     }
 
     const double lambda_2 = scalar_triple_product(v_loc1, m_list_edges[1], m_list_edges[2]) / tetra_determinant;
@@ -251,6 +275,10 @@ bool Tetra::is_location_inside(const vector3& location) const {
     const vector3    v_loc1            = location - m_list_vertices[0]->get_position();
     const vector3    v_loc2            = location - m_list_vertices[1]->get_position();
     const double     tetra_determinant = 6.0 * m_signed_volume;
+    constexpr double relative_tolerance = 1e-14;
+    if (std::abs(tetra_determinant) <= relative_tolerance * geometry_scale(m_list_edges)) {
+        return false;
+    }
     const double     lambda_1 = scalar_triple_product(v_loc2, m_list_edges[4], m_list_edges[3]) / tetra_determinant;
     const double     lambda_2 = scalar_triple_product(v_loc1, m_list_edges[1], m_list_edges[2]) / tetra_determinant;
     const double     lambda_3 = scalar_triple_product(v_loc1, m_list_edges[2], m_list_edges[0]) / tetra_determinant;
@@ -347,58 +375,50 @@ void Tetra::pre_compute_sorted_slots_per_band() {
  * @return std::vector<vector3>
  */
 std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const {
-    std::array<double, 4>     energies_at_vertices = get_band_energies_at_vertices(band_index);
-    const std::array<int, 4>& indices_sort         = get_index_vertices_with_sorted_energy_at_band(band_index);
-    double                    e_0                  = energies_at_vertices[indices_sort[0]];
-    double                    e_1                  = energies_at_vertices[indices_sort[1]];
-    double                    e_2                  = energies_at_vertices[indices_sort[2]];
-    double                    e_3                  = energies_at_vertices[indices_sort[3]];
-
-    bool check_order = (e_0 <= e_1 && e_1 <= e_2 && e_2 <= e_3);
-    bool check_range = (iso_energy >= e_0 && iso_energy <= e_3);
-    if (!check_range) {
-        std::cout << "DATA OUT : " << iso_energy << " " << e_0 << " " << e_1 << " " << e_2 << " " << e_3 << std::endl;
-        std::cerr << "Error: the iso_energy is out of range of the energies of the tetrahedra" << std::endl;
-        throw std::runtime_error("Error: the iso_energy is out of range of the energies of the tetrahedra");
-    }
-    if (!check_order) {
-        std::cerr << "Error: the order of the energies is not correct" << std::endl;
-        throw std::runtime_error("Error: the order of the energies is not correct");
+    if (band_index >= m_nb_bands) {
+        throw std::out_of_range("Band index out of range in tetrahedron iso-surface computation.");
     }
 
-    if (iso_energy < e_1 && iso_energy >= e_0) {
-        double  lA_U = (iso_energy - e_0) / (e_1 - e_0);
-        vector3 U    = compute_euclidean_coordinates_with_indices({1.0 - lA_U, lA_U, 0.0, 0.0}, indices_sort);
-        double  lA_V = (iso_energy - e_0) / (e_2 - e_0);
-        vector3 V    = compute_euclidean_coordinates_with_indices({1.0 - lA_V, 0.0, lA_V, 0.0}, indices_sort);
-        double  lA_W = (iso_energy - e_0) / (e_3 - e_0);
-        vector3 W    = compute_euclidean_coordinates_with_indices({1.0 - lA_W, 0.0, 0.0, lA_W}, indices_sort);
-        return {U, V, W};
+    const auto energies = get_band_energies_at_vertices(band_index);
+    const auto minmax   = std::minmax_element(energies.begin(), energies.end());
+    const double energy_scale = std::max({std::abs(*minmax.first), std::abs(*minmax.second), 1.0});
+    const double energy_tolerance = 1e-12 * energy_scale;
+    if (iso_energy < *minmax.first - energy_tolerance || iso_energy > *minmax.second + energy_tolerance) {
+        return {};
     }
-    if (iso_energy < e_2 && iso_energy >= e_1) {
-        double  lA_U = (iso_energy - e_0) / (e_2 - e_0);
-        vector3 U    = compute_euclidean_coordinates_with_indices({1.0 - lA_U, 0.0, lA_U, 0.0}, indices_sort);
-        double  lA_V = (iso_energy - e_0) / (e_3 - e_0);
-        vector3 V    = compute_euclidean_coordinates_with_indices({1.0 - lA_V, 0.0, 0.0, lA_V}, indices_sort);
-        double  lA_W = (e_2 - iso_energy) / (e_2 - e_1);
-        vector3 W    = compute_euclidean_coordinates_with_indices({0.0, lA_W, 1.0 - lA_W, 0.0}, indices_sort);
-        double  lA_X = (iso_energy - e_1) / (e_3 - e_1);
-        vector3 X    = compute_euclidean_coordinates_with_indices({0.0, 1.0 - lA_X, 0.0, lA_X}, indices_sort);
-        return {U, V, W, X};
+    if (*minmax.second - *minmax.first <= energy_tolerance) {
+        return {};
     }
-    if (iso_energy >= e_2) {
-        double  lC_U = (e_3 - iso_energy) / (e_3 - e_2);
-        vector3 U    = compute_euclidean_coordinates_with_indices({0.0, 0.0, lC_U, 1.0 - lC_U}, indices_sort);
-        double  lB_V = (e_3 - iso_energy) / (e_3 - e_1);
-        vector3 V    = compute_euclidean_coordinates_with_indices({0.0, lB_V, 0.0, 1.0 - lB_V}, indices_sort);
-        double  lA_W = (e_3 - iso_energy) / (e_3 - e_0);
-        vector3 W    = compute_euclidean_coordinates_with_indices({lA_W, 0.0, 0.0, 1.0 - lA_W}, indices_sort);
-        return {U, V, W};
-    } else {
-        std::cout << "DATA OUT : " << iso_energy << " " << e_0 << " " << e_1 << " " << e_2 << " " << e_3 << std::endl;
-        throw std::runtime_error("ISO SURFACE CASE UNKNOWN IN DOS COMPUTATION... ABORT.");
+
+    constexpr std::array<std::array<std::size_t, 2>, 6> edge_vertices = {
+        {{{0, 1}}, {{0, 2}}, {{0, 3}}, {{1, 2}}, {{1, 3}}, {{2, 3}}}};
+    const double point_tolerance = 1e-12 * std::max(m_bbox.get_diagonal_size(), 1.0);
+    std::vector<vector3> intersections;
+    intersections.reserve(4);
+
+    for (const auto& edge : edge_vertices) {
+        const std::size_t i = edge[0];
+        const std::size_t j = edge[1];
+        const double di = energies[i] - iso_energy;
+        const double dj = energies[j] - iso_energy;
+        const bool i_on = std::abs(di) <= energy_tolerance;
+        const bool j_on = std::abs(dj) <= energy_tolerance;
+
+        if (i_on) {
+            add_unique_point(intersections, m_list_vertices[i]->get_position(), point_tolerance);
+        }
+        if (j_on) {
+            add_unique_point(intersections, m_list_vertices[j]->get_position(), point_tolerance);
+        }
+        if (!i_on && !j_on && ((di < 0.0) != (dj < 0.0))) {
+            const double fraction = (iso_energy - energies[i]) / (energies[j] - energies[i]);
+            const vector3 point = (1.0 - fraction) * m_list_vertices[i]->get_position() +
+                                  fraction * m_list_vertices[j]->get_position();
+            add_unique_point(intersections, point, point_tolerance);
+        }
     }
-    return {};
+
+    return intersections;
 }
 
 // Area of triangle (A,B,C) in 3D: 0.5 * || (B-A) × (C-A) ||
@@ -485,12 +505,21 @@ inline double polygon_area(const std::vector<vector3>& pts) {
 }
 
 double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_index) const {
+    if (band_index >= m_nb_bands) {
+        throw std::out_of_range("Band index out of range in tetrahedron DOS computation.");
+    }
     // Early-out if E outside tetra range for this band
     if (energy_eV < m_min_energy_per_band[band_index] || energy_eV > m_max_energy_per_band[band_index]) {
         return 0.0;
     }
 
     // Intersect isosurface E(k)=energy with tetra edges -> polygon vertices in k (m^-1)
+    const vector3 gradient = compute_gradient_at_tetra(get_band_energies_at_vertices(band_index));
+    const double gradient_norm = gradient.norm();
+    if (!(gradient_norm > 0.0) || !std::isfinite(gradient_norm)) {
+        return 0.0;
+    }
+
     std::vector<vector3> iso = compute_band_iso_energy_surface(energy_eV, band_index);
     if (iso.size() < 3) {
         return 0.0;  // no area
@@ -502,41 +531,15 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
         return 0.0;
     }
 
-    // Estimate ⟨ 1/|∇_k E| ⟩ over the polygon vertices
-    double inv_grad_sum = 0.0;
-    for (const auto& kpt : iso) {
-        // interpolate_gradient_energy_at_band must return ∂E/∂k in units **eV·m**
-        const double g = interpolate_gradient_energy_at_band(kpt, band_index).norm();  // eV·m
-        // clamp to avoid blow-ups near van Hove points
-        constexpr double g_min = 1e-12;  // eV·m (tune to your mesh resolution)
-        inv_grad_sum += 1.0 / std::max(g, g_min);
-    }
-    const double inv_grad_avg = inv_grad_sum / static_cast<double>(iso.size());  // (eV·m)^-1
-
-    // DEBUG
-    if (std::isnan(inv_grad_avg) || std::isinf(inv_grad_avg)) {
-        std::cerr << "Warning: inv_grad_avg is " << inv_grad_avg << " at energy " << energy_eV << " eV in band "
-                  << band_index << ". This may indicate a van Hove singularity or insufficient mesh resolution."
-                  << std::endl;
-        for (const auto& kpt : iso) {
-            std::cerr << "  k: " << kpt << " |∇E|: " << interpolate_gradient_energy_at_band(kpt, band_index).norm()
-                      << std::endl;
-        }
-    }
-
     // Prefactor 1/(2π)^3
-    constexpr double pref = 1.0 / (8.0 * M_PI * M_PI * M_PI);
+    constexpr double pref = 1.0 / (8.0 * uepm::constants::pi * uepm::constants::pi * uepm::constants::pi);
 
-    // DOS contribution: (1/(2π)^3) * ∫(dS / |∇E|) ≈ pref * A * ⟨1/|∇E|⟩
-    double dos = pref * (A * inv_grad_avg);  // states / (eV · m^3)
-
-    // Optional: multiply by 2 if you want spin-degenerate DOS and your band is spinless.
-    // if (include_spin_degeneracy) dos *= 2.0;
-
-    return dos;
+    return pref * A / gradient_norm;  // states / (eV · m^3), without spin degeneracy
 }
 
 void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double energy_max) {
+    (void)energy_step;
+    (void)energy_max;
     // m_dos_per_band.clear();
     // m_nb_bands = m_list_vertices[0]->get_number_bands();
     // m_dos_per_band.assign(m_nb_bands, UniformDos{});
@@ -611,7 +614,8 @@ vector3 Tetra::draw_random_uniform_point_at_energy(double iso_energy, std::size_
         throw std::invalid_argument(
             "Energy is not in the band for this tetrahedron. Cannot draw a random point at this energy.");
     }
-    const std::vector<vector3> vertices_iso_surface = compute_band_iso_energy_surface(iso_energy, band_index);
+    const std::vector<vector3> vertices_iso_surface =
+        order_cyclic(compute_band_iso_energy_surface(iso_energy, band_index));
     if (vertices_iso_surface.empty()) {
         throw std::invalid_argument(
             "Energy is not in the band for this tetrahedron. Cannot draw a random point at this energy.");
@@ -623,8 +627,11 @@ vector3 Tetra::draw_random_uniform_point_at_energy(double iso_energy, std::size_
         // If the iso-energy shape is a quadrilateral, the point is drawn uniformly in the quadrilateral.
         // To do so, we randomly select on of the triangle, with a probability following the area of the triangle.
         // Then we draw a point in the selected triangle, and return the point.
-        IsoTriangle  triangle1(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[3], iso_energy);
-        IsoTriangle  triangle2(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], iso_energy);
+        if (vertices_iso_surface.size() != 4) {
+            throw std::runtime_error("A linear tetrahedron iso-energy surface must be a triangle or quadrilateral.");
+        }
+        IsoTriangle  triangle1(vertices_iso_surface[0], vertices_iso_surface[1], vertices_iso_surface[2], iso_energy);
+        IsoTriangle  triangle2(vertices_iso_surface[0], vertices_iso_surface[2], vertices_iso_surface[3], iso_energy);
         const double surface_triangle1 = triangle1.get_signed_surface();
         const double surface_triangle2 = triangle2.get_signed_surface();
         std::uniform_real_distribution<double> dist(0.0, surface_triangle1 + surface_triangle2);

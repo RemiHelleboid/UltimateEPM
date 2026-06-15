@@ -78,13 +78,13 @@ struct options_device_PBMC {
         : m_time_step(time_step),
           m_t_max(t_max),
           m_max_number_particle(max_number_particle),
-          m_activate_impact_ionization(activate_impact_ionization),
           m_particle_creation_activated(particle_creation_activated),
           m_stop_simu_when_no_electron_remaining(stop_simu_when_no_electron_remaining),
           m_keep_particles_history(keep_particles_history),
           m_export_time_step(export_time_step),
           m_frequency_export_trajectory(frequency_export_trajectory),
-          m_nb_threads(nb_threads) {}
+          m_nb_threads(nb_threads),
+          m_activate_impact_ionization(activate_impact_ionization) {}
 
     void validate() const;
 

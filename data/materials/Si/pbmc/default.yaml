@@ -1,0 +1,208 @@
+---
+schema_version: 1
+material: Si
+model: pbmc
+parameter_set: default
+
+bands:
+  electron_valleys:
+    -
+      name: Delta_x_plus
+      transverse_effective_mass_m0: 0.1905
+      longitudinal_effective_mass_m0: 0.9163
+      non_parabolicity_eV_1: 0.5
+      energy_offset_eV: 0.0
+      phonon_reference_energy_eV: 0.0
+      degeneracy: 1
+      dispersion: kane
+      rotation:
+        - [0.0, 0.0, 1.0]
+        - [0.0, 1.0, 0.0]
+        - [-1.0, 0.0, 0.0]
+    -
+      name: Delta_x_minus
+      transverse_effective_mass_m0: 0.1905
+      longitudinal_effective_mass_m0: 0.9163
+      non_parabolicity_eV_1: 0.5
+      energy_offset_eV: 0.0
+      phonon_reference_energy_eV: 0.0
+      degeneracy: 1
+      dispersion: kane
+      rotation:
+        - [0.0, 0.0, 1.0]
+        - [0.0, 1.0, 0.0]
+        - [-1.0, 0.0, 0.0]
+    -
+      name: Delta_y_plus
+      transverse_effective_mass_m0: 0.1905
+      longitudinal_effective_mass_m0: 0.9163
+      non_parabolicity_eV_1: 0.5
+      energy_offset_eV: 0.0
+      phonon_reference_energy_eV: 0.0
+      degeneracy: 1
+      dispersion: kane
+      rotation:
+        - [1.0, 0.0, 0.0]
+        - [0.0, 0.0, 1.0]
+        - [0.0, -1.0, 0.0]
+    -
+      name: Delta_y_minus
+      transverse_effective_mass_m0: 0.1905
+      longitudinal_effective_mass_m0: 0.9163
+      non_parabolicity_eV_1: 0.5
+      energy_offset_eV: 0.0
+      phonon_reference_energy_eV: 0.0
+      degeneracy: 1
+      dispersion: kane
+      rotation:
+        - [1.0, 0.0, 0.0]
+        - [0.0, 0.0, 1.0]
+        - [0.0, -1.0, 0.0]
+    -
+      name: Delta_z_plus
+      transverse_effective_mass_m0: 0.1905
+      longitudinal_effective_mass_m0: 0.9163
+      non_parabolicity_eV_1: 0.5
+      energy_offset_eV: 0.0
+      phonon_reference_energy_eV: 0.0
+      degeneracy: 1
+      dispersion: kane
+      rotation:
+        - [1.0, 0.0, 0.0]
+        - [0.0, 1.0, 0.0]
+        - [0.0, 0.0, 1.0]
+    -
+      name: Delta_z_minus
+      transverse_effective_mass_m0: 0.1905
+      longitudinal_effective_mass_m0: 0.9163
+      non_parabolicity_eV_1: 0.5
+      energy_offset_eV: 0.0
+      phonon_reference_energy_eV: 0.0
+      degeneracy: 1
+      dispersion: kane
+      rotation:
+        - [1.0, 0.0, 0.0]
+        - [0.0, 1.0, 0.0]
+        - [0.0, 0.0, 1.0]
+
+  hole_bands:
+    - name: heavy_hole
+      transverse_effective_mass_m0: 0.87
+      longitudinal_effective_mass_m0: 0.87
+      non_parabolicity_eV_1: 0.0
+      energy_offset_eV: 0.0
+      phonon_reference_energy_eV: 0.0
+      degeneracy: 1
+      dispersion: parabolic
+      rotation:
+        - [1.0, 0.0, 0.0]
+        - [0.0, 1.0, 0.0]
+        - [0.0, 0.0, 1.0]
+    - name: light_hole
+      transverse_effective_mass_m0: 0.25
+      longitudinal_effective_mass_m0: 0.25
+      non_parabolicity_eV_1: 0.0
+      energy_offset_eV: 0.0
+      phonon_reference_energy_eV: 0.0
+      degeneracy: 1
+      dispersion: parabolic
+      rotation:
+        - [1.0, 0.0, 0.0]
+        - [0.0, 1.0, 0.0]
+        - [0.0, 0.0, 1.0]
+
+scattering:
+  acoustic:
+    electron:
+      sound_velocity_m_per_s: 6606.666666666667
+      deformation_potential_eV: 6.4
+      overlap_factor: 1.0
+    hole:
+      sound_velocity_m_per_s: 6606.0
+      deformation_potential_eV: 5.5
+      overlap_factor: 0.5
+
+  electron_intervalley_phonons:
+    - name: g1_TA
+      family: g
+      order: first
+      phonon_energy_eV: 11.4e-3
+      zeroth_order_deformation_potential_eV_per_m: 0.0
+      first_order_deformation_potential_eV: 3.0
+      final_valley_count: 1
+    - name: g2_LA
+      family: g
+      order: first
+      phonon_energy_eV: 18.8e-3
+      zeroth_order_deformation_potential_eV_per_m: 0.0
+      first_order_deformation_potential_eV: 3.0
+      final_valley_count: 1
+    - name: g3_LO
+      family: g
+      order: zeroth
+      phonon_energy_eV: 63.2e-3
+      zeroth_order_deformation_potential_eV_per_m: 3.4e10
+      first_order_deformation_potential_eV: 0.0
+      final_valley_count: 1
+    - name: f1_TA
+      family: f
+      order: first
+      phonon_energy_eV: 21.9e-3
+      zeroth_order_deformation_potential_eV_per_m: 0.0
+      first_order_deformation_potential_eV: 3.0
+      final_valley_count: 4
+    - name: f2_LA
+      family: f
+      order: zeroth
+      phonon_energy_eV: 46.3e-3
+      zeroth_order_deformation_potential_eV_per_m: 3.4e10
+      first_order_deformation_potential_eV: 0.0
+      final_valley_count: 4
+
+  hole_optical_phonons:
+    - name: hh_to_hh
+      initial_band: 0
+      final_band: 0
+      phonon_energy_eV: 63.0e-3
+      deformation_potential_eV_per_m: 8.0e10
+      overlap_factor: 0.5
+    - name: hh_to_lh
+      initial_band: 0
+      final_band: 1
+      phonon_energy_eV: 63.0e-3
+      deformation_potential_eV_per_m: 8.0e10
+      overlap_factor: 1.0
+    - name: lh_to_hh
+      initial_band: 1
+      final_band: 0
+      phonon_energy_eV: 63.0e-3
+      deformation_potential_eV_per_m: 8.0e10
+      overlap_factor: 1.0
+    - name: lh_to_lh
+      initial_band: 1
+      final_band: 1
+      phonon_energy_eV: 63.0e-3
+      deformation_potential_eV_per_m: 8.0e10
+      overlap_factor: 0.5
+
+  impurity_mobility:
+    electron:
+      mu0_cm2_per_V_s: 1417.0
+      mu_min_cm2_per_V_s: 52.2
+      reference_density_cm_3: 9.68e16
+      alpha: 0.68
+    hole:
+      mu0_cm2_per_V_s: 470.5
+      mu_min_cm2_per_V_s: 44.9
+      reference_density_cm_3: 2.23e17
+      alpha: 0.70
+
+  impact_ionization:
+    electron:
+      threshold_eV: 1.12
+      prefactor_s_1: 1.1e14
+      exponent: 2.5
+    hole:
+      threshold_eV: 1.49
+      prefactor_s_1: 1.4e12
+      exponent: 3.4

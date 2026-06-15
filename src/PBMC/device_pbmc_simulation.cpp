@@ -534,7 +534,6 @@ double device_pbmc_simulation::ramo_current_scale_factor() const { return 1.0; }
 
 // Compute Ramo current for a given single particle
 double device_pbmc_simulation::compute_ramo_current_for_particle(const pbmc_particle &particle) const {
-    const auto  *mesh_ptr     = m_device.get_p_mesh();
     const double scale_factor = ramo_current_scale_factor();
     auto         position     = particle.state().position;
     if (m_dimension == 2) {
@@ -550,7 +549,6 @@ std::pair<double, double> device_pbmc_simulation::compute_ramo_current() const {
     double total_electron_current = 0.0;
     double total_hole_current     = 0.0;
 
-    const auto  *mesh_ptr     = m_device.get_p_mesh();
     const double scale_factor = ramo_current_scale_factor();
 
     for (const auto &particle : m_list_particles) {
@@ -1055,7 +1053,7 @@ void device_pbmc_simulation::export_current_mesh_as_vtk(const std::string &direc
     const std::filesystem::path vtu_path = output_directory / filename;
     const std::filesystem::path pvd_path = output_directory / "mesh.pvd";
 
-    file::export_as_vtu(*(m_device.get_p_mesh()), vtu_path.string(), {}, {}, true);
+    file::export_as_vtu(*(m_device.get_p_mesh()), vtu_path.string());
 
     const auto already_recorded =
         std::find_if(m_mesh_vtk_export_records.begin(),

@@ -65,7 +65,7 @@ TEST_CASE("Testing Poisson 3d on a unit sphere.") {
     CHECK_EQ(max_solution, doctest::Approx(max_test_circle_sphere).epsilon(1e-2));
 
     const std::string FileName = "result_poisson_3d_sphere_dirichlet.vtk";
-    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName);
 }
 
 TEST_CASE("Testing Poisson 3d on a unit cube.") {
@@ -100,7 +100,7 @@ TEST_CASE("Testing Poisson 3d on a unit cube.") {
     MyPoissonTest.add_solution_to_mesh_functions("Poisson_Solution");
 
     const std::string FileName = "result_poisson_3d_cube_dirichlet.vtk";
-    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName);
 }
 
 TEST_CASE("Testing Poisson 3d on a unit cube with Neuman BC.") {
@@ -132,5 +132,5 @@ TEST_CASE("Testing Poisson 3d on a unit cube with Neuman BC.") {
     MyPoissonTest.add_solution_to_mesh_functions("Poisson_Solution");
 
     const std::string FileName = "result_poisson_3d_cube_dirichlet.vtk";
-    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    uepm::file::export_as_vtk(*(p_mesh), FileName);
 }

@@ -24,6 +24,8 @@ TEST_CASE("material repository discovers named parameter sets") {
     CHECK(repository.material_file("Si").filename() == "material.yaml");
     CHECK(repository.has_parameter_set("Si", "epm", "local-cohen"));
     CHECK(repository.has_parameter_set("Si", "electron_phonon", "kamakura"));
+    CHECK(repository.has_parameter_set("Si", "admc", "arora-canali"));
+    CHECK(repository.has_parameter_set("Si", "pbmc", "default"));
     CHECK_FALSE(repository.has_parameter_set("Si", "epm", "unknown"));
 }
 

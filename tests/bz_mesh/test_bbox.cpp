@@ -60,16 +60,9 @@ TEST_SUITE("[bbox_mesh] geometry & metrics") {
         const double sy = 4.0;  // y: 10..14
         const double sz = 8.0;  // z: -8..0
 
-        // ---- NOTE: The class currently has y/z getters swapped. ----
-        // get_x_size() is fine:
         CHECK_EQ(b.get_x_size(), doctest::Approx(sx));
-
-        // The next two checks encode intended behavior and will FAIL with the current header.
-        // Keep them as-is to catch the bug (y/z swapped). Remove if you fix the implementation.
-        CHECK_EQ(b.get_y_size(), doctest::Approx(sy));  // intended: 4.0
-        CHECK_EQ(b.get_z_size(), doctest::Approx(sz));  // intended: 8.0
-
-        // Diagonal and volume are unaffected by the swap and should still match:
+        CHECK_EQ(b.get_y_size(), doctest::Approx(sy));
+        CHECK_EQ(b.get_z_size(), doctest::Approx(sz));
         CHECK_EQ(b.get_diagonal_size(), doctest::Approx(std::sqrt(sx * sx + sy * sy + sz * sz)));
         CHECK_EQ(b.get_volume(), doctest::Approx(sx * sy * sz));
 

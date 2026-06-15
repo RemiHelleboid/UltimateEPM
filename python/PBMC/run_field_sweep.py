@@ -572,6 +572,7 @@ def plot_velocity(
     ax.grid(True, which="both")
     ax.legend()
 
+
     fig.tight_layout()
     fig.savefig(outdir / "velocity_vs_field.png", dpi=200)
     fig.savefig(outdir / "velocity_vs_field.pdf")

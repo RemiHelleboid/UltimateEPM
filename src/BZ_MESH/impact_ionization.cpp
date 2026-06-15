@@ -129,9 +129,12 @@ void ImpactIonization::compute_eigenstates(int nb_threads) {
 }
 
 double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t idx_k1) {
+    (void)idx_n1;
+    (void)idx_k1;
     throw std::logic_error("ImpactIonization::compute_impact_ionization_rate is experimental and incomplete; no "
                            "validated rate is available.");
 
+#if 0
     constexpr int                     nb_valence_bands    = 3;
     constexpr int                     nb_conduction_bands = 4;
     constexpr int                     min_conduction_band = 4;
@@ -245,6 +248,7 @@ double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t 
               << std::chrono::duration_cast<std::chrono::milliseconds>(end_compute - start_compute).count() << " ms"
               << std::endl;
     return 0.0;
+#endif
 }
 
 }  // namespace uepm::mesh_bz

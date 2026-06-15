@@ -254,8 +254,8 @@ class Tetra {
         std::cout << "  Vertices indices: ";
         for (const auto& vtx : m_list_vertices) {
             std::cout << vtx->get_index() << std::endl;
-            int nb_bands = vtx->get_number_bands();
-            for (int i = 0; i < nb_bands; ++i) {
+            const std::size_t nb_bands = vtx->get_number_bands();
+            for (std::size_t i = 0; i < nb_bands; ++i) {
                 std::cout << "    Band " << i << ": Energy = " << vtx->get_energy_at_band(i) << " eV\n";
             }
         }

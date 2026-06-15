@@ -24,23 +24,11 @@ namespace file {
 
 void write_vtk_geometry(std::ofstream& file, const mesh::mesh& MyMesh);
 
-void write_vtk_data(std::ofstream&                  file,
-                    const mesh::mesh&               MyMesh,
-                    const std::vector<std::string>& scalar_fields,
-                    const std::vector<std::string>& vector_fields,
-                    bool                            export_all_fields = false);
+void write_vtk_data(std::ofstream& file, const mesh::mesh& MyMesh);
 
-void export_as_vtk(const mesh::mesh&               mesh,
-                   const std::string&              filename,
-                   const std::vector<std::string>& scalar_fields     = {},
-                   const std::vector<std::string>& vector_fields     = {},
-                   const bool                      export_all_fields = false);
+void export_as_vtk(const mesh::mesh& mesh, const std::string& filename);
 
-void export_as_vtu(const mesh::mesh&               mesh,
-                   const std::string&              filename,
-                   const std::vector<std::string>& scalar_fields     = {},
-                   const std::vector<std::string>& vector_fields     = {},
-                   bool                            export_all_fields = false);
+void export_as_vtu(const mesh::mesh& mesh, const std::string& filename);
 
 }  // namespace file
 

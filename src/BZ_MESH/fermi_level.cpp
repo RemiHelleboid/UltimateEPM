@@ -44,12 +44,14 @@ static inline double electrons_in_band(const std::vector<double>& E_eV,
                                        const std::vector<double>& G_m3eV,
                                        double                     EF_eV,
                                        double                     T_K) {
+    if (E_eV.size() != G_m3eV.size()) {
+        throw std::invalid_argument("Energy and DOS arrays must have the same size.");
+    }
     std::vector<double> w;
     w.reserve(E_eV.size());
     for (std::size_t i = 0; i < E_eV.size(); ++i) {
         w.push_back(G_m3eV[i] * uepm::physics::fermi_dirac_distribution(E_eV[i], EF_eV, T_K));
     }
-    std::cout << "Integrating to get total number of electrons in band..." << std::endl;
     return uepm::integrate::trapz(E_eV, w);  // states / m^3
 }
 
@@ -66,17 +68,23 @@ static inline double holes_in_band(const std::vector<double>& E_eV,
                                    const std::vector<double>& G_m3eV,
                                    double                     EF_eV,
                                    double                     T_K) {
+    if (E_eV.size() != G_m3eV.size()) {
+        throw std::invalid_argument("Energy and DOS arrays must have the same size.");
+    }
     std::vector<double> w;
     w.reserve(E_eV.size());
     for (std::size_t i = 0; i < E_eV.size(); ++i) {
         w.push_back(G_m3eV[i] * (1.0 - uepm::physics::fermi_dirac_distribution(E_eV[i], EF_eV, T_K)));
     }
-    std::vector<double> E_eV_reversed = E_eV;
-    // std::reverse(E_eV_reversed.begin(), E_eV_reversed.end());  // Reverse the order for holes
-    // std::reverse(w.begin(), w.end());                          // Reverse the order for holes
-    // DEBUG
-    std::cout << E_eV_reversed[0] << " " << E_eV_reversed[1] << std::endl;
-    return uepm::integrate::trapz(E_eV_reversed, w);  // states / m^3
+    return uepm::integrate::trapz(E_eV, w);  // states / m^3
+}
+
+static inline double inverse_one_plus_scaled_exp(double scale, double exponent) {
+    if (exponent > 0.0) {
+        const double exp_negative = std::exp(-exponent);
+        return exp_negative / (exp_negative + scale);
+    }
+    return 1.0 / (1.0 + scale * std::exp(exponent));
 }
 
 /**
@@ -94,7 +102,7 @@ static inline double donors_ionized(double EF, double Ec, const Dopants& d, doub
     }
     const double kT  = uepm::constants::k_b_eV * T;
     const double ED  = Ec - d.Ed_eV;
-    const double occ = 1.0 / (1.0 + d.gd * std::exp((EF - ED) / kT));
+    const double occ = inverse_one_plus_scaled_exp(d.gd, (EF - ED) / kT);
     return d.Nd_cm3 * 1e6 * occ;  // cm^-3 -> m^-3
 }
 
@@ -113,7 +121,7 @@ static inline double acceptors_ionized(double EF, double Ev, const Dopants& d, d
     }
     const double kT  = uepm::constants::k_b_eV * T;
     const double EA  = Ev + d.Ea_eV;
-    const double occ = 1.0 / (1.0 + d.ga * std::exp((EA - EF) / kT));
+    const double occ = inverse_one_plus_scaled_exp(d.ga, (EA - EF) / kT);
     return d.Na_cm3 * 1e6 * occ;  // cm^-3 -> m^-3
 }
 
@@ -126,6 +134,23 @@ static inline double acceptors_ionized(double EF, double Ev, const Dopants& d, d
  * @return Result
  */
 Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
+    if (!(opt.T_K > 0.0)) {
+        throw std::invalid_argument("Fermi-level temperature must be positive.");
+    }
+    if (opt.nE < 2) {
+        throw std::invalid_argument("Fermi-level DOS integration requires at least two energy samples.");
+    }
+    if (!(opt.abs_max_energy_eV > 0.0)) {
+        throw std::invalid_argument("The Fermi-level energy window must be positive.");
+    }
+    if (opt.threads < 1) {
+        throw std::invalid_argument("The number of Fermi-level threads must be positive.");
+    }
+    if (opt.dop.Nd_cm3 < 0.0 || opt.dop.Na_cm3 < 0.0 || opt.dop.Ed_eV < 0.0 || opt.dop.Ea_eV < 0.0 ||
+        !(opt.dop.gd > 0.0) || !(opt.dop.ga > 0.0)) {
+        throw std::invalid_argument("Dopant concentrations and ionization energies must be nonnegative, and "
+                                    "degeneracies must be positive.");
+    }
     fmt::print("Solving for Fermi level at T = {} K with Dopants: Nd = {} cm^-3, Na = {} cm^-3\n",
                opt.T_K,
                opt.dop.Nd_cm3,
@@ -143,9 +168,10 @@ Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
               << " conduction bands.\n";
     std::cout << "Using " << opt.threads << " threads for DOS computation.\n";
 
+    const auto list_idx_val  = mesh.get_band_indices(MeshParticleType::valence);
+    const auto list_idx_cond = mesh.get_band_indices(MeshParticleType::conduction);
     for (int b = 0; b < nb_bands; ++b) {
         const auto       mini_max_energy = mesh.get_min_max_energy_at_band(b);
-        constexpr double eps             = 1e-12;
         double           min_e           = mini_max_energy.first;
         double           max_e           = mini_max_energy.second;
         // Check minmax order...
@@ -155,21 +181,21 @@ Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
             std::swap(min_e, max_e);
         }
 
-        // if (min_e < eps) {
-        //     // Valence band
-        //     min_e = std::max(min_e, -opt.abs_max_energy_eV);
-        // } else {
-        //     // Conduction band
-        //     max_e = std::min(mini_max_energy.first + opt.abs_max_energy_eV, max_e);
-        // }
+        if (std::find(list_idx_val.begin(), list_idx_val.end(), static_cast<std::size_t>(b)) != list_idx_val.end()) {
+            min_e = std::max(min_e, max_e - opt.abs_max_energy_eV);
+        } else if (std::find(list_idx_cond.begin(), list_idx_cond.end(), static_cast<std::size_t>(b)) !=
+                   list_idx_cond.end()) {
+            max_e = std::min(max_e, min_e + opt.abs_max_energy_eV);
+        }
         auto lists = mesh.compute_dos_band_at_band(b, min_e, max_e, opt.nE, opt.use_interp, use_iw);
 
         results.energies_per_band.push_back(std::move(lists[0]));
         results.dos_per_band.push_back(std::move(lists[1]));
     }
 
-    const auto list_idx_val  = mesh.get_band_indices(MeshParticleType::valence);
-    const auto list_idx_cond = mesh.get_band_indices(MeshParticleType::conduction);
+    if (list_idx_val.empty() || list_idx_cond.empty()) {
+        throw std::logic_error("Fermi-level solution requires both valence and conduction bands.");
+    }
 
     // 4) Estimate edges for dopant references
     double Ev = std::numeric_limits<double>::lowest();
@@ -206,16 +232,17 @@ Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
     double                high       = std::max(Ev, Ec) + 2.0;
     double                Flo        = F(low);
     double                Fhi        = F(high);
-    int                   expand     = 0;
+    std::size_t           expand     = 0;
     constexpr std::size_t max_expand = 12;
-    while (Flo * Fhi > 0.0 && expand < max_expand) {
+    const auto same_sign = [](double lhs, double rhs) { return std::signbit(lhs) == std::signbit(rhs); };
+    while (same_sign(Flo, Fhi) && expand < max_expand) {
         low -= 1.0;
         high += 1.0;
         Flo = F(low);
         Fhi = F(high);
         ++expand;
     }
-    if (Flo * Fhi > 0.0) {
+    if (same_sign(Flo, Fhi)) {
         throw std::runtime_error("Fermi solve: could not bracket neutrality (same sign at ends).");
     }
 
@@ -231,7 +258,7 @@ Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
             low = high = mid;
             break;
         }
-        if (Flo * Fm < 0.0) {
+        if (!same_sign(Flo, Fm)) {
             high = mid;
             Fhi  = Fm;
         } else {

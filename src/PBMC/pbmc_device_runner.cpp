@@ -74,7 +74,7 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
 
     uepm::physics::material_database material_database = material_repository.load_all_materials();
     const auto&                      common_material   = material_database.require(config.material_symbol);
-    device_options.m_material_model                    = make_silicon_pbmc_material_model(common_material);
+    device_options.m_material_model                    = load_pbmc_material_model(material_repository, common_material);
 
     uepm::device::device simulation_device(mesh);
     add_default_contacts(simulation_device, *mesh);

@@ -94,13 +94,20 @@ double ElectronPhonon::get_max_phonon_energy() const {
 }
 
 void ElectronPhonon::export_phonon_dispersion(const std::string& filename) const {
+    const std::filesystem::path requested_path(filename);
+    const std::filesystem::path output_directory =
+        requested_path.has_parent_path() ? requested_path.parent_path() : std::filesystem::path{};
+    const std::string output_prefix =
+        requested_path.empty() ? std::string{} : requested_path.stem().string() + "_";
     for (const auto& disp : m_phonon_dispersion) {
         std::string   mode_str = (disp.mode == PhononMode::acoustic) ? "acoustic" : "optical";
         std::string   dir_str  = (disp.direction == PhononDirection::longitudinal) ? "longitudinal" : "transverse";
-        std::string   file_out = fmt::format("{}_{}_dispersion.csv", mode_str, dir_str);
+        const std::filesystem::path file_out =
+            output_directory / fmt::format("{}{}_{}_dispersion.csv", output_prefix, mode_str, dir_str);
         std::ofstream disp_file(file_out);
         if (!disp_file.is_open()) {
-            throw std::runtime_error(fmt::format("export_phonon_dispersion: cannot open file {}", file_out));
+            throw std::runtime_error(
+                fmt::format("export_phonon_dispersion: cannot open file {}", file_out.string()));
         }
         disp_file << "q (1/m),omega (1/s),omega (eV)\n";
         const double      hbar_eV = uepm::constants::h_bar_eV;
@@ -112,7 +119,7 @@ void ElectronPhonon::export_phonon_dispersion(const std::string& filename) const
             disp_file << fmt::format("{:.6e},{:.6e},{:.6e}\n", q, omega, omega_eV);
         }
         disp_file.close();
-        fmt::print("Exported phonon dispersion to {}\n", file_out);
+        fmt::print("Exported phonon dispersion to {}\n", file_out.string());
     }
 }
 
@@ -142,7 +149,6 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
     const vector3& k2    = tetra.compute_barycenter();
 
     std::size_t local_n1 = get_local_band_index(idx_n1);
-    std::size_t local_n2 = get_local_band_index(idx_n2);
 
     // Overlap integral |I|^2
     const double I  = electron_overlap_integral(k1, k2, m_radius_wigner_seitz_m);
@@ -242,7 +248,6 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
  */
 RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std::size_t idx_k1) {
     RateValues       total_out_rates_n1k1{};
-    std::size_t      count_nnz  = 0;
     const double     Ei_eV      = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
     const double     Eph_max    = get_max_phonon_energy();
     constexpr double eps_energy = 1e-2;
@@ -251,19 +256,12 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
 
     auto list_bands_n2 = get_band_indices(MeshParticleType::conduction);
 
-    std::size_t count_bands_n2_spaned = 0;
-    std::size_t total_spaned          = 0;
-
-    constexpr double threshold = 1e1;
-
     for (auto idx_n2 : list_bands_n2) {
         // Quick reject band window
         if (Ef_min > m_max_band[idx_n2] || Ef_max < m_min_band[idx_n2]) {
             continue;
         }
-        count_bands_n2_spaned++;
         const auto& ordered_tetra_indices = m_tetra_ordered_energy_min[idx_n2];
-        total_spaned += ordered_tetra_indices.candidate_indices(Ef_min, Ef_max).size();
 
         for (auto idx_tetra : ordered_tetra_indices.candidate_indices(Ef_min, Ef_max)) {
             const auto& tetra = m_list_tetrahedra[idx_tetra];
@@ -276,16 +274,9 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
                 compute_electron_phonon_transition_rates_pair(idx_n1, idx_k1, idx_n2, idx_tetra);
             for (int ph_branch = 0; ph_branch < 8; ++ph_branch) {
                 total_out_rates_n1k1.m_rate_values[ph_branch] += rates_n1k1_n2kT[ph_branch];
-                if (rates_n1k1_n2kT[ph_branch] > threshold) {
-                    count_nnz++;
-                }
             }
         }
     }
-    // DEBUG
-    double ratio_nnz = static_cast<double>(count_nnz) / 8.0 / total_spaned * 100.0;
-    // fmt::print("compute_electron_phonon_rate: (n1={}, k1={}) nonzero transitions: {} ({:.2}%)\n", idx_n1, idx_k1,
-    // count_nnz, ratio_nnz);
     return total_out_rates_n1k1;
 }
 
@@ -896,7 +887,7 @@ void ElectronPhonon::add_electron_phonon_rates_to_mesh(const std::string& initia
     gmsh::model::mesh::reclassifyNodes();
     gmsh::model::mesh::getNodes(node_tags, nodeCoords, nodeParams, -1, -1, false, false);
 
-    for (int idx_band = 0; idx_band < m_nb_bands_elph; ++idx_band) {
+    for (std::size_t idx_band = 0; idx_band < m_nb_bands_elph; ++idx_band) {
         std::vector<double> rates_ac_lo_em(m_list_vertices.size());
         std::vector<double> rates_ac_lo_ab(m_list_vertices.size());
         std::vector<double> rates_ac_tr_em(m_list_vertices.size());
@@ -1122,17 +1113,17 @@ void ElectronPhonon::read_phonon_scattering_rates_from_file(const std::filesyste
                            "rate_ac_T_em",
                            "rate_op_L_em",
                            "rate_op_T_em");
-    std::size_t vertex_index;
-    std::size_t band_index;
-    double      energy_eV;
-    double      rate_ac_L_ab;
-    double      rate_ac_T_ab;
-    double      rate_op_L_ab;
-    double      rate_op_T_ab;
-    double      rate_ac_L_em;
-    double      rate_ac_T_em;
-    double      rate_op_L_em;
-    double      rate_op_T_em;
+    std::size_t vertex_index = 0;
+    std::size_t band_index   = 0;
+    double      energy_eV    = 0.0;
+    double      rate_ac_L_ab = 0.0;
+    double      rate_ac_T_ab = 0.0;
+    double      rate_op_L_ab = 0.0;
+    double      rate_op_T_ab = 0.0;
+    double      rate_ac_L_em = 0.0;
+    double      rate_ac_T_em = 0.0;
+    double      rate_op_L_em = 0.0;
+    double      rate_op_T_em = 0.0;
 
     // Initialize all vertices to have the correct number of bands. The rates are zero by default.
     for (auto&& vtx : m_list_vertices) {
@@ -1414,17 +1405,16 @@ void ElectronPhonon::test_elph() const {
     std::size_t                            glob_band  = 0;
     double                                 min_energy = m_min_band[glob_band] + 0.01;
     double                                 max_energy = m_max_band[glob_band] - 0.01;
-    std::mt19937                           rng(2);  // fixed seed for reproducibility
-    std::uniform_real_distribution<double> energy_dist(min_energy, max_energy);
     std::vector<double>                    energies(Nsample);
     std::vector<double>                    sum_rates(Nsample, 0.0);
 #pragma omp parallel for schedule(static) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t i = 0; i < Nsample; ++i) {
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(2 + i));
+        std::uniform_real_distribution<double> energy_dist(min_energy, max_energy);
         double  energy  = energy_dist(rng);
         vector3 k_point = draw_random_k_point_at_energy(energy, glob_band, rng);
         Tetra*  tetra   = find_tetra_at_location(k_point);
         if (tetra) {
-            double e_interp = tetra->interpolate_energy_at_band(k_point, glob_band);
             auto   rates    = tetra->interpolate_phonon_scattering_rate_at_location(k_point, 0);
             double sum_rate = 0.0;
             sum_rate        = std::accumulate(rates.begin(), rates.end(), 0.0);

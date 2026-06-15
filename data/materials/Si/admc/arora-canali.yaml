@@ -1,0 +1,36 @@
+---
+schema_version: 1
+material: Si
+model: arora_canali_mobility
+parameter_set: arora-canali
+reference_temperature_K: 300.0
+electron:
+  low_field:
+    mu_min_300_cm2_per_V_s: 88.0
+    mu_min_temperature_exponent: -0.57
+    mu_dop_300_cm2_per_V_s: 1252.0
+    mu_dop_temperature_exponent: -2.33
+    reference_doping_300_cm_3: 1.25e17
+    reference_doping_temperature_exponent: 2.4
+    doping_exponent_300: 0.88
+    doping_exponent_temperature_exponent: -0.146
+  high_field:
+    saturation_velocity_300_cm_per_s: 1.07e7
+    saturation_velocity_temperature_exponent: -0.87
+    beta_300: 1.109
+    beta_temperature_exponent: 0.66
+hole:
+  low_field:
+    mu_min_300_cm2_per_V_s: 54.3
+    mu_min_temperature_exponent: -0.57
+    mu_dop_300_cm2_per_V_s: 407.0
+    mu_dop_temperature_exponent: -2.23
+    reference_doping_300_cm_3: 2.35e17
+    reference_doping_temperature_exponent: 2.4
+    doping_exponent_300: 0.88
+    doping_exponent_temperature_exponent: -0.146
+  high_field:
+    saturation_velocity_300_cm_per_s: 8.37e6
+    saturation_velocity_temperature_exponent: -0.52
+    beta_300: 1.213
+    beta_temperature_exponent: 0.17

@@ -46,7 +46,7 @@ TEST_CASE("Testing Poisson 3d on a PN Junction.") {
     // fileMSH.export_as_msh("3D_TEST_POISSON_DIODE_PIN.msh", {}, 1);
     // const std::string FileName = "TEST_POISSON_DIODE_PN_5V.vtk";
 
-    // uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    // uepm::file::export_as_vtk(*(p_mesh), FileName);
 
     // p_mesh->export_all_vertices_data_to_csv("POISSON_PIN_CSV.csv");
 

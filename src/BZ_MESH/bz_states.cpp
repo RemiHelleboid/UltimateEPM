@@ -95,6 +95,24 @@ void BZ_States::compute_shifted_eigenstates(const Vector3D<double>& q_shift, int
 void BZ_States::compute_dielectric_function(const std::vector<double>& list_energies,
                                             double                     eta_smearing,
                                             int                        nb_threads) {
+    if (list_energies.empty()) {
+        throw std::invalid_argument("Dielectric-function computation requires at least one energy.");
+    }
+    if (!(eta_smearing > 0.0)) {
+        throw std::invalid_argument("Dielectric-function smearing must be positive.");
+    }
+    if (nb_threads < 1) {
+        throw std::invalid_argument("The number of dielectric-function threads must be positive.");
+    }
+    if (!(m_q_shift.Length() > 0.0)) {
+        throw std::invalid_argument("The dielectric function is singular at q = 0.");
+    }
+    if (m_eigenvalues_k.size() != m_list_vertices.size() ||
+        m_eigenvalues_k_plus_q.size() != m_list_vertices.size() ||
+        m_eigenvectors_k.size() != m_list_vertices.size() ||
+        m_eigenvectors_k_plus_q.size() != m_list_vertices.size()) {
+        throw std::logic_error("Eigenstates at k and k+q must be computed before the dielectric function.");
+    }
     m_list_energies                         = list_energies;
     const int   index_first_conduction_band = 4;
     std::size_t nb_tetra                    = m_list_tetrahedra.size();
@@ -110,7 +128,6 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
                       << std::flush;
         }
         std::array<std::size_t, 4>    list_idx_vertices = m_list_tetrahedra[idx_tetra].get_list_indices_vertices();
-        const std::array<Vertex*, 4>& list_vertices     = m_list_tetrahedra[idx_tetra].get_list_vertices();
         double                        volume_tetra = std::fabs(m_list_tetrahedra[idx_tetra].compute_signed_volume());
         total_volume += volume_tetra;
         // std::cout << "Volume tetra = " << volume_tetra << std::endl;
@@ -118,7 +135,7 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
         // Loop over the vertices of the tetrahedron
         for (std::size_t idx_vertex = 0; idx_vertex < 4; ++idx_vertex) {
             std::size_t index_k = list_idx_vertices[idx_vertex];
-            for (int idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands_total;
+            for (std::size_t idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands_total;
                  ++idx_conduction_band) {
                 for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
                     double overlap_integral = pow(std::fabs(m_eigenvectors_k_plus_q[index_k]
@@ -149,8 +166,8 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
     std::cout << "\n";
     std::cout << "Total volume (k-space) integrated: " << total_volume << std::endl;
 
-    double a          = m_material.get_lattice_constant_meter();  // (m), for Si cubic cell
-    double Omega_cell = a * a * a;                                // if your grid is on the simple cubic cell
+    const double a          = m_material.get_lattice_constant_meter();
+    const double Omega_cell = a * a * a / 4.0;  // primitive-cell volume for the diamond/fcc lattice
     double V_BZ       = std::pow(2.0 * M_PI, 3) / Omega_cell;
     std::cout << "Expected BZ volume: " << V_BZ << "\n";
     std::cout << "Integrated volume: " << total_volume << "\n";
@@ -170,9 +187,10 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
     std::cout << "EPS[0] = " << m_dielectric_function_real[0] << std::endl;
 }
 
-const double BZ_States::compute_fermi_level(double doping_concentration, double temperature) const {
-    // TODO: implement this function
-    return 0.0;
+double BZ_States::compute_fermi_level(double doping_concentration, double temperature) const {
+    (void)doping_concentration;
+    (void)temperature;
+    throw std::logic_error("BZ_States::compute_fermi_level is not implemented; use fermi::solve_fermi.");
 }
 
 // Export the dielectric function to a file in the format (energy, dielectric function) (csv format).

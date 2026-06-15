@@ -78,7 +78,7 @@ class BZ_States : public MeshBZ {
 
     const std::vector<Eigen::MatrixXcd>& get_eigen_states() const { return m_eigenvectors_k; }
 
-    const double compute_fermi_level(double doping_concentration, double temperature) const;
+    double compute_fermi_level(double doping_concentration, double temperature) const;
 
     void compute_dielectric_function(const std::vector<double>& energies, double eta_smearing, int nb_threads = 1);
     void export_dielectric_function(const std::string& prefix) const;
@@ -86,8 +86,9 @@ class BZ_States : public MeshBZ {
     void populate_vtx_dielectric_function(const std::vector<double>& energies, double eta_smearing);
 
     std::complex<double> get_dielectric_function(const vector3& q, double energy) const {
-        // TODO: implement this function
-        return 1.0;
+        (void)q;
+        (void)energy;
+        throw std::logic_error("BZ_States::get_dielectric_function is not implemented.");
     }
 
     void export_full_eigenstates() const;

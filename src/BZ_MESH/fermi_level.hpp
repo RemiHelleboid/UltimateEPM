@@ -52,7 +52,7 @@ struct Result {
     double p_m3     = 0.0;
     double Nd_plus  = 0.0;
     double Na_minus = 0.0;
-    int    iters    = 0;
+    std::size_t iters = 0;
     bool   success  = false;
 
     /**

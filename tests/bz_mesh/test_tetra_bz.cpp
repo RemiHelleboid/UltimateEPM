@@ -14,7 +14,9 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <numbers>
 #include <random>
+#include <stdexcept>
 #include <vector>
 
 #include "doctest/doctest.h"
@@ -76,4 +78,57 @@ TEST_CASE("tetra location test includes faces and vertices") {
     CHECK(fixture.tet.is_location_inside(v3(0.0, 0.25, 0.25)));
     CHECK(fixture.tet.is_location_inside(v3(0.0, 0.0, 0.0)));
     CHECK_FALSE(fixture.tet.is_location_inside(v3(-1e-6, 0.25, 0.25)));
+}
+
+TEST_CASE("degenerate tetrahedra reject barycentric interpolation") {
+    TetraWithVerts fixture({v3(0.0, 0.0, 0.0), v3(1.0, 0.0, 0.0), v3(0.0, 1.0, 0.0), v3(1.0, 1.0, 0.0)});
+
+    CHECK_FALSE(fixture.tet.is_location_inside(v3(0.25, 0.25, 0.0)));
+    CHECK_THROWS_AS(fixture.tet.compute_barycentric_coordinates(v3(0.25, 0.25, 0.0)), std::domain_error);
+}
+
+TEST_CASE("tetra DOS matches an analytic linear band") {
+    std::array<Vertex, 4> vertices = {
+        Vertex(0, v3(0.0, 0.0, 0.0)),
+        Vertex(1, v3(1.0, 0.0, 0.0)),
+        Vertex(2, v3(0.0, 1.0, 0.0)),
+        Vertex(3, v3(0.0, 0.0, 1.0)),
+    };
+    for (Vertex& vertex : vertices) {
+        vertex.add_band_energy_value(vertex.get_position().x());
+    }
+    std::array<Vertex*, 4> pointers = {&vertices[0], &vertices[1], &vertices[2], &vertices[3]};
+    Tetra                  tetra(0, pointers);
+    tetra.compute_min_max_energies_at_bands();
+
+    constexpr double energy = 0.25;
+    const double expected_area = 0.5 * (1.0 - energy) * (1.0 - energy);
+    const double expected_dos =
+        expected_area / (8.0 * std::numbers::pi * std::numbers::pi * std::numbers::pi);
+
+    CHECK(tetra.compute_tetra_dos_energy_band(energy, 0) ==
+          doctest::Approx(expected_dos).epsilon(1e-12).scale(1.0));
+}
+
+TEST_CASE("equal vertex energies produce a finite quadrilateral iso-surface") {
+    std::array<Vertex, 4> vertices = {
+        Vertex(0, v3(0.0, 0.0, 0.0)),
+        Vertex(1, v3(1.0, 0.0, 0.0)),
+        Vertex(2, v3(0.0, 1.0, 0.0)),
+        Vertex(3, v3(0.0, 0.0, 1.0)),
+    };
+    const std::array<double, 4> energies = {0.0, 0.0, 1.0, 1.0};
+    for (std::size_t i = 0; i < vertices.size(); ++i) {
+        vertices[i].add_band_energy_value(energies[i]);
+    }
+    std::array<Vertex*, 4> pointers = {&vertices[0], &vertices[1], &vertices[2], &vertices[3]};
+    Tetra                  tetra(0, pointers);
+
+    const auto surface = tetra.compute_band_iso_energy_surface(0.5, 0);
+    REQUIRE(surface.size() == 4);
+    for (const vector3& point : surface) {
+        CHECK(std::isfinite(point.x()));
+        CHECK(std::isfinite(point.y()));
+        CHECK(std::isfinite(point.z()));
+    }
 }

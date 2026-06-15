@@ -10,6 +10,7 @@
  */
 
 #pragma once
+#include <stdexcept>
 #include <vector>
 
 #include "export_vector_to_csv.hpp"
@@ -108,6 +109,10 @@ struct history_device_PBMC {
     }
 
     void export_to_csv(const std::string &filename, std::size_t frequency = 1) {
+        if (frequency == 0) {
+            throw std::invalid_argument("history export frequency must be greater than zero");
+        }
+
         if (m_list_times.empty()) {
             print_header_csv(filename);
             return;
@@ -128,7 +133,7 @@ struct history_device_PBMC {
         std::vector<double> double_list_quench_voltage_drop_V;
 
         std::vector<double> double_list_max_electric_field;
-        for (std::size_t iter_nb = 0; iter_nb < m_list_times.size() - 1; iter_nb++) {
+        for (std::size_t iter_nb = 0; iter_nb < m_list_times.size() - 1; iter_nb += frequency) {
             double_list_time.push_back(m_list_times[iter_nb]);
             double_list_nb_electrons.push_back(m_list_nb_electrons[iter_nb]);
             double_list_nb_hole.push_back(m_list_nb_holes[iter_nb]);

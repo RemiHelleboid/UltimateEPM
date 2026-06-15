@@ -40,8 +40,8 @@ class SpinOrbitCorrection {
  public:
     SpinOrbitCorrection() = delete;
     SpinOrbitCorrection(const epm_material& material, const SpinOrbitParameters& SpinParams)
-        : m_material(material),
-          m_soc_parameters(SpinParams) {};
+        : m_soc_parameters(SpinParams),
+          m_material(material) {};
 
     double compute_B2_cation(const Vector3D<double>& K) const;
     double compute_B2_anion(const Vector3D<double>& K) const;

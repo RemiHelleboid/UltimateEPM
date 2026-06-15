@@ -12,6 +12,10 @@ Si/
     kamakura.yaml
   impact_ionization/
     keldysh.yaml
+  admc/
+    arora-canali.yaml
+  pbmc/
+    default.yaml
 ```
 
 `material.yaml` is the single source of truth for common identity and physical

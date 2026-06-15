@@ -268,7 +268,7 @@ int main(int argc, const char** argv) {
         constexpr double V_per_cm_to_V_per_m = 100.0;
 
         uepm::PBMC::bulk_pbmc_simulation_config config;
-        config.m_material_model = uepm::PBMC::make_silicon_pbmc_material_model(uepm::physics::silicon_material_info());
+        config.m_material_model = uepm::PBMC::load_pbmc_material_model(material_symbol);
         config.m_carrier_type   = carrier_type;
         config.m_record_history = arg_export_history.getValue();
         config.m_lattice_temperature           = temperature;

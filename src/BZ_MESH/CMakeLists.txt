@@ -23,7 +23,7 @@ set(SOURCE_FILES_LIBBZMESH
     bz_states.cpp
     electron_phonon.cpp
     impact_ionization.cpp
-    fermi_level.cpp 
+    fermi_level.cpp
     dielectric_mesh.cpp
     octree_bz.cpp)
 
@@ -42,3 +42,7 @@ target_link_libraries(lib_bzmesh PUBLIC OpenMP::OpenMP_CXX)
 
 # All users of this library will need at least C++20
 target_compile_features(lib_bzmesh PUBLIC cxx_std_20)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(lib_bzmesh PRIVATE -Wall -Wextra -Wpedantic)
+endif()

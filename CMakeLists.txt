@@ -10,6 +10,8 @@ include(CMakePrintHelpers)
 include(FetchContent)
 include(CTest)
 include(cmake/CPM.cmake)
+include(cmake/FindGmsh.cmake)
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 # ---------------------------- Options ----------------------------
 option(ENABLE_MPI_BUILD     "Build with MPI"                            ON)
@@ -121,16 +123,10 @@ endif()
 
 # ---------------------------- Dependencies ----------------------------
 
-# yaml-cpp
-message(STATUS "Fetching yaml-cpp")
-FetchContent_Declare(
-  yaml-cpp
-  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-  GIT_TAG 65c1c270dbe7eec37b2df2531d7497c4eea79aee)
-FetchContent_MakeAvailable(yaml-cpp)
+# ---------------------------- Dependencies ----------------------------
 
-# Eigen
-message(STATUS "Fetching Eigen")
+CPMAddPackage("gh:jbeder/yaml-cpp#yaml-cpp-0.9.0@0.9.0")
+
 CPMAddPackage(
   NAME Eigen
   VERSION 5.0.0
@@ -139,55 +135,20 @@ CPMAddPackage(
 
 if(Eigen_ADDED AND NOT TARGET Eigen3::Eigen)
   add_library(Eigen3::Eigen INTERFACE IMPORTED)
-  target_include_directories(Eigen3::Eigen INTERFACE "${Eigen_SOURCE_DIR}")
+  target_include_directories(Eigen3::Eigen SYSTEM INTERFACE "${Eigen_SOURCE_DIR}")
 endif()
 
+CPMAddPackage("gh:fmtlib/fmt#12.1.0@12.1.0")
+CPMAddPackage("gh:d99kris/rapidcsv#v8.99@v8.99")
 
-# fmt
-message(STATUS "Fetching fmt")
-FetchContent_Declare(
-  fmt
-  GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-  GIT_TAG 11.0.2)
-FetchContent_MakeAvailable(fmt)
-
-# rapidcsv
-#
-# This keeps compatibility with your current build layout by preserving the
-# global include_directories() below. For reproducibility, set RAPIDCSV_GIT_TAG
-# to a specific commit hash in your configure command or CMake cache.
-#
-set(RAPIDCSV_GIT_TAG "master" CACHE STRING "rapidcsv git tag or commit hash")
-message(STATUS "Fetching rapidcsv (${RAPIDCSV_GIT_TAG})")
-FetchContent_Declare(
-  rapidcsv
-  GIT_REPOSITORY https://github.com/d99kris/rapidcsv.git
-  GIT_TAG ${RAPIDCSV_GIT_TAG})
-FetchContent_MakeAvailable(rapidcsv)
-
-if(NOT TARGET rapidcsv::rapidcsv)
-  add_library(rapidcsv::rapidcsv INTERFACE IMPORTED)
-  target_include_directories(rapidcsv::rapidcsv INTERFACE "${rapidcsv_SOURCE_DIR}")
-endif()
-
-# doctest
 if(ENABLE_BUILD_TEST AND BUILD_TESTING)
-  message(STATUS "Fetching doctest")
-  FetchContent_Declare(
-    doctest
-    GIT_REPOSITORY https://github.com/doctest/doctest.git
-    GIT_TAG v2.4.12)
-  FetchContent_MakeAvailable(doctest)
+  CPMAddPackage("gh:doctest/doctest#v2.5.2@v2.5.2")
 endif()
 
-# ---------------------------- OpenMP ----------------------------
 find_package(OpenMP REQUIRED COMPONENTS CXX)
-message(STATUS "OpenMP found")
-
-# Preserve the variable used by existing subdirectory CMake files.
 set(OPENMP_IMPORTED_TARGET OpenMP::OpenMP_CXX CACHE STRING "" FORCE)
-# Compatibility variable used by existing subdirectory CMake files.
 set(USE_OPENMP_ACCELERATION ON CACHE BOOL "Enable OpenMP acceleration" FORCE)
+
 
 # ---------------------------- MPI ----------------------------
 if(ENABLE_MPI_BUILD)
@@ -211,48 +172,12 @@ else()
   message(STATUS "MPI disabled")
 endif()
 
-# ---------------------------- Gmsh ----------------------------
-#
-# Keep GMSH_LIB and GMSH_INC variables for existing subdirectory CMake files,
-# but also create a modern imported target Gmsh::Gmsh for new code.
-#
-if(DEFINED ENV{GMSH_LIB} AND EXISTS "$ENV{GMSH_LIB}" AND NOT IS_DIRECTORY "$ENV{GMSH_LIB}")
-  set(GMSH_LIB "$ENV{GMSH_LIB}" CACHE FILEPATH "Path to libgmsh")
-else()
-  find_library(GMSH_LIB
-    NAMES gmsh
-    HINTS ENV GMSH_LIB ENV GMSH_DIR
-    PATH_SUFFIXES lib lib64)
-endif()
+# ---------------------------- GMSH ----------------------------
+find_package(Gmsh REQUIRED)
+set(GMSH_LIB "${GMSH_LIBRARY}" CACHE FILEPATH "Path to libgmsh" FORCE)
+set(GMSH_INC "${GMSH_INCLUDE_DIR}" CACHE PATH "Path to gmsh include directory" FORCE)
+include_directories(SYSTEM "${GMSH_INC}")
 
-if(DEFINED ENV{GMSH_INC} AND EXISTS "$ENV{GMSH_INC}/gmsh.h")
-  set(GMSH_INC "$ENV{GMSH_INC}" CACHE PATH "Path to gmsh include directory")
-else()
-  find_path(GMSH_INC
-    NAMES gmsh.h
-    HINTS ENV GMSH_INC ENV GMSH_DIR
-    PATH_SUFFIXES include)
-endif()
-
-if(NOT GMSH_LIB)
-  message(FATAL_ERROR "Could not find libgmsh. Set GMSH_LIB or GMSH_DIR.")
-endif()
-
-if(NOT GMSH_INC)
-  message(FATAL_ERROR "Could not find gmsh.h. Set GMSH_INC or GMSH_DIR.")
-endif()
-
-cmake_print_variables(GMSH_LIB GMSH_INC)
-
-if(NOT TARGET Gmsh::Gmsh)
-  add_library(Gmsh::Gmsh UNKNOWN IMPORTED)
-  set_target_properties(Gmsh::Gmsh PROPERTIES
-    IMPORTED_LOCATION "${GMSH_LIB}"
-    INTERFACE_INCLUDE_DIRECTORIES "${GMSH_INC}")
-endif()
-
-# Preserve global include for existing subdirectory CMake files.
-include_directories("${GMSH_INC}")
 
 # ---------------------------- BLAS / LAPACK ----------------------------
 find_package(BLAS)
@@ -310,6 +235,7 @@ add_subdirectory(src/Parser)
 add_subdirectory(src/BZ_MESH)
 add_subdirectory(src/FBMC)
 add_subdirectory(src/PBMC)
+add_subdirectory(src/ADMC)
 add_subdirectory(src/DEVICE_MESH)
 add_subdirectory(src/Poisson)
 add_subdirectory(apps)
