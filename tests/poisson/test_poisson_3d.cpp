@@ -42,7 +42,7 @@ TEST_CASE("Testing Poisson 3d on a PN Junction.") {
     MyPoissonSolver.decompose_matrix();
     MyPoissonSolver.solve_system();
     MyPoissonSolver.export_solution_csv("3D_PIN_JUNCTION_SOLUTION.csv");
-    MyPoissonSolver.add_solution_to_mesh_functions("ArminxPoissonxSolution");
+    MyPoissonSolver.add_solution_to_mesh_functions("PoissonxPoissonxSolution");
     fileMSH.export_as_msh("3D_TEST_POISSON_DIODE_PIN.msh", {}, 1);
     const std::string FileName = "TEST_POISSON_DIODE_PN_5V.vtk";
 
@@ -86,7 +86,7 @@ TEST_CASE("Testing Poisson 3d on a PN Junction.") {
 //     MyPoissonSolver.decompose_matrix();
 //     MyPoissonSolver.solve_system();
 //     // MyPoissonSolver.export_solution_csv("3D_PN_JUNCTION_SOLUTION.csv");
-//     MyPoissonSolver.add_solution_to_mesh_functions("ArminxSolution");
+//     MyPoissonSolver.add_solution_to_mesh_functions("PoissonxSolution");
 //     fileMSH.export_as_STF_from_template("FANCY_3D_PN_DIODE_0V.STF",file_input_test_msh);
 
 //     auto   solution     = MyPoissonSolver.get_solution();

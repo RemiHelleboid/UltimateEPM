@@ -39,7 +39,7 @@ std::ostream &operator<<(std::ostream &os, const DataType &);
 enum class DataLocationType { vertex, cell, unknown };
 
 /**
- * @brief Matching between GMSH and Armin location type (vertex, cell(element)) for datasets.
+ * @brief Matching between GMSH and Poisson location type (vertex, cell(element)) for datasets.
  *
  */
 static const std::map<std::string, DataLocationType> msh_to_armin_data_location_type{
@@ -47,7 +47,7 @@ static const std::map<std::string, DataLocationType> msh_to_armin_data_location_
     {"ElementData", DataLocationType::cell}};
 
 /**
- * @brief Matching between STF and Armin location type (vertex, cell(element)) for datasets.
+ * @brief Matching between STF and Poisson location type (vertex, cell(element)) for datasets.
  *
  */
 static const std::map<int, DataLocationType> STF_to_armin_data_location_type{{0, DataLocationType::vertex},

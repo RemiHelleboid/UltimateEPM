@@ -53,7 +53,7 @@ TEST_CASE("Testing Poisson 3d on a unit sphere.") {
     MyPoissonTest.decompose_matrix();
     MyPoissonTest.solve_system();
     MyPoissonTest.export_solution_csv("Poisson3d_sphere.csv");
-    MyPoissonTest.add_solution_to_mesh_functions("Armin_Solution");
+    MyPoissonTest.add_solution_to_mesh_functions("Poisson_Solution");
 
     auto   solution     = MyPoissonTest.get_solution();
     double min_solution = *std::min_element(solution.begin(), solution.end());
@@ -99,7 +99,7 @@ TEST_CASE("Testing Poisson 3d on a unit sphere.") {
 //     CHECK_EQ(min_solution, doctest::Approx(min_test_circle_sphere).epsilon(0.01));
 //     CHECK_EQ(max_solution, doctest::Approx(max_test_circle_sphere).epsilon(0.01));
 
-//     MyPoissonTest.add_solution_to_mesh_functions("ArminxPoissonxSolution");
+//     MyPoissonTest.add_solution_to_mesh_functions("PoissonxPoissonxSolution");
 
 //     const std::string FileName = "test_3d_FEM.vtk";
 //     uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);

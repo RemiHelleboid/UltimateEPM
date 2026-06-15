@@ -109,7 +109,7 @@ Eigen::Matrix4d FiniteElementP1System3d::compute_elementary_stiffness_matrix(std
                  X12 * X14 * Y12 * Y13 + X12 * X14 * Z12 * Z13 - X13 * X14 * pow(Y12, 2) - X13 * X14 * pow(Z12, 2) -
                  pow(Y12, 2) * Z13 * Z14 + Y12 * Y13 * Z12 * Z14 + Y12 * Y14 * Z12 * Z13 - Y13 * Y14 * pow(Z12, 2);
 
-    const double    multiplication_factor = -1.0 / (36 * fabs(tetra->get_measure()));
+    const double    multiplication_factor = 1.0 / (36 * fabs(tetra->get_measure()));
     Eigen::Matrix4d ElementaryStiffnessMatrix{{M11, M12, M13, M14},
                                               {M12, M22, M23, M24},
                                               {M13, M23, M33, M34},

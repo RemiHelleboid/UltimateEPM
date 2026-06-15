@@ -76,7 +76,7 @@ void poisson_solver_2d::update_second_member() {
     for (std::size_t index_triangle = 0; index_triangle < m_list_bulk_elements.size(); ++index_triangle) {
         const std::vector<mesh::vertex *> p_vertices_list = m_list_bulk_elements[index_triangle]->get_vertices();
         Eigen::Vector3d                   ElementarySecondMember =
-            -compute_charge_density_elementary_second_member(m_list_bulk_elements[index_triangle]);
+            compute_charge_density_elementary_second_member(m_list_bulk_elements[index_triangle]);
         for (int index_row = 0; index_row < 3; ++index_row) {
             m_second_member(p_vertices_list[index_row]->get_index()) += ElementarySecondMember(index_row);
         }

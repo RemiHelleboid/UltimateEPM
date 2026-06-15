@@ -37,7 +37,7 @@ Eigen::Matrix3d FiniteElementP1System2d::compute_elementary_stiffness_matrix(std
     double M13 = ((Y12)*Y23) + ((X12)*X23);
     double M23 = ((-Y13) * (Y12)) + ((-X13) * (X12));
 
-    const double multiplication_factor = -1.0 / (4 * fabs(triangle->get_measure()));
+    const double multiplication_factor = 1.0 / (4 * fabs(triangle->get_measure()));
 
     Eigen::Matrix3d ElementaryStiffnessMatrix{
         {M11 * multiplication_factor, M12 * multiplication_factor, M13 * multiplication_factor},
