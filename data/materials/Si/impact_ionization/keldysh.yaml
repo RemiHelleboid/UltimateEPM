@@ -1,0 +1,8 @@
+---
+schema_version: 1
+material: Si
+model: impact_ionization
+parameter_set: keldysh
+P0: 1.0e11
+alpha: 4.6
+energy_threshold: 1.1

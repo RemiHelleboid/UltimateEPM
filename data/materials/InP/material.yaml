@@ -1,0 +1,8 @@
+---
+schema_version: 1
+id: indium_phosphide
+name: Indium Phosphide
+symbol: InP
+lattice_constant_m: 5.86e-10
+mass_density_kg_m3: 0.0
+static_relative_permittivity: 0.0

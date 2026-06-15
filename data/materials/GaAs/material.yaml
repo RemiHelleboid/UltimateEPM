@@ -1,0 +1,8 @@
+---
+schema_version: 1
+id: gallium_arsenide
+name: Gallium Arsenide
+symbol: GaAs
+lattice_constant_m: 5.65325e-10
+mass_density_kg_m3: 5317.6
+static_relative_permittivity: 12.9

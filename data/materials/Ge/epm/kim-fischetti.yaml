@@ -1,0 +1,32 @@
+---
+schema_version: 1
+material: Ge
+model: epm
+parameter_set: kim-fischetti
+pseudo-potential-parameters:
+  V3S: -0.236
+  V8S: 0.019
+  V11S: 0.056
+  V3A: 0.0
+  V4A: 0.0
+  V8A: 0.0
+  V11A: 0.0
+non-local-parameters:
+  alpha_0_cation: 0.0
+  beta_0_cation: 0.0
+  A2_cation: 0.295
+  alpha_0_anion: 0.0
+  beta_0_anion: 0.0
+  A2_anion: 0.295
+  R0_cation: 0.0
+  R2_cation: 1.22
+  R0_anion: 0.0
+  R2_anion: 1.22
+  well_type: gaussian
+spin-orbit-parameters:
+  period_anion: 4
+  period_cation: 4
+  radial_extent_anion: 5.1
+  radial_extent_cation: 5.1
+  alpha_soc: 1.0
+  mu_soc: 0.002383

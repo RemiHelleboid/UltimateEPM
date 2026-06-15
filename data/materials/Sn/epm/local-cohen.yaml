@@ -1,0 +1,12 @@
+---
+schema_version: 1
+material: Sn
+model: epm
+parameter_set: local-cohen
+pseudo-potential-parameters:
+  V3S: -0.2
+  V8S: 0.0
+  V11S: 0.04
+  V3A: 0.0
+  V4A: 0.0
+  V11A: 0.0

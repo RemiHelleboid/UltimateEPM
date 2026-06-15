@@ -1,0 +1,12 @@
+---
+schema_version: 1
+material: GaP
+model: epm
+parameter_set: local-cohen
+pseudo-potential-parameters:
+  V3S: -0.22
+  V8S: 0.03
+  V11S: 0.07
+  V3A: 0.12
+  V4A: 0.07
+  V11A: 0.02

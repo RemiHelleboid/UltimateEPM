@@ -1,0 +1,19 @@
+---
+schema_version: 1
+material: Ge
+model: epm
+parameter_set: local-cohen
+pseudo-potential-parameters:
+  V3S: -0.23
+  V8S: 0.01
+  V11S: 0.06
+  V3A: 0.0
+  V4A: 0.0
+  V11A: 0.0
+spin-orbit-parameters:
+  period_anion: 4
+  period_cation: 4
+  radial_extent_anion: 5.34
+  radial_extent_cation: 5.34
+  alpha_soc: 1.0
+  mu_soc: 0.00069

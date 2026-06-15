@@ -1,0 +1,42 @@
+---
+schema_version: 1
+material: Si
+model: electron_phonon
+parameter_set: kamakura
+Radius-WS: 2.122e-10
+dispersion:
+  longitudinal:
+    acoustic:
+      w0: 0.0
+      vs: 9.01E3
+      c: 0.0
+    optic:
+      w0: 9.88e13
+      vs: 0.0
+      c: 0.0
+  transverse:
+    acoustic:
+      w0: 0.0
+      vs: 5.23e3
+      c: 0.0
+    optic:
+      w0: 1.02e14
+      vs: -2.57e3
+      c: 0.0
+deformation-potential:
+  electron:
+    acoustic:
+      A: 0.17
+      B: 1.5
+    optic:
+      A: 1.1e20
+      B: 1.1e21
+    energy-threshold: 0.5
+  hole:
+    acoustic:
+      A: 4.0
+      B: -0.35
+    optic:
+      A: 1.0e21
+      B: 5.0e19
+    energy-threshold: 0.0

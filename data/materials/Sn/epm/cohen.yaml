@@ -1,0 +1,26 @@
+---
+schema_version: 1
+material: Sn
+model: epm
+parameter_set: cohen
+pseudo-potential-parameters:
+  V3S: -0.19
+  V4S: -0.144
+  V8S: -0.008
+  V11S: 0.04
+  V3A: 0.0
+  V4A: 0.0
+  V8A: 0.0
+  V11A: 0.0
+non-local-parameters:
+  alpha_0_cation: 0.0
+  beta_0_cation: 0.4
+  A2_cation: 0.7
+  alpha_0_anion: 0.0
+  beta_0_anion: 0.4
+  A2_anion: 0.7
+  R0_cation: 1.06
+  R2_cation: 1.41
+  R0_anion: 1.06
+  R2_anion: 1.41
+  well_type: square

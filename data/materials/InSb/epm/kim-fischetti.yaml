@@ -1,0 +1,26 @@
+---
+schema_version: 1
+material: InSb
+model: epm
+parameter_set: kim-fischetti
+pseudo-potential-parameters:
+  V3S: -0.2
+  V4S: -0.153
+  V8S: 0.01
+  V11S: 0.044
+  V3A: 0.044
+  V4A: 0.03
+  V8A: 0.017
+  V11A: 0.015
+non-local-parameters:
+  alpha_0_cation: 0.0
+  beta_0_cation: 0.45
+  A2_cation: 0.55
+  alpha_0_anion: 0.0
+  beta_0_anion: 0.48
+  A2_anion: 0.7
+  R0_cation: 1.27
+  R2_cation: 1.4
+  R0_anion: 1.06
+  R2_anion: 1.4
+  well_type: square

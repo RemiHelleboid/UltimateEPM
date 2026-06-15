@@ -1,0 +1,8 @@
+---
+schema_version: 1
+id: tin
+name: Tin
+symbol: Sn
+lattice_constant_m: 6.49e-10
+mass_density_kg_m3: 0.0
+static_relative_permittivity: 0.0

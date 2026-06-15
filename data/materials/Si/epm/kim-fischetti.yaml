@@ -1,0 +1,33 @@
+---
+schema_version: 1
+material: Si
+model: epm
+parameter_set: kim-fischetti
+pseudo-potential-parameters:
+  V3S: -0.263
+  V4S: 0.0
+  V8S: -0.04
+  V11S: 0.033
+  V3A: 0.0
+  V4A: 0.0
+  V8A: 0.0
+  V11A: 0.0
+non-local-parameters:
+  alpha_0_cation: 0.55
+  beta_0_cation: 0.32
+  A2_cation: 0.0
+  alpha_0_anion: 0.55
+  beta_0_anion: 0.32
+  A2_anion: 0.0
+  R0_cation: 1.06
+  R2_cation: 0.0
+  R0_anion: 1.06
+  R2_anion: 0.0
+  well_type: square
+spin-orbit-parameters:
+  period_anion: 3
+  period_cation: 3
+  radial_extent_anion: 4.5
+  radial_extent_cation: 4.5
+  alpha_soc: 1.0
+  mu_soc: 0.00214

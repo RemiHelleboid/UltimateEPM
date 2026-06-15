@@ -1,0 +1,8 @@
+---
+schema_version: 1
+id: indium_arsenide
+name: Indium Arsenide
+symbol: InAs
+lattice_constant_m: 6.05e-10
+mass_density_kg_m3: 0.0
+static_relative_permittivity: 0.0

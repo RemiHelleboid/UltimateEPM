@@ -1,0 +1,26 @@
+---
+schema_version: 1
+material: GaP
+model: epm
+parameter_set: cohen
+pseudo-potential-parameters:
+  V3S: -0.23
+  V4S: 0.0
+  V8S: 0.02
+  V11S: 0.057
+  V3A: 0.1
+  V4A: 0.07
+  V8A: 0.0
+  V11A: 0.025
+non-local-parameters:
+  alpha_0_cation: 0.0
+  beta_0_cation: 0.3
+  A2_cation: 0.4
+  alpha_0_anion: 0.32
+  beta_0_anion: 0.05
+  A2_anion: 0.045
+  R0_cation: 1.27
+  R2_cation: 1.18
+  R0_anion: 1.06
+  R2_anion: 1.18
+  well_type: square

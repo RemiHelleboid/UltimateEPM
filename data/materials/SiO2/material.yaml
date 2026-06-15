@@ -1,0 +1,8 @@
+---
+schema_version: 1
+id: silicon_dioxide
+name: Silicon Dioxide
+symbol: SiO2
+lattice_constant_m: 0.0
+mass_density_kg_m3: 2200.0
+static_relative_permittivity: 3.9

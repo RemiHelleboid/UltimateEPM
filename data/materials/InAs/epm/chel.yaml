@@ -1,0 +1,12 @@
+---
+schema_version: 1
+material: InAs
+model: epm
+parameter_set: chel
+pseudo-potential-parameters:
+  V3S: -0.22
+  V8S: 0.0
+  V11S: 0.05
+  V3A: 0.08
+  V4A: 0.05
+  V11A: 0.03

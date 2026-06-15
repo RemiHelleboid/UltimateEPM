@@ -1,0 +1,33 @@
+---
+schema_version: 1
+material: CdTe
+model: epm
+parameter_set: potz-vogl
+pseudo-potential-parameters:
+  V3S: -0.22
+  V4S: -0.165
+  V8S: 0.0
+  V11S: 0.062
+  V3A: 0.06
+  V4A: 0.05
+  V8A: 0.029
+  V11A: 0.025
+non-local-parameters:
+  alpha_0_cation: 0.0
+  beta_0_cation: 0.4
+  A2_cation: 0.0
+  alpha_0_anion: 1.37
+  beta_0_anion: 0.4
+  A2_anion: 2.0
+  R0_cation: 1.37
+  R2_cation: 1.4
+  R2_anion: 1.223
+  R0_anion: 1.4
+  well_type: square
+spin-orbit-parameters:
+  period_anion: 5
+  period_cation: 5
+  radial_extent_anion: 4.95
+  radial_extent_cation: 4.95
+  alpha_soc: 5.73
+  mu_soc: 0.00046

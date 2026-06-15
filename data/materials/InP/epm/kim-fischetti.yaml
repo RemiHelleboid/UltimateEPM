@@ -1,0 +1,26 @@
+---
+schema_version: 1
+material: InP
+model: epm
+parameter_set: kim-fischetti
+pseudo-potential-parameters:
+  V3S: -0.235
+  V4S: 0.0176
+  V8S: 0.0
+  V11S: 0.053
+  V3A: 0.08
+  V4A: 0.06
+  V8A: 0.0033
+  V11A: 0.03
+non-local-parameters:
+  alpha_0_cation: 0.0
+  beta_0_cation: 0.25
+  A2_cation: 0.55
+  alpha_0_anion: 0.3
+  beta_0_anion: 0.05
+  A2_anion: 0.35
+  R0_cation: 1.27
+  R2_cation: 1.269
+  R0_anion: 1.06
+  R2_anion: 1.269
+  well_type: square

@@ -1,0 +1,8 @@
+---
+schema_version: 1
+id: silicon
+name: Silicon
+symbol: Si
+lattice_constant_m: 5.431e-10
+mass_density_kg_m3: 2329.0
+static_relative_permittivity: 11.7

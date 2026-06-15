@@ -1,0 +1,12 @@
+---
+schema_version: 1
+material: GaAs
+model: epm
+parameter_set: chel
+pseudo-potential-parameters:
+  V3S: -0.23
+  V8S: 0.01
+  V11S: 0.06
+  V3A: 0.07
+  V4A: 0.05
+  V11A: 0.01

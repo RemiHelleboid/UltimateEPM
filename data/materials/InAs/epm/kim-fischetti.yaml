@@ -1,0 +1,26 @@
+---
+schema_version: 1
+material: InAs
+model: epm
+parameter_set: kim-fischetti
+pseudo-potential-parameters:
+  V3S: -0.23
+  V4S: -0.172
+  V8S: 0.0
+  V11S: 0.045
+  V3A: 0.055
+  V4A: 0.045
+  V8A: 0.02
+  V11A: 0.01
+non-local-parameters:
+  alpha_0_cation: 0.0
+  beta_0_cation: 0.35
+  A2_cation: 0.5
+  alpha_0_anion: 0.0
+  beta_0_anion: 0.25
+  A2_anion: 1.0
+  R0_cation: 1.27
+  R2_cation: 1.31
+  R0_anion: 1.06
+  R2_anion: 1.31
+  well_type: square

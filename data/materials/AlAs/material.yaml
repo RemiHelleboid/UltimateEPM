@@ -1,0 +1,8 @@
+---
+schema_version: 1
+id: aluminium_arsenide
+name: Aluminium Arsenide
+symbol: AlAs
+lattice_constant_m: 5.6605e-10
+mass_density_kg_m3: 0.0
+static_relative_permittivity: 0.0
