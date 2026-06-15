@@ -1,17 +1,17 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#include "amc_transport_kernel.hpp"
+#include "pbmc_transport_kernel.hpp"
 
 namespace {
 
-uepm::amc::amc_transport_kernel make_electron_transport() {
-    uepm::amc::amc_transport_config config;
-    config.m_carrier_type             = uepm::amc::particle_type::electron;
+uepm::PBMC::pbmc_transport_kernel make_electron_transport() {
+    uepm::PBMC::pbmc_transport_config config;
+    config.m_carrier_type             = uepm::PBMC::particle_type::electron;
     config.m_max_energy_eV            = 2.0;
     config.m_gamma_max_energy_samples = 100;
 
-    uepm::amc::amc_transport_kernel transport(config, 1234);
+    uepm::PBMC::pbmc_transport_kernel transport(config, 1234);
     transport.initialize();
     return transport;
 }
@@ -21,7 +21,7 @@ uepm::amc::amc_transport_kernel make_electron_transport() {
 TEST_CASE("scattering channels preserve the total rate") {
     auto transport = make_electron_transport();
 
-    uepm::amc::particle_amc particle(0, uepm::amc::particle_type::electron);
+    uepm::PBMC::pbmc_particle particle(0, uepm::PBMC::particle_type::electron);
     transport.initialize_particle_state(particle);
 
     const auto channels = transport.build_scattering_channels(particle);
@@ -38,7 +38,7 @@ TEST_CASE("scattering channels preserve the total rate") {
 TEST_CASE("per-valley gamma bound is bounded by the global maximum") {
     auto transport = make_electron_transport();
 
-    uepm::amc::particle_amc particle(0, uepm::amc::particle_type::electron);
+    uepm::PBMC::pbmc_particle particle(0, uepm::PBMC::particle_type::electron);
     transport.initialize_particle_state(particle);
 
     CHECK(transport.gamma_max(particle) > 0.0);
@@ -48,7 +48,7 @@ TEST_CASE("per-valley gamma bound is bounded by the global maximum") {
 TEST_CASE("zero-duration scattering does not change the particle") {
     auto transport = make_electron_transport();
 
-    uepm::amc::particle_amc particle(0, uepm::amc::particle_type::electron);
+    uepm::PBMC::pbmc_particle particle(0, uepm::PBMC::particle_type::electron);
     transport.initialize_particle_state(particle);
     const auto initial_state = particle.state();
 

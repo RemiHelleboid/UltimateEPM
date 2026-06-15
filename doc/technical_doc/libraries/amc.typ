@@ -1,13 +1,13 @@
 = Analytical Monte Carlo Transport
 
-*Source:* `src/AMC` \
-*CMake target:* `lib_amc` \
-*Alias:* `uepm::amc` \
+*Source:* `src/PBMC` \
+*CMake target:* `lib_PBMC` \
+*Alias:* `uepm::PBMC` \
 *Language:* C++20
 
 == Scope and Status
 
-The analytical Monte Carlo (AMC) model simulates semiclassical electron and
+The analytical Monte Carlo (PBMC) model simulates semiclassical electron and
 hole transport in silicon. A numerical particle represents one or more
 physical carriers and evolves through alternating deterministic drift and
 stochastic scattering.
@@ -15,19 +15,19 @@ stochastic scattering.
 This chapter documents the transport model implemented by:
 
 - `valley_model.hpp` and `valley_model.cpp`;
-- `amc_material_model.hpp` and `amc_material_model.cpp`;
-- `amc_scattering_model.hpp` and `amc_scattering_model.cpp`;
+- `pbmc_material_model.hpp` and `pbmc_material_model.cpp`;
+- `pbmc_scattering_model.hpp` and `pbmc_scattering_model.cpp`;
 - `intervalley_phonon.hpp` and `intervalley_phonon.cpp`;
-- `amc_transport_kernel.hpp` and `amc_transport_kernel.cpp`;
-- `particle_amc.hpp` and `particle_amc.cpp`;
-- the transport loops in `bulk_amc_simulation.cpp` and
-  `device_amc_simulation.cpp`.
+- `pbmc_transport_kernel.hpp` and `pbmc_transport_kernel.cpp`;
+- `pbmc_particle.hpp` and `pbmc_particle.cpp`;
+- the transport loops in `bulk_pbmc_simulation.cpp` and
+  `device_pbmc_simulation.cpp`.
 
 The current model is silicon-specific. Electrons use six anisotropic,
 nonparabolic Delta valleys. Holes use isotropic parabolic heavy-hole and
 light-hole bands. The transport kernel does not read these parameters from the
 project YAML files: they are currently compiled into
-`amc_material_model.cpp` and `intervalley_phonon.cpp`.
+`pbmc_material_model.cpp` and `intervalley_phonon.cpp`.
 
 This chapter concentrates on the analytical transport model. It also documents
 the user-facing configuration of self-consistent Poisson coupling,
@@ -37,7 +37,7 @@ remain outside the present scope.
 
 == Semiclassical State
 
-Each `particle_amc` owns a `particle_state`. The transport-relevant state is
+Each `pbmc_particle` owns a `particle_state`. The transport-relevant state is
 
 $ S = (t, bold(r), bold(k)_v, bold(v), E, gamma, nu), $
 
@@ -495,7 +495,7 @@ described as numerically identical.
 
 === Fixed-time-step algorithm
 
-`bulk_amc_simulation::run()` and device transport use a global step
+`bulk_pbmc_simulation::run()` and device transport use a global step
 $Delta t$:
 
 1. Interpolate or assign the electric field.
@@ -517,7 +517,7 @@ The fixed-step path does not use the null-collision bound
 
 === Event-driven null-collision algorithm
 
-`bulk_amc_simulation::run_self_scattering_emc()` implements a
+`bulk_pbmc_simulation::run_self_scattering_emc()` implements a
 self-scattering, or null-collision, ensemble Monte Carlo algorithm.
 
 For each band or valley $nu$, initialization samples the total rate on a
@@ -610,7 +610,7 @@ the drift direction and should not be used for arbitrary field orientation.
 
 == Internal Transport Configuration
 
-The transport kernel is controlled by `amc_transport_config`:
+The transport kernel is controlled by `pbmc_transport_config`:
 
 #table(
   columns: (1.5fr, 0.7fr, 2fr),
@@ -634,7 +634,7 @@ when forming the uniform energy grid.
 
 == Device YAML Configuration
 
-The `device_amc.epm` executable is configured primarily through YAML. The
+The `device_PBMC.epm` executable is configured primarily through YAML. The
 command-line interface intentionally contains only configuration-file
 selection, repeatable overrides, configuration generation, help, and version
 reporting.
@@ -642,13 +642,13 @@ reporting.
 A complete configuration template is generated with:
 
 ```sh
-device_amc.epm --write-config config.yaml
+device_PBMC.epm --write-config config.yaml
 ```
 
 A simulation is run with:
 
 ```sh
-device_amc.epm --config config.yaml
+device_PBMC.epm --config config.yaml
 ```
 
 Any scalar YAML value can be overridden without editing the file. Both
@@ -656,7 +656,7 @@ Any scalar YAML value can be overridden without editing the file. Both
 `--set` may be repeated:
 
 ```sh
-device_amc.epm --config config.yaml \
+device_PBMC.epm --config config.yaml \
   --set run.threads=8 \
   --set contacts.cathode_voltage_V 30 \
   --set simulation.final_time_s=2e-12
@@ -695,12 +695,12 @@ directory is interpreted from the process working directory.
   [`input.material`], [`Si`],
   [Transport material symbol. The analytical device model currently accepts
    only silicon.],
-  [`run.name`], [`self_consistent_amc`],
+  [`run.name`], [`self_consistent_PBMC`],
   [Human-readable simulation name stored in the run manifest and simulation
    options.],
   [`run.output_directory`], [empty],
   [Directory for history, trajectory, visualization, and manifest outputs. If
-   empty, the runner creates `self_consistent_amc_<mesh-stem>`.],
+   empty, the runner creates `self_consistent_pbmc_<mesh-stem>`.],
   [`run.threads`], [1],
   [Requested OpenMP transport-thread count. It must be strictly positive.
    Changing it also changes the assignment of random streams.],
@@ -948,7 +948,7 @@ input:
   material_root: ""
   material: Si
 run:
-  name: self_consistent_amc
+  name: self_consistent_PBMC
   output_directory: ""
   threads: 1
   seed: 0
@@ -1025,7 +1025,7 @@ The transport classes enforce several local invariants:
 - final phonon-emission energy cannot be negative;
 - channel rates passed to event application cannot be negative.
 
-Direct public access through `particle_amc::state()` can bypass some particle
+Direct public access through `pbmc_particle::state()` can bypass some particle
 setter checks. Simulation code must preserve state consistency:
 
 $ gamma = gamma(bold(k)_v), quad
@@ -1037,7 +1037,7 @@ every real scattering event.
 
 == Validation Coverage
 
-`tests/amc/test_amc_transport_kernel.cpp` currently verifies:
+`tests/PBMC/test_pbmc_transport_kernel.cpp` currently verifies:
 
 - the sum of constructed channel rates equals the reported total rate;
 - a per-valley null-collision majorant is positive and no larger than the

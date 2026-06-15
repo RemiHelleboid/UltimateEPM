@@ -18,21 +18,21 @@ import pandas as pd
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run a self-consistent device AMC voltage sweep and extract an I/V curve."
+        description="Run a self-consistent device PBMC voltage sweep and extract an I/V curve."
     )
 
     parser.add_argument(
         "--exe",
         required=True,
         type=Path,
-        help="Path to the device AMC executable, for example ./apps/device_amc.epm.",
+        help="Path to the device PBMC executable, for example ./apps/device_PBMC.epm.",
     )
 
     parser.add_argument(
         "--config",
         required=True,
         type=Path,
-        help="Base device AMC YAML configuration file.",
+        help="Base device PBMC YAML configuration file.",
     )
 
     parser.add_argument(
@@ -139,7 +139,7 @@ def validate_args(args: argparse.Namespace) -> None:
         raise PermissionError(f"Executable is not executable: {args.exe}")
 
     if not args.config.is_file():
-        raise FileNotFoundError(f"AMC configuration not found: {args.config}")
+        raise FileNotFoundError(f"PBMC configuration not found: {args.config}")
 
     finite_values = {
         "--vmin": args.vmin,
@@ -460,7 +460,7 @@ def plot_iv_signed(df: pd.DataFrame, outdir: Path, show: bool) -> None:
 
     ax.set_xlabel("Swept contact voltage (V)")
     ax.set_ylabel("Mean Ramo current (A)")
-    ax.set_title("Device AMC I/V curve")
+    ax.set_title("Device PBMC I/V curve")
     ax.grid(True)
     ax.legend()
 
@@ -493,7 +493,7 @@ def plot_iv_abs_log(df: pd.DataFrame, outdir: Path, show: bool) -> None:
     ax.set_yscale("log")
     ax.set_xlabel("Swept contact voltage (V)")
     ax.set_ylabel("|Mean Ramo current| (A)")
-    ax.set_title("Device AMC I/V curve")
+    ax.set_title("Device PBMC I/V curve")
     ax.grid(True, which="both")
 
     fig.tight_layout()
@@ -619,7 +619,7 @@ def write_manifest(args: argparse.Namespace, voltages: list[float]) -> None:
     manifest_file = args.outdir / "iv_sweep_manifest.txt"
 
     with manifest_file.open("w", encoding="utf-8") as stream:
-        stream.write("Device AMC I/V sweep\n")
+        stream.write("Device PBMC I/V sweep\n")
         stream.write("====================\n\n")
 
         stream.write(f"exe = {args.exe}\n")

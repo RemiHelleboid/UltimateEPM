@@ -57,14 +57,14 @@ def van_overstraeten_de_man_alpha_p(electric_field_V_per_m, temperature_K=300.0)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run a bulk AMC electric-field sweep and extract low-field mobility."
+        description="Run a bulk PBMC electric-field sweep and extract low-field mobility."
     )
 
     parser.add_argument(
         "--exe",
         required=True,
         type=Path,
-        help="Path to the bulk AMC executable.",
+        help="Path to the bulk PBMC executable.",
     )
 
     parser.add_argument(
@@ -103,7 +103,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--enable-impurity-scattering",
         action="store_true",
-        help="Enable impurity scattering in the bulk AMC executable.",
+        help="Enable impurity scattering in the bulk PBMC executable.",
     )
 
     parser.add_argument(
@@ -544,7 +544,7 @@ def plot_velocity(
         df["field_V_per_cm"],
         df["mean_velocity_x_m_per_s"],
         marker="o",
-        label="AMC signed vx data",
+        label="PBMC signed vx data",
     )
 
     ax.plot(
@@ -568,7 +568,7 @@ def plot_velocity(
     ax.axvline(0.0, linewidth=0.8)
     ax.set_xlabel("Electric field Ex (V/cm)")
     ax.set_ylabel("Mean drift velocity vx (m/s)")
-    ax.set_title("Bulk AMC signed drift velocity versus electric field")
+    ax.set_title("Bulk PBMC signed drift velocity versus electric field")
     ax.grid(True, which="both")
     ax.legend()
 
@@ -613,7 +613,7 @@ def plot_mobility(
 
     ax.set_xlabel("Electric field Ex (V/cm)")
     ax.set_ylabel("Mobility (cm²/V/s)")
-    ax.set_title("Bulk AMC mobility versus electric field")
+    ax.set_title("Bulk PBMC mobility versus electric field")
     ax.grid(True, which="both")
     ax.legend()
     
@@ -645,7 +645,7 @@ def plot_energy(
     ax.axvline(0.0, linewidth=0.8)
     ax.set_xlabel("Electric field Ex (V/cm)")
     ax.set_ylabel("Mean kinetic energy (eV)")
-    ax.set_title("Bulk AMC mean energy versus electric field")
+    ax.set_title("Bulk PBMC mean energy versus electric field")
     ax.grid(True, which="both")
 
     fig.tight_layout()
@@ -688,7 +688,7 @@ def plot_impact_ionization_coefficient(
             positive_data["inverse_field_cm_per_V"],
             positive_data["impact_ionization_coefficient_cm_1"],
             marker="o",
-            label="AMC data",
+            label="PBMC data",
         )
 
     if particle == "electron":
@@ -750,7 +750,7 @@ def plot_impact_ionization_coefficient(
     # ax.set_xlim(1.0e-4, 7.0e-4)
     ax.set_xlabel("1 / |electric field| (cm/V)")
     ax.set_ylabel("Impact ionization coefficient (cm$^{-1}$)")
-    ax.set_title("Bulk AMC impact ionization coefficient")
+    ax.set_title("Bulk PBMC impact ionization coefficient")
     ax.grid(True, which="both")
     ax.legend()
 
@@ -766,7 +766,7 @@ def plot_impact_ionization_coefficient(
     if positive_data.empty:
         print(
             "Warning: no positive impact-ionization coefficients were available; "
-            "the log-scale ionization plot contains no AMC points."
+            "the log-scale ionization plot contains no PBMC points."
         )
 
 

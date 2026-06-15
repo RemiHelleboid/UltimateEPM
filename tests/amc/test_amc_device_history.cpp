@@ -6,11 +6,11 @@
 #include <iterator>
 #include <string>
 
-#include "amc_device_history.hpp"
+#include "pbmc_device_history.hpp"
 
-TEST_CASE("empty AMC device history exports a header-only CSV") {
-    uepm::amc::history_device_amc history;
-    const auto filename = std::filesystem::temp_directory_path() / "ultimate_epm_empty_amc_device_history.csv";
+TEST_CASE("empty PBMC device history exports a header-only CSV") {
+    uepm::PBMC::history_device_PBMC history;
+    const auto filename = std::filesystem::temp_directory_path() / "ultimate_epm_empty_pbmc_device_history.csv";
 
     CHECK_NOTHROW(history.export_to_csv(filename.string()));
 

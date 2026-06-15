@@ -7,12 +7,12 @@
 #include <string>
 #include <vector>
 
-#include "amc_device_config.hpp"
+#include "pbmc_device_config.hpp"
 
 namespace {
 
 std::filesystem::path write_config(const std::string& contents) {
-    const auto    path = std::filesystem::temp_directory_path() / "ultimate_epm_amc_device_config.yaml";
+    const auto    path = std::filesystem::temp_directory_path() / "ultimate_epm_pbmc_device_config.yaml";
     std::ofstream stream(path);
     stream << contents;
     return path;
@@ -20,7 +20,7 @@ std::filesystem::path write_config(const std::string& contents) {
 
 }  // namespace
 
-TEST_CASE("AMC device config loads YAML and applies CLI overrides last") {
+TEST_CASE("PBMC device config loads YAML and applies CLI overrides last") {
     const auto config_file = write_config(R"(
 input:
   device_mesh: mesh/device.msh
@@ -39,19 +39,19 @@ scheduled_injection:
   type: hole
 )");
 
-    const auto config = uepm::amc::load_device_amc_config(
+    const auto config = uepm::PBMC::load_device_pbmc_config(
         config_file,
         {"run.threads=8", "contacts.cathode_voltage_V=30.0", "scheduled_injection.weight=4.5"});
 
     CHECK(config.device_options.m_nb_threads == 8);
     CHECK(config.device_options.m_t_max == doctest::Approx(2.0e-12));
     CHECK(config.self_consistent_options_2d.m_common.m_cathode_voltage == doctest::Approx(30.0));
-    CHECK(config.device_options.m_scheduled_particle_injection.m_particle_type == uepm::amc::particle_type::hole);
+    CHECK(config.device_options.m_scheduled_particle_injection.m_particle_type == uepm::PBMC::particle_type::hole);
     CHECK(config.device_options.m_scheduled_particle_injection.m_weight == doctest::Approx(4.5));
     CHECK(std::filesystem::path(config.mesh_file) == config_file.parent_path() / "mesh/device.msh");
 }
 
-TEST_CASE("AMC device config rejects unknown YAML and override keys") {
+TEST_CASE("PBMC device config rejects unknown YAML and override keys") {
     const auto config_file = write_config(R"(
 input:
   device_mesh: device.msh
@@ -59,7 +59,7 @@ simulation:
   typo_time: 1.0
 )");
 
-    CHECK_THROWS_WITH_AS(uepm::amc::load_device_amc_config(config_file),
+    CHECK_THROWS_WITH_AS(uepm::PBMC::load_device_pbmc_config(config_file),
                          "Unknown configuration key 'simulation.typo_time'.",
                          std::invalid_argument);
 
@@ -67,14 +67,14 @@ simulation:
 input:
   device_mesh: device.msh
 )");
-    CHECK_THROWS_WITH_AS(uepm::amc::load_device_amc_config(valid_config, {"run.typo=2"}),
+    CHECK_THROWS_WITH_AS(uepm::PBMC::load_device_pbmc_config(valid_config, {"run.typo=2"}),
                          "Unknown configuration override 'run.typo'.",
                          std::invalid_argument);
 }
 
-TEST_CASE("generated AMC device config contains the complete schema and is loadable") {
-    const auto config_file = std::filesystem::temp_directory_path() / "ultimate_epm_basic_amc_device_config.yaml";
-    uepm::amc::write_basic_device_amc_config(config_file);
+TEST_CASE("generated PBMC device config contains the complete schema and is loadable") {
+    const auto config_file = std::filesystem::temp_directory_path() / "ultimate_epm_basic_pbmc_device_config.yaml";
+    uepm::PBMC::write_basic_device_pbmc_config(config_file);
 
     std::ifstream stream(config_file);
     REQUIRE(stream.is_open());
@@ -89,7 +89,7 @@ TEST_CASE("generated AMC device config contains the complete schema and is loada
     CHECK(contents.find("avalanche_detection:") != std::string::npos);
     CHECK(contents.find("quench_detection:") != std::string::npos);
 
-    const auto config = uepm::amc::load_device_amc_config(config_file);
+    const auto config = uepm::PBMC::load_device_pbmc_config(config_file);
     CHECK(config.device_options.m_time_step == doctest::Approx(1.0e-15));
     CHECK(config.device_options.m_nb_threads == 1);
 }

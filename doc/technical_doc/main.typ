@@ -55,14 +55,14 @@ Each source library has a dedicated chapter. A chapter should explain:
 
 = Current Scope
 
-The present revision focuses on the analytical Monte Carlo (AMC)
+The present revision focuses on the analytical Monte Carlo (PBMC)
 carrier-transport model and its device-simulation configuration. Device
 electrostatics, circuit coupling, avalanche detection, and quench detection
 are covered at the configuration and interaction level; complete numerical
 derivations and the other UltimateEPM libraries will be documented in later
 revisions.
 
-#include "libraries/amc.typ"
+#include "libraries/PBMC.typ"
 
 = Documentation Conventions
 

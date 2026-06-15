@@ -6,17 +6,17 @@
 #include <iterator>
 #include <string>
 
-#include "amc_run_manifest.hpp"
+#include "pbmc_run_manifest.hpp"
 
 TEST_CASE("simulation manifest groups sections and preserves precise values") {
-    uepm::amc::simulation_manifest manifest;
+    uepm::PBMC::simulation_manifest manifest;
     manifest.add("run", "status", "completed");
     manifest.add("simulation", "time_step_s", 1.0e-15);
     manifest.add("run", "elapsed_seconds", 1.25);
     manifest.add("simulation", "enabled", true);
     manifest.add("input", "path", "directory with spaces/input.msh");
 
-    const auto filename = std::filesystem::temp_directory_path() / "ultimate_epm_amc_manifest_test.txt";
+    const auto filename = std::filesystem::temp_directory_path() / "ultimate_epm_pbmc_manifest_test.txt";
     manifest.write(filename);
 
     std::ifstream stream(filename);
@@ -29,6 +29,6 @@ TEST_CASE("simulation manifest groups sections and preserves precise values") {
 }
 
 TEST_CASE("command line reconstruction quotes arguments containing spaces") {
-    const char* arguments[] = {"device_amc.epm", "--outdir", "result directory"};
-    CHECK(uepm::amc::command_line_from_arguments(3, arguments) == "device_amc.epm --outdir \"result directory\"");
+    const char* arguments[] = {"device_PBMC.epm", "--outdir", "result directory"};
+    CHECK(uepm::PBMC::command_line_from_arguments(3, arguments) == "device_PBMC.epm --outdir \"result directory\"");
 }

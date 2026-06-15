@@ -1,10 +1,10 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#include "amc_avalanche_detector.hpp"
+#include "pbmc_avalanche_detector.hpp"
 
 TEST_CASE("avalanche is detected immediately at the voltage-drop threshold") {
-    uepm::amc::voltage_drop_avalanche_detector detector(1.0);
+    uepm::PBMC::voltage_drop_avalanche_detector detector(1.0);
 
     detector.update(true, 1.0e-12, 0.99);
     CHECK_FALSE(detector.state().m_detected);
@@ -18,7 +18,7 @@ TEST_CASE("avalanche is detected immediately at the voltage-drop threshold") {
 }
 
 TEST_CASE("avalanche detection uses the absolute voltage drop and latches the first event") {
-    uepm::amc::voltage_drop_avalanche_detector detector(0.5);
+    uepm::PBMC::voltage_drop_avalanche_detector detector(0.5);
 
     detector.update(true, 3.0e-12, -0.6);
     detector.update(true, 4.0e-12, 2.0);
@@ -29,7 +29,7 @@ TEST_CASE("avalanche detection uses the absolute voltage drop and latches the fi
 }
 
 TEST_CASE("avalanche detection is inactive when the quench circuit is disabled") {
-    uepm::amc::voltage_drop_avalanche_detector detector(0.5);
+    uepm::PBMC::voltage_drop_avalanche_detector detector(0.5);
 
     detector.update(false, 1.0e-12, 1.0);
 

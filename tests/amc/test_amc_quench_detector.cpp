@@ -1,10 +1,10 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#include "amc_quench_detector.hpp"
+#include "pbmc_quench_detector.hpp"
 
 TEST_CASE("successful quench requires an uninterrupted quiet window after avalanche") {
-    uepm::amc::successful_quench_detector detector(3.0e-12);
+    uepm::PBMC::successful_quench_detector detector(3.0e-12);
 
     detector.update(false, 1.0e-12, false, false);
     detector.update(true, 2.0e-12, false, false);
@@ -18,7 +18,7 @@ TEST_CASE("successful quench requires an uninterrupted quiet window after avalan
 }
 
 TEST_CASE("high-field particles reset the successful-quench quiet window") {
-    uepm::amc::successful_quench_detector detector(2.0e-12);
+    uepm::PBMC::successful_quench_detector detector(2.0e-12);
 
     detector.update(true, 1.0e-12, false, false);
     detector.update(true, 2.0e-12, true, false);
@@ -31,7 +31,7 @@ TEST_CASE("high-field particles reset the successful-quench quiet window") {
 }
 
 TEST_CASE("impact ionization resets the successful-quench quiet window") {
-    uepm::amc::successful_quench_detector detector(2.0e-12);
+    uepm::PBMC::successful_quench_detector detector(2.0e-12);
 
     detector.update(true, 1.0e-12, false, false);
     detector.update(true, 2.0e-12, false, true);
