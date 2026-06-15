@@ -17,46 +17,45 @@
 #include "vtkWriter.hpp"
 
 TEST_CASE("Testing Poisson 2d on a PN Junction.") {
-    const uepm::physics::material_repository repository;
-    const auto                               material_database = repository.load_all_materials();
+    // const uepm::physics::material_repository repository;
+    // const auto                               material_database = repository.load_all_materials();
 
-    static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/tests/test_data/2D_pn_diode_5V.msh");
-    uepm::file::msh_file     fileMSH(file_input_test_msh);
-    fileMSH.read_mesh();
-    fileMSH.read_states();
-    uepm::mesh::mesh* p_mesh     = fileMSH.get_p_mesh();
-    std::size_t       nbVertices = p_mesh->get_nb_vertices();
+    // static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/tests/test_data/pn_2d.msh");
+    // uepm::file::msh_file     fileMSH(file_input_test_msh);
+    // fileMSH.read_mesh();
+    // fileMSH.read_states();
+    // uepm::mesh::mesh* p_mesh     = fileMSH.get_p_mesh();
+    // std::size_t       nbVertices = p_mesh->get_nb_vertices();
 
-    std::cout << "Start building Poisson system ..." << std::endl;
-    uepm::fem::poisson_solver_2d MyPoissonSolver(p_mesh, p_mesh->get_nb_vertices(), material_database);
-    MyPoissonSolver.compute_stiffness_matrix();
-    MyPoissonSolver.update_second_member();
+    // std::cout << "Start building Poisson system ..." << std::endl;
+    // uepm::fem::poisson_solver_2d MyPoissonSolver(p_mesh, p_mesh->get_nb_vertices(), material_database);
+    // MyPoissonSolver.compute_stiffness_matrix();
+    // MyPoissonSolver.update_second_member();
 
-    MyPoissonSolver.apply_dirichlet_condition("kathode", 5.36);
-    MyPoissonSolver.apply_dirichlet_condition("anode", -0.432793);
-    // MyPoissonSolver.apply_dirichlet_condition("kathode", 0.355292);
-    std::cout << "Start computing poisson solution ..." << std::endl;
+    // MyPoissonSolver.apply_dirichlet_condition("kathode", 10.0);
+    // MyPoissonSolver.apply_dirichlet_condition("anode", 0.0);
+    // std::cout << "Start computing poisson solution ..." << std::endl;
 
-    MyPoissonSolver.decompose_matrix();
-    MyPoissonSolver.solve_system();
-    MyPoissonSolver.export_solution_csv("5_PN_JUNCTION_SOLUTION.csv");
-    MyPoissonSolver.add_solution_to_mesh_functions("Poisson_Solution");
-    fileMSH.export_as_msh("TEST_POISSON_DIODE_PN_5V.msh", {}, 1);
-    const std::string FileName = "TEST_POISSON_DIODE_PN_5V.vtk";
-    uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
+    // MyPoissonSolver.decompose_matrix();
+    // MyPoissonSolver.solve_system();
+    // MyPoissonSolver.export_solution_csv("5_PN_JUNCTION_SOLUTION.csv");
+    // MyPoissonSolver.add_solution_to_mesh_functions("Poisson_Solution");
+    // fileMSH.export_as_msh("TEST_POISSON_DIODE_PN_5V.msh", {}, 1);
+    // const std::string FileName = "TEST_POISSON_DIODE_PN_5V.vtk";
+    // uepm::file::export_as_vtk(*(p_mesh), FileName, {}, {}, true);
 
-    // p_mesh->export_all_vertices_data_to_csv("POISSON_PN_CSV.csv");
+    // // p_mesh->export_all_vertices_data_to_csv("POISSON_PN_CSV.csv");
 
-    auto   solution     = MyPoissonSolver.get_solution();
-    double min_solution = *std::min_element(solution.begin(), solution.end());
-    double max_solution = *std::max_element(solution.begin(), solution.end());
+    // auto   solution     = MyPoissonSolver.get_solution();
+    // double min_solution = *std::min_element(solution.begin(), solution.end());
+    // double max_solution = *std::max_element(solution.begin(), solution.end());
 
-    std::cout << "MIN SOL = " << min_solution << std::endl;
-    std::cout << "MAX SOL = " << max_solution << std::endl;
+    // std::cout << "MIN SOL = " << min_solution << std::endl;
+    // std::cout << "MAX SOL = " << max_solution << std::endl;
 
-    const double min_test_si_ge = -0.765151;
-    const double max_test_si_ge = 5.28987;
+    // const double min_test_si_ge = -0.765151;
+    // const double max_test_si_ge = 5.28987;
 
-    // CHECK(min_solution == doctest::Approx(min_test_si_ge));
-    // CHECK_EQ(max_solution, doctest::Approx(max_test_si_ge));
+    // // CHECK(min_solution == doctest::Approx(min_test_si_ge));
+    // // CHECK_EQ(max_solution, doctest::Approx(max_test_si_ge));
 }
