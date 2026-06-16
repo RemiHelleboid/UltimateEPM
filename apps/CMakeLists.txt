@@ -3,6 +3,14 @@ add_executable(EmpiricalPseudoPotentialMain EmpiricalPseudoPotentialMain.cpp)
 target_link_libraries(EmpiricalPseudoPotentialMain PRIVATE libepp)
 target_compile_features(EmpiricalPseudoPotentialMain PRIVATE cxx_std_20)
 
+add_executable(epm_valley_fit epm_valley_fit.cpp)
+target_link_libraries(epm_valley_fit PRIVATE libepp fmt::fmt)
+target_compile_features(epm_valley_fit PRIVATE cxx_std_20)
+
+add_executable(epm_band_edges epm_band_edges.cpp)
+target_link_libraries(epm_band_edges PRIVATE libepp fmt::fmt)
+target_compile_features(epm_band_edges PRIVATE cxx_std_20)
+
 add_executable(BandsOnBZ BandsOnBZ.cpp)
 target_link_libraries(BandsOnBZ PRIVATE libepp lib_bzmesh Eigen3::Eigen)
 target_compile_features(BandsOnBZ PRIVATE cxx_std_20)

@@ -60,12 +60,14 @@ int compute_path_mat(const uepm::pseudopotential::epm_material& material,
                      unsigned int                               nearestNeighbors,
                      bool                                       enable_non_local_correction,
                      bool                                       enable_soc,
+                     int                                        nb_threads,
                      const std::string&                         result_dir,
                      bool                                       call_python_plot) {
     Options my_options;
     my_options.nearestNeighbors = nearestNeighbors;
     my_options.nrPoints         = nb_points;
     my_options.nrLevels         = nb_bands;
+    my_options.nrThreads        = nb_threads;
     uepm::pseudopotential::BandStructure my_bandstructure;
     my_bandstructure.Initialize(material,
                                 my_options.nrLevels,
@@ -247,6 +249,10 @@ int main(int argc, char* argv[]) {
 
     cmd.parse(argc, argv);
 
+    if (arg_nb_threads.getValue() <= 0) {
+        throw TCLAP::ArgException("number of threads must be positive", arg_nb_threads.getName());
+    }
+
     // Create the result directory if it doesn't exist.
     std::filesystem::create_directories(arg_res_dir.getValue());
 
@@ -300,6 +306,7 @@ int main(int argc, char* argv[]) {
                          arg_nearest_neighbors.getValue(),
                          enable_nonlocal_correction,
                          enable_soc,
+                         arg_nb_threads.getValue(),
                          arg_res_dir.getValue(),
                          call_python_plot);
     } else if (!arg_material.isSet() && arg_path_sym_points.isSet()) {

@@ -11,11 +11,46 @@
 
 #include "particle.hpp"
 
+#include <algorithm>
+#include <fstream>
 #include <random>
+#include <stdexcept>
 
 #include "physical_constants.hpp"
 #include "statistics_functions.hpp"
 namespace uepm::fbmc {
+
+namespace {
+
+vector3 interpolate_position_at_time(const particle_history& history, double time_s) {
+    const auto steps = history.get_number_of_steps();
+    if (steps == 0) {
+        return vector3(0.0, 0.0, 0.0);
+    }
+    if (time_s <= history.m_time_history.front()) {
+        return history.m_positions.front();
+    }
+    if (time_s >= history.m_time_history.back()) {
+        return history.m_positions.back();
+    }
+
+    const auto upper = std::upper_bound(history.m_time_history.begin(), history.m_time_history.end(), time_s);
+    const auto i     = static_cast<std::size_t>(std::distance(history.m_time_history.begin(), upper));
+    if (i == 0) {
+        return history.m_positions.front();
+    }
+
+    const double t0 = history.m_time_history[i - 1];
+    const double t1 = history.m_time_history[i];
+    if (!(t1 > t0)) {
+        return history.m_positions[i];
+    }
+
+    const double alpha = (time_s - t0) / (t1 - t0);
+    return (1.0 - alpha) * history.m_positions[i - 1] + alpha * history.m_positions[i];
+}
+
+}  // namespace
 
 // particle::particle(std::size_t index, particle_type arg_particle_type, uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz)
 //     : m_index(index),
@@ -101,12 +136,18 @@ void particle::update_k_vector(const vector3& v_electric_field) {
 }
 
 void particle::update_group_velocity() {
+    if (m_containing_bz_mesh_tetra == nullptr) {
+        throw std::runtime_error("particle::update_group_velocity: particle is not attached to a BZ tetrahedron");
+    }
     m_state.m_velocity =
         m_containing_bz_mesh_tetra->interpolate_gradient_energy_at_band(m_state.m_k_vector, m_state.m_band_index);
     m_state.m_velocity *= 1.0 / uepm::constants::h_bar_eV;
 }
 
 void particle::update_energy() {
+    if (m_containing_bz_mesh_tetra == nullptr) {
+        throw std::runtime_error("particle::update_energy: particle is not attached to a BZ tetrahedron");
+    }
     m_state.m_energy = m_containing_bz_mesh_tetra->interpolate_energy_at_band(m_state.m_k_vector, m_state.m_band_index);
 }
 
@@ -115,11 +156,18 @@ void particle::update_position() { m_state.m_position += m_state.m_velocity * m_
 void particle::update_position(const vector3& velocity, double dt) { m_state.m_position += velocity * dt; }
 
 std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(const vector3& location) {
+    if (m_containing_bz_mesh_tetra == nullptr) {
+        throw std::runtime_error(
+            "particle::interpolate_phonon_scattering_rate_at_location: particle is not attached to a BZ tetrahedron");
+    }
     auto& state = this->state();
     return m_containing_bz_mesh_tetra->interpolate_phonon_scattering_rate_at_location(location, state.m_band_index);
 }
 
 void particle::select_final_state_after_phonon_scattering(std::size_t idx_phonon_branch) {
+    if (m_mesh_bz == nullptr) {
+        throw std::runtime_error("particle::select_final_state_after_phonon_scattering: missing BZ mesh");
+    }
     uepm::mesh_bz::SelectedFinalState Sf = m_mesh_bz->select_electron_phonon_final_state(m_state.m_band_index,
                                                                                          m_state.m_k_vector,
                                                                                          idx_phonon_branch,
@@ -132,19 +180,25 @@ void particle::select_final_state_after_phonon_scattering(std::size_t idx_phonon
     update_group_velocity();
 }
 
-void particle::select_final_state_after_impact_ionization() {
-    constexpr double energy_threshold_ionization = 1.20;  // eV, TODO: make this a parameter
-    auto&            state                       = this->state();
-    if (state.m_energy < energy_threshold_ionization) {
+void particle::select_final_state_after_impact_ionization(double energy_threshold_eV) {
+    if (m_mesh_bz == nullptr) {
+        throw std::runtime_error("particle::select_final_state_after_impact_ionization: missing BZ mesh");
+    }
+    if (!(energy_threshold_eV >= 0.0) || !std::isfinite(energy_threshold_eV)) {
+        throw std::invalid_argument(
+            "particle::select_final_state_after_impact_ionization: invalid ionization threshold");
+    }
+    auto& state = this->state();
+    if (state.m_energy < energy_threshold_eV) {
         fmt::print(stderr,
                    "Warning: particle energy ({:.6f} eV) is below the ionization threshold ({:.2f} eV). No ionization "
                    "will occur.\n",
                    state.m_energy,
-                   energy_threshold_ionization);
+                   energy_threshold_eV);
         throw std::runtime_error(
             "select_final_state_after_impact_ionization: particle energy is below the ionization threshold");
     }
-    state.m_energy -= energy_threshold_ionization;  // lose energy due to ionization
+    state.m_energy -= energy_threshold_eV;  // lose energy due to ionization
     auto [k_final, idx_band_final] = m_mesh_bz->draw_random_k_point_at_energy(state.m_energy, m_random_generator);
     state.m_k_vector               = k_final;
     m_containing_bz_mesh_tetra     = m_mesh_bz->find_tetra_at_location(state.m_k_vector);
@@ -152,11 +206,27 @@ void particle::select_final_state_after_impact_ionization() {
 }
 
 double particle::compute_mean_energy() const {
+    return compute_mean_energy(m_history.m_time_history.empty() ? 0.0 : m_history.m_time_history.front());
+}
+
+double particle::compute_mean_energy(double start_time_s) const {
+    if (m_history.get_number_of_steps() < 2) {
+        return 0.0;
+    }
+    if (!std::isfinite(start_time_s)) {
+        throw std::invalid_argument("particle::compute_mean_energy: start time must be finite");
+    }
+
     double weighted_sum = 0.0;
     double total_weight = 0.0;
     for (std::size_t i = 1; i < m_history.get_number_of_steps(); ++i) {
+        const double interval_start = std::max(m_history.m_time_history[i - 1], start_time_s);
+        const double interval_end   = m_history.m_time_history[i];
+        const double weight         = interval_end - interval_start;
+        if (!(weight > 0.0)) {
+            continue;
+        }
         double energy = m_history.m_energies[i];
-        double weight = m_history.m_time_history[i] - m_history.m_time_history[i - 1];
         weighted_sum += energy * weight;
         total_weight += weight;
     }
@@ -172,6 +242,9 @@ double particle::compute_mean_energy() const {
  * @return double
  */
 double particle::extract_impact_ionization_coeff() const {
+    if (m_history.get_number_of_steps() < 2) {
+        return 0.0;
+    }
     std::size_t nb_ionization_events  = m_history.m_scattering_events[8];
     vector3     previous_position     = m_history.m_positions[0];
     vector3     current_position      = m_history.m_positions.back();
@@ -184,11 +257,27 @@ double particle::extract_impact_ionization_coeff() const {
 }
 
 double particle::extract_global_average_velocity() const {
-    vector3 initial_position      = m_history.m_positions[0];
+    return extract_global_average_velocity(m_history.m_time_history.empty() ? 0.0 : m_history.m_time_history.front());
+}
+
+double particle::extract_global_average_velocity(double start_time_s) const {
+    if (m_history.get_number_of_steps() < 2) {
+        return 0.0;
+    }
+    if (!std::isfinite(start_time_s)) {
+        throw std::invalid_argument("particle::extract_global_average_velocity: start time must be finite");
+    }
+
+    const double first_time = m_history.m_time_history.front();
+    const double last_time  = m_history.m_time_history.back();
+    const double start_time = std::clamp(start_time_s, first_time, last_time);
+
+    vector3 initial_position      = interpolate_position_at_time(m_history, start_time);
     vector3 current_position      = m_history.m_positions.back();
     double  total_length_traveled = (current_position.x() - initial_position.x());
 
-    return total_length_traveled / (m_history.m_time_history.back() - m_history.m_time_history[0]);
+    const double elapsed_time = last_time - start_time;
+    return (elapsed_time > 0.0) ? (total_length_traveled / elapsed_time) : 0.0;
 }
 
 void particle::print_history_summary() const {
@@ -197,8 +286,10 @@ void particle::print_history_summary() const {
     std::size_t            nb_events_type    = m_history.m_scattering_events.size();
     std::array<double, 10> event_fractions   = {0.0};
     for (std::size_t i = 0; i < nb_events_type; ++i) {
-        event_fractions[i] =
-            100.0 * static_cast<double>(m_history.m_scattering_events[i]) / static_cast<double>(total_real_events);
+        event_fractions[i] = (total_real_events > 0)
+                                 ? 100.0 * static_cast<double>(m_history.m_scattering_events[i]) /
+                                       static_cast<double>(total_real_events)
+                                 : 0.0;
     }
     fmt::print("Particle {} history summary:\n", m_index);
     fmt::print("  Total recorded events: {}\n", total_events);

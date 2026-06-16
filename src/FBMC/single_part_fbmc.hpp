@@ -29,6 +29,7 @@ struct Bulk_environment {
 
 struct Simulation_parameters {
     double      m_simulation_time;
+    double      m_warmup_fraction = 0.2;
     std::size_t m_export_frequency  = 10;
     std::size_t m_nb_openmp_threads = 1;
 };

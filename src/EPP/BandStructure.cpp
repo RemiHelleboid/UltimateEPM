@@ -10,6 +10,7 @@
 #include <iostream>
 #include <iterator>
 #include <limits>
+#include <stdexcept>
 
 #include "Hamiltonian.h"
 
@@ -125,8 +126,16 @@ void BandStructure::Compute(bool compute_gradient) {
     std::cout << "Computing band structure..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
+    if (compute_gradient && (m_enable_non_local_correction || m_enable_spin_orbit_coupling)) {
+        throw std::runtime_error(
+            "BandStructure::Compute: gradients are only implemented for the local spinless Hamiltonian");
+    }
+
     m_energies.clear();
     m_energies_gradient.clear();
+    if (compute_gradient) {
+        m_energies_gradient.resize(m_nb_points);
+    }
 
     Hamiltonian hamiltonian(m_material, basisVectors);
     for (unsigned int i = 0; i < m_nb_points; ++i) {
@@ -140,8 +149,14 @@ void BandStructure::Compute(bool compute_gradient) {
 
         m_energies.emplace_back();
         m_energies.back().reserve(m_nb_bands);
+        if (compute_gradient) {
+            m_energies_gradient[i].reserve(m_nb_bands);
+        }
         for (unsigned int level = 0; level < m_nb_bands && level < eigenvals.rows(); ++level) {
             m_energies.back().push_back(eigenvals(level));
+            if (compute_gradient) {
+                m_energies_gradient[i].push_back(hamiltonian.compute_gradient_at_level(m_kpoints[i], level));
+            }
         }
     }
     auto end             = std::chrono::high_resolution_clock::now();
@@ -150,13 +165,21 @@ void BandStructure::Compute(bool compute_gradient) {
 
 void BandStructure::Compute_parallel(bool compute_gradient, int nb_threads) {
     std::cout << "Computing band structure with " << nb_threads << " threads..." << std::endl;
+    if (nb_threads <= 0) {
+        throw std::invalid_argument("BandStructure::Compute_parallel: thread count must be positive");
+    }
+    if (compute_gradient && (m_enable_non_local_correction || m_enable_spin_orbit_coupling)) {
+        throw std::runtime_error(
+            "BandStructure::Compute_parallel: gradients are only implemented for the local spinless Hamiltonian");
+    }
     auto start  = std::chrono::high_resolution_clock::now();
     m_nb_points = m_kpoints.size();
     std::cout << "Reserving space for " << m_nb_points << " k-points and " << m_nb_bands << " bands." << std::endl;
     m_energies.clear();
     m_energies.resize(m_nb_points);
+    m_energies_gradient.clear();
     if (compute_gradient) {
-        m_energies_gradient.resize(m_nb_points * m_nb_bands);
+        m_energies_gradient.resize(m_nb_points);
     }
     for (auto& row : m_energies) {
         row.resize(m_nb_bands);
@@ -267,6 +290,12 @@ bool BandStructure::FindBandGap(const std::vector<std::vector<double>>& results,
 }
 
 std::vector<double> BandStructure::get_band(unsigned int band_index) const {
+    if (m_energies.empty()) {
+        throw std::runtime_error("BandStructure::get_band: no band energies have been computed");
+    }
+    if (band_index >= m_energies.front().size()) {
+        throw std::out_of_range("BandStructure::get_band: band index out of range");
+    }
     std::vector<double> res;
     res.reserve(m_energies.size());
     for (auto& p : m_energies) {
@@ -293,8 +322,14 @@ void BandStructure::export_k_points_to_file(std::string filename) const {
 }
 
 void BandStructure::export_result_in_file(const std::string& filename) const {
+    if (m_energies.empty() || m_energies.front().empty()) {
+        throw std::runtime_error("BandStructure::export_result_in_file: no band energies have been computed");
+    }
     std::cout << "Exporting band structure to file:     " << filename << std::endl;
     std::ofstream file(filename);
+    if (!file) {
+        throw std::runtime_error("BandStructure::export_result_in_file: cannot open '" + filename + "'");
+    }
     file << "# epm_material " << m_material.get_name() << std::endl;
     file << "# NBands " << m_nb_bands << std::endl;
     file << "# Nonlocal " << (m_enable_non_local_correction ? "Yes" : "No") << std::endl;
@@ -319,8 +354,14 @@ void BandStructure::export_result_in_file(const std::string& filename) const {
 }
 
 void BandStructure::export_result_in_file_with_kpoints(const std::string& filename) const {
+    if (m_energies.empty() || m_energies.front().empty()) {
+        throw std::runtime_error("BandStructure::export_result_in_file_with_kpoints: no band energies have been computed");
+    }
     std::cout << "Exporting band structure to file:     " << filename << std::endl;
     std::ofstream file(filename);
+    if (!file) {
+        throw std::runtime_error("BandStructure::export_result_in_file_with_kpoints: cannot open '" + filename + "'");
+    }
     file << "kx,ky,kz,";
 
     for (unsigned int i = 0; i < m_energies.front().size() - 1; ++i) {
@@ -336,6 +377,9 @@ void BandStructure::export_result_in_file_with_kpoints(const std::string& filena
 }
 
 std::string BandStructure::path_band_filename() const {
+    if (m_energies.empty()) {
+        throw std::runtime_error("BandStructure::path_band_filename: no band energies have been computed");
+    }
     std::string path_string;
     if (m_path.empty()) {
         path_string = "";

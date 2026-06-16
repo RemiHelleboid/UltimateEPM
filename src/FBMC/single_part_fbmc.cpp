@@ -37,6 +37,26 @@ Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPh
       m_sim_params(sim_params),
       m_nb_particles(nb_particles),
       m_time(0.0) {
+    if (m_ptr_mesh_bz == nullptr) {
+        throw std::invalid_argument("Single_particle_simulation: BZ mesh pointer must not be null");
+    }
+    if (!(m_bulk_env.m_temperature > 0.0) || !std::isfinite(m_bulk_env.m_temperature)) {
+        throw std::invalid_argument("Single_particle_simulation: temperature must be finite and positive");
+    }
+    if (!(m_sim_params.m_simulation_time >= 0.0) || !std::isfinite(m_sim_params.m_simulation_time)) {
+        throw std::invalid_argument("Single_particle_simulation: simulation time must be finite and non-negative");
+    }
+    if (!(m_sim_params.m_warmup_fraction >= 0.0 && m_sim_params.m_warmup_fraction < 1.0) ||
+        !std::isfinite(m_sim_params.m_warmup_fraction)) {
+        throw std::invalid_argument("Single_particle_simulation: warmup fraction must be finite and in [0, 1)");
+    }
+    if (m_sim_params.m_nb_openmp_threads == 0) {
+        throw std::invalid_argument("Single_particle_simulation: thread count must be positive");
+    }
+    if (m_nb_particles == 0) {
+        throw std::invalid_argument("Single_particle_simulation: particle count must be positive");
+    }
+
     m_list_particle.reserve(m_nb_particles);
     for (std::size_t i = 0; i < m_nb_particles; ++i) {
         particle particle(i, particle_type::electron, m_ptr_mesh_bz);
@@ -129,7 +149,7 @@ void Single_particle_simulation::run_simulation() {
         auto&                                  particle = m_list_particle[idx];
         std::uniform_real_distribution<double> U01(0.0, 1.0);
 
-        while (particle.state().m_time <= T_end) {
+        while (particle.state().m_time < T_end) {
             if (particle.get_index() == 0 && particle.state().m_iter % 1000 == 0) {
 #pragma omp critical
                 fmt::print("Particle {} at time {:.3e} / {:.3e} s, iteration {}, energy {:.4f} eV\n",
@@ -142,9 +162,12 @@ void Single_particle_simulation::run_simulation() {
 
             particle.draw_free_flight_time(p_gamma);
 
-            const double  dt                     = particle.state().m_free_flight_time;
+            const double  sampled_dt             = particle.state().m_free_flight_time;
+            const double  remaining_time         = T_end - particle.state().m_time;
+            const double  dt                     = std::min(sampled_dt, remaining_time);
             const vector3 velocity_before_flight = particle.state().m_velocity;
 
+            particle.state().m_free_flight_time = dt;
             particle.update_k_vector(m_bulk_env.m_electric_field);
 
             // Re-attach tetra; fold if needed
@@ -165,6 +188,11 @@ void Single_particle_simulation::run_simulation() {
             const vector3 velocity_after_flight = particle.state().m_velocity;
             particle.update_position(0.5 * (velocity_before_flight + velocity_after_flight), dt);
             particle.advance_time_by_free_flight();
+
+            if (sampled_dt > remaining_time) {
+                particle.update_history();
+                break;
+            }
 
             // Physical rates at current k
             std::array<double, 8> rates_elph =
@@ -220,7 +248,7 @@ void Single_particle_simulation::run_simulation() {
             if (rsel > sum_elph) {
                 // Impact ionization event
                 const std::size_t event_idx = 8;
-                particle.select_final_state_after_impact_ionization();
+                particle.select_final_state_after_impact_ionization(keldysh_impactio.m_E_threshold);
 #pragma omp critical
                 fmt::print("Particle {} underwent impact ionization at time {:.3e} s, energy {:.3f} eV\n",
                            particle.get_index(),
@@ -247,28 +275,37 @@ void Single_particle_simulation::run_simulation() {
             }
         }  // while particle
 
-        particle.update_history();  // final update
+        if (particle.get_history().m_time_history.empty() ||
+            particle.get_history().m_time_history.back() < particle.state().m_time) {
+            particle.update_history();  // final update
+        }
         // particle.print_history_summary();
     }  // omp parallel for
 }
 
 void Single_particle_simulation::extract_stats_and_export(const std::string& filename) {
+    if (m_list_particle.empty()) {
+        throw std::runtime_error("Single_particle_simulation::extract_stats_and_export: no particles to summarize");
+    }
+
     double mean_energy        = 0.0;
-    double mean_velocity_norm = 0.0;
+    double mean_x_velocity    = 0.0;
     double ionization_coeff   = 0.0;
+    const double warmup_start_time_s = m_sim_params.m_warmup_fraction * m_sim_params.m_simulation_time;
     for (const auto& particle : m_list_particle) {
-        mean_energy += particle.compute_mean_energy();
-        mean_velocity_norm += particle.extract_global_average_velocity();
+        mean_energy += particle.compute_mean_energy(warmup_start_time_s);
+        mean_x_velocity += particle.extract_global_average_velocity(warmup_start_time_s);
         ionization_coeff += particle.extract_impact_ionization_coeff();
     }
     mean_energy /= static_cast<double>(m_list_particle.size());
-    mean_velocity_norm /= static_cast<double>(m_list_particle.size());
+    mean_x_velocity /= static_cast<double>(m_list_particle.size());
     ionization_coeff /= static_cast<double>(m_list_particle.size());
 
     fmt::print("Extracted stats across {} particles:\n", m_list_particle.size());
+    fmt::print("  Warmup fraction: {:.6f}\n", m_sim_params.m_warmup_fraction);
     fmt::print("  Mean energy: {:.6f} eV\n", mean_energy);
-    fmt::print("  Mean velocity norm: {:.6e} m/s\n", mean_velocity_norm);
-    fmt::print("  Mean impact ionization coefficient: {:.3e} 1/s\n", ionization_coeff);
+    fmt::print("  Mean x velocity: {:.6e} m/s\n", mean_x_velocity);
+    fmt::print("  Mean impact ionization coefficient: {:.3e} 1/m\n", ionization_coeff);
 
     // Export to CSV
     std::ofstream ofs(filename);
@@ -276,8 +313,13 @@ void Single_particle_simulation::extract_stats_and_export(const std::string& fil
         fmt::print("Error: Could not open file {} for writing\n", filename);
         return;
     }
-    ofs << "mean_energy_eV,mean_velocity_norm_m_per_s,mean_ionization_coeff_1_per_s\n";
-    ofs << fmt::format("{:.6f},{:.6e},{:.3e}\n", mean_energy, mean_velocity_norm, ionization_coeff);
+    ofs << "warmup_fraction,warmup_start_time_s,mean_energy_eV,mean_x_velocity_m_per_s,mean_ionization_coeff_1_per_m\n";
+    ofs << fmt::format("{:.6f},{:.6e},{:.6f},{:.6e},{:.3e}\n",
+                       m_sim_params.m_warmup_fraction,
+                       warmup_start_time_s,
+                       mean_energy,
+                       mean_x_velocity,
+                       ionization_coeff);
     fmt::print("Exported extracted stats to {}\n", filename);
 }
 

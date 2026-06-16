@@ -55,6 +55,7 @@ class BandStructure {
     std::string                     get_path_as_string() const;
     unsigned int                    GetPointsNumber() const { return static_cast<unsigned int>(m_kpoints.size()); }
     void                            Compute(bool compute_gradient = false);
+    void                            Compute_parallel(int nb_threads) { Compute_parallel(false, nb_threads); }
     void                            Compute_parallel(bool compute_gradient = false, int nb_threads = 1);
     double                          AdjustValues(bool minConductionBandToZero = false);
 

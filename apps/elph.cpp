@@ -15,10 +15,12 @@
 #include <tclap/CmdLine.h>
 
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 #include "BandStructure.h"
 #include "Options.h"
@@ -28,6 +30,37 @@
 
 template <typename Derived>
 struct fmt::formatter<Eigen::DenseBase<Derived>> : fmt::ostream_formatter {};
+
+namespace {
+
+void require_positive(int value, const std::string& option_name) {
+    if (value <= 0) {
+        throw std::invalid_argument(fmt::format("{} must be positive", option_name));
+    }
+}
+
+void require_positive(double value, const std::string& option_name) {
+    if (!(value > 0.0) || !std::isfinite(value)) {
+        throw std::invalid_argument(fmt::format("{} must be finite and positive", option_name));
+    }
+}
+
+void require_band_count(int value, const std::string& option_name) {
+    if (value < -1) {
+        throw std::invalid_argument(fmt::format("{} must be -1 or non-negative", option_name));
+    }
+}
+
+std::filesystem::path make_output_directory(const std::string& requested) {
+    std::filesystem::path outdir = requested.empty() ? std::filesystem::path(".") : std::filesystem::path(requested);
+    std::filesystem::create_directories(outdir);
+    if (!std::filesystem::is_directory(outdir)) {
+        throw std::runtime_error(fmt::format("Output path is not a directory: {}", outdir.string()));
+    }
+    return outdir;
+}
+
+}  // namespace
 
 int export_result_mobility(const std::string     &filename,
                            const Eigen::Matrix3d &mu_tensor,
@@ -66,9 +99,7 @@ int export_result_mobility(const std::string     &filename,
 }
 
 int main(int argc, char const *argv[]) {
-    fmt::print("Starting UltimateEPM Electron-Phonon Calculations ... \n\n");
-
-    TCLAP::CmdLine               cmd("EPP PROGRAM. COMPUTE BAND STRUCTURE ON A BZ MESH.", ' ', "1.0");
+    TCLAP::CmdLine               cmd("Electron-phonon rate and mobility utility.", ' ', "1.1");
     TCLAP::ValueArg<std::string> arg_mesh_file("f",
                                                "meshbandfile",
                                                "File with BZ mesh and bands energy.",
@@ -87,6 +118,25 @@ int main(int argc, char const *argv[]) {
                                               true,
                                               "Si",
                                               "string");
+    TCLAP::ValueArg<std::string> arg_phonon_parameter_set("",
+                                                          "phonon-params",
+                                                          "Electron-phonon parameter set, e.g. kamakura, michaillat, "
+                                                          "or fischetti.",
+                                                          false,
+                                                          "kamakura",
+                                                          "string");
+    TCLAP::ValueArg<std::string> arg_output_dir("d",
+                                                "outdir",
+                                                "Output directory for generated files.",
+                                                false,
+                                                "",
+                                                "string");
+    TCLAP::ValueArg<std::string> arg_rates_output("",
+                                                  "rates-out",
+                                                  "Output CSV for computed electron-phonon rates.",
+                                                  false,
+                                                  "",
+                                                  "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
     TCLAP::ValueArg<int>         arg_nb_conduction_bands("c",
                                                  "ncbands",
@@ -114,10 +164,12 @@ int main(int argc, char const *argv[]) {
                                       "knkpnp",
                                       "Compute and store the full (n,k) -> (n',k') transition rate matrices.",
                                       false);
-    TCLAP::SwitchArg        use_unit_defpot("U", "unitdefpot", "Keep deformation potential to 1.0.", false);
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
+    cmd.add(arg_phonon_parameter_set);
+    cmd.add(arg_output_dir);
+    cmd.add(arg_rates_output);
     cmd.add(arg_nb_conduction_bands);
     cmd.add(arg_nb_valence_bands);
     cmd.add(arg_nb_energies);
@@ -128,7 +180,6 @@ int main(int argc, char const *argv[]) {
     cmd.add(arg_energy_range);
     cmd.add(arg_export_rates);
     cmd.add(arg_phonon_rates);
-    cmd.add(use_unit_defpot);
     cmd.add(arg_band_gap);
     cmd.parse(argc, argv);
 
@@ -149,16 +200,25 @@ int main(int argc, char const *argv[]) {
     const double      temperature               = arg_temperature.getValue();
     bool              irreducible_wedge_only    = use_irr_wedge.getValue();
     const std::string mesh_band_input_file      = arg_mesh_file.getValue();
+    const std::string phonon_parameter_set      = arg_phonon_parameter_set.getValue();
     const bool        shift_conduction_band     = true;
     const bool        set_positive_valence_band = false;
     const bool        export_rates              = arg_export_rates.getValue();
-    bool              use_unit_deformation_potential = use_unit_defpot.getValue();
     bool              phonon_rates_provided          = arg_phonon_rates.isSet();
     std::string       phonon_rates_file              = "";
     if (phonon_rates_provided) {
         phonon_rates_file = arg_phonon_rates.getValue();
     }
     double band_gap = arg_band_gap.getValue();
+    const auto output_dir = make_output_directory(arg_output_dir.getValue());
+
+    require_positive(my_options.nrThreads, "--nthreads");
+    require_positive(number_energies, "--nenergy");
+    require_band_count(nb_conduction_bands, "--ncbands");
+    require_band_count(nb_valence_bands, "--nvbands");
+    require_positive(max_energy, "--energy_window");
+    require_positive(temperature, "--temperature");
+    require_positive(band_gap, "--bandgap");
 
     uepm::pseudopotential::epm_material current_material = materials.materials.at(arg_material.getValue());
 
@@ -174,19 +234,24 @@ int main(int argc, char const *argv[]) {
                                                  nb_valence_bands,
                                                  shift_conduction_band,
                                                  set_positive_valence_band);
-    const std::string vtk_file = "mesh_vtk.vtk";
+    const std::string vtk_file = (output_dir / "mesh_vtk.vtk").string();
     if (!std::filesystem::exists(vtk_file)) {
         ElectronPhonon.export_energies_and_gradients_to_vtk(vtk_file);
     }
 
-    ElectronPhonon.load_phonon_parameters(material_repository, "kamakura");
-    ElectronPhonon.set_nb_bands_elph(nb_conduction_bands);
+    ElectronPhonon.load_phonon_parameters(material_repository, phonon_parameter_set);
+    const auto nb_elph_bands = ElectronPhonon.get_number_conduction_bands();
+    if (nb_elph_bands == 0) {
+        throw std::runtime_error("elph.epm requires at least one conduction band in the mesh");
+    }
+    ElectronPhonon.set_nb_bands_elph(nb_elph_bands);
 
     std::size_t           nb_vtx = ElectronPhonon.get_number_vertices();
     std::filesystem::path name_path(mesh_band_input_file);
     std::string           name_stem = name_path.stem().string();
     auto stamp_params = fmt::format("_T{}K_C{}V{}_N{}", temperature, nb_conduction_bands, nb_valence_bands, nb_vtx);
-    std::string prefix_export = name_stem + stamp_params;
+    const std::filesystem::path prefix_export_path = output_dir / (name_stem + stamp_params);
+    std::string                 prefix_export      = prefix_export_path.string();
 
     const double energy_windows_guard = 10.0 * uepm::constants::k_b_eV * temperature;
     if (max_energy < energy_windows_guard) {
@@ -203,7 +268,8 @@ int main(int argc, char const *argv[]) {
     }
 
     if (export_rates && !phonon_rates_provided) {
-        const std::string rates_file = prefix_export + "_eph_rates.msh";
+        const std::string rates_file = arg_rates_output.isSet() ? arg_rates_output.getValue()
+                                                                : (output_dir / "phonon_rates.csv").string();
         ElectronPhonon.export_rate_values(rates_file);
     }
     ElectronPhonon.test_elph();

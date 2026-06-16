@@ -12,6 +12,7 @@ set(HEADER_FILES_LIBEPP
   Vector3D.h
   Vector3D.inl
   BandStructure.h
+  effective_mass.hpp
   DielectricFunction.hpp
   Pseudopotential.h)
 
@@ -22,6 +23,7 @@ set(SOURCE_FILES_LIBEPP
   Hamiltonian.cpp
   NonLocalFunctional.cpp
   BandStructure.cpp
+  effective_mass.cpp
   Pseudopotential.cpp
   SpinOrbitFunctional.cpp
   DielectricFunction.cpp
