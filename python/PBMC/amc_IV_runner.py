@@ -11,9 +11,17 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
+os.environ.setdefault("XDG_CACHE_HOME", "/tmp")
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+try:
+    import yaml
+except ImportError:  # pragma: no cover - fallback keeps the runner usable without PyYAML.
+    yaml = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,21 +54,21 @@ def parse_args() -> argparse.Namespace:
         "--vmin",
         required=True,
         type=float,
-        help="Minimum voltage applied to the swept contact, in V.",
+        help="Minimum sweep voltage in V. By default this is diode voltage Vanode - Vcathode.",
     )
 
     parser.add_argument(
         "--vmax",
         required=True,
         type=float,
-        help="Maximum voltage applied to the swept contact, in V.",
+        help="Maximum sweep voltage in V. By default this is diode voltage Vanode - Vcathode.",
     )
 
     parser.add_argument(
         "--vstep",
         required=True,
         type=float,
-        help="Voltage step in V.",
+        help="Sweep voltage step in V.",
     )
 
     parser.add_argument(
@@ -68,6 +76,26 @@ def parse_args() -> argparse.Namespace:
         choices=["anode", "cathode"],
         default="anode",
         help="Contact voltage varied by the sweep.",
+    )
+
+    parser.add_argument(
+        "--voltage-axis",
+        choices=["diode", "swept"],
+        default="diode",
+        help=(
+            "Voltage stored on the main x-axis. 'diode' uses "
+            "Vanode - Vcathode, positive in forward bias for a p-anode/n-cathode PN junction."
+        ),
+    )
+
+    parser.add_argument(
+        "--sweep-voltage",
+        choices=["diode", "swept"],
+        default="diode",
+        help=(
+            "Meaning of --vmin/--vmax/--vstep. 'diode' sweeps Vanode - Vcathode "
+            "and converts to the selected contact voltage."
+        ),
     )
 
     parser.add_argument(
@@ -215,6 +243,81 @@ def voltage_directory_name(contact: str, voltage: float) -> str:
     return f"{prefix}_{voltage:+.6e}_V".replace("+", "p").replace("-", "m")
 
 
+def parse_scalar_text(value: object) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    return float(str(value))
+
+
+def read_contact_voltage_from_config(config_file: Path, contact: str) -> float:
+    key = f"{contact}_voltage_V"
+
+    if yaml is not None:
+        with config_file.open("r", encoding="utf-8") as stream:
+            data = yaml.safe_load(stream) or {}
+        return parse_scalar_text(data.get("contacts", {}).get(key, 0.0))
+
+    in_contacts = False
+    with config_file.open("r", encoding="utf-8") as stream:
+        for raw_line in stream:
+            line = raw_line.split("#", 1)[0].rstrip()
+            if not line:
+                continue
+            if not raw_line.startswith(" ") and line.endswith(":"):
+                in_contacts = line[:-1] == "contacts"
+                continue
+            if in_contacts:
+                stripped = line.strip()
+                if stripped.startswith(f"{key}:"):
+                    return float(stripped.split(":", 1)[1].strip())
+    return 0.0
+
+
+def contact_voltage_override(overrides: list[str], contact: str) -> float | None:
+    key = f"contacts.{contact}_voltage_V"
+    value: float | None = None
+    for override in overrides:
+        override_key, _, override_value = override.partition("=")
+        if override_key == key:
+            value = float(override_value)
+    return value
+
+
+def fixed_contact_voltage(args: argparse.Namespace) -> float:
+    fixed_contact = "cathode" if args.swept_contact == "anode" else "anode"
+    override = contact_voltage_override(args.config_overrides, fixed_contact)
+    if override is not None:
+        return override
+    return read_contact_voltage_from_config(args.config, fixed_contact)
+
+
+def diode_voltage_from_sweep(args: argparse.Namespace, swept_voltage: float) -> float:
+    fixed_voltage = fixed_contact_voltage(args)
+    if args.swept_contact == "anode":
+        return swept_voltage - fixed_voltage
+    return fixed_voltage - swept_voltage
+
+
+def swept_voltage_from_input(args: argparse.Namespace, input_voltage: float) -> float:
+    if args.sweep_voltage == "swept":
+        return input_voltage
+
+    fixed_voltage = fixed_contact_voltage(args)
+    if args.swept_contact == "anode":
+        return fixed_voltage + input_voltage
+    return fixed_voltage - input_voltage
+
+
+def plot_voltage_column(args: argparse.Namespace) -> str:
+    return "diode_voltage_V" if args.voltage_axis == "diode" else "swept_voltage_V"
+
+
+def plot_voltage_label(args: argparse.Namespace) -> str:
+    if args.voltage_axis == "diode":
+        return "Diode voltage Vanode - Vcathode (V)"
+    return f"Swept {args.swept_contact} voltage (V)"
+
+
 def build_command(
     args: argparse.Namespace,
     voltage: float,
@@ -324,6 +427,7 @@ def optional_mean_max(
 
 
 def extract_iv_point(
+    args: argparse.Namespace,
     history_file: Path,
     voltage: float,
     transient_fraction: float,
@@ -365,7 +469,10 @@ def extract_iv_point(
     stderr_current = std_current / float(np.sqrt(len(current)))
 
     result: dict[str, float | str] = {
-        "voltage_V": float(voltage),
+        "voltage_V": float(diode_voltage_from_sweep(args, voltage)),
+        "diode_voltage_V": float(diode_voltage_from_sweep(args, voltage)),
+        "swept_voltage_V": float(voltage),
+        "swept_contact": args.swept_contact,
         "time_min_s": t_min,
         "time_max_s": t_max,
         "transient_cut_s": t_cut,
@@ -415,6 +522,7 @@ def run_and_extract_one_voltage(
     history_file = run_one_voltage(args, voltage, seed)
 
     record = extract_iv_point(
+        args,
         history_file,
         voltage,
         args.transient_fraction,
@@ -429,11 +537,12 @@ def run_and_extract_one_voltage(
     return record
 
 
-def plot_iv_signed(df: pd.DataFrame, outdir: Path, show: bool) -> None:
+def plot_iv_signed(df: pd.DataFrame, args: argparse.Namespace, outdir: Path, show: bool) -> None:
     fig, ax = plt.subplots()
+    x_column = plot_voltage_column(args)
 
     ax.errorbar(
-        df["voltage_V"],
+        df[x_column],
         df["mean_current_A"],
         yerr=df["stderr_current_A"],
         marker="o",
@@ -443,7 +552,7 @@ def plot_iv_signed(df: pd.DataFrame, outdir: Path, show: bool) -> None:
     )
 
     ax.plot(
-        df["voltage_V"],
+        df[x_column],
         df["mean_current_electron_A"],
         marker="s",
         linestyle="--",
@@ -451,14 +560,14 @@ def plot_iv_signed(df: pd.DataFrame, outdir: Path, show: bool) -> None:
     )
 
     ax.plot(
-        df["voltage_V"],
+        df[x_column],
         df["mean_current_hole_A"],
         marker="^",
         linestyle="--",
         label="hole",
     )
 
-    ax.set_xlabel("Swept contact voltage (V)")
+    ax.set_xlabel(plot_voltage_label(args))
     ax.set_ylabel("Mean Ramo current (A)")
     ax.set_title("Device PBMC I/V curve")
     ax.grid(True)
@@ -474,8 +583,9 @@ def plot_iv_signed(df: pd.DataFrame, outdir: Path, show: bool) -> None:
     plt.close(fig)
 
 
-def plot_iv_abs_log(df: pd.DataFrame, outdir: Path, show: bool) -> None:
+def plot_iv_abs_log(df: pd.DataFrame, args: argparse.Namespace, outdir: Path, show: bool) -> None:
     data = df[df["mean_abs_current_A"] > 0.0].copy()
+    x_column = plot_voltage_column(args)
 
     if data.empty:
         print("No positive absolute current values available for log plot.")
@@ -484,14 +594,14 @@ def plot_iv_abs_log(df: pd.DataFrame, outdir: Path, show: bool) -> None:
     fig, ax = plt.subplots()
 
     ax.plot(
-        data["voltage_V"],
+        data[x_column],
         data["mean_abs_current_A"],
         marker="o",
         linestyle="-",
     )
 
     ax.set_yscale("log")
-    ax.set_xlabel("Swept contact voltage (V)")
+    ax.set_xlabel(plot_voltage_label(args))
     ax.set_ylabel("|Mean Ramo current| (A)")
     ax.set_title("Device PBMC I/V curve")
     ax.grid(True, which="both")
@@ -506,24 +616,25 @@ def plot_iv_abs_log(df: pd.DataFrame, outdir: Path, show: bool) -> None:
     plt.close(fig)
 
 
-def plot_particle_counts(df: pd.DataFrame, outdir: Path, show: bool) -> None:
+def plot_particle_counts(df: pd.DataFrame, args: argparse.Namespace, outdir: Path, show: bool) -> None:
     fig, ax = plt.subplots()
+    x_column = plot_voltage_column(args)
 
     ax.plot(
-        df["voltage_V"],
+        df[x_column],
         df["mean_nb_electrons"],
         marker="o",
         label="mean electrons",
     )
 
     ax.plot(
-        df["voltage_V"],
+        df[x_column],
         df["mean_nb_holes"],
         marker="s",
         label="mean holes",
     )
 
-    ax.set_xlabel("Swept contact voltage (V)")
+    ax.set_xlabel(plot_voltage_label(args))
     ax.set_ylabel("Mean numerical particle count")
     ax.set_title("Mean particle population versus voltage")
     ax.grid(True)
@@ -541,6 +652,7 @@ def plot_particle_counts(df: pd.DataFrame, outdir: Path, show: bool) -> None:
 
 def plot_represented_carriers_if_available(
     df: pd.DataFrame,
+    args: argparse.Namespace,
     outdir: Path,
     show: bool,
 ) -> None:
@@ -553,22 +665,23 @@ def plot_represented_carriers_if_available(
         return
 
     fig, ax = plt.subplots()
+    x_column = plot_voltage_column(args)
 
     ax.plot(
-        df["voltage_V"],
+        df[x_column],
         df["mean_total_electron_weight"],
         marker="o",
         label="electrons",
     )
 
     ax.plot(
-        df["voltage_V"],
+        df[x_column],
         df["mean_total_hole_weight"],
         marker="s",
         label="holes",
     )
 
-    ax.set_xlabel("Swept contact voltage (V)")
+    ax.set_xlabel(plot_voltage_label(args))
     ax.set_ylabel("Mean represented carrier count")
     ax.set_title("Mean represented carriers versus voltage")
     ax.grid(True)
@@ -586,6 +699,7 @@ def plot_represented_carriers_if_available(
 
 def plot_max_field_if_available(
     df: pd.DataFrame,
+    args: argparse.Namespace,
     outdir: Path,
     show: bool,
 ) -> None:
@@ -593,14 +707,15 @@ def plot_max_field_if_available(
         return
 
     fig, ax = plt.subplots()
+    x_column = plot_voltage_column(args)
 
     ax.plot(
-        df["voltage_V"],
+        df[x_column],
         df["mean_max_electric_field"],
         marker="o",
     )
 
-    ax.set_xlabel("Swept contact voltage (V)")
+    ax.set_xlabel(plot_voltage_label(args))
     ax.set_ylabel("Mean max electric field")
     ax.set_title("Maximum electric field versus voltage")
     ax.grid(True)
@@ -615,7 +730,7 @@ def plot_max_field_if_available(
     plt.close(fig)
 
 
-def write_manifest(args: argparse.Namespace, voltages: list[float]) -> None:
+def write_manifest(args: argparse.Namespace, input_voltages: list[float], swept_voltages: list[float]) -> None:
     manifest_file = args.outdir / "iv_sweep_manifest.txt"
 
     with manifest_file.open("w", encoding="utf-8") as stream:
@@ -627,10 +742,14 @@ def write_manifest(args: argparse.Namespace, voltages: list[float]) -> None:
         stream.write(f"outdir = {args.outdir}\n\n")
 
         stream.write(f"swept_contact = {args.swept_contact}\n")
+        stream.write(f"sweep_voltage = {args.sweep_voltage}\n")
+        stream.write(f"voltage_axis = {args.voltage_axis}\n")
+        stream.write("diode_voltage_convention = Vanode - Vcathode\n")
         stream.write(f"vmin = {args.vmin:.8e}\n")
         stream.write(f"vmax = {args.vmax:.8e}\n")
         stream.write(f"vstep = {args.vstep:.8e}\n")
-        stream.write("voltages = " + " ".join(f"{v:.8e}" for v in voltages) + "\n\n")
+        stream.write("input_voltages = " + " ".join(f"{v:.8e}" for v in input_voltages) + "\n")
+        stream.write("swept_contact_voltages = " + " ".join(f"{v:.8e}" for v in swept_voltages) + "\n\n")
 
         stream.write(f"transient_fraction = {args.transient_fraction:.8e}\n")
         stream.write(f"jobs = {args.jobs}\n")
@@ -651,20 +770,29 @@ def main() -> int:
 
     args.outdir.mkdir(parents=True, exist_ok=True)
 
-    voltages = build_voltage_list(
+    input_voltages = build_voltage_list(
         args.vmin,
         args.vmax,
         args.vstep,
     )
+    swept_voltages = [swept_voltage_from_input(args, voltage) for voltage in input_voltages]
 
-    if not voltages:
+    if not input_voltages:
         raise RuntimeError("Voltage list is empty.")
 
-    write_manifest(args, voltages)
+    write_manifest(args, input_voltages, swept_voltages)
 
     print("Voltage sweep:")
-    for voltage in voltages:
-        print(f"  {voltage:.6e} V")
+    fixed_voltage = fixed_contact_voltage(args)
+    fixed_contact = "cathode" if args.swept_contact == "anode" else "anode"
+    print(f"  fixed {fixed_contact}: {fixed_voltage:.6e} V")
+    print(f"  input voltage: {args.sweep_voltage}")
+    for input_voltage, swept_voltage in zip(input_voltages, swept_voltages):
+        print(
+            f"  input={input_voltage:.6e} V, "
+            f"{args.swept_contact}={swept_voltage:.6e} V, "
+            f"Vd=Vanode-Vcathode={diode_voltage_from_sweep(args, swept_voltage):.6e} V"
+        )
 
     print(f"Swept contact: {args.swept_contact}", flush=True)
     print(
@@ -676,7 +804,7 @@ def main() -> int:
     records: list[dict[str, float | str]] = []
 
     if args.jobs == 1:
-        for index, voltage in enumerate(voltages):
+        for index, voltage in enumerate(swept_voltages):
             seed = args.seed + index if args.seed is not None else None
             records.append(
                 run_and_extract_one_voltage(args, voltage, seed)
@@ -690,7 +818,7 @@ def main() -> int:
                     voltage,
                     args.seed + index if args.seed is not None else None,
                 ): voltage
-                for index, voltage in enumerate(voltages)
+                for index, voltage in enumerate(swept_voltages)
             }
 
             for future in as_completed(futures):
@@ -705,16 +833,16 @@ def main() -> int:
                     ) from exc
 
     df = pd.DataFrame.from_records(records)
-    df = df.sort_values("voltage_V")
+    df = df.sort_values(plot_voltage_column(args))
 
     results_file = args.outdir / "iv_curve_results.csv"
     df.to_csv(results_file, index=False)
 
-    plot_iv_signed(df, args.outdir, args.show)
-    plot_iv_abs_log(df, args.outdir, args.show)
-    plot_particle_counts(df, args.outdir, args.show)
-    plot_represented_carriers_if_available(df, args.outdir, args.show)
-    plot_max_field_if_available(df, args.outdir, args.show)
+    plot_iv_signed(df, args, args.outdir, args.show)
+    plot_iv_abs_log(df, args, args.outdir, args.show)
+    plot_particle_counts(df, args, args.outdir, args.show)
+    plot_represented_carriers_if_available(df, args, args.outdir, args.show)
+    plot_max_field_if_available(df, args, args.outdir, args.show)
 
     print(f"Wrote {results_file}")
     print(f"Wrote {args.outdir / 'iv_curve_signed.png'}")

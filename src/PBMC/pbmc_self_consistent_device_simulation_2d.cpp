@@ -82,12 +82,19 @@ void self_consistent_device_pbmc_simulation_2d::initialize_contact_elements() {
     m_list_element_contact_equilibrium_charge.reserve(list_contact_elem_anode.size() +
                                                       list_contact_elem_cathode.size());
 
-    const auto add_contact_element = [&](std::size_t element_index) {
+    std::vector<std::shared_ptr<mesh::element>> anode_contact_elements;
+    std::vector<std::shared_ptr<mesh::element>> cathode_contact_elements;
+    anode_contact_elements.reserve(list_contact_elem_anode.size());
+    cathode_contact_elements.reserve(list_contact_elem_cathode.size());
+
+    const auto add_contact_element = [&](std::size_t element_index,
+                                         std::vector<std::shared_ptr<mesh::element>>& contact_elements) {
         if (element_index >= list_bulk_elements.size()) {
             throw std::runtime_error("Contact-adjacent bulk element index is out of range.");
         }
 
         auto element = list_bulk_elements[element_index];
+        contact_elements.push_back(element);
         m_list_element_contact.push_back(element_index);
         m_list_element_contact_ptr.push_back(element);
 
@@ -97,12 +104,14 @@ void self_consistent_device_pbmc_simulation_2d::initialize_contact_elements() {
     };
 
     for (const auto element_index : list_contact_elem_anode) {
-        add_contact_element(element_index);
+        add_contact_element(element_index, anode_contact_elements);
     }
 
     for (const auto element_index : list_contact_elem_cathode) {
-        add_contact_element(element_index);
+        add_contact_element(element_index, cathode_contact_elements);
     }
+
+    update_built_in_contact_voltage_offsets(anode_contact_elements, cathode_contact_elements);
 }
 
 void self_consistent_device_pbmc_simulation_2d::place_initial_charges_according_to_doping(double particle_weight) {

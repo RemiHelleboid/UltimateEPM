@@ -35,6 +35,10 @@ add_executable(pbmc.epm pbmc_bulk.cpp)
 target_link_libraries(pbmc.epm PRIVATE libepp lib_PBMC)
 target_compile_features(pbmc.epm PRIVATE cxx_std_20)
 
+add_executable(pbmc_rates pbmc_rates.cpp)
+target_link_libraries(pbmc_rates PRIVATE uepm::PBMC fmt::fmt)
+target_compile_features(pbmc_rates PRIVATE cxx_std_20)
+
 add_executable(device_pbmc.epm pbmc_device.cpp)
 target_link_libraries(device_pbmc.epm PRIVATE libepp uepm::PBMC uepm::mesh libfile)
 target_compile_features(device_pbmc.epm PRIVATE cxx_std_20)

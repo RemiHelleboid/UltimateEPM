@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "element.hpp"
 #include "pbmc_avalanche_detector.hpp"
 #include "pbmc_quench_circuit.hpp"
 #include "pbmc_quench_detector.hpp"
@@ -34,6 +35,10 @@ struct options_self_consistent_device_pbmc_common {
 
     double m_anode_voltage   = 0.0;
     double m_cathode_voltage = 0.0;
+
+    bool   m_enable_built_in_potential       = false;
+    double m_intrinsic_concentration_cm_3    = 1.0e10;
+    double m_built_in_contact_voltage_scale  = 1.0;
 
     double m_contact_injection_particle_weight = 2.0;
 
@@ -61,6 +66,9 @@ class self_consistent_device_pbmc_simulation_base : public device_pbmc_simulatio
     voltage_drop_avalanche_detector           m_avalanche_detector;
     successful_quench_detector                m_successful_quench_detector;
 
+    double m_anode_built_in_voltage_offset_V   = 0.0;
+    double m_cathode_built_in_voltage_offset_V = 0.0;
+
     self_consistent_device_pbmc_simulation_base(const device::device&                            simulation_device,
                                                const options_device_PBMC&                        simulation_options,
                                                const options_self_consistent_device_pbmc_common& common_options,
@@ -75,6 +83,9 @@ class self_consistent_device_pbmc_simulation_base : public device_pbmc_simulatio
                                                int seed_random_generator = 0);
 
     void validate_common_self_consistent_options() const;
+    void update_built_in_contact_voltage_offsets(
+        const std::vector<std::shared_ptr<mesh::element>>& anode_contact_elements,
+        const std::vector<std::shared_ptr<mesh::element>>& cathode_contact_elements);
 
     const options_self_consistent_device_pbmc_common& common_options() const;
 

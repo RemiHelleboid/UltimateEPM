@@ -47,6 +47,9 @@ YAML::Node make_default_config() {
 
     config["contacts"]["anode_voltage_V"]   = 0.0;
     config["contacts"]["cathode_voltage_V"] = 0.0;
+    config["contacts"]["apply_built_in_potential"]    = false;
+    config["contacts"]["intrinsic_concentration_cm_3"] = 1.0e10;
+    config["contacts"]["built_in_voltage_scale"]       = 1.0;
 
     config["particles"]["initial_electrons"]        = 1;
     config["particles"]["initial_holes"]            = 0;
@@ -259,6 +262,9 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
     common.m_poisson_frequency                 = value_at<std::size_t>(config, "simulation", "poisson_frequency");
     common.m_anode_voltage                     = value_at<double>(config, "contacts", "anode_voltage_V");
     common.m_cathode_voltage                   = value_at<double>(config, "contacts", "cathode_voltage_V");
+    common.m_enable_built_in_potential         = value_at<bool>(config, "contacts", "apply_built_in_potential");
+    common.m_intrinsic_concentration_cm_3      = value_at<double>(config, "contacts", "intrinsic_concentration_cm_3");
+    common.m_built_in_contact_voltage_scale    = value_at<double>(config, "contacts", "built_in_voltage_scale");
     common.m_initialize_particles_from_doping  = value_at<bool>(config, "particles", "initialize_from_doping");
     common.m_initial_particle_weight           = value_at<double>(config, "particles", "initial_weight");
     common.m_contact_injection_particle_weight = value_at<double>(config, "particles", "contact_injection_weight");

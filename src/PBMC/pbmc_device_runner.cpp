@@ -90,6 +90,12 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     fmt::print("  Poisson frequency: {}\n", config.self_consistent_options_2d.m_common.m_poisson_frequency);
     fmt::print("  anode voltage: {:.6e} V\n", config.self_consistent_options_2d.m_common.m_anode_voltage);
     fmt::print("  cathode voltage: {:.6e} V\n", config.self_consistent_options_2d.m_common.m_cathode_voltage);
+    fmt::print("  built-in potential: {}\n",
+               config.self_consistent_options_2d.m_common.m_enable_built_in_potential ? "enabled" : "disabled");
+    if (config.self_consistent_options_2d.m_common.m_enable_built_in_potential) {
+        fmt::print("  intrinsic concentration: {:.6e} cm^-3\n",
+                   config.self_consistent_options_2d.m_common.m_intrinsic_concentration_cm_3);
+    }
     fmt::print("  export time steps: {}\n", config.device_options.m_export_time_step ? "enabled" : "disabled");
     if (mesh_dimension == 2) {
         fmt::print("  effective depth: {:.6e} um\n", config.self_consistent_options_2d.m_effective_depth_um);
@@ -165,6 +171,13 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     manifest.add("self_consistent", "frozen_field_mode", common_options.m_frozen_field_mode);
     manifest.add("self_consistent", "anode_voltage_V", common_options.m_anode_voltage);
     manifest.add("self_consistent", "cathode_voltage_V", common_options.m_cathode_voltage);
+    manifest.add("self_consistent", "built_in_potential_enabled", common_options.m_enable_built_in_potential);
+    manifest.add("self_consistent",
+                 "intrinsic_concentration_cm_3",
+                 common_options.m_intrinsic_concentration_cm_3);
+    manifest.add("self_consistent",
+                 "built_in_contact_voltage_scale",
+                 common_options.m_built_in_contact_voltage_scale);
     manifest.add("self_consistent",
                  "initialize_particles_from_doping",
                  common_options.m_initialize_particles_from_doping);
