@@ -421,59 +421,78 @@ int apply_background_fields(const BuildResult& g, const MeshKnobs& k) {
     return fMin;
 }
 
-enum class Mode { Conduction, Valence };
+enum class MeshTarget { Conduction, Valence };
 
-MeshKnobs preset_knobs(Mode mode, int level) {
+MeshKnobs preset_knobs(MeshTarget target, int level) {
     struct Pack {
         double h;
-        double dax;
-        double drad;
-        double hD;
-        double Lrad;
-        double hL;
-        double tubeFac;
-        double LtubeFac;
+        double delta_axial;
+        double delta_radial;
+        double h_delta;
+        double L_radius;
+        double h_L;
+        double tube_size_min_factor;
+        double L_tube_size_min_factor;
+        double tube_rmin;
+        double tube_rmax;
+        double L_tube_rmin;
+        double L_tube_rmax;
     };
 
-    static const Pack ladder[5] = {{0.050, 0.20, 0.10, 0.0050, 0.080, 0.0100, 0.80, 0.90},
-                                   {0.100, 0.20, 0.10, 0.0025, 0.070, 0.0050, 0.70, 0.80},
-                                   {0.050, 0.30, 0.20, 0.0050, 0.060, 0.0080, 0.60, 0.70},
-                                   {0.010, 0.16, 0.025, 0.0022, 0.050, 0.0032, 0.55, 0.60},
-                                   {0.005, 0.18, 0.020, 0.0016, 0.040, 0.0026, 0.50, 0.50}};
+    // Ordered from coarse to fine. Higher levels should always mean a globally
+    // and locally finer mesh. This makes --level predictable for users and for
+    // convergence studies.
+    static constexpr std::array<Pack, 5> ladder{{
+        // h    dax   drad    hD    Lrad    hL     tubeF  LtubeF  trmin  trmax  Ltrmin Ltrmax
+        {0.120, 0.30, 0.20, 0.0120, 0.090, 0.0180, 0.90, 0.95, 0.025, 0.070, 0.025, 0.060},
+        {0.080, 0.28, 0.16, 0.0080, 0.080, 0.0120, 0.80, 0.90, 0.022, 0.065, 0.022, 0.055},
+        {0.050, 0.30, 0.250, 0.0050, 0.065, 0.0080, 0.70, 0.80, 0.020, 0.060, 0.020, 0.050},
+        {0.020, 0.20, 0.050, 0.0030, 0.055, 0.0045, 0.60, 0.70, 0.018, 0.055, 0.018, 0.045},
+        {0.010, 0.18, 0.030, 0.0020, 0.045, 0.0030, 0.55, 0.60, 0.016, 0.050, 0.016, 0.040},
+    }};
 
-    const Pack& p = ladder[std::clamp(level, 0, 4)];
+    const int   index = std::clamp(level, 0, static_cast<int>(ladder.size()) - 1);
+    const Pack& p     = ladder[static_cast<std::size_t>(index)];
 
-    MeshKnobs k;
+    MeshKnobs k{};
     k.h                      = p.h;
     k.meshGamma              = 1.0;
-    k.delta_axial            = p.dax;
-    k.delta_radial           = p.drad;
-    k.h_delta                = p.hD;
-    k.L_radius               = p.Lrad;
-    k.h_L                    = p.hL;
-    k.tube_size_min_factor   = p.tubeFac;
-    k.L_tube_size_min_factor = p.LtubeFac;
-    k.tube_rmin              = 0.02;
-    k.tube_rmax              = 0.06;
-    k.L_tube_rmin            = 0.02;
-    k.L_tube_rmax            = 0.05;
+    k.delta_axial            = p.delta_axial;
+    k.delta_radial           = p.delta_radial;
+    k.h_delta                = p.h_delta;
+    k.enable_tube            = true;
+    k.tube_size_min_factor   = p.tube_size_min_factor;
+    k.tube_rmin              = p.tube_rmin;
+    k.tube_rmax              = p.tube_rmax;
+    k.enable_L               = true;
+    k.L_radius               = p.L_radius;
+    k.h_L                    = p.h_L;
+    k.enable_L_tubes         = true;
+    k.L_tube_size_min_factor = p.L_tube_size_min_factor;
+    k.L_tube_rmin            = p.L_tube_rmin;
+    k.L_tube_rmax            = p.L_tube_rmax;
 
-    if (mode == Mode::Conduction) {
-        k.delta_t0       = 0.85;
-        k.enable_tube    = true;
-        k.enable_L       = true;
-        k.enable_L_tubes = true;
-        k.h_L *= 1.20;
-        k.L_radius *= 0.90;
-    } else {
-        k.delta_t0       = 0.80;
-        k.enable_tube    = true;
-        k.enable_L       = true;
-        k.enable_L_tubes = true;
-        k.h_delta *= 1.25;
-        k.h_L *= 0.75;
-        k.L_radius *= 1.15;
-        k.tube_size_min_factor = std::min(0.95, k.tube_size_min_factor + 0.10);
+    switch (target) {
+        case MeshTarget::Conduction:
+            // Conduction mesh: emphasize the Delta valleys on Gamma-X. Keep L
+            // refinement, but make it slightly less aggressive than in valence mode.
+            k.delta_t0 = 0.85;
+            k.h_delta *= 0.90;
+            k.L_radius *= 0.90;
+            k.h_L *= 1.20;
+            k.L_tube_size_min_factor = std::min(0.98, k.L_tube_size_min_factor + 0.05);
+            break;
+
+        case MeshTarget::Valence:
+            // Valence mesh: relax Delta-specific refinement and strengthen L-region
+            // refinement, which is usually more important for valence-band topology.
+            k.delta_t0 = 0.80;
+            k.h_delta *= 1.25;
+            k.tube_size_min_factor = std::min(0.95, k.tube_size_min_factor + 0.10);
+            k.L_radius *= 1.15;
+            k.h_L *= 0.75;
+            k.L_tube_size_min_factor = std::max(0.40, k.L_tube_size_min_factor - 0.10);
+            break;
     }
 
     return k;
@@ -797,11 +816,11 @@ int main(int argc, char** argv) try {
     cmd.add(outArg);
     cmd.parse(argc, argv);
 
-    Mode mode;
+    MeshTarget mode;
     if (modeArg.getValue() == "conduction") {
-        mode = Mode::Conduction;
+        mode = MeshTarget::Conduction;
     } else if (modeArg.getValue() == "valence") {
-        mode = Mode::Valence;
+        mode = MeshTarget::Valence;
     } else {
         throw std::runtime_error("invalid mode: expected 'conduction' or 'valence'");
     }
@@ -898,21 +917,30 @@ int main(int argc, char** argv) try {
         std::cout << "Volume ratio Full/IBZ = " << (volBZ / volIBZ) << "\n";
     }
 
-    const std::string outMesh       = outArg.getValue();
-    const std::string stem          = std::filesystem::path(outMesh).stem().string();
-    const std::string kstarFilename = fmt::format("{}_kstar_ibz_to_bz.txt", stem);
-    export_kstar(kstarFilename, full.orbitIds);
+    const std::filesystem::path outMeshPath(outArg.getValue());
+    const std::filesystem::path outDir = outMeshPath.parent_path();
+    const std::string           stem   = outMeshPath.stem().string();
+
+    const std::filesystem::path kstarPath = outDir.empty()
+                                                ? std::filesystem::path(fmt::format("{}_kstar_ibz_to_bz.txt", stem))
+                                                : outDir / fmt::format("{}_kstar_ibz_to_bz.txt", stem);
+
+    if (!outDir.empty()) {
+        std::filesystem::create_directories(outDir);
+    }
+
+    export_kstar(kstarPath.string(), full.orbitIds);
 
     const std::string fullModelName = "Full_BZ_Model";
     write_full_bz_discrete_mesh(full, fullModelName);
 
-    if (std::filesystem::exists(outMesh)) {
-        std::filesystem::remove(outMesh);
+    if (std::filesystem::exists(outMeshPath)) {
+        std::filesystem::remove(outMeshPath);
     }
-    gmsh::write(outMesh);
+    gmsh::write(outMeshPath.string());
 
-    std::cout << "Wrote mesh: " << outMesh << "\n";
-    std::cout << "Wrote k-star map: " << kstarFilename << "\n";
+    std::cout << "Wrote mesh: " << outMeshPath.string() << "\n";
+    std::cout << "Wrote k-star map: " << kstarPath.string() << "\n";
 
     if (!noGuiArg.getValue()) {
         gmsh::fltk::run();

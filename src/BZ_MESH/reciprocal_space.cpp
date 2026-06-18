@@ -1,12 +1,12 @@
 /**
  * @file reciprocal_space.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-06-18
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 
 #include "reciprocal_space.hpp"
@@ -14,11 +14,64 @@
 #include <Eigen/LU>
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <stdexcept>
 
 #include "bz_mesh.hpp"
 
 namespace uepm::mesh_bz {
+
+namespace {
+
+inline bool contains_bcc_reduced(const vector3& k, double h) noexcept {
+    constexpr double eps = 1e-12;
+
+    const double ax = std::abs(k.x());
+    const double ay = std::abs(k.y());
+    const double az = std::abs(k.z());
+
+    return ax <= h + eps && ay <= h + eps && az <= h + eps && ax + ay + az <= 1.5 * h + eps;
+}
+
+inline double nearest_even(double x) noexcept { return 2.0 * std::nearbyint(0.5 * x); }
+
+inline double nearest_odd(double x) noexcept { return 1.0 + 2.0 * std::nearbyint(0.5 * (x - 1.0)); }
+
+inline vector3 fold_bcc_reduced_fast(const vector3& k, double h) noexcept {
+    if (contains_bcc_reduced(k, h)) {
+        return k;
+    }
+
+    const double x = k.x() / h;
+    const double y = k.y() / h;
+    const double z = k.z() / h;
+
+    const double ge_x = nearest_even(x);
+    const double ge_y = nearest_even(y);
+    const double ge_z = nearest_even(z);
+
+    const double fe_x = x - ge_x;
+    const double fe_y = y - ge_y;
+    const double fe_z = z - ge_z;
+    const double de2  = fe_x * fe_x + fe_y * fe_y + fe_z * fe_z;
+
+    const double go_x = nearest_odd(x);
+    const double go_y = nearest_odd(y);
+    const double go_z = nearest_odd(z);
+
+    const double fo_x = x - go_x;
+    const double fo_y = y - go_y;
+    const double fo_z = z - go_z;
+    const double do2  = fo_x * fo_x + fo_y * fo_y + fo_z * fo_z;
+
+    if (de2 <= do2) {
+        return {h * fe_x, h * fe_y, h * fe_z};
+    }
+
+    return {h * fo_x, h * fo_y, h * fo_z};
+}
+
+}  // namespace
 
 void ReciprocalSpace::initialize_basis(const Eigen::Vector3d& b1_SI,
                                        const Eigen::Vector3d& b2_SI,
@@ -69,19 +122,38 @@ bool ReciprocalSpace::contains_bcc(const vector3& k_SI, double si_to_reduced) co
            ax + ay + az <= 1.5 * m_halfwidth + eps;
 }
 
-vector3 ReciprocalSpace::retrieve_bcc_image(const vector3& k_SI, double si_to_reduced) const {
-    for (const vector3& shift : m_reciprocal_shifts) {
-        const vector3 candidate = k_SI + shift;
-        if (contains_bcc(candidate, si_to_reduced)) {
-            return candidate;
-        }
+// vector3 ReciprocalSpace::retrieve_bcc_image(const vector3& k_SI, double si_to_reduced) const {
+//     for (const vector3& shift : m_reciprocal_shifts) {
+//         const vector3 candidate = k_SI + shift;
+//         if (contains_bcc(candidate, si_to_reduced)) {
+//             return candidate;
+//         }
+//     }
+
+//     const vector3 folded = fold_wigner_seitz(k_SI);
+//     if (contains_bcc(folded, si_to_reduced)) {
+//         return folded;
+//     }
+//     throw std::runtime_error("No reciprocal-lattice image lies inside the Brillouin zone");
+// }
+
+vector3 ReciprocalSpace::fold_bcc_fast_SI(const vector3& k_SI, double si_to_reduced) const {
+    if (!(si_to_reduced > 0.0)) {
+        throw std::invalid_argument("fold_bcc_fast_SI: si_to_reduced must be positive");
     }
 
-    const vector3 folded = fold_wigner_seitz(k_SI);
-    if (contains_bcc(folded, si_to_reduced)) {
-        return folded;
+    const vector3 k_reduced{k_SI.x() * si_to_reduced, k_SI.y() * si_to_reduced, k_SI.z() * si_to_reduced};
+
+    const vector3 folded_reduced = fold_bcc_reduced_fast(k_reduced, m_halfwidth);
+
+    if (!contains_bcc_reduced(folded_reduced, m_halfwidth)) {
+        throw std::runtime_error("fold_bcc_fast_SI: folded k is outside first BZ");
     }
-    throw std::runtime_error("No reciprocal-lattice image lies inside the Brillouin zone");
+    return {folded_reduced.x() / si_to_reduced, folded_reduced.y() / si_to_reduced, folded_reduced.z() / si_to_reduced};
+}
+
+vector3 ReciprocalSpace::retrieve_bcc_image(const vector3& k_SI, double si_to_reduced) const {
+    return fold_bcc_fast_SI(k_SI, si_to_reduced);
 }
 
 vector3 ReciprocalSpace::fold_wigner_seitz(const vector3& k_SI) const noexcept {
