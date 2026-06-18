@@ -26,6 +26,7 @@
 #include <fstream>
 #include <iomanip>
 #include <map>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -45,6 +46,12 @@
 #pragma omp declare reduction(merge : std::vector<double> : omp_out.insert(omp_out.end(), omp_in.begin(), omp_in.end()))
 
 namespace uepm::mesh_bz {
+
+namespace {
+
+constexpr std::size_t invalid_vertex_index = std::numeric_limits<std::size_t>::max();
+
+}  // namespace
 
 void MeshBZ::shift_bz_center(const vector3& center) {
     m_center = center;
@@ -87,6 +94,9 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     std::size_t size_nodes_tags        = nodeTags.size();
     std::size_t size_nodes_coordinates = nodeCoords.size();
     m_node_tags                        = nodeTags;
+    m_source_vertex_indices.resize(size_nodes_tags);
+    std::iota(m_source_vertex_indices.begin(), m_source_vertex_indices.end(), 0);
+    m_local_index_from_source_vertex = m_source_vertex_indices;
 
     std::cerr << "sizeof(vector3)=" << sizeof(vector3) << " sizeof(bbox_mesh)=" << sizeof(bbox_mesh)
               << " sizeof(UniformDos)=" << sizeof(UniformDos) << " sizeof(Tetra)=" << sizeof(Tetra) << "\n";
@@ -208,6 +218,10 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
 
     m_list_tetrahedra.shrink_to_fit();
 
+    if (stores_positive_octant()) {
+        compact_geometry_to_positive_octant();
+    }
+
     fmt::print("Number of degenerate tetrahedra: {} / {} ({:.2f}%)\n",
                degenerate_count,
                number_elements,
@@ -234,7 +248,92 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     const double     ssi_to_reduced_scale = si_to_reduced_scale();
     init_reciprocal_basis(b1_SI, b2_SI, b3_SI, halfwidth_reduced, ssi_to_reduced_scale);
 
-    load_kstar_ibz_to_bz();
+    if (!stores_positive_octant()) {
+        load_kstar_ibz_to_bz();
+    }
+}
+
+void MeshBZ::compact_geometry_to_positive_octant() {
+    constexpr double tolerance = 1e-12;
+
+    std::vector<std::array<std::size_t, 4>> retained_source_tetrahedra;
+    retained_source_tetrahedra.reserve(m_list_tetrahedra.size() / 8 + 1);
+    std::vector<bool> source_vertex_is_used(m_list_vertices.size(), false);
+
+    for (const Tetra& tetra : m_list_tetrahedra) {
+        const auto source_indices = tetra.get_list_indices_vertices();
+        bool       inside_octant  = true;
+        for (std::size_t source_index : source_indices) {
+            const vector3& position = m_list_vertices[source_index].get_position();
+            inside_octant = inside_octant && position.x() >= -tolerance && position.y() >= -tolerance &&
+                            position.z() >= -tolerance;
+        }
+        if (!inside_octant) {
+            continue;
+        }
+        retained_source_tetrahedra.push_back(source_indices);
+        for (std::size_t source_index : source_indices) {
+            source_vertex_is_used[source_index] = true;
+        }
+    }
+
+    std::vector<std::size_t> local_from_source(m_list_vertices.size(), invalid_vertex_index);
+    std::vector<Vertex>      compact_vertices;
+    std::vector<std::size_t> compact_node_tags;
+    std::vector<std::size_t> compact_source_indices;
+    compact_vertices.reserve(std::count(source_vertex_is_used.begin(), source_vertex_is_used.end(), true));
+    compact_node_tags.reserve(compact_vertices.capacity());
+    compact_source_indices.reserve(compact_vertices.capacity());
+
+    for (std::size_t source_index = 0; source_index < m_list_vertices.size(); ++source_index) {
+        if (!source_vertex_is_used[source_index]) {
+            continue;
+        }
+        const std::size_t local_index = compact_vertices.size();
+        local_from_source[source_index] = local_index;
+        compact_vertices.emplace_back(local_index, m_list_vertices[source_index].get_position());
+        compact_node_tags.push_back(m_node_tags[source_index]);
+        compact_source_indices.push_back(source_index);
+    }
+
+    std::vector<Tetra> compact_tetrahedra;
+    compact_tetrahedra.reserve(retained_source_tetrahedra.size());
+    std::vector<std::vector<std::size_t>> compact_vertex_to_tetrahedra(compact_vertices.size());
+    for (const auto& source_indices : retained_source_tetrahedra) {
+        std::array<Vertex*, 4> vertices{};
+        for (std::size_t slot = 0; slot < vertices.size(); ++slot) {
+            vertices[slot] = &compact_vertices.at(local_from_source.at(source_indices[slot]));
+        }
+        const std::size_t tetra_index = compact_tetrahedra.size();
+        compact_tetrahedra.emplace_back(tetra_index, vertices);
+        for (Vertex* vertex : vertices) {
+            compact_vertex_to_tetrahedra[vertex->get_index()].push_back(tetra_index);
+        }
+    }
+
+    if (compact_vertices.empty() || compact_tetrahedra.empty()) {
+        throw std::runtime_error("Positive-octant reduction produced an empty mesh");
+    }
+
+    m_list_tetrahedra.clear();
+    m_list_vertices.clear();
+    m_list_vertices            = std::move(compact_vertices);
+    m_list_tetrahedra          = std::move(compact_tetrahedra);
+    m_vertex_to_tetrahedra     = std::move(compact_vertex_to_tetrahedra);
+    m_node_tags                = std::move(compact_node_tags);
+    m_source_vertex_indices    = std::move(compact_source_indices);
+    m_local_index_from_source_vertex = std::move(local_from_source);
+
+    fmt::print("Compacted BZ storage to positive octant: {} vertices, {} tetrahedra\n",
+               m_list_vertices.size(),
+               m_list_tetrahedra.size());
+}
+
+std::size_t MeshBZ::local_vertex_index_from_source(std::size_t source_index) const {
+    if (source_index >= m_local_index_from_source_vertex.size()) {
+        return invalid_vertex_index;
+    }
+    return m_local_index_from_source_vertex[source_index];
 }
 
 /**
@@ -374,7 +473,7 @@ Tetra* MeshBZ::find_tetra_at_location(const vector3& location) const {
     if (!m_search_tree) {
         throw std::logic_error("The BZ search tree has not been built.");
     }
-    return m_search_tree->find_tetra_at_location(location);
+    return m_search_tree->find_tetra_at_location(canonicalize_physical_k(location).representative);
 }
 
 std::size_t MeshBZ::get_nearest_k_index(const vector3& k) const {
@@ -408,11 +507,7 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
         vertex.clear_band_energies();
         vertex.clear_energy_gradient_at_bands();
     }
-    m_band_info.clear();
-    m_valence_bands    = {};
-    m_conduction_bands = {};
-    m_min_band.clear();
-    m_max_band.clear();
+    m_bands.clear();
 
     std::unordered_map<std::size_t, std::size_t> local_index_from_node_tag;
     local_index_from_node_tag.reserve(m_node_tags.size());
@@ -450,8 +545,7 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
         for (std::size_t source_index = 0; source_index < tags.size(); ++source_index) {
             const auto local_it = local_index_from_node_tag.find(tags[source_index]);
             if (local_it == local_index_from_node_tag.end()) {
-                throw std::runtime_error("Band view references unknown node tag " + std::to_string(tags[source_index]) +
-                                         ".");
+                continue;
             }
             for (int component = 0; component < numComp; ++component) {
                 ordered_data[numComp * local_it->second + component] = data_view[numComp * source_index + component];
@@ -466,26 +560,10 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
         if (numComp == 1) {
             const auto minmax_band = std::minmax_element(ordered_data.begin(), ordered_data.end());
             const bool is_valence  = *minmax_band.second <= 0.1;
-            if (is_valence && m_conduction_bands.count != 0) {
-                throw std::runtime_error(
-                    "Valence and conduction band views are interleaved; contiguous band ranges are required.");
-            }
-            if (is_valence) {
-                BandInfo band_info = {MeshParticleType::valence, m_valence_bands.count};
-                m_band_info.push_back(band_info);
-                m_valence_bands.global_start_index =
-                    (m_valence_bands.count == 0) ? count_band : m_valence_bands.global_start_index;
-                m_valence_bands.count++;
-            } else {
-                BandInfo band_info = {MeshParticleType::conduction, m_conduction_bands.count};
-                m_band_info.push_back(band_info);
-                m_conduction_bands.global_start_index =
-                    (m_conduction_bands.count == 0) ? count_band : m_conduction_bands.global_start_index;
-                m_conduction_bands.count++;
-            }
+            m_bands.register_band(is_valence ? MeshParticleType::valence : MeshParticleType::conduction,
+                                  *minmax_band.first,
+                                  *minmax_band.second);
             count_band++;
-            m_min_band.push_back(*(minmax_band.first));
-            m_max_band.push_back(*(minmax_band.second));
             add_new_band_energies_to_vertices(ordered_data);
         } else if (numComp == 3) {
             // Band energy gradients at each vertex
@@ -496,14 +574,17 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
                                      std::to_string(numComp));
         }
     }
-    m_nb_bands_total = count_band;
+    if (m_bands.total() != static_cast<std::size_t>(count_band)) {
+        throw std::runtime_error("Band catalog count does not match loaded band views");
+    }
     // PRINT INFO
     std::cout << "Number of bands loaded: " << get_number_bands_total() << std::endl;
     print_band_info();
     set_bands_in_right_order();
     if (nb_valence_bands >= 0 || nb_conduction_bands >= 0) {
-        keep_only_bands((nb_valence_bands >= 0) ? nb_valence_bands : m_valence_bands.count,
-                        (nb_conduction_bands >= 0) ? nb_conduction_bands : m_conduction_bands.count);
+        keep_only_bands(
+            (nb_valence_bands >= 0) ? nb_valence_bands : m_bands.range(MeshParticleType::valence).count,
+            (nb_conduction_bands >= 0) ? nb_conduction_bands : m_bands.range(MeshParticleType::conduction).count);
     }
 
     if (auto_shift_conduction_band) {
@@ -537,16 +618,16 @@ void MeshBZ::print_band_info() const {
                "GlobalIdx",
                "MinE(eV)",
                "MaxE(eV)");
-    for (std::size_t i = 0; i < m_band_info.size(); ++i) {
-        const auto& band     = m_band_info[i];
+    for (std::size_t i = 0; i < m_bands.info().size(); ++i) {
+        const auto& band     = m_bands.info()[i];
         std::string type_str = (band.type == MeshParticleType::valence) ? "Valence" : "Conduction";
         fmt::print("{:<6} {:<11} {:<10} {:<12} {:<10.4f} {:<10.4f}\n",
                    i,
                    type_str,
                    band.local_index,
                    i,
-                   m_min_band[i],
-                   m_max_band[i]);
+                   m_bands.minima()[i],
+                   m_bands.maxima()[i]);
     }
     fmt::print("\n");
 }
@@ -563,7 +644,7 @@ void MeshBZ::apply_scissor(double scissor_value) {
     for (auto&& vtx : m_list_vertices) {
         const std::size_t nb_bands = vtx.get_number_bands();
         for (std::size_t i = 0; i < nb_bands; ++i) {
-            if (m_band_info[i].type == MeshParticleType::conduction) {
+            if (m_bands.info()[i].type == MeshParticleType::conduction) {
                 double new_energy = vtx.get_energy_at_band(i) + scissor_value;
                 vtx.set_band_energy(i, new_energy);
             }
@@ -629,19 +710,19 @@ void MeshBZ::recompute_min_max_energies() {
     if (m_list_vertices.empty()) {
         throw std::logic_error("Cannot compute band extrema on an empty BZ mesh.");
     }
-    m_min_band.clear();
-    m_max_band.clear();
+    m_bands.minima().clear();
+    m_bands.maxima().clear();
     int nb_bands = m_list_vertices[0].get_number_bands();
-    m_min_band.resize(nb_bands, std::numeric_limits<double>::max());
-    m_max_band.resize(nb_bands, std::numeric_limits<double>::lowest());
+    m_bands.minima().resize(nb_bands, std::numeric_limits<double>::max());
+    m_bands.maxima().resize(nb_bands, std::numeric_limits<double>::lowest());
     for (auto&& vtx : m_list_vertices) {
         const auto& energies = vtx.get_band_energies();
         for (int i = 0; i < nb_bands; ++i) {
-            if (energies[i] < m_min_band[i]) {
-                m_min_band[i] = energies[i];
+            if (energies[i] < m_bands.minima()[i]) {
+                m_bands.minima()[i] = energies[i];
             }
-            if (energies[i] > m_max_band[i]) {
-                m_max_band[i] = energies[i];
+            if (energies[i] > m_bands.maxima()[i]) {
+                m_bands.maxima()[i] = energies[i];
             }
         }
     }
@@ -666,10 +747,10 @@ void MeshBZ::recompute_energies_data_and_sync(bool   recompute_min_max,
     // Check that the band info is still correct
     print_band_info();
     std::size_t nb_band_vtx = m_list_vertices[0].get_number_bands();
-    if (nb_band_vtx != m_band_info.size()) {
+    if (nb_band_vtx != m_bands.info().size()) {
         throw std::runtime_error("The number of bands in the vertices does not match the band info. Abort.");
     }
-    if (nb_band_vtx != m_min_band.size() || nb_band_vtx != m_max_band.size()) {
+    if (nb_band_vtx != m_bands.minima().size() || nb_band_vtx != m_bands.maxima().size()) {
         throw std::runtime_error("The number of bands in the vertices does not match the min/max band info. Abort.");
     }
     if (nb_band_vtx != get_number_bands_total()) {
@@ -679,78 +760,10 @@ void MeshBZ::recompute_energies_data_and_sync(bool   recompute_min_max,
 }
 
 void MeshBZ::recompute_tetra_ordered_energies(double max_energy) {
-    fmt::print("Recomputing tetra ordered energies ...\n");
-    std::size_t nb_band_total = get_number_bands_total();
-    m_tetra_ordered_energy_min.resize(nb_band_total);
-    for (std::size_t idx_band = 0; idx_band < nb_band_total; ++idx_band) {
-        std::vector<double> min_energies_tetra(m_list_tetrahedra.size());
-        std::vector<double> max_energies_tetra(m_list_tetrahedra.size());
-#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
-        for (std::size_t j = 0; j < m_list_tetrahedra.size(); ++j) {
-            min_energies_tetra[j] = m_list_tetrahedra[j].get_min_energy_at_band(idx_band);
-            max_energies_tetra[j] = m_list_tetrahedra[j].get_max_energy_at_band(idx_band);
-        }
-        auto sorted_indices = uepm::numerical::argsort(min_energies_tetra);
-
-        std::cout << "\n";
-        m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices.resize(m_list_tetrahedra.size());
-        m_tetra_ordered_energy_min[idx_band].m_ordered_energies.resize(m_list_tetrahedra.size());
-        for (std::size_t idx_tetra = 0; idx_tetra < m_list_tetrahedra.size(); ++idx_tetra) {
-            m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices[idx_tetra] = sorted_indices[idx_tetra];
-            m_tetra_ordered_energy_min[idx_band].m_ordered_energies[idx_tetra] =
-                min_energies_tetra[sorted_indices[idx_tetra]];
-        }
-        auto        it_last  = std::upper_bound(m_tetra_ordered_energy_min[idx_band].m_ordered_energies.begin(),
-                                                m_tetra_ordered_energy_min[idx_band].m_ordered_energies.end(),
-                                                max_energy);
-        std::size_t idx_last = std::distance(m_tetra_ordered_energy_min[idx_band].m_ordered_energies.begin(), it_last);
-        fmt::print("Band {}: {} tetras have min energy <= {:.3f} eV (out of {} = {:.3f} %)\n",
-                   idx_band,
-                   idx_last,
-                   max_energy,
-                   m_list_tetrahedra.size(),
-                   100.0 * static_cast<double>(idx_last) / static_cast<double>(m_list_tetrahedra.size()));
-
-        m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices.resize(idx_last);
-        m_tetra_ordered_energy_min[idx_band].m_ordered_energies.resize(idx_last);
-        if (idx_last == 0) {
-            m_tetra_ordered_energy_min[idx_band].m_max_energy_spread = 0.0;
-            continue;
-        }
-        std::vector<double> diffsE(m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices.size());
-        for (std::size_t idx_tetra = 0; idx_tetra < diffsE.size(); ++idx_tetra) {
-            std::size_t actual_idx_tetra = m_tetra_ordered_energy_min[idx_band].m_ordered_tetra_indices[idx_tetra];
-            diffsE[idx_tetra] = std::abs(max_energies_tetra[actual_idx_tetra] - min_energies_tetra[actual_idx_tetra]);
-        }
-        auto        minmax_diffE  = std::minmax_element(diffsE.begin(), diffsE.end());
-        double      min_diffE     = *(minmax_diffE.first);
-        double      max_diffE     = *(minmax_diffE.second);
-        std::size_t idx_max_diffE = std::distance(diffsE.begin(), minmax_diffE.second);
-        fmt::print("Band {}: min deltaE among tetras = {:.6f} eV, max deltaE = {:.6f} eV, at tetra #{}\n",
-                   idx_band,
-                   min_diffE,
-                   max_diffE,
-                   idx_max_diffE);
-        m_tetra_ordered_energy_min[idx_band].m_max_energy_spread = max_diffE;
-    }
-    fmt::print("Done recomputing tetra ordered energies.\n");
+    m_tetra_energy_index.rebuild(m_list_tetrahedra, get_number_bands_total(), max_energy, m_nb_threads_mesh_ops);
 }
 
-std::vector<std::size_t> MeshBZ::get_band_indices(MeshParticleType type) const {
-    std::vector<std::size_t> indices;
-    if (type == MeshParticleType::valence) {
-        indices.resize(m_valence_bands.count);
-        for (std::size_t i = 0; i < m_valence_bands.count; ++i) {
-            indices[i] = m_valence_bands.global_start_index + i;
-        }
-    } else {
-        indices.resize(m_conduction_bands.count);
-        for (std::size_t i = 0; i < m_conduction_bands.count; ++i) {
-            indices[i] = m_conduction_bands.global_start_index + i;
-        }
-    }
-    return indices;
-}
+std::vector<std::size_t> MeshBZ::get_band_indices(MeshParticleType type) const { return m_bands.indices(type); }
 
 /**
  * @brief Keep only a subset of bands.
@@ -779,9 +792,9 @@ void MeshBZ::keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduc
             for (auto&& vtx : m_list_vertices) {
                 vtx.remove_band_energy(band_index_to_remove);
             }
-            m_band_info.erase(m_band_info.begin() + band_index_to_remove);
-            m_valence_bands.count--;
-            m_conduction_bands.global_start_index--;
+            m_bands.info().erase(m_bands.info().begin() + band_index_to_remove);
+            m_bands.range(MeshParticleType::valence).count--;
+            m_bands.range(MeshParticleType::conduction).global_start_index--;
         }
     }
     // Conduction
@@ -796,11 +809,11 @@ void MeshBZ::keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduc
             for (auto&& vtx : m_list_vertices) {
                 vtx.remove_band_energy(band_index_to_remove);
             }
-            m_band_info.erase(m_band_info.begin() + band_index_to_remove);
-            m_conduction_bands.count--;
+            m_bands.info().erase(m_bands.info().begin() + band_index_to_remove);
+            m_bands.range(MeshParticleType::conduction).count--;
         }
     }
-    m_nb_bands_total = nb_valence_bands + nb_conduction_bands;
+    m_bands.set_total(nb_valence_bands + nb_conduction_bands);
     // Recompute min/max band energies
     recompute_min_max_energies();
 }
@@ -859,8 +872,8 @@ void MeshBZ::auto_shift_conduction_band_energies() {
     }
     double min_conduction = std::numeric_limits<double>::max();
     for (auto idx_band : conduction_band_indices) {
-        if (m_min_band[idx_band] < min_conduction) {
-            min_conduction = m_min_band[idx_band];
+        if (m_bands.minima()[idx_band] < min_conduction) {
+            min_conduction = m_bands.minima()[idx_band];
         }
     }
     std::cout << "Min conduction band energy: " << min_conduction << " eV\n";
@@ -887,8 +900,8 @@ void MeshBZ::auto_shift_conduction_band_energies() {
     }
 
     // Recompute per-band min/max
-    m_min_band.clear();
-    m_max_band.clear();
+    m_bands.minima().clear();
+    m_bands.maxima().clear();
     for (std::size_t b = 0; b < m_list_vertices[0].get_number_bands(); ++b) {
         double bmin = std::numeric_limits<double>::max();
         double bmax = std::numeric_limits<double>::lowest();
@@ -897,13 +910,14 @@ void MeshBZ::auto_shift_conduction_band_energies() {
             bmin     = std::min(bmin, e);
             bmax     = std::max(bmax, e);
         }
-        m_min_band.push_back(bmin);
-        m_max_band.push_back(bmax);
+        m_bands.minima().push_back(bmin);
+        m_bands.maxima().push_back(bmax);
     }
 
     std::cout << "Post-shift band extrema:\n";
-    for (std::size_t b = 0; b < m_min_band.size(); ++b) {
-        std::cout << " Band " << b << ": min = " << m_min_band[b] << " eV, max = " << m_max_band[b] << " eV\n";
+    for (std::size_t b = 0; b < m_bands.minima().size(); ++b) {
+        std::cout << " Band " << b << ": min = " << m_bands.minima()[b] << " eV, max = " << m_bands.maxima()[b]
+                  << " eV\n";
     }
     std::cout << std::endl;
 }
@@ -942,11 +956,14 @@ void        MeshBZ::compute_energy_gradient_at_tetras() {
 }
 
 vector3 MeshBZ::interpolate_energy_gradient_at_location(const vector3& location, const std::size_t& idx_band) const {
-    Tetra* tetra = find_tetra_at_location(location);
+    const CanonicalK canonical = canonicalize_physical_k(location);
+    Tetra*           tetra     = find_tetra_at_location(canonical.representative);
     if (tetra == nullptr) {
         throw std::runtime_error("Location is outside the mesh. Cannot interpolate energy gradient.");
     }
-    return tetra->get_gradient_energy_at_band(idx_band);
+    return representative_vector_to_physical(
+        tetra->interpolate_gradient_energy_at_band(canonical.representative, idx_band),
+        canonical.signs);
 }
 
 double MeshBZ::compute_mesh_volume() const {
@@ -956,347 +973,6 @@ double MeshBZ::compute_mesh_volume() const {
         total_volume += std::fabs(tetra.get_signed_volume());
     }
     return total_volume;
-}
-
-double MeshBZ::compute_iso_surface(double iso_energy, int band_index) const {
-    double total_dos = 0.0;
-    for (auto&& tetra : m_list_tetrahedra) {
-        total_dos += tetra.compute_tetra_dos_energy_band(iso_energy, band_index);
-    }
-
-    return total_dos;
-}
-
-double MeshBZ::compute_dos_at_energy_and_band(double iso_energy, int band_index, bool use_interp, bool use_iw) const {
-    double total_dos = 0.0;
-    for (auto&& tetra : m_list_tetrahedra) {
-        if (use_iw && !tetra.lies_in_irreducible_wedge()) {
-            continue;
-        }
-        if (use_interp) {
-            total_dos += tetra.interpolate_dos_at_energy_per_band(iso_energy, band_index);
-        } else {
-            total_dos += tetra.compute_tetra_dos_energy_band(iso_energy, band_index);
-        }
-    }
-    total_dos *= get_bz_volume_correction();
-    total_dos *= m_spin_degeneracy;
-    if (use_iw) {
-        total_dos *= uepm::constants::irreducible_wedge_factor_fcc;
-    }
-    return total_dos;
-}
-
-std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band(int         band_index,
-                                                                  double      min_energy,
-                                                                  double      max_energy,
-                                                                  std::size_t nb_points,
-                                                                  bool        use_interp,
-                                                                  bool        use_iw) const {
-    if (band_index < 0 || static_cast<std::size_t>(band_index) >= get_number_bands_total()) {
-        throw std::out_of_range("Band index out of range in compute_dos_band_at_band.");
-    }
-    if (nb_points < 2) {
-        throw std::invalid_argument("DOS computation requires at least two energy points.");
-    }
-    auto   start       = std::chrono::high_resolution_clock::now();
-    double energy_step = (max_energy - min_energy) / (nb_points - 1);
-
-    std::vector<double> list_energies(nb_points);
-    std::vector<double> list_dos(nb_points);
-
-// #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
-    for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
-        double energy               = min_energy + index_energy * energy_step;
-        double dos                  = compute_dos_at_energy_and_band(energy, band_index, use_interp, use_iw);
-        list_energies[index_energy] = energy;
-        list_dos[index_energy]      = dos;
-    }
-    auto end              = std::chrono::high_resolution_clock::now();
-    auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    fmt::print("DOS for band {} computed in {:.3f}s\n", band_index, total_time_count / 1000.0);
-    return {list_energies, list_dos};
-}
-
-std::vector<std::vector<double>> MeshBZ::compute_dos_band_at_band_auto(int         band_index,
-                                                                       std::size_t nb_points,
-                                                                       bool        use_interp,
-                                                                       bool        use_iw) const {
-    if (band_index < 0 || band_index >= static_cast<int>(m_min_band.size())) {
-        throw std::out_of_range("Band index out of range in compute_dos_band_at_band_auto.");
-    }
-    if (nb_points < 2) {
-        throw std::invalid_argument("DOS computation requires at least two energy points.");
-    }
-
-    const double margin_energy = 0.1;
-    double       min_energy    = m_min_band[band_index] - margin_energy;
-    double       max_energy    = m_max_band[band_index] + margin_energy;
-    auto         start         = std::chrono::high_resolution_clock::now();
-    double       energy_step   = (max_energy - min_energy) / (nb_points - 1);
-
-    std::vector<double> list_energies(nb_points);
-    std::vector<double> list_dos(nb_points);
-#pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
-    for (std::size_t index_energy = 0; index_energy < nb_points; ++index_energy) {
-        double energy               = min_energy + index_energy * energy_step;
-        double dos                  = compute_dos_at_energy_and_band(energy, band_index, use_interp, use_iw);
-        list_energies[index_energy] = energy;
-        list_dos[index_energy]      = dos;
-    }
-    auto end              = std::chrono::high_resolution_clock::now();
-    auto total_time_count = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    fmt::print("DOS for band {} computed in {:.3f}s\n", band_index, total_time_count / 1000.0);
-    return {list_energies, list_dos};
-}
-
-/**
- * @brief Draw a random tetrahedron index in the mesh, on a iso-energy surface.
- *
- * @param energy
- * @param idx_band
- * @param random_generator
- * @return std::size_t
- */
-std::size_t MeshBZ::draw_random_tetrahedron_index_with_dos_probability(double        energy,
-                                                                       std::size_t   idx_band,
-                                                                       std::mt19937& random_generator) const {
-    std::vector<double> list_dos;
-    list_dos.reserve(m_list_tetrahedra.size());
-    for (auto&& tetra : m_list_tetrahedra) {
-        double dos = tetra.compute_tetra_dos_energy_band(energy, idx_band);
-        // std::cout << "Dos at energy " << energy << " eV for band " << idx_band << " in tetrahedron: " << dos <<
-        // std::endl;
-        if (dos < 0.0 or std::isnan(dos)) {
-            std::cout << "Warning: negative or NaN DOS value (" << dos << ") at energy " << energy << " eV for band "
-                      << idx_band << " in tetra : " << tetra.get_index() << ". Setting DOS to 0.\n";
-            dos = 0.0;
-        }
-        list_dos.push_back(dos);
-    }
-    // Check that we have some non-zero DOS to avoid errors in the distribution
-    double dos_sum = std::accumulate(list_dos.begin(), list_dos.end(), 0.0);
-    if (dos_sum <= 0.0) {
-        throw std::runtime_error("Total DOS is zero or negative at the given energy. Cannot draw tetrahedron index.");
-    }
-    std::discrete_distribution<std::size_t> distribution(list_dos.begin(), list_dos.end());
-    return distribution(random_generator);
-}
-
-/**
- * @brief Draw a random k-vector in the mesh, on a iso-energy surface.
- * The k-vector is drawn with a probability locally proportional to the DOS.
- *
- * @param energy
- * @param idx_band
- * @param random_generator
- * @return vector3
- */
-vector3 MeshBZ::draw_random_k_point_at_energy(double        energy,
-                                              std::size_t   idx_band,
-                                              std::mt19937& random_generator) const {
-    if (energy < m_min_band[idx_band] || energy > m_max_band[idx_band]) {
-        fmt::print(
-            "Energy {:.4f} eV is out of range for band {} (min: {:.4f} eV, max: {:.4f} eV). Cannot draw k-point.\n",
-            energy,
-            idx_band,
-            m_min_band[idx_band],
-            m_max_band[idx_band]);
-        throw std::runtime_error("Energy is out of range");
-    }
-    const std::size_t index_tetra =
-        draw_random_tetrahedron_index_with_dos_probability(energy, idx_band, random_generator);
-    if (index_tetra >= m_list_tetrahedra.size()) {
-        throw std::runtime_error("Selected tetrahedron index is out of range");
-    }
-    // std::cout << "Selected tetrahedron index: " << index_tetra << std::endl;
-    return m_list_tetrahedra[index_tetra].draw_random_uniform_point_at_energy(energy, idx_band, random_generator);
-}
-
-/**
- * @brief Draw a random k-vector in the mesh, on a iso-energy surface.
- * The k-vector is drawn with a probability locally proportional to the DOS.
- *
- * @param energy
- * @param rng
- * @return std::pair<vector3, std::size_t> The drawn k-point and the index of the band it belongs to.
- */
-std::pair<vector3, std::size_t> MeshBZ::draw_random_k_point_at_energy(double energy, std::mt19937& rng) const {
-    std::vector<std::size_t> candidate_bands;
-    for (std::size_t idx_band = 0; idx_band < m_min_band.size(); ++idx_band) {
-        if (energy >= m_min_band[idx_band] && energy <= m_max_band[idx_band]) {
-            candidate_bands.push_back(idx_band);
-        }
-    }
-    if (candidate_bands.empty()) {
-        fmt::print("Energy {:.4f} eV is out of range for all bands. Cannot draw k-point.\n", energy);
-        throw std::runtime_error("Energy is out of range for all bands");
-    }
-    std::vector<double> band_weights;
-    band_weights.reserve(candidate_bands.size());
-    for (const std::size_t band_index : candidate_bands) {
-        band_weights.push_back(std::max(0.0, compute_dos_at_energy_and_band(energy, static_cast<int>(band_index))));
-    }
-    if (std::accumulate(band_weights.begin(), band_weights.end(), 0.0) <= 0.0) {
-        throw std::runtime_error("Total DOS is zero at the requested energy across all candidate bands.");
-    }
-    std::discrete_distribution<std::size_t> band_distribution(band_weights.begin(), band_weights.end());
-    const std::size_t                       selected_band_index = candidate_bands[band_distribution(rng)];
-    vector3                                 k_point = draw_random_k_point_at_energy(energy, selected_band_index, rng);
-    return {k_point, selected_band_index};
-}
-
-void MeshBZ::export_k_points_to_file(const std::string& filename) const {
-    std::ofstream file(filename);
-    if (!file.is_open()) {
-        throw std::invalid_argument("Could not open file " + filename + " for writing.");
-    }
-    for (auto&& k_point : m_list_vertices) {
-        file << k_point.get_position().x() << "," << k_point.get_position().y() << "," << k_point.get_position().z()
-             << std::endl;
-    }
-    file.close();
-}
-
-// helper: half-width in reduced units.
-static inline double bz_halfwidth_reduced() { return 1.0; }
-
-bool MeshBZ::is_inside_mesh_geometry(const vector3& k) const {
-    const double     s   = si_to_reduced_scale();  // converts SI (1/m) -> reduced (unitless)
-    const double     hw  = bz_halfwidth_reduced();
-    constexpr double eps = 1e-12;
-
-    const double kx = k.x() * s;
-    const double ky = k.y() * s;
-    const double kz = k.z() * s;
-
-    const double ax = std::fabs(kx);
-    const double ay = std::fabs(ky);
-    const double az = std::fabs(kz);
-
-    const bool cond1 = (ax <= hw + eps) && (ay <= hw + eps) && (az <= hw + eps);
-    const bool cond2 = (ax + ay + az) <= (1.5 * hw + eps);
-
-    return cond1 && cond2;
-}
-
-void MeshBZ::precompute_G_shifts() {
-    m_Gshifts.clear();
-    vector3      b1 = {-1.0, 1.0, 1.0};
-    vector3      b2 = {1.0, -1.0, 1.0};
-    vector3      b3 = {1.0, 1.0, -1.0};
-    const double s  = si_to_reduced_scale();
-    b1 /= s;
-    b2 /= s;
-    b3 /= s;
-
-    const int maxShell = 5;  // adjust as needed
-
-    // shell 0
-    // m_Gshifts.push_back({0, 0, 0});
-
-    for (int L1 = 1; L1 <= maxShell; ++L1) {
-        for (int n1 = -L1; n1 <= L1; ++n1) {
-            for (int n2 = -L1; n2 <= L1; ++n2) {
-                for (int n3 = -L1; n3 <= L1; ++n3) {
-                    if (n1 == 0 && n2 == 0 && n3 == 0) {
-                        continue;
-                    }
-                    if (std::abs(n1) + std::abs(n2) + std::abs(n3) == L1) {
-                        m_Gshifts.push_back(n1 * b1 + n2 * b2 + n3 * b3);
-                    }
-                }
-            }
-        }
-    }
-}
-
-vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {
-    for (const auto& G : m_Gshifts) {
-        const vector3 kG = k + G;
-        if (is_inside_mesh_geometry(kG)) {
-            return kG;
-        }
-    }
-    std::cout << "No k-point inside the mesh geometry found for k: " << k << std::endl;
-    throw std::runtime_error("No k-point inside the mesh geometry found.");
-}
-
-// --- O(1) WS-BZ folding (public API) ---
-/**
- * @brief Initialize the reciprocal basis and reduced-frame parameters for O(1) folding.
- * @param b1_SI First reciprocal primitive vector (SI, 1/m)
- * @param b2_SI Second reciprocal primitive vector (SI, 1/m)
- * @param b3_SI Third reciprocal primitive vector (SI, 1/m)
- * @param halfwidth_reduced Half-width in reduced coords (0.5 for [-0.5,0.5])
- * @param si_to_reduced Scale factor from SI (1/m) to reduced coords used by plane tests
- */
-void MeshBZ::init_reciprocal_basis(const Eigen::Vector3d& b1_SI,
-                                   const Eigen::Vector3d& b2_SI,
-                                   const Eigen::Vector3d& b3_SI,
-                                   double                 halfwidth_reduced,
-                                   double                 si_to_reduced) {
-    m_recip_B.col(0) = b1_SI;
-    m_recip_B.col(1) = b2_SI;
-    m_recip_B.col(2) = b3_SI;
-    m_recip_Bi       = m_recip_B.inverse();
-
-    m_bz_halfwidth = halfwidth_reduced;  // e.g. 0.5 for [-0.5,0.5]
-    m_si2red       = si_to_reduced;      // must match your is_inside_mesh_geometry() scale
-}
-
-/**
- * @brief Fold k into the Wigner–Seitz BZ (truncated octahedron of bcc). Pure, no side effects.
- * @param k_SI Input wavevector (SI, 1/m)
- * @return Folded wavevector inside the first BZ (SI, 1/m)
- */
-vector3 MeshBZ::fold_ws_bcc(const vector3& k_SI) const noexcept {
-    const Eigen::Vector3d k(k_SI.x(), k_SI.y(), k_SI.z());
-    const Eigen::Vector3d reduced = m_recip_Bi * k;
-    const Eigen::Vector3d nearest = reduced.array().round().matrix();
-
-    Eigen::Vector3d best = k - m_recip_B * nearest;
-    double          best_norm_squared = best.squaredNorm();
-
-    // The reciprocal primitive basis is oblique. Search neighboring lattice
-    // points around the rounded estimate to obtain the true Wigner-Seitz image.
-    for (int i = -2; i <= 2; ++i) {
-        for (int j = -2; j <= 2; ++j) {
-            for (int l = -2; l <= 2; ++l) {
-                const Eigen::Vector3d lattice_coordinates =
-                    nearest + Eigen::Vector3d(static_cast<double>(i), static_cast<double>(j), static_cast<double>(l));
-                const Eigen::Vector3d candidate = k - m_recip_B * lattice_coordinates;
-                const double candidate_norm_squared = candidate.squaredNorm();
-                if (candidate_norm_squared < best_norm_squared) {
-                    best_norm_squared = candidate_norm_squared;
-                    best = candidate;
-                }
-            }
-        }
-    }
-    return vector3{best.x(), best.y(), best.z()};
-}
-
-/**
- * @brief Check if k is inside the WS BZ using the same plane tests as is_inside_mesh_geometry().
- * @param k_SI Input wavevector (SI, 1/m)
- * @return true if inside, false otherwise
- */
-bool MeshBZ::inside_ws_bcc(const vector3& k_SI) const noexcept {
-    Eigen::Vector3d kr = m_si2red * Eigen::Vector3d(k_SI.x(), k_SI.y(), k_SI.z());
-    const double    hw = m_bz_halfwidth, eps = 1e-12 * std::max(1.0, hw);
-    const double    ax = std::abs(kr.x()), ay = std::abs(kr.y()), az = std::abs(kr.z());
-    // use bitwise & so all comparisons are evaluated (branchless)
-    return (ax <= hw + eps) & (ay <= hw + eps) & (az <= hw + eps) & ((ax + ay + az) <= (1.5 * hw + eps));
-}
-
-bool MeshBZ::is_irreducible_wedge(const vector3& k_SI) const noexcept {
-    const double x = k_SI.x() * si_to_reduced_scale();
-    const double y = k_SI.y() * si_to_reduced_scale();
-    const double z = k_SI.z() * si_to_reduced_scale();
-    // std::cout << "Checking irreducible wedge for k = (" << x << ", " << y << ", " << z << ")" << std::endl;
-    constexpr double eps = 1e-12;
-    return (z >= -eps) && (z <= y + eps) && (y <= x + eps) && (x <= 1.0 + eps) && ((x + y + z) <= 1.5 + eps);
 }
 
 /**
@@ -1329,8 +1005,8 @@ std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const {
         throw std::runtime_error("Could not fold k into the irreducible wedge.");
     }
     // Now search for the closest vertex in the IW
-    double       min_dist = std::numeric_limits<double>::max();
-    std::size_t  idx_min  = 0;
+    double      min_dist = std::numeric_limits<double>::max();
+    std::size_t idx_min  = 0;
     for (const auto& vtx : m_list_vertices) {
         if (is_irreducible_wedge(vtx.get_position())) {
             double dist = (vtx.get_position() - k_folded).norm_squared();
@@ -1344,6 +1020,10 @@ std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const {
 }
 
 void MeshBZ::compute_band_structure_over_mesh(uepm::pseudopotential::BandStructure& band_structure, bool use_iwedge) {
+    if (stores_positive_octant() && use_iwedge) {
+        throw std::invalid_argument(
+            "Cannot combine positive-octant storage with irreducible-wedge band computation");
+    }
     const auto& full_list_vertices            = m_list_vertices;
     const auto& list_idx_irreducible_vertices = m_list_vtx_in_iwedge;
 
@@ -1397,25 +1077,13 @@ void MeshBZ::compute_band_structure_over_mesh(uepm::pseudopotential::BandStructu
     fmt::print("Recomputing min/max energies...\n");
     recompute_min_max_energies();
     // Set band info
-    m_nb_bands_total            = m_min_band.size();
-    constexpr double eps        = 1e-6;
-    std::size_t      count_band = 0;
-    for (std::size_t b = 0; b < m_nb_bands_total; ++b) {
-        bool is_valence = (m_min_band[b] < eps);
-        if (is_valence) {
-            BandInfo band_info = {MeshParticleType::valence, m_valence_bands.count};
-            m_band_info.push_back(band_info);
-            m_valence_bands.global_start_index =
-                (m_valence_bands.count == 0) ? count_band : m_valence_bands.global_start_index;
-            m_valence_bands.count++;
-        } else {
-            BandInfo band_info = {MeshParticleType::conduction, m_conduction_bands.count};
-            m_band_info.push_back(band_info);
-            m_conduction_bands.global_start_index =
-                (m_conduction_bands.count == 0) ? count_band : m_conduction_bands.global_start_index;
-            m_conduction_bands.count++;
-        }
-        count_band++;
+    m_bands.clear_classification();
+    constexpr double eps              = 1e-6;
+    const auto       minimum_energies = m_bands.minima();
+    const auto       maximum_energies = m_bands.maxima();
+    for (std::size_t band_index = 0; band_index < minimum_energies.size(); ++band_index) {
+        const bool is_valence = minimum_energies[band_index] < eps;
+        m_bands.classify_existing_band(is_valence ? MeshParticleType::valence : MeshParticleType::conduction);
     }
     print_band_info();
 }
@@ -1633,8 +1301,8 @@ void MeshBZ::export_selected_bands_to_gmsh(const std::string& out_filename,
 
     // Valence
     if (nb_valence_to_export > 0) {
-        const int v_start = m_valence_bands.global_start_index;
-        const int v_last  = v_start + static_cast<int>(m_valence_bands.count) - 1;
+        const int v_start = m_bands.range(MeshParticleType::valence).global_start_index;
+        const int v_last  = v_start + static_cast<int>(m_bands.range(MeshParticleType::valence).count) - 1;
 
         if (highest_valence_as_band0) {
             for (int g = v_last; g >= v_last - static_cast<int>(nb_valence_to_export) + 1; --g) {
@@ -1667,140 +1335,6 @@ void MeshBZ::export_selected_bands_to_gmsh(const std::string& out_filename,
     } else {
         std::cout << "No conduction bands requested for export." << std::endl;
     }
-}
-
-static inline void bz_write_vtk_scalars(std::ofstream&             out,
-                                        const std::string&         name,
-                                        const std::vector<double>& vals,
-                                        std::size_t expected_count) {
-    if (vals.size() != expected_count) {
-        throw std::runtime_error("VTK export: scalar field '" + name + "' has size " + std::to_string(vals.size()) +
-                                 ", expected " + std::to_string(expected_count));
-    }
-    out << "SCALARS " << name << " double 1\n";
-    out << "LOOKUP_TABLE default\n";
-    out << std::setprecision(8);
-    for (double v : vals) {
-        out << v << "\n";
-    }
-}
-
-static inline void bz_write_vtk_vectors(std::ofstream&              out,
-                                        const std::string&          name,
-                                        const std::vector<vector3>& vecs,
-                                        std::size_t                 expected_count) {
-    if (vecs.size() != expected_count) {
-        throw std::runtime_error("VTK export: vector field '" + name + "' has size " + std::to_string(vecs.size()) +
-                                 ", expected " + std::to_string(expected_count));
-    }
-    out << "VECTORS " << name << " double\n";
-    out << std::setprecision(8);
-    for (const auto& v : vecs) {
-        out << v.x() << " " << v.y() << " " << v.z() << "\n";
-    }
-}
-
-void MeshBZ::export_to_vtk(const std::string&        filename,
-                           const MapStringToDoubles& point_scalars,
-                           const MapStringToVectors& point_vectors,
-                           const MapStringToDoubles& cell_scalars,
-                           const MapStringToVectors& cell_vectors) const {
-    const std::size_t n_points = m_list_vertices.size();
-    const std::size_t n_cells  = m_list_tetrahedra.size();
-
-    std::ofstream out(filename);
-    if (!out) {
-        throw std::runtime_error("Cannot open VTK file '" + filename + "' for writing.");
-    }
-
-    // --- VTK legacy header (ASCII, UnstructuredGrid) ---
-    out << "# vtk DataFile Version 4.2\n";
-    out << "BZ mesh export\n";
-    out << "ASCII\n";
-    out << "DATASET UNSTRUCTURED_GRID\n";
-
-    // --- POINTS ---
-    out << "POINTS " << n_points << " double\n";
-    out << std::setprecision(8);
-    for (const auto& v : m_list_vertices) {
-        auto p = v.get_position();
-        // p *= si_to_reduced_scale();  // export in reduced units
-        out << p.x() << " " << p.y() << " " << p.z() << "\n";
-    }
-
-    // --- CELLS (tetra) ---
-    // For legacy VTK: total_indices = n_cells * (1 + 4) because each line: "4 i0 i1 i2 i3"
-    const std::size_t total_idx = n_cells * (1 + 4);
-    out << "CELLS " << n_cells << " " << total_idx << "\n";
-    for (const auto& t : m_list_tetrahedra) {
-        const auto ids = t.get_list_indices_vertices();  // assumes 0-based vertex ids
-        out << "4 " << ids[0] << " " << ids[1] << " " << ids[2] << " " << ids[3] << "\n";
-    }
-
-    // --- CELL_TYPES (tetra = 10) ---
-    out << "CELL_TYPES " << n_cells << "\n";
-    for (std::size_t i = 0; i < n_cells; ++i) {
-        out << "10\n";
-    }
-
-    // --- Optional per-vertex data ---
-    if (!point_scalars.empty() || !point_vectors.empty()) {
-        out << "POINT_DATA " << n_points << "\n";
-        for (const auto& [name, vals] : point_scalars) {
-            bz_write_vtk_scalars(out, name, vals, n_points);
-        }
-        for (const auto& [name, vecs] : point_vectors) {
-            bz_write_vtk_vectors(out, name, vecs, n_points);
-        }
-    }
-
-    // --- Optional per-cell data ---
-    if (!cell_scalars.empty() || !cell_vectors.empty()) {
-        out << "CELL_DATA " << n_cells << "\n";
-        for (const auto& [name, vals] : cell_scalars) {
-            bz_write_vtk_scalars(out, name, vals, n_cells);
-        }
-        for (const auto& [name, vecs] : cell_vectors) {
-            bz_write_vtk_vectors(out, name, vecs, n_cells);
-        }
-    }
-    out.close();
-}
-
-void MeshBZ::export_energies_and_gradients_to_vtk(const std::string& filename) const {
-    std::map<std::string, std::vector<double>>  point_scalars;
-    std::map<std::string, std::vector<vector3>> point_vectors;
-
-    // Per-vertex band energies
-    for (std::size_t b = 0; b < m_list_vertices[0].get_number_bands(); ++b) {
-        std::string         name = "band_energy_" + std::to_string(b);
-        std::vector<double> vals;
-        vals.reserve(m_list_vertices.size());
-        for (const auto& v : m_list_vertices) {
-            vals.push_back(v.get_energy_at_band(b));
-        }
-        point_scalars[name] = vals;
-    }
-
-    // Per-vertex band energy gradients
-    for (std::size_t b = 0; b < m_list_vertices[0].get_energy_gradient_at_bands().size(); ++b) {
-        std::string          name = "band_grad_" + std::to_string(b);
-        std::vector<vector3> vecs;
-        vecs.reserve(m_list_vertices.size());
-        for (const auto& v : m_list_vertices) {
-            vecs.push_back(v.get_energy_gradient_at_band(b));
-        }
-        point_vectors[name] = vecs;
-    }
-    export_to_vtk(filename, point_scalars, point_vectors, {}, {});
-}
-
-void MeshBZ::export_octree_to_vtu(const std::string& filename) const {
-    if (!m_search_tree) {
-        throw std::runtime_error("Octree not initialized. Cannot export.");
-    }
-    bool export_leaves_only = true;
-    write_octree_as_vtu(*m_search_tree, filename, export_leaves_only);
 }
 
 }  // namespace uepm::mesh_bz

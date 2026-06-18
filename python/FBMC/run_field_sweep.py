@@ -46,6 +46,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--outdir", required=True, type=Path, help="Sweep output directory.")
     parser.add_argument("--material", default="Si", help="Material symbol passed to fbmc.epm.")
     parser.add_argument(
+        "--bz-domain",
+        choices=("full", "octant"),
+        default="full",
+        help="Stored Brillouin-zone domain used by fbmc.epm.",
+    )
+    parser.add_argument(
         "--phonon-params",
         default="kamakura",
         help="Electron-phonon parameter set passed to fbmc.epm, e.g. kamakura, michaillat, or fischetti.",
@@ -212,6 +218,8 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
         args.material,
         "--phonon-params",
         args.phonon_params,
+        "--bz-domain",
+        args.bz_domain,
         "--outdir",
         str(run_dir),
         "--npart",

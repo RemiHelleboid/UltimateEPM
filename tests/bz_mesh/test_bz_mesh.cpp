@@ -3,10 +3,13 @@
 #include <Eigen/LU>
 
 #include "bz_mesh.hpp"
+#include "band_catalog.hpp"
+#include "bz_domain.hpp"
 #include "doctest/doctest.h"
 #include "epm_material.hpp"
 
 using uepm::mesh_bz::MeshBZ;
+using uepm::mesh_bz::MeshParticleType;
 using uepm::mesh_bz::vector3;
 
 namespace {
@@ -22,6 +25,45 @@ uepm::pseudopotential::epm_material make_test_material() {
 }
 
 }  // namespace
+
+TEST_CASE("band catalog owns contiguous global and local band indexing") {
+    uepm::mesh_bz::BandCatalog catalog;
+    catalog.register_band(MeshParticleType::valence, -1.0, 0.0);
+    catalog.register_band(MeshParticleType::valence, -2.0, -0.1);
+    catalog.register_band(MeshParticleType::conduction, 1.1, 3.0);
+    catalog.register_band(MeshParticleType::conduction, 1.3, 4.0);
+
+    CHECK(catalog.total() == 4);
+    CHECK(catalog.range(MeshParticleType::valence).global_start_index == 0);
+    CHECK(catalog.range(MeshParticleType::valence).count == 2);
+    CHECK(catalog.range(MeshParticleType::conduction).global_start_index == 2);
+    CHECK(catalog.range(MeshParticleType::conduction).count == 2);
+    CHECK(catalog.local_index(3) == 1);
+    CHECK(catalog.global_index(1, MeshParticleType::conduction) == 3);
+    CHECK(catalog.extrema(2).first == doctest::Approx(1.1));
+}
+
+TEST_CASE("band catalog rejects interleaved valence and conduction ranges") {
+    uepm::mesh_bz::BandCatalog catalog;
+    catalog.register_band(MeshParticleType::conduction, 1.0, 2.0);
+    CHECK_THROWS_AS(catalog.register_band(MeshParticleType::valence, -1.0, 0.0), std::runtime_error);
+}
+
+TEST_CASE("positive-octant canonicalization preserves physical sign orientation") {
+    const vector3 physical{-1.0, 2.0, -3.0};
+    const auto canonical =
+        uepm::mesh_bz::canonicalize_k(physical, uepm::mesh_bz::BZDomainMode::positive_octant);
+
+    CHECK(canonical.representative.x() == doctest::Approx(1.0));
+    CHECK(canonical.representative.y() == doctest::Approx(2.0));
+    CHECK(canonical.representative.z() == doctest::Approx(3.0));
+    CHECK(canonical.signs == std::array<int, 3>{-1, 1, -1});
+
+    const vector3 reconstructed = uepm::mesh_bz::apply_sign_image(canonical.representative, canonical.signs);
+    CHECK(reconstructed.x() == doctest::Approx(physical.x()));
+    CHECK(reconstructed.y() == doctest::Approx(physical.y()));
+    CHECK(reconstructed.z() == doctest::Approx(physical.z()));
+}
 
 TEST_CASE("reduced and SI k-space conversions round trip") {
     const auto    material = make_test_material();

@@ -170,7 +170,8 @@ Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPh
                                 .m_self_scattering_safety_factor = config.m_self_scattering_safety_factor,
                                 .m_enable_impact_ionization      = config.m_enable_impact_ionization,
                                 .m_record_history                = config.m_record_history,
-                                .m_random_seed                   = config.m_random_seed},
+                                .m_random_seed                   = config.m_random_seed,
+                                .m_history_export_prefix         = config.m_history_export_prefix},
           config.m_number_of_particles) {}
 
 void Single_particle_simulation::run_simulation() {
@@ -208,6 +209,8 @@ void Single_particle_simulation::run_simulation() {
     m_impact_ionization_statistics         = {};
 
     double                   reduced_weighted_velocity_x  = 0.0;
+    double                   reduced_weighted_velocity_y  = 0.0;
+    double                   reduced_weighted_velocity_z  = 0.0;
     double                   reduced_weighted_energy      = 0.0;
     double                   reduced_accumulated_time     = 0.0;
     std::size_t              reduced_ii_events            = 0;
@@ -223,6 +226,8 @@ void Single_particle_simulation::run_simulation() {
 
 #pragma omp parallel for schedule(dynamic) num_threads(m_sim_params.m_nb_openmp_threads) \
     reduction(+ : reduced_weighted_velocity_x,                                           \
+                  reduced_weighted_velocity_y,                                           \
+                  reduced_weighted_velocity_z,                                           \
                   reduced_weighted_energy,                                               \
                   reduced_accumulated_time,                                              \
                   reduced_ii_events,                                                     \
@@ -270,6 +275,8 @@ void Single_particle_simulation::run_simulation() {
                                                                                  final_time_s);
                 if (sampled_dt_after_warmup > 0.0) {
                     reduced_weighted_velocity_x += current_particle.state().m_velocity.x() * sampled_dt_after_warmup;
+                    reduced_weighted_velocity_y += current_particle.state().m_velocity.y() * sampled_dt_after_warmup;
+                    reduced_weighted_velocity_z += current_particle.state().m_velocity.z() * sampled_dt_after_warmup;
                     reduced_weighted_energy += current_particle.state().m_energy * sampled_dt_after_warmup;
                     reduced_accumulated_time += sampled_dt_after_warmup;
                     reduced_ii_carrier_time += sampled_dt_after_warmup;
@@ -350,6 +357,14 @@ void Single_particle_simulation::run_simulation() {
                 }
             }
 
+            if (m_sim_params.m_record_history && !m_sim_params.m_history_export_prefix.empty()) {
+                const std::string history_filename = fmt::format("{}_particle_{}.csv",
+                                                                 m_sim_params.m_history_export_prefix,
+                                                                 current_particle.get_index());
+                current_particle.export_history_to_csv(history_filename);
+                current_particle.reset_history();
+            }
+
             const std::size_t completed        = completed_particles.fetch_add(1) + 1;
             const int         progress_percent = static_cast<int>((100 * completed) / m_list_particle.size());
             const int         progress_bucket  = std::min(10, progress_percent / 10);
@@ -379,6 +394,8 @@ void Single_particle_simulation::run_simulation() {
     }
 
     m_observables.m_weighted_velocity_x_m                           = reduced_weighted_velocity_x;
+    m_observables.m_weighted_velocity_y_m                           = reduced_weighted_velocity_y;
+    m_observables.m_weighted_velocity_z_m                           = reduced_weighted_velocity_z;
     m_observables.m_weighted_kinetic_energy_eV_s                    = reduced_weighted_energy;
     m_observables.m_accumulated_time_s                              = reduced_accumulated_time;
     m_impact_ionization_statistics.m_events                         = reduced_ii_events;
@@ -391,8 +408,10 @@ void Single_particle_simulation::run_simulation() {
 
     fmt::print("Completed self-scattering FBMC run with {} particles\n", m_list_particle.size());
     fmt::print("Maximum observed total scattering rate: {:.6e} s^-1\n", max_observed_total_rate);
-    fmt::print("Steady-state average vx: {:.6e} m/s\n",
-               m_observables.m_weighted_velocity_x_m / m_observables.m_accumulated_time_s);
+    fmt::print("Steady-state average velocity: ({:.6e}, {:.6e}, {:.6e}) m/s\n",
+               m_observables.m_weighted_velocity_x_m / m_observables.m_accumulated_time_s,
+               m_observables.m_weighted_velocity_y_m / m_observables.m_accumulated_time_s,
+               m_observables.m_weighted_velocity_z_m / m_observables.m_accumulated_time_s);
     fmt::print("Steady-state average energy: {:.6f} eV\n",
                m_observables.m_weighted_kinetic_energy_eV_s / m_observables.m_accumulated_time_s);
     fmt::print("Impact ionization coefficient: {:.6e} cm^-1\n",
@@ -417,6 +436,8 @@ void Single_particle_simulation::export_observables_to_csv(const std::string& fi
             "electric_field_V_per_m,"
             "impurity_density_cm_3,"
             "mean_velocity_x_m_per_s,"
+            "mean_velocity_y_m_per_s,"
+            "mean_velocity_z_m_per_s,"
             "mean_kinetic_energy_eV,"
             "sample_count,"
             "impact_ionization_events,"
@@ -425,12 +446,14 @@ void Single_particle_simulation::export_observables_to_csv(const std::string& fi
             "impact_ionization_coefficient_cm_1\n";
 
     constexpr double electron_charge_C = -uepm::constants::q_e;
-    file << fmt::format("{},{},{},{},{},{},{},{},{},{},{}\n",
+    file << fmt::format("{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
                         electron_charge_C,
                         m_bulk_env.m_temperature,
                         m_observables.m_electric_field_V_per_m,
                         m_bulk_env.m_doping_concentration,
                         m_observables.m_weighted_velocity_x_m / m_observables.m_accumulated_time_s,
+                        m_observables.m_weighted_velocity_y_m / m_observables.m_accumulated_time_s,
+                        m_observables.m_weighted_velocity_z_m / m_observables.m_accumulated_time_s,
                         m_observables.m_weighted_kinetic_energy_eV_s / m_observables.m_accumulated_time_s,
                         m_observables.m_accumulated_time_s,
                         m_impact_ionization_statistics.m_events,

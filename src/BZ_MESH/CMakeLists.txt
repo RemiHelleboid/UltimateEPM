@@ -1,5 +1,9 @@
 set(HEADER_FILES_LIBBZMESH
+    ARCHITECTURE.md
     gmsh_guard.hpp
+    band_catalog.hpp
+    bz_domain.hpp
+    bz_dos.hpp
     fermi_level.hpp
     mesh_tetra.hpp
     mesh_vertex.hpp
@@ -12,6 +16,8 @@ set(HEADER_FILES_LIBBZMESH
     dielectric_mesh.hpp
     bbox_mesh.hpp
     octree_bz.hpp
+    reciprocal_space.hpp
+    tetra_energy_index.hpp
     elph_common.hpp
     elph_deformation_potential.hpp
     elph_dispersion.hpp
@@ -19,13 +25,19 @@ set(HEADER_FILES_LIBBZMESH
 
 set(SOURCE_FILES_LIBBZMESH
     mesh_tetra.cpp
+    band_catalog.cpp
+    bz_domain.cpp
+    bz_dos.cpp
+    bz_mesh_export.cpp
     bz_mesh.cpp
     bz_states.cpp
     electron_phonon.cpp
     impact_ionization.cpp
     fermi_level.cpp
     dielectric_mesh.cpp
-    octree_bz.cpp)
+    octree_bz.cpp
+    reciprocal_space.cpp
+    tetra_energy_index.cpp)
 
 add_library(lib_bzmesh STATIC ${SOURCE_FILES_LIBBZMESH}
                               ${HEADER_FILES_LIBBZMESH})

@@ -18,17 +18,21 @@
 #include <map>
 #include <memory>
 #include <random>
-#include <span>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "BandStructure.h"
+#include "band_catalog.hpp"
+#include "bz_domain.hpp"
+#include "bz_dos.hpp"
 #include "epm_material.hpp"
 #include "export_octree_vtu.hpp"
 #include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
 #include "octree_bz.hpp"
+#include "reciprocal_space.hpp"
+#include "tetra_energy_index.hpp"
 #include "vector_bz.hpp"
 
 namespace uepm::mesh_bz {
@@ -36,52 +40,10 @@ namespace uepm::mesh_bz {
 using MapStringToDoubles = std::map<std::string, std::vector<double>>;
 using MapStringToVectors = std::map<std::string, std::vector<vector3>>;
 
-enum class MeshParticleType { valence, conduction };
-
-struct BandInfo {
-    MeshParticleType type{MeshParticleType::conduction};
-    std::size_t      local_index{0};
-};
-
-struct BandRange {
-    int         global_start_index{-1};
-    std::size_t count{0};
-};
-
-struct TetraOrderedEnergyMin {
-    std::size_t              m_band_idx;
-    std::vector<std::size_t> m_ordered_tetra_indices;
-    std::vector<double>      m_ordered_energies;
-    double                   m_max_energy_spread{0.0};
-    double                   max_energy = 1e100;
-
-    auto get_inidices_in_energy_range(double E_min, double E_max) const {
-        auto        it_low   = std::lower_bound(m_ordered_energies.begin(), m_ordered_energies.end(), E_min);
-        auto        it_high  = std::upper_bound(m_ordered_energies.begin(), m_ordered_energies.end(), E_max);
-        std::size_t idx_low  = std::distance(m_ordered_energies.begin(), it_low);
-        std::size_t idx_high = std::distance(m_ordered_energies.begin(), it_high);
-        return std::make_pair(idx_low, idx_high);
-    }
-
-    std::span<const std::size_t> indices_in_min_energy_range(double E_min, double E_max) const noexcept {
-        // binary-search on energies
-        const auto        it_low  = std::lower_bound(m_ordered_energies.begin(), m_ordered_energies.end(), E_min);
-        const auto        it_high = std::upper_bound(m_ordered_energies.begin(), m_ordered_energies.end(), E_max);
-        const std::size_t lo      = static_cast<std::size_t>(it_low - m_ordered_energies.begin());
-        const std::size_t hi      = static_cast<std::size_t>(it_high - m_ordered_energies.begin());
-
-        // return a view over the corresponding slice of tetra indices
-        const auto all = std::span<const std::size_t>(m_ordered_tetra_indices);
-        return all.subspan(lo, hi - lo);
-    }
-
-    std::span<const std::size_t> candidate_indices(double E_min, double E_max) const noexcept {
-        return indices_in_min_energy_range(E_min - m_max_energy_spread, E_max);
-    }
-};
-
 class MeshBZ {
  protected:
+    void compact_geometry_to_positive_octant();
+
     std::string m_filename_mesh;
 
     int m_nb_threads_mesh_ops = 1;
@@ -91,6 +53,8 @@ class MeshBZ {
     vector3 m_center{0.0, 0.0, 0.0};
 
     std::vector<std::size_t>              m_node_tags;
+    std::vector<std::size_t>              m_source_vertex_indices;
+    std::vector<std::size_t>              m_local_index_from_source_vertex;
     std::vector<Vertex>                   m_list_vertices;
     std::vector<Tetra>                    m_list_tetrahedra;
     std::vector<std::vector<std::size_t>> m_vertex_to_tetrahedra;
@@ -116,7 +80,7 @@ class MeshBZ {
      * @brief For each band, list of tetrahedra ordered by increasing minimum energy in the tetrahedron.
      *
      */
-    std::vector<TetraOrderedEnergyMin> m_tetra_ordered_energy_min;
+    TetraEnergyIndex m_tetra_energy_index;
 
     /**
      * @brief Octree search tree for fast spatial queries.
@@ -124,33 +88,22 @@ class MeshBZ {
      */
     std::unique_ptr<Octree_mesh> m_search_tree;
 
-    std::size_t           m_nb_bands_total = 0;
-    std::vector<BandInfo> m_band_info;
-    BandRange             m_valence_bands;
-    BandRange             m_conduction_bands;
-
-    std::vector<double> m_min_band;
-    std::vector<double> m_max_band;
+    BandCatalog m_bands;
 
     double m_max_energy_global = 1e100;
 
     double m_total_volume    = 0.0;
     double m_spin_degeneracy = 2.0;
 
-    std::vector<vector3> m_Gshifts;
-
-    // Wigner–Seitz / BZ folding helpers
-    Eigen::Matrix3d m_recip_B      = Eigen::Matrix3d::Identity();
-    Eigen::Matrix3d m_recip_Bi     = Eigen::Matrix3d::Identity();
-    double          m_si2red       = 1.0;
-    double          m_bz_halfwidth = 1.0;
+    ReciprocalSpace m_reciprocal_space;
+    BZDomainMode    m_domain_mode = BZDomainMode::full;
 
  public:
     // ---------- ctors/dtor ----------
     MeshBZ() = default;
     explicit MeshBZ(const uepm::pseudopotential::epm_material& material) : m_material(material) {}
-    MeshBZ(const MeshBZ&)                = default;
-    MeshBZ& operator=(const MeshBZ&)     = default;
+    MeshBZ(const MeshBZ&)                = delete;
+    MeshBZ& operator=(const MeshBZ&)     = delete;
     MeshBZ(MeshBZ&&) noexcept            = default;
     MeshBZ& operator=(MeshBZ&&) noexcept = default;
     // ~MeshBZ();  // out-of-line (needed for unique_ptr<Octree_mesh> with fwd-decl)
@@ -167,6 +120,23 @@ class MeshBZ {
     void           shift_bz_center(const vector3& shift);
 
     double get_bz_volume_correction() const noexcept { return m_bz_volume_correction; }
+    double get_spin_degeneracy() const noexcept { return m_spin_degeneracy; }
+    void   set_domain_mode(BZDomainMode mode) noexcept { m_domain_mode = mode; }
+    BZDomainMode domain_mode() const noexcept { return m_domain_mode; }
+    bool stores_positive_octant() const noexcept { return m_domain_mode == BZDomainMode::positive_octant; }
+    double stored_domain_multiplicity() const noexcept { return stores_positive_octant() ? 8.0 : 1.0; }
+    CanonicalK canonicalize_physical_k(const vector3& physical_k) const noexcept {
+        return canonicalize_k(physical_k, m_domain_mode);
+    }
+    vector3 representative_vector_to_physical(const vector3& representative,
+                                              const std::array<int, 3>& signs) const noexcept {
+        return apply_sign_image(representative, signs);
+    }
+    const auto& physical_sign_images() const noexcept { return positive_octant_images; }
+    std::size_t source_vertex_index(std::size_t local_index) const {
+        return m_source_vertex_indices.at(local_index);
+    }
+    std::size_t local_vertex_index_from_source(std::size_t source_index) const;
     void   set_bz_volume_correction(double factor) noexcept { m_bz_volume_correction = factor; }
     // Compatibility aliases for existing callers.
     double  get_reduce_bz_factor() const noexcept { return get_bz_volume_correction(); }
@@ -181,6 +151,9 @@ class MeshBZ {
 
     const std::vector<Vertex>&      get_list_vertices() const noexcept { return m_list_vertices; }
     const std::vector<Tetra>&       get_list_tetrahedra() const noexcept { return m_list_tetrahedra; }
+    const BandCatalog&              band_catalog() const noexcept { return m_bands; }
+    const ReciprocalSpace&          reciprocal_space() const noexcept { return m_reciprocal_space; }
+    const TetraEnergyIndex&         tetra_energy_index() const noexcept { return m_tetra_energy_index; }
     const std::vector<std::size_t>& get_list_vertex_indices_in_irreducible_wedge() const noexcept {
         return m_list_vtx_in_iwedge;
     }
@@ -191,38 +164,24 @@ class MeshBZ {
     }
 
     // Band infos
-    std::size_t get_number_bands_total() const noexcept { return m_nb_bands_total; }
-    std::size_t get_number_valence_bands() const noexcept { return m_valence_bands.count; }
-    std::size_t get_number_conduction_bands() const noexcept { return m_conduction_bands.count; }
-    std::size_t get_number_bands(MeshParticleType type) const noexcept {
-        return (type == MeshParticleType::valence) ? m_valence_bands.count : m_conduction_bands.count;
+    std::size_t get_number_bands_total() const noexcept { return m_bands.total(); }
+    std::size_t get_number_valence_bands() const noexcept { return m_bands.range(MeshParticleType::valence).count; }
+    std::size_t get_number_conduction_bands() const noexcept {
+        return m_bands.range(MeshParticleType::conduction).count;
     }
+    std::size_t get_number_bands(MeshParticleType type) const noexcept { return m_bands.range(type).count; }
     std::vector<std::size_t> get_band_indices(MeshParticleType type) const;
     std::pair<int, int>      get_start_end_valence_band_idx() const {
-        return {m_valence_bands.global_start_index, m_valence_bands.global_start_index + m_valence_bands.count};
+        const auto& range = m_bands.range(MeshParticleType::valence);
+        return {range.global_start_index, range.global_start_index + range.count};
     }
     std::pair<int, int> get_start_end_conduction_band_idx() const {
-        return {m_conduction_bands.global_start_index,
-                m_conduction_bands.global_start_index + m_conduction_bands.count};
+        const auto& range = m_bands.range(MeshParticleType::conduction);
+        return {range.global_start_index, range.global_start_index + range.count};
     }
-    std::size_t get_local_band_index(int global_band_index) const {
-        if (global_band_index < 0 || global_band_index >= static_cast<int>(m_nb_bands_total)) {
-            throw std::out_of_range("Global band index out of range.");
-        }
-        return m_band_info[global_band_index].local_index;
-    }
+    std::size_t get_local_band_index(int global_band_index) const { return m_bands.local_index(global_band_index); }
     std::size_t get_global_band_index(std::size_t local_band_index, MeshParticleType type) const {
-        if (type == MeshParticleType::valence) {
-            if (local_band_index >= m_valence_bands.count) {
-                throw std::out_of_range("Local valence band index out of range.");
-            }
-            return m_valence_bands.global_start_index + local_band_index;
-        } else {
-            if (local_band_index >= m_conduction_bands.count) {
-                throw std::out_of_range("Local conduction band index out of range.");
-            }
-            return m_conduction_bands.global_start_index + local_band_index;
-        }
+        return m_bands.global_index(local_band_index, type);
     }
 
     void print_band_info() const;
@@ -295,7 +254,7 @@ class MeshBZ {
      * @return const std::vector<std::size_t>&
      */
     const std::vector<std::size_t>& get_ordered_tetra_indices_at_band(std::size_t band_index) const {
-        return m_tetra_ordered_energy_min[band_index].m_ordered_tetra_indices;
+        return m_tetra_energy_index.at(band_index).ordered_tetra_indices;
     }
 
     void precompute_dos_tetra(double energy_step = 0.01, double energy_max = 100.0);
@@ -333,7 +292,7 @@ class MeshBZ {
     }
 
     std::pair<double, double> get_min_max_energy_at_band(const int& band_index) const {
-        return {m_min_band[band_index], m_max_band[band_index]};
+        return m_bands.extrema(static_cast<std::size_t>(band_index));
     }
 
     // ---------- metrics / DOS ----------

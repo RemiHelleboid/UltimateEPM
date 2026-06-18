@@ -46,7 +46,7 @@ void BZ_States::compute_eigenstates(int nb_threads) {
         m_eigenvalues_k[idx_k]  = hamiltonian_per_thread[idx_thread].eigenvalues();
         m_eigenvectors_k[idx_k] = hamiltonian_per_thread[idx_thread].get_eigenvectors();
         auto nb_rows            = m_eigenvectors_k[idx_k].rows();
-        m_eigenvectors_k[idx_k].conservativeResize(nb_rows, m_nb_bands_total);
+        m_eigenvectors_k[idx_k].conservativeResize(nb_rows, m_bands.total());
     }
     std::cout << std::endl;
 }
@@ -79,7 +79,7 @@ void BZ_States::compute_shifted_eigenstates(const Vector3D<double>& q_shift, int
         m_eigenvalues_k_plus_q[idx_k]  = hamiltonian_per_thread[idx_thread].eigenvalues();
         m_eigenvectors_k_plus_q[idx_k] = hamiltonian_per_thread[idx_thread].get_eigenvectors();
         auto nb_rows                   = m_eigenvectors_k[idx_k].rows();
-        m_eigenvectors_k_plus_q[idx_k].conservativeResize(nb_rows, m_nb_bands_total);
+        m_eigenvectors_k_plus_q[idx_k].conservativeResize(nb_rows, m_bands.total());
     }
     std::cout << std::endl;
 }
@@ -135,7 +135,7 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
         // Loop over the vertices of the tetrahedron
         for (std::size_t idx_vertex = 0; idx_vertex < 4; ++idx_vertex) {
             std::size_t index_k = list_idx_vertices[idx_vertex];
-            for (std::size_t idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_nb_bands_total;
+            for (std::size_t idx_conduction_band = index_first_conduction_band; idx_conduction_band < m_bands.total();
                  ++idx_conduction_band) {
                 for (int idx_valence_band = 0; idx_valence_band < index_first_conduction_band; ++idx_valence_band) {
                     double overlap_integral = pow(std::fabs(m_eigenvectors_k_plus_q[index_k]

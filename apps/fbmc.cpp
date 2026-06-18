@@ -30,6 +30,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "BandStructure.h"
@@ -81,10 +82,8 @@ bool looks_like_phonon_rates_csv(const std::filesystem::path& path) {
         return false;
     }
 
-    return header.find("vertex_index") != std::string::npos &&
-           header.find("local_band_index") != std::string::npos &&
-           header.find("energy_eV") != std::string::npos &&
-           header.find("rate_ac_L_ab") != std::string::npos &&
+    return header.find("vertex_index") != std::string::npos && header.find("local_band_index") != std::string::npos &&
+           header.find("energy_eV") != std::string::npos && header.find("rate_ac_L_ab") != std::string::npos &&
            header.find("rate_op_T_em") != std::string::npos;
 }
 
@@ -99,10 +98,10 @@ std::filesystem::path detect_phonon_rates_file(const std::filesystem::path& dire
     std::sort(matches.begin(), matches.end());
 
     if (matches.empty()) {
-        throw std::runtime_error(fmt::format(
-            "No phonon-rate CSV was provided and no matching file was found in {}. "
-            "Pass --phononfile explicitly or generate one with elph.epm --export-rates.",
-            directory.string()));
+        throw std::runtime_error(
+            fmt::format("No phonon-rate CSV was provided and no matching file was found in {}. "
+                        "Pass --phononfile explicitly or generate one with elph.epm --export-rates.",
+                        directory.string()));
     }
 
     if (matches.size() > 1) {
@@ -121,10 +120,20 @@ std::filesystem::path detect_phonon_rates_file(const std::filesystem::path& dire
 std::filesystem::path make_output_directory(const std::string& requested,
                                             const std::string& material,
                                             double             temperature,
-                                            double             electric_field_v_per_cm) {
+                                            const uepm::mesh_bz::vector3& electric_field_v_per_cm) {
     std::filesystem::path outdir;
     if (requested.empty()) {
-        outdir = fmt::format("fbmc_{}_{:.1f}K_{:.3e}Vcm", material, temperature, electric_field_v_per_cm);
+        if (electric_field_v_per_cm.y() == 0.0 && electric_field_v_per_cm.z() == 0.0) {
+            outdir =
+                fmt::format("fbmc_{}_{:.1f}K_{:.3e}Vcm", material, temperature, electric_field_v_per_cm.x());
+        } else {
+            outdir = fmt::format("fbmc_{}_{:.1f}K_E_{:.3e}_{:.3e}_{:.3e}Vcm",
+                                 material,
+                                 temperature,
+                                 electric_field_v_per_cm.x(),
+                                 electric_field_v_per_cm.y(),
+                                 electric_field_v_per_cm.z());
+        }
     } else {
         outdir = requested;
     }
@@ -151,10 +160,11 @@ void write_run_metadata(const std::filesystem::path& outdir,
                         int                          nb_valence_bands,
                         double                       simulation_time,
                         double                       temperature,
-                        double                       electric_field_v_per_cm,
+                        const uepm::mesh_bz::vector3& electric_field_v_per_cm,
                         double                       max_energy_eV,
                         double                       gamma_safety,
                         double                       warmup_fraction,
+                        std::string_view             bz_domain,
                         std::uint64_t                random_seed,
                         bool                         enable_impact_ionization,
                         bool                         export_history) {
@@ -174,10 +184,13 @@ void write_run_metadata(const std::filesystem::path& outdir,
     os << "n_valence_bands = " << nb_valence_bands << '\n';
     os << "simulation_time_s = " << simulation_time << '\n';
     os << "temperature_K = " << temperature << '\n';
-    os << "electric_field_V_per_cm = " << electric_field_v_per_cm << '\n';
+    os << "electric_field_x_V_per_cm = " << electric_field_v_per_cm.x() << '\n';
+    os << "electric_field_y_V_per_cm = " << electric_field_v_per_cm.y() << '\n';
+    os << "electric_field_z_V_per_cm = " << electric_field_v_per_cm.z() << '\n';
     os << "max_energy_eV = " << max_energy_eV << '\n';
     os << "self_scattering_safety_factor = " << gamma_safety << '\n';
     os << "warmup_fraction = " << warmup_fraction << '\n';
+    os << "bz_domain = " << bz_domain << '\n';
     os << "random_seed = " << random_seed << '\n';
     os << "impact_ionization_enabled = " << (enable_impact_ionization ? "true" : "false") << '\n';
     os << "export_history = " << (export_history ? "true" : "false") << '\n';
@@ -226,12 +239,7 @@ int main(int argc, const char** argv) try {
     TCLAP::ValueArg<int> arg_nb_valence_bands("v", "nvbands", "Number of valence bands to consider", false, -1, "int");
     TCLAP::ValueArg<int> arg_nb_threads("j", "nthreads", "Number of threads to use", false, 1, "int");
 
-    TCLAP::ValueArg<double> arg_max_energy("e",
-                                           "maxenergy",
-                                           "Maximum energy to consider (eV)",
-                                           false,
-                                           10.0,
-                                           "double");
+    TCLAP::ValueArg<double> arg_max_energy("e", "maxenergy", "Maximum energy to consider (eV)", false, 10.0, "double");
     TCLAP::ValueArg<double> arg_gamma_safety("",
                                              "gamma-safety",
                                              "Safety factor applied to the maximum total scattering rate.",
@@ -245,8 +253,14 @@ int main(int argc, const char** argv) try {
                                                         false,
                                                         0ULL,
                                                         "integer");
-    TCLAP::ValueArg<double> arg_time("t", "time", "Simulation time (s)", false, 1e-12, "double");
-    TCLAP::ValueArg<double> arg_warmup_fraction("",
+    TCLAP::ValueArg<std::string> arg_bz_domain("",
+                                               "bz-domain",
+                                               "Stored BZ domain: full or octant.",
+                                               false,
+                                               "full",
+                                               "string");
+    TCLAP::ValueArg<double>             arg_time("t", "time", "Simulation time (s)", false, 1e-12, "double");
+    TCLAP::ValueArg<double>             arg_warmup_fraction("",
                                                 "warmup",
                                                 "Fraction of simulation time ignored for steady-state averages.",
                                                 false,
@@ -256,6 +270,18 @@ int main(int argc, const char** argv) try {
     TCLAP::ValueArg<double> arg_electric_field_x("",
                                                  "Ex",
                                                  "Electric field in x direction (V/cm)",
+                                                 false,
+                                                 0.0,
+                                                 "double");
+    TCLAP::ValueArg<double> arg_electric_field_y("",
+                                                 "Ey",
+                                                 "Electric field in y direction (V/cm)",
+                                                 false,
+                                                 0.0,
+                                                 "double");
+    TCLAP::ValueArg<double> arg_electric_field_z("",
+                                                 "Ez",
+                                                 "Electric field in z direction (V/cm)",
                                                  false,
                                                  0.0,
                                                  "double");
@@ -297,10 +323,13 @@ int main(int argc, const char** argv) try {
     cmd.add(arg_max_energy);
     cmd.add(arg_gamma_safety);
     cmd.add(arg_random_seed);
+    cmd.add(arg_bz_domain);
     cmd.add(arg_time);
     cmd.add(arg_warmup_fraction);
     cmd.add(arg_temperature);
     cmd.add(arg_electric_field_x);
+    cmd.add(arg_electric_field_y);
+    cmd.add(arg_electric_field_z);
 
     cmd.parse(argc, argv);
 
@@ -315,19 +344,22 @@ int main(int argc, const char** argv) try {
     const int nb_conduction_bands = arg_nb_conduction_bands.getValue();
     const int nb_particles        = arg_nb_part.getValue();
 
-    const double max_energy_eV             = arg_max_energy.getValue();
-    const double gamma_safety              = arg_gamma_safety.getValue();
-    const double simulation_time_s         = arg_time.getValue();
-    const double warmup_fraction           = arg_warmup_fraction.getValue();
-    const double temperature_K             = arg_temperature.getValue();
-    const double electric_field_x_V_per_cm = arg_electric_field_x.getValue();
-    const bool   export_history            = arg_export_history.getValue();
-    const bool   enable_impact_ionization  = arg_enable_impact_ionization.getValue();
-    const std::uint64_t random_seed = [&]() {
+    const double        max_energy_eV             = arg_max_energy.getValue();
+    const double        gamma_safety              = arg_gamma_safety.getValue();
+    const double        simulation_time_s         = arg_time.getValue();
+    const double        warmup_fraction           = arg_warmup_fraction.getValue();
+    const double        temperature_K             = arg_temperature.getValue();
+    const double        electric_field_x_V_per_cm = arg_electric_field_x.getValue();
+    const double        electric_field_y_V_per_cm = arg_electric_field_y.getValue();
+    const double        electric_field_z_V_per_cm = arg_electric_field_z.getValue();
+    const bool          export_history            = arg_export_history.getValue();
+    const bool          enable_impact_ionization  = arg_enable_impact_ionization.getValue();
+    const std::string   bz_domain_name            = arg_bz_domain.getValue();
+    const std::uint64_t random_seed               = [&]() {
         if (arg_random_seed.isSet()) {
             return static_cast<std::uint64_t>(arg_random_seed.getValue());
         }
-        std::random_device random_device;
+        std::random_device  random_device;
         const std::uint64_t high = static_cast<std::uint64_t>(random_device());
         const std::uint64_t low  = static_cast<std::uint64_t>(random_device());
         return (high << 32U) ^ low;
@@ -353,6 +385,22 @@ int main(int argc, const char** argv) try {
     }
     require_positive(temperature_K, "--temperature");
     require_finite(electric_field_x_V_per_cm, "--Ex");
+    require_finite(electric_field_y_V_per_cm, "--Ey");
+    require_finite(electric_field_z_V_per_cm, "--Ez");
+    const uepm::mesh_bz::vector3 electric_field_V_per_cm{
+        electric_field_x_V_per_cm,
+        electric_field_y_V_per_cm,
+        electric_field_z_V_per_cm,
+    };
+    const uepm::mesh_bz::BZDomainMode bz_domain_mode = [&]() {
+        if (bz_domain_name == "full") {
+            return uepm::mesh_bz::BZDomainMode::full;
+        }
+        if (bz_domain_name == "octant" || bz_domain_name == "positive-octant") {
+            return uepm::mesh_bz::BZDomainMode::positive_octant;
+        }
+        throw std::invalid_argument("--bz-domain must be 'full' or 'octant'");
+    }();
     if (!arg_random_seed.isSet()) {
         fmt::print("Generated random seed: {}\n", random_seed);
     }
@@ -365,7 +413,7 @@ int main(int argc, const char** argv) try {
     require_existing_file(file_phonon_scattering, "Phonon scattering-rate file");
 
     const auto output_dir =
-        make_output_directory(init_output_directory, material_symbol, temperature_K, electric_field_x_V_per_cm);
+        make_output_directory(init_output_directory, material_symbol, temperature_K, electric_field_V_per_cm);
 
     write_run_metadata(output_dir,
                        file_mesh.string(),
@@ -378,10 +426,11 @@ int main(int argc, const char** argv) try {
                        nb_valence_bands,
                        simulation_time_s,
                        temperature_K,
-                       electric_field_x_V_per_cm,
+                       electric_field_V_per_cm,
                        max_energy_eV,
                        gamma_safety,
                        warmup_fraction,
+                       uepm::mesh_bz::bz_domain_mode_name(bz_domain_mode),
                        random_seed,
                        enable_impact_ionization,
                        export_history);
@@ -399,6 +448,12 @@ int main(int argc, const char** argv) try {
     const uepm::pseudopotential::epm_material current_material = materials.materials.at(material_symbol);
 
     uepm::mesh_bz::ElectronPhonon mesh(current_material);
+    mesh.set_domain_mode(bz_domain_mode);
+    if (mesh.stores_positive_octant()) {
+        fmt::print(stderr,
+                   "[warn] octant mode assumes reflection symmetry under independent x/y/z sign changes "
+                   "for band energies and scalar scattering rates.\n");
+    }
     mesh.set_number_threads_mesh_ops(nb_threads);
     mesh.set_max_energy_global(max_energy_eV);
 
@@ -433,10 +488,14 @@ int main(int argc, const char** argv) try {
         mesh.test_elph();
     }
 
+    const std::string           timestamp  = std::to_string(std::time(nullptr));
+    const std::filesystem::path fileprefix = output_dir / fmt::format("simulation_results_{}", timestamp);
+
     constexpr double v_per_cm_to_v_per_m = 1.0e2;
+
     uepm::fbmc::bulk_fbmc_simulation_config config;
     config.m_number_of_particles           = static_cast<std::size_t>(nb_particles);
-    config.m_electric_field                = {electric_field_x_V_per_cm * v_per_cm_to_v_per_m, 0.0, 0.0};
+    config.m_electric_field                = electric_field_V_per_cm * v_per_cm_to_v_per_m;
     config.m_lattice_temperature           = temperature_K;
     config.m_final_time                    = simulation_time_s;
     config.m_warmup_fraction               = warmup_fraction;
@@ -446,6 +505,9 @@ int main(int argc, const char** argv) try {
     config.m_enable_impact_ionization      = enable_impact_ionization;
     config.m_record_history                = export_history;
     config.m_random_seed                   = random_seed;
+    if (export_history) {
+        config.m_history_export_prefix = fileprefix.string();
+    }
 
     uepm::fbmc::bulk_fbmc_simulation sim(&mesh, config);
 
@@ -456,12 +518,6 @@ int main(int argc, const char** argv) try {
     const std::chrono::duration<double> elapsed = end - start;
     fmt::print("Simulation completed in {:.3f} seconds.\n", elapsed.count());
 
-    const std::string           timestamp  = std::to_string(std::time(nullptr));
-    const std::filesystem::path fileprefix = output_dir / fmt::format("simulation_results_{}", timestamp);
-
-    if (export_history) {
-        sim.export_history(fileprefix.string());
-    }
     sim.extract_stats_and_export((fileprefix.string() + "_stats.csv"));
     sim.extract_stats_and_export((output_dir / "observables.csv").string());
 

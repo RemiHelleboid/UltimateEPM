@@ -139,8 +139,10 @@ void particle::update_group_velocity() {
     if (m_containing_bz_mesh_tetra == nullptr) {
         throw std::runtime_error("particle::update_group_velocity: particle is not attached to a BZ tetrahedron");
     }
-    m_state.m_velocity =
-        m_containing_bz_mesh_tetra->interpolate_gradient_energy_at_band(m_state.m_k_vector, m_state.m_band_index);
+    const auto canonical = m_mesh_bz->canonicalize_physical_k(m_state.m_k_vector);
+    m_state.m_velocity = m_containing_bz_mesh_tetra->interpolate_gradient_energy_at_band(canonical.representative,
+                                                                                         m_state.m_band_index);
+    m_state.m_velocity = m_mesh_bz->representative_vector_to_physical(m_state.m_velocity, canonical.signs);
     m_state.m_velocity *= 1.0 / uepm::constants::h_bar_eV;
 }
 
@@ -148,7 +150,9 @@ void particle::update_energy() {
     if (m_containing_bz_mesh_tetra == nullptr) {
         throw std::runtime_error("particle::update_energy: particle is not attached to a BZ tetrahedron");
     }
-    m_state.m_energy = m_containing_bz_mesh_tetra->interpolate_energy_at_band(m_state.m_k_vector, m_state.m_band_index);
+    const auto canonical = m_mesh_bz->canonicalize_physical_k(m_state.m_k_vector);
+    m_state.m_energy =
+        m_containing_bz_mesh_tetra->interpolate_energy_at_band(canonical.representative, m_state.m_band_index);
 }
 
 void particle::update_position() { m_state.m_position += m_state.m_velocity * m_state.m_free_flight_time; }
@@ -160,8 +164,11 @@ std::array<double, 8> particle::interpolate_phonon_scattering_rate_at_location(c
         throw std::runtime_error(
             "particle::interpolate_phonon_scattering_rate_at_location: particle is not attached to a BZ tetrahedron");
     }
-    auto& state = this->state();
-    return m_containing_bz_mesh_tetra->interpolate_phonon_scattering_rate_at_location(location, state.m_band_index);
+    auto&      state            = this->state();
+    const auto canonical        = m_mesh_bz->canonicalize_physical_k(location);
+    const auto local_band_index = m_mesh_bz->get_local_band_index(state.m_band_index);
+    return m_containing_bz_mesh_tetra->interpolate_phonon_scattering_rate_at_location(canonical.representative,
+                                                                                      local_band_index);
 }
 
 void particle::select_final_state_after_phonon_scattering(std::size_t idx_phonon_branch) {

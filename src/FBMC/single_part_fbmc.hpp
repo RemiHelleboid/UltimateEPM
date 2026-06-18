@@ -39,6 +39,7 @@ struct Simulation_parameters {
     bool          m_enable_impact_ionization      = true;
     bool          m_record_history                = false;
     std::uint64_t m_random_seed                   = 1234;
+    std::string   m_history_export_prefix;
 };
 
 struct bulk_fbmc_simulation_config {
@@ -56,6 +57,7 @@ struct bulk_fbmc_simulation_config {
     bool          m_enable_impact_ionization = false;
     bool          m_record_history           = false;
     std::uint64_t m_random_seed              = 1234;
+    std::string   m_history_export_prefix;
 };
 
 struct impact_ionization_coefficient_statistics {
@@ -71,6 +73,8 @@ struct impact_ionization_coefficient_statistics {
 struct bulk_observables {
     double m_electric_field_V_per_m       = 0.0;
     double m_weighted_velocity_x_m        = 0.0;
+    double m_weighted_velocity_y_m        = 0.0;
+    double m_weighted_velocity_z_m        = 0.0;
     double m_weighted_kinetic_energy_eV_s = 0.0;
     double m_accumulated_time_s           = 0.0;
 };

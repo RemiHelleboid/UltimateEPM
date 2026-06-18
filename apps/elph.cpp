@@ -160,6 +160,12 @@ int main(int argc, char const *argv[]) {
                                       "Call a python script after the computation to plot the band structure.",
                                       false);
     TCLAP::SwitchArg        use_irr_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
+    TCLAP::ValueArg<std::string> arg_bz_domain("",
+                                               "bz-domain",
+                                               "Stored BZ domain: full or octant.",
+                                               false,
+                                               "full",
+                                               "string");
     TCLAP::SwitchArg        plot_with_knkpnp("K",
                                       "knkpnp",
                                       "Compute and store the full (n,k) -> (n',k') transition rate matrices.",
@@ -175,6 +181,7 @@ int main(int argc, char const *argv[]) {
     cmd.add(arg_nb_energies);
     cmd.add(arg_nb_threads);
     cmd.add(use_irr_wedge);
+    cmd.add(arg_bz_domain);
     cmd.add(plot_with_knkpnp);
     cmd.add(arg_temperature);
     cmd.add(arg_energy_range);
@@ -199,6 +206,7 @@ int main(int argc, char const *argv[]) {
     const double      max_energy                = arg_energy_range.getValue();  // eV
     const double      temperature               = arg_temperature.getValue();
     bool              irreducible_wedge_only    = use_irr_wedge.getValue();
+    const std::string bz_domain_name            = arg_bz_domain.getValue();
     const std::string mesh_band_input_file      = arg_mesh_file.getValue();
     const std::string phonon_parameter_set      = arg_phonon_parameter_set.getValue();
     const bool        shift_conduction_band     = true;
@@ -219,10 +227,28 @@ int main(int argc, char const *argv[]) {
     require_positive(max_energy, "--energy_window");
     require_positive(temperature, "--temperature");
     require_positive(band_gap, "--bandgap");
+    const uepm::mesh_bz::BZDomainMode bz_domain_mode = [&]() {
+        if (bz_domain_name == "full") {
+            return uepm::mesh_bz::BZDomainMode::full;
+        }
+        if (bz_domain_name == "octant" || bz_domain_name == "positive-octant") {
+            return uepm::mesh_bz::BZDomainMode::positive_octant;
+        }
+        throw std::invalid_argument("--bz-domain must be 'full' or 'octant'");
+    }();
+    if (bz_domain_mode == uepm::mesh_bz::BZDomainMode::positive_octant && irreducible_wedge_only) {
+        throw std::invalid_argument("--wedge cannot be combined with --bz-domain octant");
+    }
 
     uepm::pseudopotential::epm_material current_material = materials.materials.at(arg_material.getValue());
 
     uepm::mesh_bz::ElectronPhonon ElectronPhonon{current_material};
+    ElectronPhonon.set_domain_mode(bz_domain_mode);
+    if (ElectronPhonon.stores_positive_octant()) {
+        fmt::print(stderr,
+                   "[warn] octant mode assumes reflection symmetry under independent x/y/z sign changes "
+                   "for band energies and scalar scattering rates.\n");
+    }
     ElectronPhonon.set_temperature(temperature);
     ElectronPhonon.set_number_threads_mesh_ops(my_options.nrThreads);
     ElectronPhonon.set_max_energy_global(max_energy);
@@ -281,7 +307,7 @@ int main(int argc, char const *argv[]) {
     fermi_options.threads           = my_options.nrThreads;
     fermi_options.use_interp        = false;        // use interpolation when computing DOS at given energy
     fermi_options.T_K               = temperature;  // temperature for Fermi-Dirac
-    const bool use_iw               = true;         // use only irreducible wedge for DOS and Fermi level
+    const bool use_iw               = !ElectronPhonon.stores_positive_octant();
     fermi_options.abs_max_energy_eV = 1.0;          // absolute max energy to consider (both conduction and valence)
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options, use_iw);
@@ -304,7 +330,7 @@ int main(int argc, char const *argv[]) {
     fmt::print("μ_iso = {:.2f} cm^2/(V·s)\n\n", mu_iso * mu_to_cm2Vs);
     fmt::print("tensor = \n{} cm^2/(V*s)\n\n\n", fmt::streamed(M));
 
-    double mean_energy = ElectronPhonon.mean_electron_energy_equilibrium(Ef, T, true);
+    double mean_energy = ElectronPhonon.mean_electron_energy_equilibrium(Ef, T, use_iw);
     fmt::print("Mean electron energy above CBM at equilibrium: {:.6f} eV\n", mean_energy);
 
     std::string output_mobility     = name_stem + "_mobility.txt";
