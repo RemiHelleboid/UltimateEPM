@@ -97,13 +97,14 @@ void particle_history::export_trajectory_as_csv(const std::string& filename) con
     }
 
     // Write header
-    file << "time,X,Y,Z,electric_field,kinetic_energy,gamma,valley_index\n";
+    file << "time,X,Y,Z,electric_field,lattice_temperature_K,kinetic_energy,gamma,valley_index\n";
 
     // Write data
     for (const auto& snapshot : m_snapshots) {
         file << snapshot.time << "," << snapshot.position.x() << "," << snapshot.position.y() << ","
-             << snapshot.position.z() << "," << snapshot.electric_field_norm << "," << snapshot.kinetic_energy << ","
-             << snapshot.gamma << "," << snapshot.valley_index << "\n";
+             << snapshot.position.z() << "," << snapshot.electric_field_norm << ","
+             << snapshot.lattice_temperature_K << "," << snapshot.kinetic_energy << "," << snapshot.gamma << ","
+             << snapshot.valley_index << "\n";
     }
 
     file.close();

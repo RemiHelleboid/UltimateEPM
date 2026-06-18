@@ -1,5 +1,6 @@
 set(HEADER_FILES_LIBFBMC 
 single_part_fbmc.hpp
+bulk_fbmc_simulation.hpp
 particle.hpp
 
   )

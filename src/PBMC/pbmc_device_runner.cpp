@@ -186,6 +186,9 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
                  "contact_injection_particle_weight",
                  common_options.m_contact_injection_particle_weight);
     manifest.add("self_consistent", "background_ramo_current_A", common_options.m_background_ramo_current_A);
+    manifest.add("self_consistent",
+                 "auto_background_ramo_current",
+                 common_options.m_auto_background_ramo_current);
 
     const auto& quench_options = common_options.m_passive_quench_circuit;
     manifest.add("quench_circuit", "enabled", quench_options.m_enabled);

@@ -293,7 +293,8 @@ void device_pbmc_simulation::initialize_particle_transport_state(pbmc_particle &
 
     particle.state().valley_index = particle.index() % transport.valleys().size();
 
-    transport.initialize_particle_state(particle);
+    particle.set_data_from_device(m_dimension);
+    transport.initialize_particle_state(particle, particle.get_lattice_temperature());
 
     if (m_simulation_options.m_keep_particles_history) {
         particle.record_state();
@@ -599,6 +600,8 @@ void device_pbmc_simulation::transport_particles_one_time_step() {
 #pragma omp parallel for if (m_simulation_options.m_nb_threads > 1) num_threads(m_simulation_options.m_nb_threads)
     for (std::int64_t particle_index = 0; particle_index < scattering_particle_count; ++particle_index) {
         auto &particle = *m_list_particles[static_cast<std::size_t>(particle_index)];
+        particle.set_data_from_device(m_dimension);
+
         // Scattering
         const auto thread_index = static_cast<std::size_t>(omp_get_thread_num());
         auto      &transport    = transport_for(particle.type(), thread_index);
@@ -835,6 +838,7 @@ void device_pbmc_simulation::export_current_time_step_as_csv(const std::string &
            << "vy_m_per_s,"
            << "vz_m_per_s,"
            << "energy_eV,"
+           << "lattice_temperature_K,"
            << "electric_field_x_V_per_cm,"
            << "electric_field_y_V_per_cm,"
            << "electric_field_z_V_per_cm,"
@@ -855,9 +859,9 @@ void device_pbmc_simulation::export_current_time_step_as_csv(const std::string &
         stream << particle.index() << ',' << static_cast<int>(particle.type()) << ',' << state.time << ','
                << position.x() << ',' << position.y() << ',' << position.z() << ',' << local_k.x() << ',' << local_k.y()
                << ',' << local_k.z() << ',' << velocity.x() << ',' << velocity.y() << ',' << velocity.z() << ','
-               << state.kinetic_energy << ',' << electric_field.x() << ',' << electric_field.y() << ','
-               << electric_field.z() << ',' << electric_field.norm() << ',' << particle.weight() << ','
-               << state.valley_index << ',' << particle.get_signed_charge() << '\n';
+               << state.kinetic_energy << ',' << state.lattice_temperature_K << ',' << electric_field.x() << ','
+               << electric_field.y() << ',' << electric_field.z() << ',' << electric_field.norm() << ','
+               << particle.weight() << ',' << state.valley_index << ',' << particle.get_signed_charge() << '\n';
     }
 }
 void device_pbmc_simulation::export_all_trajectories_as_csv(const std::string &prefix_filename) const {
@@ -924,6 +928,14 @@ void device_pbmc_simulation::export_current_particles_as_vtp(const std::string &
     stream << "          ";
     for (const auto &p_particle : m_list_particles) {
         stream << p_particle->state().kinetic_energy << ' ';
+    }
+    stream << "\n";
+    stream << "        </DataArray>\n";
+
+    stream << "        <DataArray type=\"Float64\" Name=\"lattice_temperature_K\" format=\"ascii\">\n";
+    stream << "          ";
+    for (const auto &p_particle : m_list_particles) {
+        stream << p_particle->state().lattice_temperature_K << ' ';
     }
     stream << "\n";
     stream << "        </DataArray>\n";

@@ -202,7 +202,13 @@ void particle::select_final_state_after_impact_ionization(double energy_threshol
     auto [k_final, idx_band_final] = m_mesh_bz->draw_random_k_point_at_energy(state.m_energy, m_random_generator);
     state.m_k_vector               = k_final;
     m_containing_bz_mesh_tetra     = m_mesh_bz->find_tetra_at_location(state.m_k_vector);
+    if (m_containing_bz_mesh_tetra == nullptr) {
+        throw std::runtime_error(
+            "select_final_state_after_impact_ionization: selected final k-point is outside the BZ mesh");
+    }
     state.m_band_index             = idx_band_final;
+    update_energy();
+    update_group_velocity();
 }
 
 double particle::compute_mean_energy() const {

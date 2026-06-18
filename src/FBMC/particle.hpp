@@ -12,6 +12,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <random>
@@ -130,6 +131,7 @@ class particle {
         m_containing_bz_mesh_tetra = containing_bz_mesh_tetra;
     }
     void set_random_generator(std::mt19937 random_generator) { m_random_generator = random_generator; }
+    void seed_random_generator(std::uint32_t seed) { m_random_generator.seed(seed); }
     void reserve_history(std::size_t n_steps) { m_history.reserve(n_steps); }
 
     std::array<double, 8> interpolate_phonon_scattering_rate_at_location(const vector3& location);

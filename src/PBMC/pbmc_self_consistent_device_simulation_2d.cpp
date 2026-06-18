@@ -536,7 +536,8 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
             update_self_consistent_potential();
             reset_element_charges();
 
-            if (m_state.m_scheduled_particle_injection_done && m_common_options.m_background_ramo_current_A == 0.0) {
+            if (m_common_options.m_auto_background_ramo_current && m_state.m_scheduled_particle_injection_done &&
+                m_common_options.m_background_ramo_current_A == 0.0) {
                 const double time_window = 1e-12;  // 1 ns
                 double       bg_current  = m_simulation_history.extract_final_current(time_window);
                 fmt::print("Extracted background Ramo current from history: {:.3e} A\n", bg_current);

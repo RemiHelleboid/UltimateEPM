@@ -690,6 +690,12 @@ void mesh::add_doping_concentration_to_vertices(const std::string &doping_fieldn
     }
 }
 
+void mesh::add_temperature_to_vertices(const std::string &temperature_fieldname) {
+    for (auto &&vtx : m_ListVertices) {
+        vtx.set_temperature(vtx.get_scalar_data(temperature_fieldname));
+    }
+}
+
 void mesh::add_electric_field_to_vertices(const std::string &electric_field_fieldname, double factor) {
     for (auto &&vtx : m_ListVertices) {
         vtx.set_electric_field(factor * vtx.get_vector_data(electric_field_fieldname));
@@ -756,6 +762,9 @@ void mesh::add_scalar_data_to_all_vertices() {
         }
     }
     add_doping_concentration_to_vertices("DopingConcentration");
+    if (scalar_function_exists("Temperature")) {
+        add_temperature_to_vertices("Temperature");
+    }
     add_space_charge_to_vertices("SpaceCharge");
     add_charge_density_to_vertices("eDensity", "hDensity");
 }

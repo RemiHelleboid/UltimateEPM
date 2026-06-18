@@ -195,6 +195,7 @@ class mesh {
     void add_scalar_data_to_all_vertices();
     void add_vector_data_to_all_vertices();
     void add_doping_concentration_to_vertices(const std::string &doping_fieldname);
+    void add_temperature_to_vertices(const std::string &temperature_fieldname);
     void add_electric_field_to_vertices(const std::string &electric_field_fieldname, double factor = 1.0);
     void add_diffusion_gradient_to_vertices(const std::string &e_gradient_fieldname,
                                             const std::string &h_gradient_fieldname);

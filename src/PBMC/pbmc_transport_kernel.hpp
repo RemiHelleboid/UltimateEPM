@@ -73,6 +73,7 @@ class pbmc_transport_kernel {
     double                           gamma_max() const noexcept { return m_gamma_max_s_1; }
     double                           gamma_max(const pbmc_particle& p) const;
     void                             initialize_particle_state(pbmc_particle& p);
+    void                             initialize_particle_state(pbmc_particle& p, double temperature_K);
     std::optional<scattering_event>  scatter_particle(pbmc_particle& p, double dt);
     void                             drift_particle(pbmc_particle& p, const mesh::vector3& electric_field_Vm, double dt);
     scattering_channel_list          build_scattering_channels(const pbmc_particle& p) const;

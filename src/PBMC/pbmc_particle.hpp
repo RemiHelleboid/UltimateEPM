@@ -69,6 +69,7 @@ struct particle_snapshot {
     vector3     position{};
     vector3     local_k{};
     vector3     velocity{};
+    double      lattice_temperature_K = 300.0;
     double      kinetic_energy      = 0.0;
     double      gamma               = 0.0;
     std::size_t valley_index        = 0;
@@ -111,13 +112,15 @@ class particle_history {
     void set_particle_index(std::size_t particle_index) noexcept { m_particle_index = particle_index; }
     void increment_scattering_event_count() noexcept { ++m_total_scattering_events; }
     void record(const particle_state& state) {
-        m_snapshots.push_back(particle_snapshot{.time           = state.time,
-                                                .position       = state.position,
-                                                .local_k        = state.local_k,
-                                                .velocity       = state.velocity,
-                                                .kinetic_energy = state.kinetic_energy,
-                                                .gamma          = state.gamma,
-                                                .valley_index   = state.valley_index});
+        m_snapshots.push_back(particle_snapshot{.time                  = state.time,
+                                                .position              = state.position,
+                                                .local_k               = state.local_k,
+                                                .velocity              = state.velocity,
+                                                .lattice_temperature_K = state.lattice_temperature_K,
+                                                .kinetic_energy         = state.kinetic_energy,
+                                                .gamma                  = state.gamma,
+                                                .valley_index           = state.valley_index,
+                                                .electric_field_norm    = state.electric_field.norm()});
     }
     void add_event(scattering_event event) noexcept {
         const auto index = static_cast<std::size_t>(event);

@@ -21,10 +21,12 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -151,7 +153,10 @@ void write_run_metadata(const std::filesystem::path& outdir,
                         double                       temperature,
                         double                       electric_field_v_per_cm,
                         double                       max_energy_eV,
+                        double                       gamma_safety,
                         double                       warmup_fraction,
+                        std::uint64_t                random_seed,
+                        bool                         enable_impact_ionization,
                         bool                         export_history) {
     const auto    meta_file = outdir / "run_info.txt";
     std::ofstream os(meta_file);
@@ -171,7 +176,10 @@ void write_run_metadata(const std::filesystem::path& outdir,
     os << "temperature_K = " << temperature << '\n';
     os << "electric_field_V_per_cm = " << electric_field_v_per_cm << '\n';
     os << "max_energy_eV = " << max_energy_eV << '\n';
+    os << "self_scattering_safety_factor = " << gamma_safety << '\n';
     os << "warmup_fraction = " << warmup_fraction << '\n';
+    os << "random_seed = " << random_seed << '\n';
+    os << "impact_ionization_enabled = " << (enable_impact_ionization ? "true" : "false") << '\n';
     os << "export_history = " << (export_history ? "true" : "false") << '\n';
 }
 
@@ -224,6 +232,19 @@ int main(int argc, const char** argv) try {
                                            false,
                                            10.0,
                                            "double");
+    TCLAP::ValueArg<double> arg_gamma_safety("",
+                                             "gamma-safety",
+                                             "Safety factor applied to the maximum total scattering rate.",
+                                             false,
+                                             1.2,
+                                             "double");
+    TCLAP::ValueArg<unsigned long long> arg_random_seed("",
+                                                        "seed",
+                                                        "Base random seed for reproducible per-particle streams. "
+                                                        "If omitted, a random seed is generated.",
+                                                        false,
+                                                        0ULL,
+                                                        "integer");
     TCLAP::ValueArg<double> arg_time("t", "time", "Simulation time (s)", false, 1e-12, "double");
     TCLAP::ValueArg<double> arg_warmup_fraction("",
                                                 "warmup",
@@ -258,6 +279,11 @@ int main(int argc, const char** argv) try {
         "Export per-particle histories. Disabled by default because sweeps can create many CSV files.",
         cmd,
         false);
+    TCLAP::SwitchArg arg_enable_impact_ionization("",
+                                                  "enable-impact-ionization",
+                                                  "Enable impact ionization scattering.",
+                                                  cmd,
+                                                  false);
 
     cmd.add(arg_mesh_file);
     cmd.add(arg_phonon_file);
@@ -269,6 +295,8 @@ int main(int argc, const char** argv) try {
     cmd.add(arg_nb_valence_bands);
     cmd.add(arg_nb_threads);
     cmd.add(arg_max_energy);
+    cmd.add(arg_gamma_safety);
+    cmd.add(arg_random_seed);
     cmd.add(arg_time);
     cmd.add(arg_warmup_fraction);
     cmd.add(arg_temperature);
@@ -288,11 +316,22 @@ int main(int argc, const char** argv) try {
     const int nb_particles        = arg_nb_part.getValue();
 
     const double max_energy_eV             = arg_max_energy.getValue();
+    const double gamma_safety              = arg_gamma_safety.getValue();
     const double simulation_time_s         = arg_time.getValue();
     const double warmup_fraction           = arg_warmup_fraction.getValue();
     const double temperature_K             = arg_temperature.getValue();
     const double electric_field_x_V_per_cm = arg_electric_field_x.getValue();
     const bool   export_history            = arg_export_history.getValue();
+    const bool   enable_impact_ionization  = arg_enable_impact_ionization.getValue();
+    const std::uint64_t random_seed = [&]() {
+        if (arg_random_seed.isSet()) {
+            return static_cast<std::uint64_t>(arg_random_seed.getValue());
+        }
+        std::random_device random_device;
+        const std::uint64_t high = static_cast<std::uint64_t>(random_device());
+        const std::uint64_t low  = static_cast<std::uint64_t>(random_device());
+        return (high << 32U) ^ low;
+    }();
 
     require_positive_int(nb_threads, "--nthreads");
     require_positive_int(nb_particles, "--npart");
@@ -303,6 +342,10 @@ int main(int argc, const char** argv) try {
         throw std::invalid_argument("--nvbands must be -1 or non-negative");
     }
     require_positive(max_energy_eV, "--maxenergy");
+    require_finite(gamma_safety, "--gamma-safety");
+    if (gamma_safety < 1.0) {
+        throw std::invalid_argument("--gamma-safety must be at least one");
+    }
     require_positive(simulation_time_s, "--time");
     require_finite(warmup_fraction, "--warmup");
     if (warmup_fraction < 0.0 || warmup_fraction >= 1.0) {
@@ -310,6 +353,9 @@ int main(int argc, const char** argv) try {
     }
     require_positive(temperature_K, "--temperature");
     require_finite(electric_field_x_V_per_cm, "--Ex");
+    if (!arg_random_seed.isSet()) {
+        fmt::print("Generated random seed: {}\n", random_seed);
+    }
 
     require_existing_file(file_mesh, "Mesh file");
     if (file_phonon_scattering.empty()) {
@@ -334,7 +380,10 @@ int main(int argc, const char** argv) try {
                        temperature_K,
                        electric_field_x_V_per_cm,
                        max_energy_eV,
+                       gamma_safety,
                        warmup_fraction,
+                       random_seed,
+                       enable_impact_ionization,
                        export_history);
 
     if (arg_plot_with_python.getValue()) {
@@ -384,21 +433,21 @@ int main(int argc, const char** argv) try {
         mesh.test_elph();
     }
 
-    uepm::fbmc::Bulk_environment bulk_env;
-    bulk_env.m_temperature = temperature_K;
-
     constexpr double v_per_cm_to_v_per_m = 1.0e2;
-    bulk_env.m_electric_field            = {electric_field_x_V_per_cm * v_per_cm_to_v_per_m, 0.0, 0.0};
+    uepm::fbmc::bulk_fbmc_simulation_config config;
+    config.m_number_of_particles           = static_cast<std::size_t>(nb_particles);
+    config.m_electric_field                = {electric_field_x_V_per_cm * v_per_cm_to_v_per_m, 0.0, 0.0};
+    config.m_lattice_temperature           = temperature_K;
+    config.m_final_time                    = simulation_time_s;
+    config.m_warmup_fraction               = warmup_fraction;
+    config.m_max_energy_eV                 = max_energy_eV;
+    config.m_self_scattering_safety_factor = gamma_safety;
+    config.m_nb_threads                    = static_cast<std::size_t>(nb_threads);
+    config.m_enable_impact_ionization      = enable_impact_ionization;
+    config.m_record_history                = export_history;
+    config.m_random_seed                   = random_seed;
 
-    bulk_env.m_doping_concentration = 1.0e10;
-
-    uepm::fbmc::Simulation_parameters sim_params;
-    sim_params.m_simulation_time   = simulation_time_s;
-    sim_params.m_warmup_fraction   = warmup_fraction;
-    sim_params.m_export_frequency  = 10;
-    sim_params.m_nb_openmp_threads = nb_threads;
-
-    uepm::fbmc::Single_particle_simulation sim(&mesh, bulk_env, sim_params, nb_particles);
+    uepm::fbmc::bulk_fbmc_simulation sim(&mesh, config);
 
     const auto start = std::chrono::high_resolution_clock::now();
     sim.run_simulation();

@@ -13,6 +13,7 @@
 
 #include <fmt/core.h>
 
+#include <cmath>
 #include <stdexcept>
 #include <utility>
 
@@ -171,6 +172,10 @@ void pbmc_transport_kernel::initialize() {
 }
 
 void pbmc_transport_kernel::initialize_particle_state(pbmc_particle& p) {
+    initialize_particle_state(p, m_cfg.m_lattice_temperature);
+}
+
+void pbmc_transport_kernel::initialize_particle_state(pbmc_particle& p, double temperature_K) {
     if (m_valleys.empty()) {
         throw std::runtime_error("transport kernel is not initialized");
     }
@@ -179,8 +184,12 @@ void pbmc_transport_kernel::initialize_particle_state(pbmc_particle& p) {
         throw std::out_of_range("invalid valley index in initialize_particle_state");
     }
 
+    if (!std::isfinite(temperature_K) || temperature_K <= 0.0) {
+        throw std::invalid_argument("particle initialization temperature must be positive and finite");
+    }
+
     const auto&  valley    = m_valleys[p.state().valley_index];
-    const double energy_eV = sample_thermal_energy_eV(m_cfg.m_lattice_temperature, m_rng);
+    const double energy_eV = sample_thermal_energy_eV(temperature_K, m_rng);
 
     p.state().local_k        = valley.draw_random_k_valley_at_energy(energy_eV, m_rng);
     p.state().gamma          = valley.gamma_from_k_valley(p.state().local_k);

@@ -510,10 +510,10 @@ void bulk_pbmc_simulation::export_particles_history_to_csv(const std::string& pr
                 "position_x,position_y,position_z,"
                 "local_k_x,local_k_y,local_k_z,"
                 "velocity_x,velocity_y,velocity_z,"
-                "kinetic_energy,gamma,valley_index\n";
+                "lattice_temperature_K,kinetic_energy,gamma,valley_index\n";
 
         for (const auto& snapshot : history.snapshots()) {
-            file << fmt::format("{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            file << fmt::format("{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
                                 snapshot.time,
                                 snapshot.position.x(),
                                 snapshot.position.y(),
@@ -524,6 +524,7 @@ void bulk_pbmc_simulation::export_particles_history_to_csv(const std::string& pr
                                 snapshot.velocity.x(),
                                 snapshot.velocity.y(),
                                 snapshot.velocity.z(),
+                                snapshot.lattice_temperature_K,
                                 snapshot.kinetic_energy,
                                 snapshot.gamma,
                                 snapshot.valley_index);

@@ -52,6 +52,7 @@ struct options_self_consistent_device_pbmc_common {
     // Converts signed Ramo current into current drawn from the biased circuit node.
     double m_ramo_current_to_quench_current_sign  = 1.0;
     double m_background_ramo_current_A            = 0.0;
+    bool   m_auto_background_ramo_current         = false;
     double m_avalanche_voltage_drop_threshold_V   = 1.0;
     double m_quench_high_field_threshold_V_per_cm = 1.0e5;
     double m_quench_quiet_time_s                  = 1.0e-11;

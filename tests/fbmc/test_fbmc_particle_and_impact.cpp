@@ -7,6 +7,7 @@
 
 #include "keldysh_impactio.hpp"
 #include "particle.hpp"
+#include "single_part_fbmc.hpp"
 
 TEST_CASE("Keldysh impact ionization is zero below threshold and follows the excess-energy law") {
     const uepm::fbmc::KeldyshImpactIonization model(2.0e11, 2.0, 1.5);
@@ -29,11 +30,11 @@ TEST_CASE("FBMC particle free-flight draw is reproducible and stores gamma") {
     uepm::fbmc::particle particle(7, uepm::fbmc::particle_type::electron, nullptr);
     particle.set_random_generator(std::mt19937(1234));
 
-    std::mt19937 expected_rng(1234);
+    std::mt19937                           expected_rng(1234);
     std::uniform_real_distribution<double> distribution(0.0, 1.0);
-    const double expected_u  = distribution(expected_rng);
-    const double gamma_s_1   = 4.0e12;
-    const double expected_dt = -std::log(expected_u) / gamma_s_1;
+    const double                           expected_u  = distribution(expected_rng);
+    const double                           gamma_s_1   = 4.0e12;
+    const double                           expected_dt = -std::log(expected_u) / gamma_s_1;
 
     particle.draw_free_flight_time(gamma_s_1);
 
@@ -84,4 +85,23 @@ TEST_CASE("FBMC particle statistics can discard an initial warmup window") {
     CHECK(particle.extract_global_average_velocity() == doctest::Approx(10.0));
     CHECK(particle.extract_global_average_velocity(1.0) == doctest::Approx(10.0));
     CHECK(particle.extract_global_average_velocity(0.5) == doctest::Approx(10.0));
+}
+
+TEST_CASE("FBMC bulk impact-ionization statistics use carrier time and cm^-1 output") {
+    uepm::fbmc::impact_ionization_coefficient_statistics stats;
+    stats.m_events                         = 20;
+    stats.m_carrier_time_s                 = 2.0e-9;
+    stats.m_drift_velocity_time_integral_m = 4.0e-4;
+
+    CHECK(stats.event_rate_per_carrier_s_1() == doctest::Approx(1.0e10));
+    CHECK(stats.average_drift_velocity_m_per_s() == doctest::Approx(2.0e5));
+    CHECK(stats.ionization_coefficient_cm_1() == doctest::Approx(500.0));
+}
+
+TEST_CASE("FBMC bulk impact-ionization statistics are safe without samples") {
+    const uepm::fbmc::impact_ionization_coefficient_statistics stats;
+
+    CHECK(stats.event_rate_per_carrier_s_1() == doctest::Approx(0.0));
+    CHECK(stats.average_drift_velocity_m_per_s() == doctest::Approx(0.0));
+    CHECK(stats.ionization_coefficient_cm_1() == doctest::Approx(0.0));
 }

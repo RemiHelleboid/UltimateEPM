@@ -81,6 +81,7 @@ YAML::Node make_default_config() {
     config["quench_circuit"]["biased_contact"]            = "cathode";
     config["quench_circuit"]["ramo_current_sign"]         = -1.0;
     config["quench_circuit"]["background_ramo_current_A"] = 0.0;
+    config["quench_circuit"]["auto_background_ramo_current"] = false;
 
     config["avalanche_detection"]["voltage_drop_V"]   = 1.0;
     config["quench_detection"]["high_field_V_per_cm"] = 1.0e5;
@@ -275,6 +276,8 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
         parse_biased_contact(value_at<std::string>(config, "quench_circuit", "biased_contact"));
     common.m_ramo_current_to_quench_current_sign = value_at<double>(config, "quench_circuit", "ramo_current_sign");
     common.m_background_ramo_current_A = value_at<double>(config, "quench_circuit", "background_ramo_current_A");
+    common.m_auto_background_ramo_current =
+        value_at<bool>(config, "quench_circuit", "auto_background_ramo_current");
     common.m_avalanche_voltage_drop_threshold_V   = value_at<double>(config, "avalanche_detection", "voltage_drop_V");
     common.m_quench_high_field_threshold_V_per_cm = value_at<double>(config, "quench_detection", "high_field_V_per_cm");
     common.m_quench_quiet_time_s                  = value_at<double>(config, "quench_detection", "quiet_time_s");

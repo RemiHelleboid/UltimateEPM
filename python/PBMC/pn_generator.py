@@ -59,6 +59,7 @@ def raw_donor_concentration(
 
 def compute_raw_doping_profile(
     x,
+    device_type,
     length,
     contact_doping_length,
     contact_doping_level,
@@ -68,6 +69,12 @@ def compute_raw_doping_profile(
     min_doping,
     max_doping,
 ):
+    if device_type == "n-only":
+        donor = np.full_like(x, np.clip(peak_n_level, min_doping, max_doping), dtype=float)
+        acceptor = np.zeros_like(x, dtype=float)
+
+        return acceptor, donor
+
     donor = raw_donor_concentration(
         x=x,
         contact_doping_length=contact_doping_length,
@@ -93,6 +100,7 @@ def compute_raw_doping_profile(
 
 def compute_doping_profile(
     x,
+    device_type,
     length,
     contact_doping_length,
     contact_doping_level,
@@ -106,9 +114,26 @@ def compute_doping_profile(
 ):
     x = np.asarray(x, dtype=float)
 
+    if device_type == "n-only":
+        acceptor, donor = compute_raw_doping_profile(
+            x=x,
+            device_type=device_type,
+            length=length,
+            contact_doping_length=contact_doping_length,
+            contact_doping_level=contact_doping_level,
+            peak_n_level=peak_n_level,
+            peak_p_level=peak_p_level,
+            diffusion_length=diffusion_length,
+            min_doping=min_doping,
+            max_doping=max_doping,
+        )
+
+        return acceptor, donor, donor - acceptor
+
     if not apply_smoothing:
         acceptor, donor = compute_raw_doping_profile(
             x=x,
+            device_type=device_type,
             length=length,
             contact_doping_length=contact_doping_length,
             contact_doping_level=contact_doping_level,
@@ -126,6 +151,7 @@ def compute_doping_profile(
 
     acceptor_grid, donor_grid = compute_raw_doping_profile(
         x=x_grid,
+        device_type=device_type,
         length=length,
         contact_doping_length=contact_doping_length,
         contact_doping_level=contact_doping_level,
@@ -145,6 +171,12 @@ def compute_doping_profile(
     net_doping = donor - acceptor
 
     return acceptor, donor, net_doping
+
+
+def compute_temperature_profile(x, length, temperature_left, temperature_right):
+    x = np.asarray(x, dtype=float)
+
+    return temperature_left + (temperature_right - temperature_left) * x / length
 
 
 def add_physical_group(dim, tags, name):
@@ -242,6 +274,7 @@ def create_geometry(dimension, length, width):
 
 def generate_mesh(
     mesh_file,
+    device_type,
     dimension,
     length,
     width,
@@ -256,8 +289,11 @@ def generate_mesh(
     max_doping,
     apply_smoothing,
     smoothing_length,
+    temperature_left,
+    temperature_right,
 ):
-    model_name = f"PN_Diode_{dimension}D"
+    model_prefix = "N_Only_Device" if device_type == "n-only" else "PN_Diode"
+    model_name = f"{model_prefix}_{dimension}D"
 
     gmsh.initialize()
 
@@ -282,6 +318,7 @@ def generate_mesh(
 
         acceptor, donor, net_doping = compute_doping_profile(
             x=x,
+            device_type=device_type,
             length=length,
             contact_doping_length=contact_doping_length,
             contact_doping_level=contact_doping_level,
@@ -293,12 +330,19 @@ def generate_mesh(
             apply_smoothing=apply_smoothing,
             smoothing_length=smoothing_length,
         )
+        temperature = compute_temperature_profile(
+            x=x,
+            length=length,
+            temperature_left=temperature_left,
+            temperature_right=temperature_right,
+        )
 
         gmsh.write(str(mesh_file))
 
         add_node_view(model_name, mesh_file, "DonorConcentration", node_tags, donor)
         add_node_view(model_name, mesh_file, "AcceptorConcentration", node_tags, acceptor)
         add_node_view(model_name, mesh_file, "DopingConcentration", node_tags, net_doping)
+        add_node_view(model_name, mesh_file, "Temperature", node_tags, temperature)
 
     finally:
         gmsh.finalize()
@@ -306,6 +350,7 @@ def generate_mesh(
 
 def export_profile_plot(
     output_prefix,
+    device_type,
     length,
     contact_doping_length,
     contact_doping_level,
@@ -322,6 +367,7 @@ def export_profile_plot(
 
     acceptor, donor, net_doping = compute_doping_profile(
         x=x,
+        device_type=device_type,
         length=length,
         contact_doping_length=contact_doping_length,
         contact_doping_level=contact_doping_level,
@@ -346,9 +392,9 @@ def export_profile_plot(
 
     fig, ax = plt.subplots()
 
-    ax.plot(x, acceptor, label="Acceptor")
-    ax.plot(x, donor, label="Donor")
-    ax.plot(x, np.abs(net_doping), label="|Net doping|", linestyle="--")
+    ax.plot(x, np.clip(acceptor, min_doping, None), label="Acceptor")
+    ax.plot(x, np.clip(donor, min_doping, None), label="Donor")
+    ax.plot(x, np.clip(np.abs(net_doping), min_doping, None), label="|Net doping|", linestyle="--")
 
     ax.set_xlabel("x (µm)")
     ax.set_ylabel("Concentration (cm⁻³)")
@@ -375,6 +421,13 @@ def parse_args():
     parser.add_argument(
         "mesh_name",
         help="Output mesh filename, for example diode.msh.",
+    )
+
+    parser.add_argument(
+        "--device-type",
+        choices=["pn", "n-only"],
+        default="pn",
+        help="Doping profile type.",
     )
 
     parser.add_argument(
@@ -416,7 +469,7 @@ def parse_args():
     parser.add_argument(
         "--contact-doping-length",
         type=float,
-        default=0.70,
+        default=0.0001,
         help="Length of the highly doped contact regions in µm.",
     )
 
@@ -473,6 +526,22 @@ def parse_args():
         type=float,
         default=0.01,
         help="Smoothing length in µm.",
+    )
+
+    parser.add_argument(
+        "--T-left",
+        dest="temperature_left",
+        type=float,
+        default=300.0,
+        help="Temperature at x = 0 in K.",
+    )
+
+    parser.add_argument(
+        "--T-right",
+        dest="temperature_right",
+        type=float,
+        default=300.0,
+        help="Temperature at x = length in K.",
     )
 
     parser.add_argument(
@@ -536,6 +605,12 @@ def validate_args(args):
     if args.smoothing_length <= 0.0:
         raise ValueError("--smoothing-length must be positive.")
 
+    if args.temperature_left <= 0.0:
+        raise ValueError("--T-left must be positive.")
+
+    if args.temperature_right <= 0.0:
+        raise ValueError("--T-right must be positive.")
+
 
 def main():
     args = parse_args()
@@ -551,6 +626,7 @@ def main():
     if not args.no_plot:
         export_profile_plot(
             output_prefix=output_prefix,
+            device_type=args.device_type,
             length=args.length,
             contact_doping_length=args.contact_doping_length,
             contact_doping_level=args.contact_doping_level,
@@ -566,6 +642,7 @@ def main():
 
     generate_mesh(
         mesh_file=mesh_file,
+        device_type=args.device_type,
         dimension=args.dimension,
         length=args.length,
         width=args.width,
@@ -580,6 +657,8 @@ def main():
         max_doping=args.max_doping,
         apply_smoothing=args.smooth,
         smoothing_length=args.smoothing_length,
+        temperature_left=args.temperature_left,
+        temperature_right=args.temperature_right,
     )
 
     print(f"Wrote {mesh_file}")

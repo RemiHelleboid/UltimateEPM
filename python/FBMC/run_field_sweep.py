@@ -65,6 +65,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--temperature", type=float, default=300.0, help="Lattice temperature in K.")
     parser.add_argument("--max-energy", type=float, default=10.0, help="Maximum energy in eV.")
+    parser.add_argument("--gamma-safety", type=float, default=1.2, help="Self-scattering rate safety factor.")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Base random seed. If omitted, each FBMC process generates a random seed.",
+    )
+    parser.add_argument(
+        "--enable-impact-ionization",
+        action="store_true",
+        help="Enable impact-ionization scattering.",
+    )
     parser.add_argument(
         "--ncbands",
         type=int,
@@ -121,6 +133,10 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--temperature must be finite and positive.")
     if args.max_energy <= 0.0 or not math.isfinite(args.max_energy):
         raise ValueError("--max-energy must be finite and positive.")
+    if args.gamma_safety < 1.0 or not math.isfinite(args.gamma_safety):
+        raise ValueError("--gamma-safety must be finite and at least one.")
+    if args.seed is not None and args.seed < 0:
+        raise ValueError("--seed must be non-negative.")
     if args.nbthreads <= 0:
         raise ValueError("--nbthreads must be positive.")
     if args.mobility_fit_max_field <= 0.0:
@@ -208,6 +224,8 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
         str(args.nbthreads),
         "--maxenergy",
         str(args.max_energy),
+        "--gamma-safety",
+        str(args.gamma_safety),
         "--time",
         str(args.time),
         "--warmup",
@@ -219,6 +237,10 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
     ]
     if args.phonon_rates is not None:
         command.extend(["--phononfile", str(args.phonon_rates)])
+    if args.seed is not None:
+        command.extend(["--seed", str(args.seed)])
+    if args.enable_impact_ionization:
+        command.append("--enable-impact-ionization")
 
     log_file = run_dir / "stdout.log"
     print(f"Running Ex = {field_v_per_cm:.6e} V/cm", flush=True)
@@ -255,7 +277,7 @@ def read_stats_row(path: Path) -> dict[str, float]:
     row = rows[-1]
 
     velocity_column = None
-    for candidate in ("mean_x_velocity_m_per_s", "mean_velocity_norm_m_per_s"):
+    for candidate in ("mean_velocity_x_m_per_s", "mean_x_velocity_m_per_s", "mean_velocity_norm_m_per_s"):
         if candidate in row:
             velocity_column = candidate
             break
@@ -267,7 +289,7 @@ def read_stats_row(path: Path) -> dict[str, float]:
         )
 
     ionization_column = None
-    for candidate in ("mean_ionization_coeff_1_per_m", "mean_ionization_coeff_1_per_s"):
+    for candidate in ("impact_ionization_coefficient_cm_1", "mean_ionization_coeff_1_per_m", "mean_ionization_coeff_1_per_s"):
         if candidate in row:
             ionization_column = candidate
             break
@@ -278,13 +300,18 @@ def read_stats_row(path: Path) -> dict[str, float]:
             "mean_ionization_coeff_1_per_m or legacy mean_ionization_coeff_1_per_s"
         )
 
-    if "mean_energy_eV" not in row:
-        raise KeyError(f"Missing mean_energy_eV in {path}")
+    energy_column = "mean_kinetic_energy_eV" if "mean_kinetic_energy_eV" in row else "mean_energy_eV"
+    if energy_column not in row:
+        raise KeyError(f"Missing mean kinetic energy column in {path}")
+
+    ionization_value = float(row[ionization_column])
+    if ionization_column == "impact_ionization_coefficient_cm_1":
+        ionization_value *= 100.0
 
     return {
-        "mean_energy_eV": float(row["mean_energy_eV"]),
+        "mean_energy_eV": float(row[energy_column]),
         "mean_velocity_x_m_per_s": float(row[velocity_column]),
-        "mean_ionization_coeff_1_per_m": float(row[ionization_column]),
+        "mean_ionization_coeff_1_per_m": ionization_value,
     }
 
 
