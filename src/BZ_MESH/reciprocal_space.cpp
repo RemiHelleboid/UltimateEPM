@@ -137,7 +137,7 @@ bool ReciprocalSpace::contains_bcc(const vector3& k_SI, double si_to_reduced) co
 //     throw std::runtime_error("No reciprocal-lattice image lies inside the Brillouin zone");
 // }
 
-vector3 ReciprocalSpace::fold_bcc_fast_SI(const vector3& k_SI, double si_to_reduced) const {
+vector3 ReciprocalSpace::fold_bcc_fast_SI(const vector3& k_SI, double si_to_reduced) const  noexcept {
     if (!(si_to_reduced > 0.0)) {
         throw std::invalid_argument("fold_bcc_fast_SI: si_to_reduced must be positive");
     }
