@@ -872,7 +872,7 @@ int main(int argc, char** argv) try {
     gmsh::initialize();
 
     gmsh::option::setNumber("Mesh.Binary", 1);
-    gmsh::option::setNumber("Mesh.Algorithm3D", 4);
+    gmsh::option::setNumber("Mesh.Algorithm3D", 1);
     gmsh::option::setNumber("General.Verbosity", 10);
 
     const std::string ibzModelName = "IBZ_Wedge_Model";
