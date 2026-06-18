@@ -35,7 +35,7 @@ class ReciprocalSpace {
 
     bool    contains_bcc(const vector3& k_SI, double si_to_reduced) const noexcept;
     vector3 retrieve_bcc_image(const vector3& k_SI, double si_to_reduced) const;
-    vector3 ReciprocalSpace::fold_bcc_fast_SI(const vector3& k_SI, double si_to_reduced) const noexcept;
+    vector3 fold_bcc_fast_SI(const vector3& k_SI, double si_to_reduced) const noexcept;
     vector3 fold_wigner_seitz(const vector3& k_SI) const noexcept;
     bool    inside_wigner_seitz(const vector3& k_SI, double si_to_reduced) const noexcept;
     bool    inside_irreducible_wedge(const vector3& k_SI, double si_to_reduced) const noexcept;
