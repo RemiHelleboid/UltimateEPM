@@ -1,5 +1,4 @@
 set(HEADER_FILES_LIBBZMESH
-    ARCHITECTURE.md
     gmsh_guard.hpp
     band_catalog.hpp
     bz_domain.hpp
