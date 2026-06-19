@@ -60,6 +60,23 @@ TEST_CASE("FBMC particle rejects invalid free-flight gamma") {
     CHECK_THROWS_AS(particle.draw_free_flight_time(std::numeric_limits<double>::infinity()), std::runtime_error);
 }
 
+TEST_CASE("FBMC electron and hole acceleration have opposite signs") {
+    uepm::fbmc::particle electron(0, uepm::fbmc::particle_type::electron, nullptr);
+    uepm::fbmc::particle hole(1, uepm::fbmc::particle_type::hole, nullptr);
+    electron.state().m_free_flight_time = 1.0e-15;
+    hole.state().m_free_flight_time     = 1.0e-15;
+
+    const uepm::fbmc::vector3 field(1.0e5, 0.0, 0.0);
+    electron.update_k_vector(field);
+    hole.update_k_vector(field);
+
+    CHECK(electron.get_signed_charge() == doctest::Approx(-1.0));
+    CHECK(hole.get_signed_charge() == doctest::Approx(1.0));
+    CHECK(electron.state().m_k_vector.x() < 0.0);
+    CHECK(hole.state().m_k_vector.x() > 0.0);
+    CHECK(hole.state().m_k_vector.x() == doctest::Approx(-electron.state().m_k_vector.x()));
+}
+
 TEST_CASE("FBMC particle statistics can discard an initial warmup window") {
     uepm::fbmc::particle particle(0, uepm::fbmc::particle_type::electron, nullptr);
 

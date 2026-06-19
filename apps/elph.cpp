@@ -51,6 +51,16 @@ void require_band_count(int value, const std::string& option_name) {
     }
 }
 
+uepm::mesh_bz::MeshParticleType parse_carrier_type(const std::string& value) {
+    if (value == "electron") {
+        return uepm::mesh_bz::MeshParticleType::conduction;
+    }
+    if (value == "hole") {
+        return uepm::mesh_bz::MeshParticleType::valence;
+    }
+    throw std::invalid_argument("--carrier must be 'electron' or 'hole'");
+}
+
 std::filesystem::path make_output_directory(const std::string& requested) {
     std::filesystem::path outdir = requested.empty() ? std::filesystem::path(".") : std::filesystem::path(requested);
     std::filesystem::create_directories(outdir);
@@ -123,7 +133,7 @@ int main(int argc, char const *argv[]) {
                                                           "Electron-phonon parameter set, e.g. kamakura, michaillat, "
                                                           "or fischetti.",
                                                           false,
-                                                          "kamakura",
+                                                          "remi-2026",
                                                           "string");
     TCLAP::ValueArg<std::string> arg_output_dir("d",
                                                 "outdir",
@@ -131,6 +141,8 @@ int main(int argc, char const *argv[]) {
                                                 false,
                                                 "",
                                                 "string");
+    TCLAP::ValueArg<std::string> arg_carrier(
+        "", "carrier", "Carrier type for phonon rates: electron or hole.", false, "electron", "string");
     TCLAP::ValueArg<std::string> arg_rates_output("",
                                                   "rates-out",
                                                   "Output CSV for computed electron-phonon rates.",
@@ -175,6 +187,7 @@ int main(int argc, char const *argv[]) {
     cmd.add(arg_material);
     cmd.add(arg_phonon_parameter_set);
     cmd.add(arg_output_dir);
+    cmd.add(arg_carrier);
     cmd.add(arg_rates_output);
     cmd.add(arg_nb_conduction_bands);
     cmd.add(arg_nb_valence_bands);
@@ -209,8 +222,10 @@ int main(int argc, char const *argv[]) {
     const std::string bz_domain_name            = arg_bz_domain.getValue();
     const std::string mesh_band_input_file      = arg_mesh_file.getValue();
     const std::string phonon_parameter_set      = arg_phonon_parameter_set.getValue();
+    const std::string carrier_name              = arg_carrier.getValue();
+    const auto        carrier_type              = parse_carrier_type(carrier_name);
     const bool        shift_conduction_band     = true;
-    const bool        set_positive_valence_band = false;
+    const bool        set_positive_valence_band = carrier_type == uepm::mesh_bz::MeshParticleType::valence;
     const bool        export_rates              = arg_export_rates.getValue();
     bool              phonon_rates_provided          = arg_phonon_rates.isSet();
     std::string       phonon_rates_file              = "";
@@ -262,9 +277,10 @@ int main(int argc, char const *argv[]) {
     }
 
     ElectronPhonon.load_phonon_parameters(material_repository, phonon_parameter_set);
-    const auto nb_elph_bands = ElectronPhonon.get_number_conduction_bands();
+    ElectronPhonon.set_particle_type(carrier_type);
+    const auto nb_elph_bands = ElectronPhonon.get_number_bands(carrier_type);
     if (nb_elph_bands == 0) {
-        throw std::runtime_error("elph.epm requires at least one conduction band in the mesh");
+        throw std::runtime_error(fmt::format("elph.epm requires at least one {} band in the mesh", carrier_name));
     }
     ElectronPhonon.set_nb_bands_elph(nb_elph_bands);
 
@@ -286,7 +302,7 @@ int main(int argc, char const *argv[]) {
     if (phonon_rates_provided) {
         ElectronPhonon.read_phonon_scattering_rates_from_file(phonon_rates_file);
     } else {
-        ElectronPhonon.compute_electron_phonon_rates_over_mesh(max_energy, irreducible_wedge_only);
+        ElectronPhonon.compute_phonon_rates_over_mesh(max_energy, irreducible_wedge_only);
     }
 
     if (export_rates && !phonon_rates_provided) {
@@ -294,6 +310,11 @@ int main(int argc, char const *argv[]) {
                                                                 : (output_dir / "phonon_rates.csv").string();
         ElectronPhonon.export_rate_values(rates_file);
     }
+    if (carrier_type == uepm::mesh_bz::MeshParticleType::valence) {
+        fmt::print("Completed hole-phonon rate workflow.\n");
+        return 0;
+    }
+
     ElectronPhonon.test_elph();
 
     ElectronPhonon.apply_scissor(band_gap);  // eV

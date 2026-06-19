@@ -995,6 +995,7 @@ void MeshBZ::auto_set_positive_valence_band_energies() {
             }
         }
     }
+    recompute_min_max_energies();
 }
 
 void MeshBZ::auto_shift_conduction_band_energies() {

@@ -21,12 +21,36 @@
 #include <vector>
 
 #include "doctest/doctest.h"
+#include "elph_deformation_potential.hpp"
 #include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
 
 using uepm::mesh_bz::Tetra;
 using uepm::mesh_bz::vector3;
 using uepm::mesh_bz::Vertex;
+
+TEST_CASE("YAML deformation-potential model uses energy and phonon mode") {
+    const vector3 q(3.0, 4.0, 0.0);
+
+    const uepm::mesh_bz::DeformationPotential acoustic(
+        uepm::mesh_bz::PhononMode::acoustic, 4.0, 5.0, 2.0);
+    CHECK(acoustic.get_deformation_potential(q, 1.0) == doctest::Approx(15.0));
+    CHECK(acoustic.get_deformation_potential(q, 3.0) == doctest::Approx(5.0 * std::sqrt(14.0)));
+
+    const uepm::mesh_bz::DeformationPotential optical(
+        uepm::mesh_bz::PhononMode::optical, 9.0, 7.0, 0.0);
+    CHECK(optical.get_deformation_potential(q, 4.0) == doctest::Approx(3.0));
+}
+
+TEST_CASE("deformation-potential model rejects invalid configured values") {
+    const vector3 q(1.0, 0.0, 0.0);
+    const uepm::mesh_bz::DeformationPotential invalid(
+        uepm::mesh_bz::PhononMode::optical, 1.0, -2.0, 1.0);
+
+    CHECK_THROWS_AS(invalid.get_deformation_potential(q, 1.0), std::domain_error);
+    CHECK_THROWS_AS(invalid.get_deformation_potential(q, std::numeric_limits<double>::infinity()),
+                    std::invalid_argument);
+}
 
 // ---- Small helpers ----------------------------------------------------------
 

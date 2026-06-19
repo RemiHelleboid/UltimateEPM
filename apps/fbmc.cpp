@@ -117,15 +117,14 @@ std::filesystem::path detect_phonon_rates_file(const std::filesystem::path& dire
     return matches.front();
 }
 
-std::filesystem::path make_output_directory(const std::string& requested,
-                                            const std::string& material,
-                                            double             temperature,
+std::filesystem::path make_output_directory(const std::string&            requested,
+                                            const std::string&            material,
+                                            double                        temperature,
                                             const uepm::mesh_bz::vector3& electric_field_v_per_cm) {
     std::filesystem::path outdir;
     if (requested.empty()) {
         if (electric_field_v_per_cm.y() == 0.0 && electric_field_v_per_cm.z() == 0.0) {
-            outdir =
-                fmt::format("fbmc_{}_{:.1f}K_{:.3e}Vcm", material, temperature, electric_field_v_per_cm.x());
+            outdir = fmt::format("fbmc_{}_{:.1f}K_{:.3e}Vcm", material, temperature, electric_field_v_per_cm.x());
         } else {
             outdir = fmt::format("fbmc_{}_{:.1f}K_E_{:.3e}_{:.3e}_{:.3e}Vcm",
                                  material,
@@ -149,25 +148,36 @@ std::filesystem::path make_output_directory(const std::string& requested,
     return outdir;
 }
 
-void write_run_metadata(const std::filesystem::path& outdir,
-                        const std::string&           mesh_file,
-                        const std::string&           rates_file,
-                        const std::string&           material,
-                        const std::string&           phonon_parameter_set,
-                        int                          nb_particles,
-                        int                          nb_threads,
-                        int                          nb_conduction_bands,
-                        int                          nb_valence_bands,
-                        double                       simulation_time,
-                        double                       temperature,
+uepm::fbmc::particle_type parse_particle_type(const std::string& value) {
+    if (value == "electron") {
+        return uepm::fbmc::particle_type::electron;
+    }
+    if (value == "hole") {
+        return uepm::fbmc::particle_type::hole;
+    }
+    throw std::invalid_argument("--carrier must be 'electron' or 'hole'");
+}
+
+void write_run_metadata(const std::filesystem::path&  outdir,
+                        const std::string&            mesh_file,
+                        const std::string&            rates_file,
+                        const std::string&            material,
+                        const std::string&            phonon_parameter_set,
+                        int                           nb_particles,
+                        int                           nb_threads,
+                        int                           nb_conduction_bands,
+                        int                           nb_valence_bands,
+                        double                        simulation_time,
+                        double                        temperature,
                         const uepm::mesh_bz::vector3& electric_field_v_per_cm,
-                        double                       max_energy_eV,
-                        double                       gamma_safety,
-                        double                       warmup_fraction,
-                        std::string_view             bz_domain,
-                        std::uint64_t                random_seed,
-                        bool                         enable_impact_ionization,
-                        bool                         export_history) {
+                        double                        max_energy_eV,
+                        double                        gamma_safety,
+                        double                        warmup_fraction,
+                        std::string_view              bz_domain,
+                        std::string_view              carrier,
+                        std::uint64_t                 random_seed,
+                        bool                          enable_impact_ionization,
+                        bool                          export_history) {
     const auto    meta_file = outdir / "run_info.txt";
     std::ofstream os(meta_file);
     if (!os) {
@@ -191,6 +201,7 @@ void write_run_metadata(const std::filesystem::path& outdir,
     os << "self_scattering_safety_factor = " << gamma_safety << '\n';
     os << "warmup_fraction = " << warmup_fraction << '\n';
     os << "bz_domain = " << bz_domain << '\n';
+    os << "carrier = " << carrier << '\n';
     os << "random_seed = " << random_seed << '\n';
     os << "impact_ionization_enabled = " << (enable_impact_ionization ? "true" : "false") << '\n';
     os << "export_history = " << (export_history ? "true" : "false") << '\n';
@@ -225,9 +236,15 @@ int main(int argc, const char** argv) try {
                                                           "Electron-phonon parameter set used for phonon dispersion "
                                                           "and scattering final-state selection.",
                                                           false,
-                                                          "kamakura",
+                                                          "remi-2026",
                                                           "string");
     TCLAP::ValueArg<std::string> arg_outputdir("d", "outdir", "Output directory for results", false, "", "string");
+    TCLAP::ValueArg<std::string> arg_carrier("",
+                                             "carrier",
+                                             "Carrier type: electron or hole.",
+                                             false,
+                                             "electron",
+                                             "string");
 
     TCLAP::ValueArg<int> arg_nb_part("N", "npart", "Number of particles to simulate", false, 1, "int");
     TCLAP::ValueArg<int> arg_nb_conduction_bands("c",
@@ -253,14 +270,14 @@ int main(int argc, const char** argv) try {
                                                         false,
                                                         0ULL,
                                                         "integer");
-    TCLAP::ValueArg<std::string> arg_bz_domain("",
-                                               "bz-domain",
-                                               "Stored BZ domain: full or octant.",
-                                               false,
-                                               "full",
-                                               "string");
+    TCLAP::ValueArg<std::string>        arg_bz_domain("",
+                                                      "bz-domain",
+                                                      "Stored BZ domain: full or octant.",
+                                                      false,
+                                                      "full",
+                                                      "string");
     TCLAP::ValueArg<double>             arg_time("t", "time", "Simulation time (s)", false, 1e-12, "double");
-    TCLAP::ValueArg<double>             arg_warmup_fraction("",
+    TCLAP::ValueArg<double> arg_warmup_fraction("",
                                                 "warmup",
                                                 "Fraction of simulation time ignored for steady-state averages.",
                                                 false,
@@ -316,6 +333,7 @@ int main(int argc, const char** argv) try {
     cmd.add(arg_material);
     cmd.add(arg_phonon_parameter_set);
     cmd.add(arg_outputdir);
+    cmd.add(arg_carrier);
     cmd.add(arg_nb_part);
     cmd.add(arg_nb_conduction_bands);
     cmd.add(arg_nb_valence_bands);
@@ -338,6 +356,8 @@ int main(int argc, const char** argv) try {
     const std::string           material_symbol        = arg_material.getValue();
     const std::string           phonon_parameter_set   = arg_phonon_parameter_set.getValue();
     const std::string           init_output_directory  = arg_outputdir.getValue();
+    const std::string           carrier_name           = arg_carrier.getValue();
+    const auto                  carrier_type           = parse_particle_type(carrier_name);
 
     const int nb_threads          = arg_nb_threads.getValue();
     const int nb_valence_bands    = arg_nb_valence_bands.getValue();
@@ -372,6 +392,9 @@ int main(int argc, const char** argv) try {
     }
     if (nb_valence_bands < -1) {
         throw std::invalid_argument("--nvbands must be -1 or non-negative");
+    }
+    if (carrier_type == uepm::fbmc::particle_type::hole && enable_impact_ionization) {
+        throw std::invalid_argument("--enable-impact-ionization is not available for holes");
     }
     require_positive(max_energy_eV, "--maxenergy");
     require_finite(gamma_safety, "--gamma-safety");
@@ -431,6 +454,7 @@ int main(int argc, const char** argv) try {
                        gamma_safety,
                        warmup_fraction,
                        uepm::mesh_bz::bz_domain_mode_name(bz_domain_mode),
+                       carrier_name,
                        random_seed,
                        enable_impact_ionization,
                        export_history);
@@ -460,16 +484,21 @@ int main(int argc, const char** argv) try {
     mesh.read_mesh_geometry_from_msh_file(file_mesh.string());
     mesh.build_search_tree();
 
-    const bool shift_conduction_band = true;
+    const bool shift_conduction_band     = true;
+    const bool set_positive_valence_band = carrier_type == uepm::fbmc::particle_type::hole;
     mesh.read_mesh_bands_from_msh_file(file_mesh.string(),
                                        nb_conduction_bands,
                                        nb_valence_bands,
-                                       shift_conduction_band);
+                                       shift_conduction_band,
+                                       set_positive_valence_band);
 
-    mesh.set_particle_type(uepm::mesh_bz::MeshParticleType::conduction);
-    const auto nb_elph_bands = mesh.get_number_conduction_bands();
+    const auto mesh_carrier_type = carrier_type == uepm::fbmc::particle_type::electron
+                                       ? uepm::mesh_bz::MeshParticleType::conduction
+                                       : uepm::mesh_bz::MeshParticleType::valence;
+    mesh.set_particle_type(mesh_carrier_type);
+    const auto nb_elph_bands = mesh.get_number_bands(mesh_carrier_type);
     if (nb_elph_bands == 0) {
-        throw std::runtime_error("FBMC requires at least one conduction band in the mesh");
+        throw std::runtime_error(fmt::format("FBMC requires at least one {} band in the mesh", carrier_name));
     }
     mesh.set_nb_bands_elph(nb_elph_bands);
     mesh.set_temperature(temperature_K);
@@ -505,6 +534,7 @@ int main(int argc, const char** argv) try {
     config.m_enable_impact_ionization      = enable_impact_ionization;
     config.m_record_history                = export_history;
     config.m_random_seed                   = random_seed;
+    config.m_particle_type                 = carrier_type;
     if (export_history) {
         config.m_history_export_prefix = fileprefix.string();
     }

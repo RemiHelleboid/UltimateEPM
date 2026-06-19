@@ -40,6 +40,7 @@ struct Simulation_parameters {
     bool          m_record_history                = false;
     std::uint64_t m_random_seed                   = 1234;
     std::string   m_history_export_prefix;
+    particle_type m_particle_type = particle_type::electron;
 };
 
 struct bulk_fbmc_simulation_config {
@@ -58,6 +59,7 @@ struct bulk_fbmc_simulation_config {
     bool          m_record_history           = false;
     std::uint64_t m_random_seed              = 1234;
     std::string   m_history_export_prefix;
+    particle_type m_particle_type = particle_type::electron;
 };
 
 struct impact_ionization_coefficient_statistics {

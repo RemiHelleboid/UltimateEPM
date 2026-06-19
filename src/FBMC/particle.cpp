@@ -175,10 +175,10 @@ void particle::select_final_state_after_phonon_scattering(std::size_t idx_phonon
     if (m_mesh_bz == nullptr) {
         throw std::runtime_error("particle::select_final_state_after_phonon_scattering: missing BZ mesh");
     }
-    uepm::mesh_bz::SelectedFinalState Sf = m_mesh_bz->select_electron_phonon_final_state(m_state.m_band_index,
-                                                                                         m_state.m_k_vector,
-                                                                                         idx_phonon_branch,
-                                                                                         m_random_generator);
+    uepm::mesh_bz::SelectedFinalState Sf = m_mesh_bz->select_phonon_final_state(m_state.m_band_index,
+                                                                                m_state.m_k_vector,
+                                                                                idx_phonon_branch,
+                                                                                m_random_generator);
     m_state.m_k_vector                   = Sf.k_final;
     m_state.m_energy                     = Sf.E_final_eV;
     m_containing_bz_mesh_tetra           = Sf.ptr_final_tetra;

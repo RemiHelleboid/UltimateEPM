@@ -191,8 +191,6 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
             const double N0     = bose_einstein_distribution(Eph_eV, m_temperature_K);
             const DeformationPotential& defpot =
                 (mode == PhononMode::acoustic) ? m_ac_defpot_e : m_op_defpot_e;
-            const double Delta_J = defpot.get_fischetti_deformation_potential(qn, local_n1) * qe;
-            const double pref = (pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) * I2;
 
             const auto add_process = [&](PhononEvent process, double final_energy, double bose_factor) {
                 if (!tetra.is_energy_inside_band(final_energy, idx_n2)) {
@@ -202,6 +200,8 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
                 if (!(dos_eV > 0.0)) {
                     return;
                 }
+                const double Delta_J = defpot.get_deformation_potential(q, final_energy) * qe;
+                const double pref    = (pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) * I2;
                 const double value = pref * bose_factor * (dos_eV / qe);
                 rates_n1k1_n2kT[rate_index(mode, dir, process)] += value;
                 inv_mrta_rate += value * transport_weight_value;
@@ -264,73 +264,81 @@ RateValues ElectronPhonon::compute_electron_phonon_rate(std::size_t idx_n1, std:
  * @return RateValues The computed hole-phonon rates.
  */
 RateValues ElectronPhonon::compute_hole_phonon_rate(std::size_t idx_n1, std::size_t idx_k1) {
-    RateValues  rates_k1_n1;
-    const auto& list_tetrahedra = m_list_tetrahedra;
-
+    RateValues    rates_k1_n1;
     const double  Ei_eV = m_list_vertices[idx_k1].get_energy_at_band(idx_n1);
     const vector3 k1    = m_list_vertices[idx_k1].get_position();
+    const std::size_t local_n1 = get_local_band_index(idx_n1);
 
     constexpr double SMALL_OMEGA_CUTOFF = 1.0;
+    constexpr double ENERGY_EPS         = 1e-5;
+    const double     Eph_max_eV         = get_max_phonon_energy() + ENERGY_EPS;
+    const double     Ef_min_win         = Ei_eV - Eph_max_eV;
+    const double     Ef_max_win         = Ei_eV + Eph_max_eV;
 
     for (auto idx_n2 : get_band_indices(MeshParticleType::valence)) {
-        for (const auto& tetra : list_tetrahedra) {
-            const vector3 k2 = tetra.compute_barycenter();
-
-            const double overlap  = hole_overlap_integral(idx_n1, k1, idx_n2, k2, m_hole_overlap_int_params);
-            const double overlap2 = overlap * overlap;
-
-            vector3 q = k2 - k1;
-            if (!is_inside_mesh_geometry(q)) {
-                q = retrieve_k_inside_mesh_geometry(q);
+        const std::size_t local_n2 = get_local_band_index(idx_n2);
+        const auto& ordered_tetra = get_ordered_tetra_indices_at_band(idx_n2);
+        for (const std::size_t idx_tetra : ordered_tetra) {
+            const auto& tetra = m_list_tetrahedra[idx_tetra];
+            if (tetra.get_min_energy_at_band(idx_n2) > Ef_max_win) {
+                break;
             }
-            if (!is_inside_mesh_geometry(q)) {
-                throw std::runtime_error("q not in BZ");
+            if (tetra.get_max_energy_at_band(idx_n2) < Ef_min_win) {
+                continue;
             }
-            double q_norm = q.norm();
-            for (int md = 0; md < 4; ++md) {
-                const auto&           disp = m_phonon_dispersion[md];
-                const PhononMode      mode = (md < 2) ? PhononMode::acoustic : PhononMode::optical;
-                const PhononDirection dir  = (md & 1) ? PhononDirection::transverse : PhononDirection::longitudinal;
 
-                const double omega = disp.omega_analytic(q_norm);
-                if (omega <= SMALL_OMEGA_CUTOFF) {
-                    continue;
+            const vector3 k2_representative = tetra.get_barycenter();
+            for (std::size_t image_index = 0; image_index < positive_octant_images.size(); ++image_index) {
+                if (!stores_positive_octant() && image_index > 0) {
+                    break;
                 }
+                const auto& signs = positive_octant_images[image_index];
+                const vector3 k2 =
+                    stores_positive_octant() ? apply_sign_image(k2_representative, signs) : k2_representative;
+                const double overlap = hole_overlap_integral(static_cast<int>(local_n1 + 1),
+                                                             k1,
+                                                             static_cast<int>(local_n2 + 1),
+                                                             k2,
+                                                             m_hole_overlap_int_params);
+                const double overlap2 = overlap * overlap;
 
-                const double Eph_eV = uepm::constants::h_bar_eV * omega;
-                const double N0     = bose_einstein_distribution(Eph_eV, m_temperature_K);
+                const vector3 q      = retrieve_k_inside_mesh_geometry(k2 - k1);
+                const double  q_norm = q.norm();
+                for (int md = 0; md < 4; ++md) {
+                    const auto&           disp = m_phonon_dispersion[md];
+                    const PhononMode      mode = (md < 2) ? PhononMode::acoustic : PhononMode::optical;
+                    const PhononDirection dir =
+                        (md & 1) ? PhononDirection::transverse : PhononDirection::longitudinal;
 
-                const DeformationPotential& defpot = (mode == PhononMode::acoustic) ? m_ac_defpot_h : m_op_defpot_h;
-                const double                Delta_J =
-                    defpot.get_fischetti_deformation_potential(q_norm, idx_n1) * uepm::constants::q_e;
-
-                // Emission
-                {
-                    const double Ef_eV = Ei_eV - Eph_eV;
-                    const double dos_eV =
-                        tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
-                    if (dos_eV > 0.0) {
-                        const double dos_per_J  = dos_eV / uepm::constants::q_e;
-                        double       rate_value = (uepm::constants::pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) *
-                                            overlap2 * (N0 + 1.0) * dos_per_J;
-                        rates_k1_n1.add(mode, dir, PhononEvent::emission, rate_value);
+                    const double omega = disp.omega_analytic(q_norm);
+                    if (!(omega > SMALL_OMEGA_CUTOFF) || !std::isfinite(omega)) {
+                        continue;
                     }
+
+                    const double Eph_eV = uepm::constants::h_bar_eV * omega;
+                    const double N0     = bose_einstein_distribution(Eph_eV, m_temperature_K);
+                    const DeformationPotential& defpot =
+                        (mode == PhononMode::acoustic) ? m_ac_defpot_h : m_op_defpot_h;
+
+                    const auto add_process = [&](PhononEvent process, double final_energy, double bose_factor) {
+                        if (!tetra.is_energy_inside_band(final_energy, idx_n2)) {
+                            return;
+                        }
+                        const double dos_eV = tetra.compute_tetra_dos_energy_band(final_energy, idx_n2);
+                        if (dos_eV > 0.0 && std::isfinite(dos_eV)) {
+                            const double Delta_J =
+                                defpot.get_deformation_potential(q, final_energy) * uepm::constants::q_e;
+                            const double prefactor = (uepm::constants::pi / (m_rho_kg_m3 * omega)) *
+                                                     (Delta_J * Delta_J) * overlap2 / uepm::constants::q_e;
+                            rates_k1_n1.add(mode, dir, process, prefactor * bose_factor * dos_eV);
+                        }
+                    };
+                    add_process(PhononEvent::emission, Ei_eV - Eph_eV, N0 + 1.0);
+                    add_process(PhononEvent::absorption, Ei_eV + Eph_eV, N0);
                 }
-                // Absorption
-                {
-                    const double Ef_eV = Ei_eV + Eph_eV;
-                    const double dos_eV =
-                        tetra.interpolate_dos_at_energy_per_band(Ef_eV, static_cast<std::size_t>(idx_n2));
-                    if (dos_eV > 0.0) {
-                        const double dos_per_J  = dos_eV / uepm::constants::q_e;
-                        double       rate_value = (uepm::constants::pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) *
-                                            overlap2 * (N0)*dos_per_J;
-                        rates_k1_n1.add(mode, dir, PhononEvent::absorption, rate_value);
-                    }
-                }
-            }  // md
-        }  // tetra
-    }  // bands
+            }
+        }
+    }
 
     return rates_k1_n1;
 }
@@ -341,36 +349,40 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(std::size_t idx_n1, std::siz
  * @param energy_max Maximum energy (eV) to compute rates for.
  * @param irreducible_wedge_only Whether to use only the irreducible wedge of the BZ.
  */
-void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, bool irreducible_wedge_only) {
+void ElectronPhonon::compute_phonon_rates_over_mesh(double energy_max, bool irreducible_wedge_only) {
     if (irreducible_wedge_only && m_list_vtx_in_iwedge.empty()) {
         throw std::runtime_error(
-            "Irreducible-wedge electron-phonon rates require a symmetry-exact mesh with a valid IW mapping");
+            "Irreducible-wedge phonon rates require a symmetry-exact mesh with a valid IW mapping");
     }
-    fmt::print("Computing electron-phonon rates over mesh...\n");
+    const auto carrier_name =
+        m_elph_particle_type == MeshParticleType::conduction ? "electron" : "hole";
+    fmt::print("Computing {}-phonon rates over mesh...\n", carrier_name);
     fmt::print("  Energy max: {:.2f} eV\n", energy_max);
     fmt::print("  Irreducible wedge only: {}\n", irreducible_wedge_only);
     auto start_time = std::chrono::high_resolution_clock::now();
 
     m_phonon_rates_transport.clear();
-    m_phonon_rates_transport.resize(get_number_bands(MeshParticleType::conduction));
-    fmt::print("Allocating transport rates for {} conduction bands and {} k-points.\n",
+    m_phonon_rates_transport.resize(get_number_bands(m_elph_particle_type));
+    fmt::print("Allocating transport rates for {} {} bands and {} k-points.\n",
                m_phonon_rates_transport.size(),
+               carrier_name,
                m_list_vertices.size());
     for (auto& vec : m_phonon_rates_transport) {
         vec.resize(m_list_vertices.size(), 0.0);
     }
 
     std::size_t nb_vertices_to_compute = irreducible_wedge_only ? m_list_vtx_in_iwedge.size() : m_list_vertices.size();
-    fmt::print("Computing electron-phonon rates for {} k-points{}\n",
+    fmt::print("Computing {}-phonon rates for {} k-points{}\n",
+               carrier_name,
                nb_vertices_to_compute,
                irreducible_wedge_only ? " (irreducible wedge only)" : "");
     fmt::print("Using {} threads.\n", m_nb_threads_mesh_ops);
 
-    auto list_bands = get_band_indices(MeshParticleType::conduction);
+    auto list_bands = get_band_indices(m_elph_particle_type);
     for (auto& vertex : m_list_vertices) {
         vertex.set_nb_electron_phonon_rates(list_bands.size());
     }
-    fmt::print("Computing electron-phonon rates for conduction bands: ");
+    fmt::print("Computing {}-phonon rates for bands: ", carrier_name);
     for (auto b : list_bands) {
         fmt::print("{} ", b);
     }
@@ -393,7 +405,9 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
                 k1.set_electron_phonon_rates(local_band_index, std::array<double, 8>{});
                 continue;
             } else {
-                auto rate = compute_electron_phonon_rate(idx_n1, idx_k1);
+                const auto rate = m_elph_particle_type == MeshParticleType::conduction
+                                      ? compute_electron_phonon_rate(idx_n1, idx_k1)
+                                      : compute_hole_phonon_rate(idx_n1, idx_k1);
                 k1.set_electron_phonon_rates(local_band_index, rate.as_array());
             }
         }
@@ -426,7 +440,7 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
                 if (idx_k1 == idx_iw) {
                     continue;
                 }
-                for (auto idx_n1 : get_band_indices(MeshParticleType::conduction)) {
+                for (auto idx_n1 : get_band_indices(m_elph_particle_type)) {
                     std::size_t local_idx_n1 = get_local_band_index(idx_n1);
                     auto        rates_symm   = vtx.get_electron_phonon_rates(local_idx_n1);
                     m_list_vertices[idx_k1].set_electron_phonon_rates(local_idx_n1, rates_symm);
@@ -446,15 +460,23 @@ void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, 
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = end_time - start_time;
-    fmt::print("Completed electron-phonon rates computation in {:.2f} seconds.\n\n",
+    fmt::print("Completed {}-phonon rates computation in {:.2f} seconds.\n\n",
+               carrier_name,
                std::chrono::duration<double>(duration).count());
 }
-SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_t     idx_band_initial,
-                                                                      const vector3&  k_initial,
-                                                                      PhononMode      mode,
-                                                                      PhononDirection direction,
-                                                                      PhononEvent     event,
-                                                                      std::mt19937&   rng) const {
+
+void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, bool irreducible_wedge_only) {
+    if (m_elph_particle_type != MeshParticleType::conduction) {
+        throw std::logic_error("compute_electron_phonon_rates_over_mesh requires conduction carrier mode");
+    }
+    compute_phonon_rates_over_mesh(energy_max, irreducible_wedge_only);
+}
+SelectedFinalState ElectronPhonon::select_phonon_final_state(std::size_t     idx_band_initial,
+                                                             const vector3&  k_initial,
+                                                             PhononMode      mode,
+                                                             PhononDirection direction,
+                                                             PhononEvent     event,
+                                                             std::mt19937&   rng) const {
     const int md = md_index(mode, direction);
     if (md < 0) {
         throw std::runtime_error("select_final_state: invalid mode/direction.");
@@ -480,8 +502,10 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
 
     const std::size_t local_n1 = get_local_band_index(idx_band_initial);
 
-    const DeformationPotential& defpot       = (mode == PhononMode::acoustic) ? m_ac_defpot_e : m_op_defpot_e;
-    const double                factor_rates = (mode == PhononMode::acoustic) ? m_fit_acoustic : m_fit_optical;
+    const bool is_electron = m_elph_particle_type == MeshParticleType::conduction;
+    const DeformationPotential& defpot =
+        is_electron ? ((mode == PhononMode::acoustic) ? m_ac_defpot_e : m_op_defpot_e)
+                    : ((mode == PhononMode::acoustic) ? m_ac_defpot_h : m_op_defpot_h);
 
     const double Eph_max_eV = get_max_phonon_energy() + kEnergyEps;
     const double Ef_min_win = Ei_eV - Eph_max_eV;
@@ -498,8 +522,9 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
     std::vector<Candidate> candidates;
     candidates.reserve(32768);
 
-    auto conduction_bands = get_band_indices(MeshParticleType::conduction);
-    for (auto idx_n2 : conduction_bands) {
+    const auto final_bands = get_band_indices(m_elph_particle_type);
+    for (auto idx_n2 : final_bands) {
+        const std::size_t local_n2 = get_local_band_index(idx_n2);
         if (Ef_min_win > m_bands.maxima()[idx_n2] || Ef_max_win < m_bands.minima()[idx_n2]) {
             continue;
         }
@@ -548,12 +573,18 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
                     continue;
                 }
 
-                const double I  = electron_overlap_integral(k_initial, k2_bary, m_radius_wigner_seitz_m);
+                const double I =
+                    is_electron
+                        ? electron_overlap_integral(k_initial, k2_bary, m_radius_wigner_seitz_m)
+                        : hole_overlap_integral(static_cast<int>(local_n1 + 1),
+                                                k_initial,
+                                                static_cast<int>(local_n2 + 1),
+                                                k2_bary,
+                                                m_hole_overlap_int_params);
                 const double I2 = I * I;
-                const double Delta_J = defpot.get_fischetti_deformation_potential(qn, local_n1) * qe;
+                const double Delta_J = defpot.get_deformation_potential(q, Ef_eV) * qe;
                 const double dos_per_J = dos_eV / qe;
                 double P = (pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) * I2 * bose * dos_per_J;
-                P *= factor_rates;
 
                 if (P > 0.0 && std::isfinite(P)) {
                     candidates.push_back(Candidate{idx_n2, idx_tetra, Ef_eV, P, signs});
@@ -610,17 +641,35 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
     return SelectedFinalState{chosen.band, chosen.tetra, const_cast<Tetra*>(&Tsel), k_final, chosen.Ef_eV};
 }
 
+SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_t     idx_band_initial,
+                                                                      const vector3&  k_initial,
+                                                                      PhononMode      mode,
+                                                                      PhononDirection direction,
+                                                                      PhononEvent     event,
+                                                                      std::mt19937&   rng) const {
+    if (m_elph_particle_type != MeshParticleType::conduction) {
+        throw std::logic_error("Electron final-state selection requires conduction carrier mode");
+    }
+    return select_phonon_final_state(idx_band_initial, k_initial, mode, direction, event, rng);
+}
+
 SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_t    idx_band_initial,
                                                                       const vector3& k_initial,
                                                                       int            idx_phonon_branch,
                                                                       std::mt19937&  rng) const {
+    if (m_elph_particle_type != MeshParticleType::conduction) {
+        throw std::logic_error("Electron final-state selection requires conduction carrier mode");
+    }
+    return select_phonon_final_state(idx_band_initial, k_initial, idx_phonon_branch, rng);
+}
+
+SelectedFinalState ElectronPhonon::select_phonon_final_state(std::size_t    idx_band_initial,
+                                                             const vector3& k_initial,
+                                                             int            idx_phonon_branch,
+                                                             std::mt19937&  rng) const {
     PhononScatteringEvent PhBranch = inverse_rate_index(idx_phonon_branch);
-    return select_electron_phonon_final_state(idx_band_initial,
-                                              k_initial,
-                                              PhBranch.mode,
-                                              PhBranch.direction,
-                                              PhBranch.event,
-                                              rng);
+    return select_phonon_final_state(
+        idx_band_initial, k_initial, PhBranch.mode, PhBranch.direction, PhBranch.event, rng);
 }
 
 /**
@@ -1149,17 +1198,6 @@ void ElectronPhonon::read_phonon_scattering_rates_from_file(const std::filesyste
                        rate_ac_T_em,
                        rate_op_L_em,
                        rate_op_T_em};
-
-        // RAW FIT
-        rates[2] *= m_fit_optical;
-        rates[3] *= m_fit_optical;
-        rates[6] *= m_fit_optical;
-        rates[7] *= m_fit_optical;
-
-        rates[0] *= m_fit_acoustic;
-        rates[1] *= m_fit_acoustic;
-        rates[4] *= m_fit_acoustic;
-        rates[5] *= m_fit_acoustic;
 
         m_list_vertices[local_vertex_index].set_electron_phonon_rates(band_index, rates);
         m_list_phonon_scattering_rates[local_vertex_index][band_index] = rates;

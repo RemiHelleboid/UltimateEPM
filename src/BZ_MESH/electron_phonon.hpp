@@ -92,9 +92,6 @@ class ElectronPhonon : public BZ_States {
 
     PGamma m_P_Gamma_data;
 
-    const double m_fit_optical  = 1.0;
-    const double m_fit_acoustic = 1.0;
-
  public:
     explicit ElectronPhonon(const uepm::pseudopotential::epm_material& material) : BZ_States(material) {}
 
@@ -120,6 +117,7 @@ class ElectronPhonon : public BZ_States {
     RateValues compute_hole_phonon_rate(std::size_t idx_n1, std::size_t idx_k1);
 
     double scale_q_norm(double q_norm) const;
+    void   compute_phonon_rates_over_mesh(double energy_max = 100.0, bool irreducible_wedge_only = false);
     void   compute_electron_phonon_rates_over_mesh(double energy_max = 100.0, bool irreducible_wedge_only = false);
     void   add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename);
     void   clean_all_elph_data();
@@ -134,6 +132,16 @@ class ElectronPhonon : public BZ_States {
                                                           const vector3& k_initial,
                                                           int            idx_phonon_branch,
                                                           std::mt19937&  rng) const;
+    SelectedFinalState select_phonon_final_state(std::size_t     idx_band_initial,
+                                                 const vector3&  k_initial,
+                                                 PhononMode      mode,
+                                                 PhononDirection direction,
+                                                 PhononEvent     event,
+                                                 std::mt19937&   rng) const;
+    SelectedFinalState select_phonon_final_state(std::size_t    idx_band_initial,
+                                                 const vector3& k_initial,
+                                                 int            idx_phonon_branch,
+                                                 std::mt19937&  rng) const;
 
     void export_rate_values(const std::string& filename) const;
     void compute_plot_electron_phonon_rates_vs_energy_over_mesh(double             max_energy,
