@@ -236,10 +236,6 @@ int main(int argc, char const *argv[]) {
         }
         throw std::invalid_argument("--bz-domain must be 'full' or 'octant'");
     }();
-    if (bz_domain_mode == uepm::mesh_bz::BZDomainMode::positive_octant && irreducible_wedge_only) {
-        throw std::invalid_argument("--wedge cannot be combined with --bz-domain octant");
-    }
-
     uepm::pseudopotential::epm_material current_material = materials.materials.at(arg_material.getValue());
 
     uepm::mesh_bz::ElectronPhonon ElectronPhonon{current_material};
@@ -330,7 +326,7 @@ int main(int argc, char const *argv[]) {
     fmt::print("μ_iso = {:.2f} cm^2/(V·s)\n\n", mu_iso * mu_to_cm2Vs);
     fmt::print("tensor = \n{} cm^2/(V*s)\n\n\n", fmt::streamed(M));
 
-    double mean_energy = ElectronPhonon.mean_electron_energy_equilibrium(Ef, T, use_iw);
+    double mean_energy = ElectronPhonon.mean_electron_energy_equilibrium(Ef, T, true);
     fmt::print("Mean electron energy above CBM at equilibrium: {:.6f} eV\n", mean_energy);
 
     std::string output_mobility     = name_stem + "_mobility.txt";

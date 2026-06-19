@@ -18,6 +18,9 @@ import scienceplots
 
 plt.style.use(['science', 'muted', 'grid', 'no-latex'])
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_REFERENCE_DIR = REPOSITORY_ROOT / "examples"
+
 
 def scatter_plot_rates(filename):
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -73,15 +76,30 @@ def plo_dos(filename):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-f", "--filename_prefix", type=str, required=True, help="Filename to plot")
+    parser.add_argument(
+        "--reference-dir",
+        type=Path,
+        default=DEFAULT_REFERENCE_DIR,
+        help=f"Directory containing reference-rate CSV files (default: {DEFAULT_REFERENCE_DIR})",
+    )
     args = parser.parse_args()
-    namefile_rates_vs_energy = f"{args.filename_prefix}_rates_vs_energy.csv"
+
+    namefile_rates_vs_energy = Path(f"{args.filename_prefix}_rates_vs_energy.csv")
+    reference_dir = args.reference_dir.expanduser().resolve()
+
     try:
         scatter_plot_rates("rates_all.csv")
-    except:
-        pass
-    try:
-        plot_rates(namefile_rates_vs_energy, "../examples/RatesSiFischetti1988.csv")
-        plot_rates(namefile_rates_vs_energy, "../examples/RatesSiKunikiyo1994.csv")
-    except:
-        pass
+    except (FileNotFoundError, OSError, ValueError) as error:
+        print(f"Skipping rates_all.csv: {error}")
+
+    references = [
+        reference_dir / "RatesSiFischetti1988.csv",
+        reference_dir / "RatesSiKunikiyo1994.csv",
+    ]
+    for reference_file in references:
+        try:
+            plot_rates(namefile_rates_vs_energy, reference_file)
+        except (FileNotFoundError, OSError, ValueError) as error:
+            print(f"Skipping reference {reference_file}: {error}")
+
     plt.show()

@@ -32,6 +32,8 @@
 #include "bz_mesh.hpp"
 #include "bz_meshfile.hpp"
 #include "epm_material.hpp"
+#include "pbmc_material_model.hpp"
+#include "physical_constants.hpp"
 
 namespace {
 
@@ -39,6 +41,16 @@ using uepm::mesh_bz::MeshBZ;
 using uepm::mesh_bz::MeshParticleType;
 using uepm::mesh_bz::Tetra;
 using uepm::mesh_bz::vector3;
+
+struct PbmcBandData {
+    std::vector<double>  heavyHoleEnergy;
+    std::vector<vector3> heavyHoleGradient;
+    std::vector<double>  lightHoleEnergy;
+    std::vector<vector3> lightHoleGradient;
+    std::vector<double>  electronEnergy;
+    std::vector<vector3> electronGradient;
+    std::vector<double>  electronValley;
+};
 
 struct SpreadSample {
     double      spread{0.0};
@@ -216,6 +228,199 @@ std::vector<std::size_t> selected_export_bands(const MeshBZ& mesh, std::size_t n
     bands.insert(bands.end(), valence.end() - static_cast<std::ptrdiff_t>(nbValence), valence.end());
     bands.insert(bands.end(), conduction.begin(), conduction.begin() + static_cast<std::ptrdiff_t>(nbConduction));
     return bands;
+}
+
+uepm::PBMC::valley_model::vector3 to_pbmc_vector(const vector3& value) {
+    return {value.x(), value.y(), value.z()};
+}
+
+vector3 to_bz_vector(const uepm::PBMC::valley_model::vector3& value) {
+    return {value.x(), value.y(), value.z()};
+}
+
+vector3 delta_valley_center_reduced(const std::string& name, double deltaPosition) {
+    if (name == "Delta_x_plus") {
+        return {deltaPosition, 0.0, 0.0};
+    }
+    if (name == "Delta_x_minus") {
+        return {-deltaPosition, 0.0, 0.0};
+    }
+    if (name == "Delta_y_plus") {
+        return {0.0, deltaPosition, 0.0};
+    }
+    if (name == "Delta_y_minus") {
+        return {0.0, -deltaPosition, 0.0};
+    }
+    if (name == "Delta_z_plus") {
+        return {0.0, 0.0, deltaPosition};
+    }
+    if (name == "Delta_z_minus") {
+        return {0.0, 0.0, -deltaPosition};
+    }
+    throw std::runtime_error("Unsupported PBMC electron valley name '" + name + "'.");
+}
+
+PbmcBandData evaluate_pbmc_bands(const MeshBZ&                         mesh,
+                                 const uepm::PBMC::pbmc_material_model& material,
+                                 double                                deltaPosition,
+                                 double                                valenceEdge,
+                                 double                                conductionEdge,
+                                 int                                   numberThreads) {
+    if (material.m_electron_valleys.size() != 6 || material.m_hole_bands.size() != 2) {
+        throw std::runtime_error("BandsOnBZ PBMC overlay expects six electron valleys and two hole bands.");
+    }
+    if (material.m_hole_bands[0].name() != "heavy_hole" || material.m_hole_bands[1].name() != "light_hole") {
+        throw std::runtime_error("BandsOnBZ PBMC overlay expects heavy_hole followed by light_hole.");
+    }
+
+    PbmcBandData result;
+    const auto   vertexCount = mesh.get_number_vertices();
+    result.heavyHoleEnergy.resize(vertexCount);
+    result.heavyHoleGradient.resize(vertexCount);
+    result.lightHoleEnergy.resize(vertexCount);
+    result.lightHoleGradient.resize(vertexCount);
+    result.electronEnergy.resize(vertexCount);
+    result.electronGradient.resize(vertexCount);
+    result.electronValley.resize(vertexCount);
+
+    std::array<vector3, 6> valleyCentersSI;
+    for (std::size_t valleyIndex = 0; valleyIndex < material.m_electron_valleys.size(); ++valleyIndex) {
+        valleyCentersSI[valleyIndex] =
+            mesh.reduced_to_si_k(delta_valley_center_reduced(material.m_electron_valleys[valleyIndex].name(),
+                                                             deltaPosition));
+    }
+
+#pragma omp parallel for schedule(static) num_threads(numberThreads)
+    for (std::size_t vertexIndex = 0; vertexIndex < vertexCount; ++vertexIndex) {
+        const vector3 k = mesh.get_vertex_position(vertexIndex);
+
+        for (std::size_t holeIndex = 0; holeIndex < material.m_hole_bands.size(); ++holeIndex) {
+            const auto&   band   = material.m_hole_bands[holeIndex];
+            const vector3 localK = mesh.retrieve_k_inside_mesh_geometry(k);
+            const auto    localPbmcK = to_pbmc_vector(localK);
+            const double  energy     = valenceEdge - band.total_energy_from_k(localPbmcK);
+            const vector3 gradient =
+                -uepm::constants::h_bar_eV * to_bz_vector(band.velocity_from_k(localPbmcK));
+
+            if (holeIndex == 0) {
+                result.heavyHoleEnergy[vertexIndex]   = energy;
+                result.heavyHoleGradient[vertexIndex] = gradient;
+            } else {
+                result.lightHoleEnergy[vertexIndex]   = energy;
+                result.lightHoleGradient[vertexIndex] = gradient;
+            }
+        }
+
+        double      minimumEnergy = std::numeric_limits<double>::infinity();
+        vector3     selectedGradient{};
+        std::size_t selectedValley = 0;
+        for (std::size_t valleyIndex = 0; valleyIndex < material.m_electron_valleys.size(); ++valleyIndex) {
+            const auto& valley = material.m_electron_valleys[valleyIndex];
+            const vector3 localK =
+                mesh.retrieve_k_inside_mesh_geometry(k - valleyCentersSI[valleyIndex]);
+            const auto   localPbmcK = to_pbmc_vector(localK);
+            const double energy    = conductionEdge + valley.total_energy_from_k(localPbmcK);
+
+            if (energy < minimumEnergy) {
+                minimumEnergy    = energy;
+                selectedGradient =
+                    uepm::constants::h_bar_eV * to_bz_vector(valley.velocity_from_k(localPbmcK));
+                selectedValley = valleyIndex;
+            }
+        }
+
+        result.electronEnergy[vertexIndex]   = minimumEnergy;
+        result.electronGradient[vertexIndex] = selectedGradient;
+        result.electronValley[vertexIndex]   = static_cast<double>(selectedValley);
+    }
+
+    const double sampledValenceEdge =
+        std::max(*std::max_element(result.heavyHoleEnergy.begin(), result.heavyHoleEnergy.end()),
+                 *std::max_element(result.lightHoleEnergy.begin(), result.lightHoleEnergy.end()));
+    const double sampledConductionEdge =
+        *std::min_element(result.electronEnergy.begin(), result.electronEnergy.end());
+    const double valenceShift    = valenceEdge - sampledValenceEdge;
+    const double conductionShift = conductionEdge - sampledConductionEdge;
+
+    for (double& energy : result.heavyHoleEnergy) {
+        energy += valenceShift;
+    }
+    for (double& energy : result.lightHoleEnergy) {
+        energy += valenceShift;
+    }
+    for (double& energy : result.electronEnergy) {
+        energy += conductionShift;
+    }
+
+    return result;
+}
+
+std::pair<double, double> epm_band_edges(const MeshBZ& mesh) {
+    const auto valenceBands    = mesh.get_band_indices(MeshParticleType::valence);
+    const auto conductionBands = mesh.get_band_indices(MeshParticleType::conduction);
+    if (valenceBands.empty() || conductionBands.empty()) {
+        throw std::runtime_error("EPM mesh must contain both valence and conduction bands for PBMC alignment.");
+    }
+
+    double valenceEdge    = std::numeric_limits<double>::lowest();
+    double conductionEdge = std::numeric_limits<double>::infinity();
+    for (const std::size_t band : valenceBands) {
+        valenceEdge = std::max(valenceEdge, mesh.get_min_max_energy_at_band(static_cast<int>(band)).second);
+    }
+    for (const std::size_t band : conductionBands) {
+        conductionEdge = std::min(conductionEdge, mesh.get_min_max_energy_at_band(static_cast<int>(band)).first);
+    }
+    return {valenceEdge, conductionEdge};
+}
+
+void export_pbmc_mesh(const std::string&                         meshFilename,
+                      const uepm::pseudopotential::epm_material& epmMaterial,
+                      const uepm::PBMC::pbmc_material_model&      pbmcMaterial,
+                      const MeshBZ&                               epmMesh,
+                      uepm::mesh_bz::BZDomainMode                 domainMode,
+                      double                                      deltaPosition,
+                      int                                         numberThreads,
+                      const std::filesystem::path&                 gmshOutput,
+                      const std::filesystem::path&                 vtkOutput) {
+    MeshBZ pbmcMesh{epmMaterial};
+    pbmcMesh.set_domain_mode(domainMode);
+    pbmcMesh.set_number_threads_mesh_ops(numberThreads);
+    pbmcMesh.read_mesh_geometry_from_msh_file(meshFilename);
+
+    const auto [valenceEdge, conductionEdge] = epm_band_edges(epmMesh);
+    const PbmcBandData bands = evaluate_pbmc_bands(
+        pbmcMesh, pbmcMaterial, deltaPosition, valenceEdge, conductionEdge, std::max(1, numberThreads));
+
+    pbmcMesh.append_band(MeshParticleType::valence, bands.lightHoleEnergy, bands.lightHoleGradient);
+    pbmcMesh.append_band(MeshParticleType::valence, bands.heavyHoleEnergy, bands.heavyHoleGradient);
+    pbmcMesh.append_band(MeshParticleType::conduction, bands.electronEnergy, bands.electronGradient);
+    pbmcMesh.recompute_energies_data_and_sync(true, false, false, 0.0, 0.0);
+
+    if (gmshOutput.has_parent_path()) {
+        std::filesystem::create_directories(gmshOutput.parent_path());
+    }
+    if (vtkOutput.has_parent_path()) {
+        std::filesystem::create_directories(vtkOutput.parent_path());
+    }
+    std::filesystem::remove(gmshOutput);
+    pbmcMesh.export_selected_bands_to_gmsh(gmshOutput.string(), 2, 1, true, meshFilename, true);
+
+    uepm::mesh_bz::MapStringToDoubles scalars{
+        {"pbmc_hh_energy_eV", bands.heavyHoleEnergy},
+        {"pbmc_lh_energy_eV", bands.lightHoleEnergy},
+        {"pbmc_electron_energy_eV", bands.electronEnergy},
+        {"pbmc_electron_valley", bands.electronValley},
+    };
+    uepm::mesh_bz::MapStringToVectors vectors{
+        {"pbmc_hh_gradient_eV_m", bands.heavyHoleGradient},
+        {"pbmc_lh_gradient_eV_m", bands.lightHoleGradient},
+        {"pbmc_electron_gradient_eV_m", bands.electronGradient},
+    };
+    pbmcMesh.export_to_vtk(vtkOutput.string(), scalars, vectors, {}, {});
+
+    fmt::print("PBMC bands aligned to E_v,max={:.9f} eV and E_c,min={:.9f} eV\n", valenceEdge, conductionEdge);
+    fmt::print("Wrote PBMC Gmsh mesh to {}\n", gmshOutput.string());
+    fmt::print("Wrote PBMC VTK mesh to {}\n", vtkOutput.string());
 }
 
 void write_energy_adaptive_diagnostics(const MeshBZ&                   mesh,
@@ -469,6 +674,40 @@ int main(int argc, char* argv[]) {
         false,
         0.0,
         "float");
+    TCLAP::SwitchArg arg_pbmc_overlay("",
+                                      "pbmc-overlay",
+                                      "Export the PBMC six-valley electron and two-band hole model on the mesh",
+                                      false);
+    TCLAP::ValueArg<std::string> arg_pbmc_set("",
+                                              "pbmc-set",
+                                              "Named PBMC parameter set",
+                                              false,
+                                              "default",
+                                              "string");
+    TCLAP::ValueArg<double> arg_delta_position("",
+                                               "pbmc-delta-position",
+                                               "Delta-valley position along Gamma-X in reduced coordinates",
+                                               false,
+                                               0.85,
+                                               "float");
+    TCLAP::ValueArg<std::string> arg_pbmc_outfile("",
+                                                  "pbmc-outfile",
+                                                  "PBMC Gmsh output (default: <mesh>_pbmc_bands.msh)",
+                                                  false,
+                                                  "",
+                                                  "string");
+    TCLAP::ValueArg<std::string> arg_pbmc_vtk("",
+                                              "pbmc-vtk",
+                                              "PBMC VTK output (default: <mesh>_pbmc_bands.vtk)",
+                                              false,
+                                              "",
+                                              "string");
+    TCLAP::ValueArg<std::string> arg_bz_domain("",
+                                               "bz-domain",
+                                               "Stored BZ domain: full or octant",
+                                               false,
+                                               "full",
+                                               "string");
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
     cmd.add(arg_nb_valence_bands);
@@ -485,6 +724,12 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_adaptive_energy_target);
     cmd.add(arg_adaptive_max_points);
     cmd.add(arg_adaptive_background_h);
+    cmd.add(arg_pbmc_overlay);
+    cmd.add(arg_pbmc_set);
+    cmd.add(arg_delta_position);
+    cmd.add(arg_pbmc_outfile);
+    cmd.add(arg_pbmc_vtk);
+    cmd.add(arg_bz_domain);
 
     cmd.parse(argc, argv);
 
@@ -507,9 +752,19 @@ int main(int argc, char* argv[]) {
     my_options.print_options();
 
     uepm::pseudopotential::epm_material mat = materials.materials.at(my_options.materialName);
+    const uepm::mesh_bz::BZDomainMode domain_mode = [&]() {
+        if (arg_bz_domain.getValue() == "full") {
+            return uepm::mesh_bz::BZDomainMode::full;
+        }
+        if (arg_bz_domain.getValue() == "octant" || arg_bz_domain.getValue() == "positive-octant") {
+            return uepm::mesh_bz::BZDomainMode::positive_octant;
+        }
+        throw std::invalid_argument("--bz-domain must be 'full' or 'octant'");
+    }();
 
     const std::string     mesh_filename = arg_mesh_file.getValue();
     uepm::mesh_bz::MeshBZ my_bz_mesh{mat};
+    my_bz_mesh.set_domain_mode(domain_mode);
     my_bz_mesh.set_number_threads_mesh_ops(my_options.nrThreads);
 
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_filename);
@@ -566,6 +821,33 @@ int main(int argc, char* argv[]) {
 
     const std::string vtk_file = in_path.stem().replace_extension("").string() + "_bands.vtk";
     my_bz_mesh.export_energies_and_gradients_to_vtk(vtk_file);
+
+    if (arg_pbmc_overlay.isSet()) {
+        if (!(arg_delta_position.getValue() > 0.0 && arg_delta_position.getValue() < 1.0)) {
+            throw std::invalid_argument("PBMC Delta-valley position must lie strictly between Gamma and X.");
+        }
+
+        const auto pbmc_material =
+            uepm::PBMC::load_pbmc_material_model(material_repository, arg_material.getValue(), arg_pbmc_set.getValue());
+        const std::filesystem::path pbmc_gmsh =
+            arg_pbmc_outfile.isSet()
+                ? std::filesystem::path(arg_pbmc_outfile.getValue())
+                : in_path.parent_path() / (in_path.stem().string() + "_pbmc_bands.msh");
+        const std::filesystem::path pbmc_vtk =
+            arg_pbmc_vtk.isSet()
+                ? std::filesystem::path(arg_pbmc_vtk.getValue())
+                : in_path.parent_path() / (in_path.stem().string() + "_pbmc_bands.vtk");
+
+        export_pbmc_mesh(mesh_filename,
+                         mat,
+                         pbmc_material,
+                         my_bz_mesh,
+                         domain_mode,
+                         arg_delta_position.getValue(),
+                         my_options.nrThreads,
+                         pbmc_gmsh,
+                         pbmc_vtk);
+    }
 
     return 0;
 }

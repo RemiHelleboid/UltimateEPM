@@ -13,6 +13,7 @@
 
 #include <Eigen/LU>
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -38,10 +39,6 @@ inline double nearest_even(double x) noexcept { return 2.0 * std::nearbyint(0.5 
 inline double nearest_odd(double x) noexcept { return 1.0 + 2.0 * std::nearbyint(0.5 * (x - 1.0)); }
 
 inline vector3 fold_bcc_reduced_fast(const vector3& k, double h) noexcept {
-    if (contains_bcc_reduced(k, h)) {
-        return k;
-    }
-
     const double x = k.x() / h;
     const double y = k.y() / h;
     const double z = k.z() / h;
@@ -76,12 +73,17 @@ inline vector3 fold_bcc_reduced_fast(const vector3& k, double h) noexcept {
 void ReciprocalSpace::initialize_basis(const Eigen::Vector3d& b1_SI,
                                        const Eigen::Vector3d& b2_SI,
                                        const Eigen::Vector3d& b3_SI,
-                                       double                 halfwidth_reduced) {
+                                       double                 halfwidth_reduced,
+                                       double                 si_to_reduced) {
+    if (!(si_to_reduced > 0.0)) {
+        throw std::invalid_argument("SI-to-reduced reciprocal-space scale must be positive");
+    }
     m_basis.col(0)  = b1_SI;
     m_basis.col(1)  = b2_SI;
     m_basis.col(2)  = b3_SI;
     m_inverse_basis = m_basis.inverse();
     m_halfwidth     = halfwidth_reduced;
+    m_si_to_reduced = si_to_reduced;
 }
 
 void ReciprocalSpace::precompute_bcc_shifts(double si_to_reduced, int maximum_shell) {
@@ -137,19 +139,23 @@ bool ReciprocalSpace::contains_bcc(const vector3& k_SI, double si_to_reduced) co
 //     throw std::runtime_error("No reciprocal-lattice image lies inside the Brillouin zone");
 // }
 
-vector3 ReciprocalSpace::fold_bcc_fast_SI(const vector3& k_SI, double si_to_reduced) const  noexcept {
+vector3 ReciprocalSpace::fold_bcc_fast_SI(const vector3& k_SI, double si_to_reduced) const {
     if (!(si_to_reduced > 0.0)) {
         throw std::invalid_argument("fold_bcc_fast_SI: si_to_reduced must be positive");
     }
 
     const vector3 k_reduced{k_SI.x() * si_to_reduced, k_SI.y() * si_to_reduced, k_SI.z() * si_to_reduced};
+    if (contains_bcc_reduced(k_reduced, m_halfwidth)) {
+        return k_SI;
+    }
 
     const vector3 folded_reduced = fold_bcc_reduced_fast(k_reduced, m_halfwidth);
-
-    if (!contains_bcc_reduced(folded_reduced, m_halfwidth)) {
-        throw std::runtime_error("fold_bcc_fast_SI: folded k is outside first BZ");
-    }
+    assert(contains_bcc_reduced(folded_reduced, m_halfwidth));
     return {folded_reduced.x() / si_to_reduced, folded_reduced.y() / si_to_reduced, folded_reduced.z() / si_to_reduced};
+}
+
+vector3 ReciprocalSpace::fold_bcc_fast_SI(const vector3& k_SI) const {
+    return fold_bcc_fast_SI(k_SI, m_si_to_reduced);
 }
 
 vector3 ReciprocalSpace::retrieve_bcc_image(const vector3& k_SI, double si_to_reduced) const {
@@ -200,7 +206,7 @@ bool MeshBZ::is_inside_mesh_geometry(const vector3& k) const {
 void MeshBZ::precompute_G_shifts() { m_reciprocal_space.precompute_bcc_shifts(si_to_reduced_scale()); }
 
 vector3 MeshBZ::retrieve_k_inside_mesh_geometry(const vector3& k) const {
-    return m_reciprocal_space.retrieve_bcc_image(k, si_to_reduced_scale());
+    return m_reciprocal_space.fold_bcc_fast_SI(k);
 }
 
 void MeshBZ::init_reciprocal_basis(const Eigen::Vector3d& b1_SI,
@@ -211,7 +217,7 @@ void MeshBZ::init_reciprocal_basis(const Eigen::Vector3d& b1_SI,
     if (!(si_to_reduced > 0.0)) {
         throw std::invalid_argument("SI-to-reduced reciprocal-space scale must be positive");
     }
-    m_reciprocal_space.initialize_basis(b1_SI, b2_SI, b3_SI, halfwidth_reduced);
+    m_reciprocal_space.initialize_basis(b1_SI, b2_SI, b3_SI, halfwidth_reduced, si_to_reduced);
 }
 
 vector3 MeshBZ::fold_ws_bcc(const vector3& k_SI) const noexcept { return m_reciprocal_space.fold_wigner_seitz(k_SI); }

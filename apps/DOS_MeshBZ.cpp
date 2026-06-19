@@ -53,6 +53,12 @@ int main(int argc, char *argv[]) {
                                       false);
     TCLAP::SwitchArg     arg_test_interp("t", "test-interp", "Test the interpolation DOS.", false);
     TCLAP::SwitchArg     arg_use_iw("", "iw", "Use the irreducible wedge only.", false);
+    TCLAP::ValueArg<std::string> arg_bz_domain("",
+                                               "bz-domain",
+                                               "Stored BZ domain: full or octant",
+                                               false,
+                                               "full",
+                                               "string");
     cmd.add(plot_with_python);
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
@@ -62,6 +68,7 @@ int main(int argc, char *argv[]) {
     cmd.add(arg_nb_threads);
     cmd.add(arg_test_interp);
     cmd.add(arg_use_iw);
+    cmd.add(arg_bz_domain);
 
     cmd.parse(argc, argv);
 
@@ -77,6 +84,18 @@ int main(int argc, char *argv[]) {
     int  nb_valence_bands    = arg_nb_valence_bands.getValue();
     bool use_interp          = arg_test_interp.getValue();
     bool use_iw              = arg_use_iw.getValue();
+    const uepm::mesh_bz::BZDomainMode domain_mode = [&]() {
+        if (arg_bz_domain.getValue() == "full") {
+            return uepm::mesh_bz::BZDomainMode::full;
+        }
+        if (arg_bz_domain.getValue() == "octant" || arg_bz_domain.getValue() == "positive-octant") {
+            return uepm::mesh_bz::BZDomainMode::positive_octant;
+        }
+        throw std::invalid_argument("--bz-domain must be 'full' or 'octant'");
+    }();
+    if (domain_mode == uepm::mesh_bz::BZDomainMode::positive_octant && use_iw) {
+        throw std::invalid_argument("--iw cannot be combined with --bz-domain octant");
+    }
     auto start               = std::chrono::high_resolution_clock::now();
 
     uepm::pseudopotential::epm_material current_material = materials.materials.at(arg_material.getValue());
@@ -84,6 +103,7 @@ int main(int argc, char *argv[]) {
     const std::string mesh_band_input_file = arg_mesh_file.getValue();
 
     uepm::mesh_bz::MeshBZ my_bz_mesh{current_material};
+    my_bz_mesh.set_domain_mode(domain_mode);
     my_bz_mesh.set_number_threads_mesh_ops(my_options.nrThreads);
     my_bz_mesh.read_mesh_geometry_from_msh_file(mesh_band_input_file);
 

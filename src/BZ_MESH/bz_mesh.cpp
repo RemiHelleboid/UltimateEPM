@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -50,6 +51,23 @@ namespace uepm::mesh_bz {
 namespace {
 
 constexpr std::size_t invalid_vertex_index = std::numeric_limits<std::size_t>::max();
+
+struct ReducedCoordinateKey {
+    std::int64_t x;
+    std::int64_t y;
+    std::int64_t z;
+
+    bool operator==(const ReducedCoordinateKey&) const = default;
+};
+
+struct ReducedCoordinateKeyHash {
+    std::size_t operator()(const ReducedCoordinateKey& key) const noexcept {
+        std::size_t seed = std::hash<std::int64_t>{}(key.x);
+        seed ^= std::hash<std::int64_t>{}(key.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed ^= std::hash<std::int64_t>{}(key.z) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
 
 }  // namespace
 
@@ -248,7 +266,9 @@ void MeshBZ::read_mesh_geometry_from_msh_file(const std::string& filename, bool 
     const double     ssi_to_reduced_scale = si_to_reduced_scale();
     init_reciprocal_basis(b1_SI, b2_SI, b3_SI, halfwidth_reduced, ssi_to_reduced_scale);
 
-    if (!stores_positive_octant()) {
+    if (stores_positive_octant()) {
+        build_positive_octant_kstar();
+    } else {
         load_kstar_ibz_to_bz();
     }
 }
@@ -306,6 +326,8 @@ void MeshBZ::compact_geometry_to_positive_octant() {
         }
         const std::size_t tetra_index = compact_tetrahedra.size();
         compact_tetrahedra.emplace_back(tetra_index, vertices);
+        compact_tetrahedra.back().set_lies_in_irreducible_wedge(
+            is_irreducible_wedge(compact_tetrahedra.back().get_barycenter()));
         for (Vertex* vertex : vertices) {
             compact_vertex_to_tetrahedra[vertex->get_index()].push_back(tetra_index);
         }
@@ -327,6 +349,98 @@ void MeshBZ::compact_geometry_to_positive_octant() {
     fmt::print("Compacted BZ storage to positive octant: {} vertices, {} tetrahedra\n",
                m_list_vertices.size(),
                m_list_tetrahedra.size());
+}
+
+void MeshBZ::build_positive_octant_kstar() {
+    if (!stores_positive_octant()) {
+        throw std::logic_error("Positive-octant symmetry orbits require positive-octant storage");
+    }
+
+    constexpr double coordinate_tolerance_reduced = 1e-10;
+    const auto coordinate_key = [&](const vector3& position) {
+        const vector3 reduced = si_to_reduced_k(position);
+        return ReducedCoordinateKey{
+            std::llround(reduced.x() / coordinate_tolerance_reduced),
+            std::llround(reduced.y() / coordinate_tolerance_reduced),
+            std::llround(reduced.z() / coordinate_tolerance_reduced),
+        };
+    };
+
+    std::unordered_map<ReducedCoordinateKey, std::size_t, ReducedCoordinateKeyHash> vertex_by_position;
+    vertex_by_position.reserve(m_list_vertices.size());
+    for (const Vertex& vertex : m_list_vertices) {
+        const auto [it, inserted] = vertex_by_position.emplace(coordinate_key(vertex.get_position()), vertex.get_index());
+        if (!inserted) {
+            throw std::runtime_error("Positive-octant mesh contains duplicate vertices within symmetry tolerance");
+        }
+    }
+
+    m_list_vtx_in_iwedge.clear();
+    m_kstar_ibz_to_bz.assign(m_list_vertices.size(), {});
+    for (Vertex& vertex : m_list_vertices) {
+        vertex.set_lies_in_irreducible_wedge(false);
+    }
+
+    for (const Vertex& vertex : m_list_vertices) {
+        const vector3 representative = fold_positive_octant_to_irreducible_wedge(vertex.get_position());
+        const auto    it             = vertex_by_position.find(coordinate_key(representative));
+        if (it == vertex_by_position.end()) {
+            const vector3 representative_reduced = si_to_reduced_k(representative);
+            double        nearest_distance       = std::numeric_limits<double>::infinity();
+            vector3       nearest_reduced;
+            for (const Vertex& candidate : m_list_vertices) {
+                const vector3 candidate_reduced = si_to_reduced_k(candidate.get_position());
+                const double  distance          = (candidate_reduced - representative_reduced).norm();
+                if (distance < nearest_distance) {
+                    nearest_distance = distance;
+                    nearest_reduced  = candidate_reduced;
+                }
+            }
+            fmt::print(stderr,
+                       "[warn] positive-octant mesh is not closed under coordinate permutations: representative "
+                       "({:.12g}, {:.12g}, {:.12g}) is missing (nearest vertex ({:.12g}, {:.12g}, {:.12g}), "
+                       "reduced distance {:.3e}). IW reduction is unavailable; generate a symmetry-exact octant "
+                       "mesh with bz_meshing --bz-domain octant.\n",
+                       representative_reduced.x(),
+                       representative_reduced.y(),
+                       representative_reduced.z(),
+                       nearest_reduced.x(),
+                       nearest_reduced.y(),
+                       nearest_reduced.z(),
+                       nearest_distance);
+            m_list_vtx_in_iwedge.clear();
+            m_kstar_ibz_to_bz.clear();
+            return;
+        }
+        m_kstar_ibz_to_bz[it->second].push_back(vertex.get_index());
+    }
+
+    std::size_t mapped_vertices = 0;
+    for (std::size_t index = 0; index < m_kstar_ibz_to_bz.size(); ++index) {
+        auto& orbit = m_kstar_ibz_to_bz[index];
+        if (orbit.empty()) {
+            continue;
+        }
+        if (!is_irreducible_wedge(m_list_vertices[index].get_position())) {
+            throw std::runtime_error("Positive-octant symmetry orbit representative is outside the irreducible wedge");
+        }
+        std::sort(orbit.begin(), orbit.end());
+        orbit.erase(std::unique(orbit.begin(), orbit.end()), orbit.end());
+        if (orbit.size() > 6) {
+            throw std::runtime_error("Positive-octant symmetry orbit has more than six coordinate permutations");
+        }
+        m_list_vertices[index].set_lies_in_irreducible_wedge(true);
+        m_list_vtx_in_iwedge.push_back(index);
+        mapped_vertices += orbit.size();
+    }
+
+    if (mapped_vertices != m_list_vertices.size()) {
+        throw std::runtime_error("Positive-octant symmetry orbits do not cover every stored vertex");
+    }
+
+    fmt::print("Built positive-octant IW mapping: {} representatives cover {} vertices\n",
+               m_list_vtx_in_iwedge.size(),
+               mapped_vertices);
 }
 
 std::size_t MeshBZ::local_vertex_index_from_source(std::size_t source_index) const {
@@ -595,13 +709,13 @@ void MeshBZ::read_mesh_bands_from_msh_file(const std::string& filename,
     }
 
     compute_min_max_energies_at_tetras();
+    compute_energy_gradient_at_tetras();
 
 #pragma omp parallel for schedule(dynamic) num_threads(m_nb_threads_mesh_ops)
     for (auto&& tetra : m_list_tetrahedra) {
         tetra.pre_compute_sorted_slots_per_band();
     }
 
-    // compute_energy_gradient_at_tetras();
     // set_energy_gradient_at_vertices_by_averaging_tetras();
     recompute_tetra_ordered_energies(m_max_energy_global);
 
@@ -825,6 +939,27 @@ void MeshBZ::add_new_band_energies_to_vertices(const std::vector<double>& energi
 #pragma omp parallel for schedule(static) num_threads(m_nb_threads_mesh_ops)
     for (std::size_t index_vtx = 0; index_vtx < m_list_vertices.size(); ++index_vtx) {
         m_list_vertices[index_vtx].add_band_energy_value(energies_at_vertices[index_vtx]);
+    }
+}
+
+void MeshBZ::append_band(MeshParticleType            type,
+                         const std::vector<double>&  energies_at_vertices,
+                         const std::vector<vector3>& gradients_at_vertices) {
+    if (energies_at_vertices.size() != m_list_vertices.size() ||
+        gradients_at_vertices.size() != m_list_vertices.size()) {
+        throw std::invalid_argument("Band energies and gradients must match the number of mesh vertices.");
+    }
+    if (energies_at_vertices.empty()) {
+        throw std::invalid_argument("Cannot append an empty band.");
+    }
+
+    const auto minmax = std::minmax_element(energies_at_vertices.begin(), energies_at_vertices.end());
+    m_bands.register_band(type, *minmax.first, *minmax.second);
+
+#pragma omp parallel for schedule(static) num_threads(m_nb_threads_mesh_ops)
+    for (std::size_t index_vtx = 0; index_vtx < m_list_vertices.size(); ++index_vtx) {
+        m_list_vertices[index_vtx].add_band_energy_value(energies_at_vertices[index_vtx]);
+        m_list_vertices[index_vtx].add_band_energy_gradient(gradients_at_vertices[index_vtx]);
     }
 }
 

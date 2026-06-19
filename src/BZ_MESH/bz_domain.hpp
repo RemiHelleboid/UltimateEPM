@@ -31,6 +31,7 @@ struct CanonicalK {
 
 CanonicalK canonicalize_k(const vector3& physical_k, BZDomainMode mode) noexcept;
 vector3    apply_sign_image(const vector3& representative, const std::array<int, 3>& signs) noexcept;
+vector3    fold_positive_octant_to_irreducible_wedge(const vector3& representative) noexcept;
 
 inline constexpr std::array<std::array<int, 3>, 8> positive_octant_images = {
     std::array<int, 3>{1, 1, 1},

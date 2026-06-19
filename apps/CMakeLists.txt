@@ -12,7 +12,7 @@ target_link_libraries(epm_band_edges PRIVATE libepp fmt::fmt)
 target_compile_features(epm_band_edges PRIVATE cxx_std_20)
 
 add_executable(BandsOnBZ BandsOnBZ.cpp)
-target_link_libraries(BandsOnBZ PRIVATE libepp lib_bzmesh Eigen3::Eigen)
+target_link_libraries(BandsOnBZ PRIVATE libepp lib_bzmesh uepm::PBMC Eigen3::Eigen)
 target_compile_features(BandsOnBZ PRIVATE cxx_std_20)
 
 add_executable(DOS_MeshBZ DOS_MeshBZ.cpp)

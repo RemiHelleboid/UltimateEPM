@@ -712,21 +712,21 @@ double mesh_volume(const std::vector<Vec3>& pts, const std::vector<Tet4>& tets) 
     return sum;
 }
 
-void write_full_bz_discrete_mesh(const ExpandedMesh& fullMesh, const std::string& modelName) {
+void write_discrete_mesh(const ExpandedMesh& mesh, const std::string& modelName, const std::string& physicalName) {
     gmsh::model::add(modelName);
     gmsh::model::setCurrent(modelName);
 
     const int volTag = gmsh::model::addDiscreteEntity(3);
 
-    const std::vector<double>      coords   = flatten_xyz(fullMesh.nodes);
-    const std::vector<std::size_t> nodeTags = iota_tags(fullMesh.nodes.size(), 1);
+    const std::vector<double>      coords   = flatten_xyz(mesh.nodes);
+    const std::vector<std::size_t> nodeTags = iota_tags(mesh.nodes.size(), 1);
 
     gmsh::model::mesh::addNodes(3, volTag, nodeTags, coords);
 
-    std::vector<std::size_t> elemTags = iota_tags(fullMesh.tets.size(), 1);
+    std::vector<std::size_t> elemTags = iota_tags(mesh.tets.size(), 1);
     std::vector<std::size_t> conn;
-    conn.reserve(4 * fullMesh.tets.size());
-    for (const auto& t : fullMesh.tets) {
+    conn.reserve(4 * mesh.tets.size());
+    for (const auto& t : mesh.tets) {
         conn.push_back(t[0] + 1);
         conn.push_back(t[1] + 1);
         conn.push_back(t[2] + 1);
@@ -736,7 +736,7 @@ void write_full_bz_discrete_mesh(const ExpandedMesh& fullMesh, const std::string
     gmsh::model::mesh::addElementsByType(volTag, 4, elemTags, conn);
 
     gmsh::model::addPhysicalGroup(3, std::vector<int>{volTag}, 1);
-    gmsh::model::setPhysicalName(3, 1, "Full_BZ");
+    gmsh::model::setPhysicalName(3, 1, physicalName);
 }
 
 }  // namespace
@@ -785,10 +785,16 @@ int main(int argc, char** argv) try {
 
     TCLAP::ValueArg<std::string> outArg("o",
                                         "outfile",
-                                        "Output full-BZ mesh filename (.msh)",
+                                        "Output BZ mesh filename (.msh)",
                                         false,
                                         "bz.msh",
                                         "string");
+    TCLAP::ValueArg<std::string> domainArg("",
+                                           "bz-domain",
+                                           "Output BZ domain: full or octant",
+                                           false,
+                                           "full",
+                                           "string");
     TCLAP::SwitchArg             noGuiArg("", "nogui", "Do not open the GUI", cmd, false);
 
     cmd.add(modeArg);
@@ -814,7 +820,18 @@ int main(int argc, char** argv) try {
     cmd.add(LTubesRmaxArg);
 
     cmd.add(outArg);
+    cmd.add(domainArg);
     cmd.parse(argc, argv);
+
+    const bool outputOctant = [&]() {
+        if (domainArg.getValue() == "full") {
+            return false;
+        }
+        if (domainArg.getValue() == "octant" || domainArg.getValue() == "positive-octant") {
+            return true;
+        }
+        throw std::runtime_error("--bz-domain must be 'full' or 'octant'");
+    }();
 
     MeshTarget mode;
     if (modeArg.getValue() == "conduction") {
@@ -902,19 +919,20 @@ int main(int argc, char** argv) try {
     std::cout << "IBZ nodes: " << ibz.nodes.size() << "\n";
     std::cout << "IBZ tetrahedra: " << ibz.tets.size() << "\n";
 
-    const std::vector<Mat3> ops  = symmetry_ops_full();
-    const ExpandedMesh      full = expand_mesh_by_symmetry(ibz, ops);
+    const std::vector<Mat3> ops = outputOctant ? permutation_matrices() : symmetry_ops_full();
+    const ExpandedMesh      outputMesh = expand_mesh_by_symmetry(ibz, ops);
 
-    std::cout << "Full-BZ nodes: " << full.nodes.size() << "\n";
-    std::cout << "Full-BZ tetrahedra: " << full.tets.size() << "\n";
+    std::cout << (outputOctant ? "Positive-octant" : "Full-BZ") << " nodes: " << outputMesh.nodes.size() << "\n";
+    std::cout << (outputOctant ? "Positive-octant" : "Full-BZ")
+              << " tetrahedra: " << outputMesh.tets.size() << "\n";
 
-    const double volIBZ = mesh_volume(ibz.nodes, ibz.tets);
-    const double volBZ  = mesh_volume(full.nodes, full.tets);
+    const double volIBZ    = mesh_volume(ibz.nodes, ibz.tets);
+    const double volOutput = mesh_volume(outputMesh.nodes, outputMesh.tets);
     std::cout << std::setprecision(16);
     std::cout << "IBZ volume = " << volIBZ << "\n";
-    std::cout << "Full-BZ volume = " << volBZ << "\n";
+    std::cout << (outputOctant ? "Positive-octant" : "Full-BZ") << " volume = " << volOutput << "\n";
     if (volIBZ > 0.0) {
-        std::cout << "Volume ratio Full/IBZ = " << (volBZ / volIBZ) << "\n";
+        std::cout << "Volume ratio Output/IBZ = " << (volOutput / volIBZ) << "\n";
     }
 
     const std::filesystem::path outMeshPath(outArg.getValue());
@@ -929,10 +947,16 @@ int main(int argc, char** argv) try {
         std::filesystem::create_directories(outDir);
     }
 
-    export_kstar(kstarPath.string(), full.orbitIds);
+    if (!outputOctant) {
+        export_kstar(kstarPath.string(), outputMesh.orbitIds);
+    } else if (std::filesystem::exists(kstarPath)) {
+        std::filesystem::remove(kstarPath);
+    }
 
-    const std::string fullModelName = "Full_BZ_Model";
-    write_full_bz_discrete_mesh(full, fullModelName);
+    const std::string outputModelName = outputOctant ? "Positive_Octant_BZ_Model" : "Full_BZ_Model";
+    write_discrete_mesh(outputMesh,
+                        outputModelName,
+                        outputOctant ? "Positive_Octant_BZ" : "Full_BZ");
 
     if (std::filesystem::exists(outMeshPath)) {
         std::filesystem::remove(outMeshPath);
@@ -940,7 +964,11 @@ int main(int argc, char** argv) try {
     gmsh::write(outMeshPath.string());
 
     std::cout << "Wrote mesh: " << outMeshPath.string() << "\n";
-    std::cout << "Wrote k-star map: " << kstarPath.string() << "\n";
+    if (!outputOctant) {
+        std::cout << "Wrote k-star map: " << kstarPath.string() << "\n";
+    } else {
+        std::cout << "Octant meshes do not use a k-star map.\n";
+    }
 
     if (!noGuiArg.getValue()) {
         gmsh::fltk::run();

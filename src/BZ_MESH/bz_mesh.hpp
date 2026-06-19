@@ -43,6 +43,7 @@ using MapStringToVectors = std::map<std::string, std::vector<vector3>>;
 class MeshBZ {
  protected:
     void compact_geometry_to_positive_octant();
+    void build_positive_octant_kstar();
 
     std::string m_filename_mesh;
 
@@ -227,6 +228,9 @@ class MeshBZ {
                                        int                nb_valence_bands           = -1,
                                        bool               auto_shift_conduction_band = false,
                                        bool               set_positive_valence_band  = false);
+    void append_band(MeshParticleType           type,
+                     const std::vector<double>& energies_at_vertices,
+                     const std::vector<vector3>& gradients_at_vertices);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
     void add_new_gradient_band_energies_to_vertices(const std::vector<double>& gradients_at_vertices);
     void keep_only_bands(std::size_t nb_valence_bands, std::size_t nb_conduction_bands);

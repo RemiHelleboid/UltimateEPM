@@ -40,6 +40,96 @@ void add_unique_point(std::vector<vector3>& points, const vector3& point, double
     }
 }
 
+struct IsoPolygon {
+    std::array<vector3, 4> points{};
+    std::size_t            size{0};
+};
+
+void add_unique_point(IsoPolygon& polygon, const vector3& point, double tolerance) {
+    for (std::size_t index = 0; index < polygon.size; ++index) {
+        if (nearly_same_point(polygon.points[index], point, tolerance)) {
+            return;
+        }
+    }
+    if (polygon.size < polygon.points.size()) {
+        polygon.points[polygon.size++] = point;
+    }
+}
+
+IsoPolygon compute_band_iso_energy_polygon(const std::array<Vertex*, 4>& vertices,
+                                           const bbox_mesh&              bounding_box,
+                                           const std::array<double, 4>& energies,
+                                           double                        iso_energy) {
+    const auto   minmax           = std::minmax_element(energies.begin(), energies.end());
+    const double energy_scale     = std::max({std::abs(*minmax.first), std::abs(*minmax.second), 1.0});
+    const double energy_tolerance = 1e-12 * energy_scale;
+    if (iso_energy < *minmax.first - energy_tolerance || iso_energy > *minmax.second + energy_tolerance ||
+        *minmax.second - *minmax.first <= energy_tolerance) {
+        return {};
+    }
+
+    constexpr std::array<std::array<std::size_t, 2>, 6> edge_vertices = {
+        {{{0, 1}}, {{0, 2}}, {{0, 3}}, {{1, 2}}, {{1, 3}}, {{2, 3}}}};
+    const double point_tolerance = 1e-12 * std::max(bounding_box.get_diagonal_size(), 1.0);
+    IsoPolygon   intersections;
+
+    for (const auto& edge : edge_vertices) {
+        const std::size_t i    = edge[0];
+        const std::size_t j    = edge[1];
+        const double      di   = energies[i] - iso_energy;
+        const double      dj   = energies[j] - iso_energy;
+        const bool        i_on = std::abs(di) <= energy_tolerance;
+        const bool        j_on = std::abs(dj) <= energy_tolerance;
+
+        if (i_on) {
+            add_unique_point(intersections, vertices[i]->get_position(), point_tolerance);
+        }
+        if (j_on) {
+            add_unique_point(intersections, vertices[j]->get_position(), point_tolerance);
+        }
+        if (!i_on && !j_on && ((di < 0.0) != (dj < 0.0))) {
+            const double fraction = (iso_energy - energies[i]) / (energies[j] - energies[i]);
+            const vector3 point =
+                (1.0 - fraction) * vertices[i]->get_position() + fraction * vertices[j]->get_position();
+            add_unique_point(intersections, point, point_tolerance);
+        }
+    }
+    return intersections;
+}
+
+double triangle_area_fast(const vector3& a, const vector3& b, const vector3& c) noexcept {
+    return 0.5 * cross_product(b - a, c - a).norm();
+}
+
+double iso_polygon_area(const IsoPolygon& polygon) noexcept {
+    if (polygon.size == 3) {
+        return triangle_area_fast(polygon.points[0], polygon.points[1], polygon.points[2]);
+    }
+    if (polygon.size != 4) {
+        return 0.0;
+    }
+
+    // Fix point 0 and test the three distinct cyclic orders of the other
+    // points. A convex planar quadrilateral has the largest shoelace area in
+    // either of its two cyclic orientations; crossed orders have less area.
+    constexpr std::array<std::array<std::size_t, 4>, 3> orders = {
+        std::array<std::size_t, 4>{0, 1, 2, 3},
+        std::array<std::size_t, 4>{0, 1, 3, 2},
+        std::array<std::size_t, 4>{0, 2, 1, 3},
+    };
+
+    double maximum_area = 0.0;
+    for (const auto& order : orders) {
+        vector3 area_vector{};
+        for (std::size_t index = 0; index < order.size(); ++index) {
+            area_vector += cross_product(polygon.points[order[index]],
+                                         polygon.points[order[(index + 1) % order.size()]]);
+        }
+        maximum_area = std::max(maximum_area, 0.5 * area_vector.norm());
+    }
+    return maximum_area;
+}
+
 }  // namespace
 
 bbox_mesh Tetra::compute_bounding_box() const {
@@ -504,7 +594,7 @@ inline double polygon_area(const std::vector<vector3>& pts) {
     return 0.5 * sum.norm();
 }
 
-double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_index) const {
+double Tetra::compute_tetra_dos_energy_band_reference(double energy_eV, std::size_t band_index) const {
     if (band_index >= m_nb_bands) {
         throw std::out_of_range("Band index out of range in tetrahedron DOS computation.");
     }
@@ -535,6 +625,33 @@ double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_i
     constexpr double pref = 1.0 / (8.0 * uepm::constants::pi * uepm::constants::pi * uepm::constants::pi);
 
     return pref * A / gradient_norm;  // states / (eV · m^3), without spin degeneracy
+}
+
+double Tetra::compute_tetra_dos_energy_band(double energy_eV, std::size_t band_index) const {
+    if (band_index >= m_nb_bands) {
+        throw std::out_of_range("Band index out of range in tetrahedron DOS computation.");
+    }
+    if (energy_eV < m_min_energy_per_band[band_index] || energy_eV > m_max_energy_per_band[band_index]) {
+        return 0.0;
+    }
+
+    const auto energies = get_band_energies_at_vertices(band_index);
+    const double gradient_norm =
+        band_index < m_gradient_energy_per_band.size()
+            ? m_gradient_energy_per_band[band_index].norm()
+            : compute_gradient_at_tetra(energies).norm();
+    if (!(gradient_norm > 0.0) || !std::isfinite(gradient_norm)) {
+        return 0.0;
+    }
+
+    const IsoPolygon polygon = compute_band_iso_energy_polygon(m_list_vertices, m_bbox, energies, energy_eV);
+    const double     area    = iso_polygon_area(polygon);
+    if (!(area > 0.0)) {
+        return 0.0;
+    }
+
+    constexpr double pref = 1.0 / (8.0 * uepm::constants::pi * uepm::constants::pi * uepm::constants::pi);
+    return pref * area / gradient_norm;
 }
 
 void Tetra::precompute_dos_on_energy_grid_per_band(double energy_step, double energy_max) {

@@ -342,9 +342,9 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(std::size_t idx_n1, std::siz
  * @param irreducible_wedge_only Whether to use only the irreducible wedge of the BZ.
  */
 void ElectronPhonon::compute_electron_phonon_rates_over_mesh(double energy_max, bool irreducible_wedge_only) {
-    if (stores_positive_octant() && irreducible_wedge_only) {
-        throw std::invalid_argument(
-            "Cannot combine positive-octant storage with irreducible-wedge electron-phonon rates");
+    if (irreducible_wedge_only && m_list_vtx_in_iwedge.empty()) {
+        throw std::runtime_error(
+            "Irreducible-wedge electron-phonon rates require a symmetry-exact mesh with a valid IW mapping");
     }
     fmt::print("Computing electron-phonon rates over mesh...\n");
     fmt::print("  Energy max: {:.2f} eV\n", energy_max);
@@ -496,7 +496,7 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
     };
 
     std::vector<Candidate> candidates;
-    candidates.reserve(4096);
+    candidates.reserve(32768);
 
     auto conduction_bands = get_band_indices(MeshParticleType::conduction);
     for (auto idx_n2 : conduction_bands) {
@@ -508,14 +508,14 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
         for (auto idx_tetra : list_idx_tetra) {
             const auto& T = m_list_tetrahedra[idx_tetra];
 
-            if (!T.does_intersect_band_energy_range(Ef_min_win, Ef_max_win, idx_n2)) {
-                continue;
-            }
             if (T.get_min_energy_at_band(idx_n2) > Ef_max_win) {
                 break;
             }
+            if (T.get_max_energy_at_band(idx_n2) < Ef_min_win) {
+                continue;
+            }
 
-            const vector3 k2_representative = T.compute_barycenter();
+            const vector3 k2_representative = T.get_barycenter();
             for (std::size_t image_index = 0; image_index < positive_octant_images.size(); ++image_index) {
                 if (!stores_positive_octant() && image_index > 0) {
                     break;
@@ -524,10 +524,7 @@ SelectedFinalState ElectronPhonon::select_electron_phonon_final_state(std::size_
                 const vector3 k2_bary =
                     stores_positive_octant() ? apply_sign_image(k2_representative, signs) : k2_representative;
 
-                vector3 q = k2_bary - k_initial;
-                if (!is_inside_mesh_geometry(q)) {
-                    q = retrieve_k_inside_mesh_geometry(q);
-                }
+                const vector3 q = retrieve_k_inside_mesh_geometry(k2_bary - k_initial);
                 const double qn    = q.norm();
                 const double omega = disp.omega_analytic(qn);
                 if (!(omega > kSmallOmegaCutoff) || !std::isfinite(omega)) {

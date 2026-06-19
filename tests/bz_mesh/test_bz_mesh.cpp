@@ -7,6 +7,7 @@
 #include "bz_domain.hpp"
 #include "doctest/doctest.h"
 #include "epm_material.hpp"
+#include "reciprocal_space.hpp"
 
 using uepm::mesh_bz::MeshBZ;
 using uepm::mesh_bz::MeshParticleType;
@@ -63,6 +64,25 @@ TEST_CASE("positive-octant canonicalization preserves physical sign orientation"
     CHECK(reconstructed.x() == doctest::Approx(physical.x()));
     CHECK(reconstructed.y() == doctest::Approx(physical.y()));
     CHECK(reconstructed.z() == doctest::Approx(physical.z()));
+}
+
+TEST_CASE("positive-octant storage reports eight physical sign images") {
+    const auto   material = make_test_material();
+    MeshBZ       mesh(material);
+    mesh.set_domain_mode(uepm::mesh_bz::BZDomainMode::positive_octant);
+
+    CHECK(mesh.stores_positive_octant());
+    CHECK(mesh.stored_domain_multiplicity() == doctest::Approx(8.0));
+    CHECK(mesh.physical_sign_images().size() == 8);
+}
+
+TEST_CASE("positive-octant points fold into the irreducible wedge by coordinate permutation") {
+    const vector3 point{2.0, 3.0, 1.0};
+    const vector3 folded = uepm::mesh_bz::fold_positive_octant_to_irreducible_wedge(point);
+
+    CHECK(folded.x() == doctest::Approx(3.0));
+    CHECK(folded.y() == doctest::Approx(2.0));
+    CHECK(folded.z() == doctest::Approx(1.0));
 }
 
 TEST_CASE("reduced and SI k-space conversions round trip") {
@@ -124,5 +144,32 @@ TEST_CASE("Wigner-Seitz folding preserves momentum modulo the reciprocal lattice
             CHECK(lattice_coordinates[i] ==
                   doctest::Approx(std::round(lattice_coordinates[i])).epsilon(1e-11).scale(1.0));
         }
+    }
+}
+
+TEST_CASE("cached BCC folding scale preserves exact results") {
+    constexpr double scale = 0.75;
+    uepm::mesh_bz::ReciprocalSpace reciprocal_space;
+    reciprocal_space.initialize_basis(Eigen::Vector3d{-1.0, 1.0, 1.0},
+                                      Eigen::Vector3d{1.0, -1.0, 1.0},
+                                      Eigen::Vector3d{1.0, 1.0, -1.0},
+                                      1.0,
+                                      scale);
+
+    const std::array<vector3, 5> inputs = {
+        vector3{0.1, -0.2, 0.3},
+        vector3{1.7, -0.4, 0.9},
+        vector3{-3.2, 2.1, 4.7},
+        vector3{8.0, -6.0, 2.0},
+        vector3{-12.25, 9.5, -7.75},
+    };
+
+    for (const vector3& input : inputs) {
+        const vector3 explicit_scale = reciprocal_space.fold_bcc_fast_SI(input, scale);
+        const vector3 cached_scale   = reciprocal_space.fold_bcc_fast_SI(input);
+
+        CHECK(cached_scale.x() == explicit_scale.x());
+        CHECK(cached_scale.y() == explicit_scale.y());
+        CHECK(cached_scale.z() == explicit_scale.z());
     }
 }

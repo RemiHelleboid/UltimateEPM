@@ -12,6 +12,7 @@
 #include "bz_domain.hpp"
 
 
+#include <algorithm>
 #include <cmath>
 namespace uepm::mesh_bz {
 
@@ -36,6 +37,16 @@ vector3 apply_sign_image(const vector3& representative, const std::array<int, 3>
     return {static_cast<double>(signs[0]) * representative.x(),
             static_cast<double>(signs[1]) * representative.y(),
             static_cast<double>(signs[2]) * representative.z()};
+}
+
+vector3 fold_positive_octant_to_irreducible_wedge(const vector3& representative) noexcept {
+    std::array<double, 3> components{
+        std::abs(representative.x()),
+        std::abs(representative.y()),
+        std::abs(representative.z()),
+    };
+    std::sort(components.begin(), components.end(), std::greater<double>{});
+    return {components[0], components[1], components[2]};
 }
 
 }  // namespace uepm::mesh_bz

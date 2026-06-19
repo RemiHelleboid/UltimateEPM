@@ -14,6 +14,7 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <numbers>
 #include <random>
 #include <stdexcept>
@@ -130,5 +131,82 @@ TEST_CASE("equal vertex energies produce a finite quadrilateral iso-surface") {
         CHECK(std::isfinite(point.x()));
         CHECK(std::isfinite(point.y()));
         CHECK(std::isfinite(point.z()));
+    }
+}
+
+TEST_CASE("allocation-free tetra DOS matches the reference geometry implementation") {
+    std::mt19937_64                    rng(0x5eed1234ULL);
+    std::uniform_real_distribution<double> coordinate(-2.0, 2.0);
+    std::uniform_real_distribution<double> energy_distribution(-3.0, 3.0);
+
+    constexpr std::size_t tetra_count       = 250;
+    constexpr std::size_t samples_per_tetra = 41;
+    for (std::size_t tetra_index = 0; tetra_index < tetra_count; ++tetra_index) {
+        std::array<vector3, 4> positions;
+        TetraWithVerts*        fixture = nullptr;
+        std::unique_ptr<TetraWithVerts> storage;
+        do {
+            positions = {
+                v3(coordinate(rng), coordinate(rng), coordinate(rng)),
+                v3(coordinate(rng), coordinate(rng), coordinate(rng)),
+                v3(coordinate(rng), coordinate(rng), coordinate(rng)),
+                v3(coordinate(rng), coordinate(rng), coordinate(rng)),
+            };
+            storage = std::make_unique<TetraWithVerts>(positions);
+            fixture = storage.get();
+        } while (std::abs(fixture->tet.get_signed_volume()) < 1e-3);
+
+        std::array<double, 4> energies;
+        for (std::size_t vertex_index = 0; vertex_index < energies.size(); ++vertex_index) {
+            energies[vertex_index] = energy_distribution(rng);
+            fixture->verts[vertex_index].add_band_energy_value(energies[vertex_index]);
+        }
+        fixture->tet.compute_min_max_energies_at_bands();
+
+        const auto   minmax = std::minmax_element(energies.begin(), energies.end());
+        const double span   = *minmax.second - *minmax.first;
+        for (std::size_t sample = 0; sample < samples_per_tetra; ++sample) {
+            const double fraction = static_cast<double>(sample) / static_cast<double>(samples_per_tetra - 1);
+            const double energy   = *minmax.first + fraction * span;
+            const double expected = fixture->tet.compute_tetra_dos_energy_band_reference(energy, 0);
+            const double actual   = fixture->tet.compute_tetra_dos_energy_band(energy, 0);
+
+            CHECK(actual == doctest::Approx(expected).epsilon(2e-12).scale(1e-30));
+        }
+    }
+}
+
+TEST_CASE("allocation-free tetra DOS preserves repeated-energy edge cases") {
+    const std::array<std::array<double, 4>, 5> energy_cases = {
+        std::array<double, 4>{0.0, 0.0, 1.0, 1.0},
+        std::array<double, 4>{0.0, 0.0, 0.0, 1.0},
+        std::array<double, 4>{0.0, 1.0, 1.0, 1.0},
+        std::array<double, 4>{-1.0, 0.0, 0.0, 2.0},
+        std::array<double, 4>{-1.0, -1.0, 2.0, 2.0},
+    };
+
+    for (const auto& energies : energy_cases) {
+        std::array<Vertex, 4> vertices = {
+            Vertex(0, v3(0.0, 0.0, 0.0)),
+            Vertex(1, v3(1.0, 0.0, 0.0)),
+            Vertex(2, v3(0.0, 1.0, 0.0)),
+            Vertex(3, v3(0.0, 0.0, 1.0)),
+        };
+        for (std::size_t index = 0; index < vertices.size(); ++index) {
+            vertices[index].add_band_energy_value(energies[index]);
+        }
+        std::array<Vertex*, 4> pointers = {&vertices[0], &vertices[1], &vertices[2], &vertices[3]};
+        Tetra                  tetra(0, pointers);
+        tetra.compute_min_max_energies_at_bands();
+
+        const auto minmax = std::minmax_element(energies.begin(), energies.end());
+        for (std::size_t sample = 0; sample <= 20; ++sample) {
+            const double fraction = static_cast<double>(sample) / 20.0;
+            const double energy = *minmax.first + fraction * (*minmax.second - *minmax.first);
+            CHECK(tetra.compute_tetra_dos_energy_band(energy, 0) ==
+                  doctest::Approx(tetra.compute_tetra_dos_energy_band_reference(energy, 0))
+                      .epsilon(2e-12)
+                      .scale(1e-30));
+        }
     }
 }
