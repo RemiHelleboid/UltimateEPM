@@ -260,8 +260,10 @@ separate second stage to fit the energy dependence and threshold.
 
 The fitter loads four valence bands by default because `elph.epm` solves the
 intrinsic Fermi level before evaluating MRTA mobility. Kernel generation,
-fitting, and manual validation should use the same band counts and energy
-window.
+fitting, and manual validation should use the same band counts. The kernel
+energy window may be larger than the MRTA fitting window; it only needs to
+cover it. A single large-window kernel can therefore be reused for low-field
+MRTA at that temperature, although smaller kernels are cheaper to generate.
 
 ### Fitting the high-field Canali curve
 
@@ -319,6 +321,16 @@ The same random seed is reused for every parameter trial, providing common
 Monte Carlo random numbers and reducing noise in parameter comparisons.
 Final validation should use more particles, longer trajectories, multiple
 seeds, and fields not used by the fit.
+
+The two energy requirements are intentionally different:
+
+- low-field MRTA only needs coverage of the thermally occupied states;
+- high-field FBMC needs coverage of every carrier energy reached during the
+  trajectory.
+
+The high-field fitter rejects a requested FBMC `--max-energy` larger than the
+kernel metadata window. It does not require the low-field and high-field
+kernels to have the same window.
 
 ### Why the same phonon profile still matters
 

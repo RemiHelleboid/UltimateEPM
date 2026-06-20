@@ -187,8 +187,12 @@ def validate_kernel_metadata(
             )
     if not math.isclose(float(metadata["temperature_K"]), kernel.temperature_K, rel_tol=0.0, abs_tol=1.0e-9):
         raise ValueError(f"Kernel temperature metadata does not match --kernel label for {kernel.path}")
-    if not math.isclose(float(metadata["energy_window_eV"]), args.energy_window, rel_tol=1.0e-12, abs_tol=1.0e-12):
-        raise ValueError(f"Kernel energy window does not match --energy-window for {kernel.path}")
+    kernel_window_eV = float(metadata["energy_window_eV"])
+    if kernel_window_eV + 1.0e-12 < args.energy_window:
+        raise ValueError(
+            f"Kernel energy window {kernel_window_eV:g} eV is smaller than the requested "
+            f"MRTA window {args.energy_window:g} eV for {kernel.path}"
+        )
     if int(metadata["mesh_size_bytes"]) != args.mesh.stat().st_size:
         raise ValueError(f"Kernel mesh size metadata does not match --mesh for {kernel.path}")
     if normalize_numeric_tree(metadata.get("dispersion")) != normalize_numeric_tree(base_config.get("dispersion")):
