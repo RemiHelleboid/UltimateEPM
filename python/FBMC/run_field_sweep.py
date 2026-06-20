@@ -53,8 +53,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--phonon-params",
-        default="kamakura",
+        default=None,
         help="Electron-phonon parameter set passed to fbmc.epm, e.g. kamakura, michaillat, or fischetti.",
+    )
+    parser.add_argument(
+        "--phonon-params-file",
+        type=Path,
+        default=None,
+        help="Explicit electron-phonon YAML profile passed to fbmc.epm.",
     )
     parser.add_argument(
         "--fields",
@@ -121,6 +127,10 @@ def validate_args(args: argparse.Namespace) -> None:
         raise PermissionError(f"Executable is not executable: {args.exe}")
     if not args.mesh.is_file():
         raise FileNotFoundError(f"Mesh file not found: {args.mesh}")
+    if args.phonon_params is not None and args.phonon_params_file is not None:
+        raise ValueError("--phonon-params and --phonon-params-file are mutually exclusive.")
+    if args.phonon_params_file is not None and not args.phonon_params_file.is_file():
+        raise FileNotFoundError(f"Phonon parameter file not found: {args.phonon_params_file}")
     if args.phonon_rates is None:
         args.phonon_rates = detect_phonon_rates_file(Path.cwd())
         print(f"Auto-detected phonon-rate file: {args.phonon_rates}", flush=True)
@@ -216,8 +226,6 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
         str(args.mesh),
         "--material",
         args.material,
-        "--phonon-params",
-        args.phonon_params,
         "--bz-domain",
         args.bz_domain,
         "--outdir",
@@ -243,6 +251,10 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
         "--Ex",
         str(field_v_per_cm),
     ]
+    if args.phonon_params_file is not None:
+        command.extend(["--phonon-params-file", str(args.phonon_params_file.resolve())])
+    else:
+        command.extend(["--phonon-params", args.phonon_params or "remi-2026"])
     if args.phonon_rates is not None:
         command.extend(["--phononfile", str(args.phonon_rates)])
     if args.seed is not None:

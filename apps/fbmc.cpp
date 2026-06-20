@@ -353,6 +353,11 @@ int main(int argc, const char** argv) try {
                                                   "Enable impact ionization scattering.",
                                                   cmd,
                                                   false);
+    TCLAP::SwitchArg arg_skip_mesh_vtk("",
+                                       "skip-mesh-vtk",
+                                       "Do not export the static BZ mesh VTK file.",
+                                       cmd,
+                                       false);
 
     cmd.add(arg_mesh_file);
     cmd.add(arg_phonon_file);
@@ -407,6 +412,7 @@ int main(int argc, const char** argv) try {
     const double        electric_field_z_V_per_cm = arg_electric_field_z.getValue();
     const bool          export_history            = arg_export_history.getValue();
     const bool          enable_impact_ionization  = arg_enable_impact_ionization.getValue();
+    const bool          skip_mesh_vtk             = arg_skip_mesh_vtk.getValue();
     const std::string   bz_domain_name            = arg_bz_domain.getValue();
     const std::uint64_t random_seed               = [&]() {
         if (arg_random_seed.isSet()) {
@@ -551,7 +557,7 @@ int main(int argc, const char** argv) try {
     mesh.set_temperature(temperature_K);
 
     const auto vtk_file = output_dir / "mesh_vtk.vtk";
-    if (!std::filesystem::exists(vtk_file)) {
+    if (!skip_mesh_vtk && !std::filesystem::exists(vtk_file)) {
         mesh.export_energies_and_gradients_to_vtk(vtk_file.string());
     }
 

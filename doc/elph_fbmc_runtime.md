@@ -263,6 +263,63 @@ intrinsic Fermi level before evaluating MRTA mobility. Kernel generation,
 fitting, and manual validation should use the same band counts and energy
 window.
 
+### Fitting the high-field Canali curve
+
+After the low-field fit, generate a 300 K kernel with an energy window large
+enough for the high-field trajectories. For example:
+
+```bash
+./build/apps/elph.epm \
+  -f bz.msh -m Si \
+  --carrier electron \
+  --phonon-params remi-2026 \
+  -c 2 -v 4 \
+  -T 300 -E 2.5 -j 32 -w \
+  --export-kernels \
+  --kernels-out electron_kernels_300K_2p5eV.csv \
+  --rates-only
+```
+
+Then use the low-field result as the starting profile:
+
+```bash
+python3 python/FBMC/fit_elph_canali.py \
+  --mesh bz.msh \
+  --kernel electron_kernels_300K_2p5eV.csv \
+  --base-params fit_elph_arora/best.yaml \
+  --temperature 300 \
+  --fields 10000,30000,100000,300000 \
+  --max-energy 2.5 \
+  --npart 300 \
+  --time 20e-12 \
+  --warmup 0.3 \
+  --nthreads 32 \
+  --seed 1234 \
+  --output-dir fit_elph_canali
+```
+
+For every trial, the high-field fitter reconstructs the rate CSV, checks the
+MRTA mobility, runs fixed-seed FBMC simulations, and compares the projected
+drift speed with the zero-doping Canali curve. By default it fits the acoustic
+and optical strengths at the energy threshold plus the threshold itself,
+while preserving the low-energy `A` values obtained in the Arora stage.
+
+Start with `--evaluate-only` to estimate runtime and inspect the baseline
+curve. The main outputs are:
+
+```text
+best.yaml
+best_rates.csv
+history.csv
+run_manifest.json
+runs/eval_*/
+```
+
+The same random seed is reused for every parameter trial, providing common
+Monte Carlo random numbers and reducing noise in parameter comparisons.
+Final validation should use more particles, longer trajectories, multiple
+seeds, and fields not used by the fit.
+
 ### Why the same phonon profile still matters
 
 The profile selected by `--phonon-params` contains both phonon dispersion and

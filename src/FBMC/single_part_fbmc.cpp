@@ -256,6 +256,7 @@ void Single_particle_simulation::run_simulation() {
     double                   reduced_ii_carrier_time      = 0.0;
     double                   reduced_ii_velocity_integral = 0.0;
     double                   max_observed_total_rate      = 0.0;
+    double                   max_observed_energy_eV       = 0.0;
     std::exception_ptr       parallel_exception;
     std::atomic<std::size_t> completed_particles{0};
     std::atomic<int>         last_reported_progress_bucket{0};
@@ -271,7 +272,8 @@ void Single_particle_simulation::run_simulation() {
                   reduced_accumulated_time,                                              \
                   reduced_ii_events,                                                     \
                   reduced_ii_carrier_time,                                               \
-                  reduced_ii_velocity_integral) reduction(max : max_observed_total_rate)
+                  reduced_ii_velocity_integral) reduction(max : max_observed_total_rate, \
+                                                                 max_observed_energy_eV)
     for (std::size_t idx = 0; idx < m_list_particle.size(); ++idx) {
         try {
             auto&                                  current_particle = m_list_particle[idx];
@@ -285,6 +287,7 @@ void Single_particle_simulation::run_simulation() {
                 const double  remaining_time         = final_time_s - current_particle.state().m_time;
                 const double  dt                     = std::min(sampled_dt, remaining_time);
                 const vector3 velocity_before_flight = current_particle.state().m_velocity;
+                const double  energy_before_flight   = current_particle.state().m_energy;
 
                 current_particle.state().m_free_flight_time = dt;
                 current_particle.update_k_vector(m_bulk_env.m_electric_field);
@@ -303,6 +306,13 @@ void Single_particle_simulation::run_simulation() {
 
                 current_particle.update_energy();
                 current_particle.update_group_velocity();
+                max_observed_energy_eV =
+                    std::max(max_observed_energy_eV, current_particle.state().m_energy);
+                if (current_particle.state().m_energy > m_sim_params.m_max_energy_eV) {
+                    throw std::runtime_error(
+                        "FBMC carrier energy exceeded --maxenergy. Generate rates over a larger energy window "
+                        "and increase --maxenergy.");
+                }
 
                 const vector3 velocity_after_flight = current_particle.state().m_velocity;
                 current_particle.update_position(0.5 * (velocity_before_flight + velocity_after_flight), dt);
@@ -313,15 +323,34 @@ void Single_particle_simulation::run_simulation() {
                                                                                  warmup_time_s,
                                                                                  final_time_s);
                 if (sampled_dt_after_warmup > 0.0) {
-                    reduced_weighted_velocity_x += current_particle.state().m_velocity.x() * sampled_dt_after_warmup;
-                    reduced_weighted_velocity_y += current_particle.state().m_velocity.y() * sampled_dt_after_warmup;
-                    reduced_weighted_velocity_z += current_particle.state().m_velocity.z() * sampled_dt_after_warmup;
-                    reduced_weighted_energy += current_particle.state().m_energy * sampled_dt_after_warmup;
+                    const double sample_start_s = std::max(time_before_flight, warmup_time_s);
+                    const double sample_stop_s  = std::min(current_particle.state().m_time, final_time_s);
+                    const double alpha_start    = dt > 0.0 ? (sample_start_s - time_before_flight) / dt : 0.0;
+                    const double alpha_stop     = dt > 0.0 ? (sample_stop_s - time_before_flight) / dt : 1.0;
+                    const vector3 velocity_sample_start =
+                        velocity_before_flight + (velocity_after_flight - velocity_before_flight) * alpha_start;
+                    const vector3 velocity_sample_stop =
+                        velocity_before_flight + (velocity_after_flight - velocity_before_flight) * alpha_stop;
+                    const vector3 mean_velocity_sample = 0.5 * (velocity_sample_start + velocity_sample_stop);
+                    const double  energy_sample_start =
+                        energy_before_flight +
+                        (current_particle.state().m_energy - energy_before_flight) * alpha_start;
+                    const double energy_sample_stop =
+                        energy_before_flight +
+                        (current_particle.state().m_energy - energy_before_flight) * alpha_stop;
+                    const double mean_energy_sample = 0.5 * (energy_sample_start + energy_sample_stop);
+
+                    reduced_weighted_velocity_x += mean_velocity_sample.x() * sampled_dt_after_warmup;
+                    reduced_weighted_velocity_y += mean_velocity_sample.y() * sampled_dt_after_warmup;
+                    reduced_weighted_velocity_z += mean_velocity_sample.z() * sampled_dt_after_warmup;
+                    reduced_weighted_energy += mean_energy_sample * sampled_dt_after_warmup;
                     reduced_accumulated_time += sampled_dt_after_warmup;
                     reduced_ii_carrier_time += sampled_dt_after_warmup;
                     if (field_norm > 0.0) {
                         reduced_ii_velocity_integral +=
-                            std::abs(current_particle.state().m_velocity.dot(field_direction)) *
+                            0.5 *
+                            (std::abs(velocity_sample_start.dot(field_direction)) +
+                             std::abs(velocity_sample_stop.dot(field_direction))) *
                             sampled_dt_after_warmup;
                     }
                 }
@@ -447,6 +476,7 @@ void Single_particle_simulation::run_simulation() {
 
     fmt::print("Completed self-scattering FBMC run with {} particles\n", m_list_particle.size());
     fmt::print("Maximum observed total scattering rate: {:.6e} s^-1\n", max_observed_total_rate);
+    fmt::print("Maximum observed carrier energy: {:.6e} eV\n", max_observed_energy_eV);
     fmt::print("Steady-state average velocity: ({:.6e}, {:.6e}, {:.6e}) m/s\n",
                m_observables.m_weighted_velocity_x_m / m_observables.m_accumulated_time_s,
                m_observables.m_weighted_velocity_y_m / m_observables.m_accumulated_time_s,
