@@ -69,7 +69,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=REPO_ROOT / "fit_elph_arora_output")
     parser.add_argument("--material", default="Si")
     parser.add_argument("--ncbands", type=int, default=2)
-    parser.add_argument("--nvbands", type=int, default=4)
+    parser.add_argument(
+        "--nvbands",
+        type=int,
+        default=4,
+        help="Valence bands loaded for the intrinsic Fermi-level calculation.",
+    )
     parser.add_argument("--nthreads", type=int, default=1)
     parser.add_argument("--energy-window", type=float, default=0.3)
     parser.add_argument("--bz-domain", choices=("full", "octant"), default="full")
@@ -140,8 +145,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise FileNotFoundError(f"Base electron-phonon profile not found: {args.base_params}")
     if not args.arora_params.is_file():
         raise FileNotFoundError(f"Arora profile not found: {args.arora_params}")
-    if args.ncbands <= 0 or args.nvbands < 0:
-        raise ValueError("This fitter requires --ncbands > 0 and --nvbands >= 0")
+    if args.ncbands <= 0 or args.nvbands <= 0:
+        raise ValueError("This fitter requires conduction and valence bands for the intrinsic Fermi-level calculation")
     if args.nthreads <= 0:
         raise ValueError("--nthreads must be positive")
     if args.energy_window <= 0.0:
@@ -435,6 +440,7 @@ def main() -> int:
     except ImportError as error:
         raise RuntimeError("SciPy is required for optimization; use --evaluate-only without it") from error
 
+    print(f"Optionally fitting parameters: {', '.join(args.fit)}", flush=True)
     result = minimize(
         objective,
         x0,
@@ -448,6 +454,7 @@ def main() -> int:
         ],
         options={"maxiter": args.maxiter, "xtol": args.xtol, "ftol": 1.0e-5, "disp": True},
     )
+
     print(f"optimizer success={result.success} message={result.message}", flush=True)
     print(f"best loss={objective.best_loss:.6g}", flush=True)
     print(f"best profile: {objective.best_profile}", flush=True)

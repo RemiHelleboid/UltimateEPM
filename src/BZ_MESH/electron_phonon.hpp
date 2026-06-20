@@ -74,8 +74,7 @@ class ElectronPhonon : public BZ_States {
     MeshParticleType m_elph_particle_type = MeshParticleType::conduction;
     std::size_t      m_nb_bands_elph      = 0;
 
-    bool m_parallelize_over_k                              = true;
-    bool m_apply_deformation_potential_during_kernel_build = true;
+    bool m_parallelize_over_k = true;
 
     HoleOverlapIntParams m_hole_overlap_int_params;
     DeformationPotential m_ac_defpot_e, m_op_defpot_e;
@@ -96,6 +95,8 @@ class ElectronPhonon : public BZ_States {
     std::vector<double>                   m_count_weight_tetra_per_vertex;
 
     PGamma m_P_Gamma_data;
+
+    void rebuild_transport_rates_from_kernels();
 
  public:
     explicit ElectronPhonon(const uepm::pseudopotential::epm_material& material) : BZ_States(material) {}

@@ -236,6 +236,8 @@ python3 python/FBMC/fit_elph_arora.py \
   --kernel 300=electron_kernels_300K.csv \
   --kernel 350=electron_kernels_350K.csv \
   --kernel 400=electron_kernels_400K.csv \
+  --ncbands 2 \
+  --nvbands 4 \
   --output-dir fit_elph_arora
 ```
 
@@ -247,6 +249,11 @@ values because low-field mobility does not constrain them reliably. Use
 The fitting directory contains `best.yaml`, a per-evaluation `history.csv`,
 and the complete `elph.epm` logs. High-field FBMC data should be used in a
 separate second stage to fit the energy dependence and threshold.
+
+The fitter loads four valence bands by default because `elph.epm` solves the
+intrinsic Fermi level before evaluating MRTA mobility. Kernel generation,
+fitting, and manual validation should use the same band counts and energy
+window.
 
 ### Why the same phonon profile still matters
 

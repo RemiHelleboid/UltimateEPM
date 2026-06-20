@@ -155,7 +155,6 @@ RateKernel8 ElectronPhonon::compute_electron_phonon_transition_kernel_pair(std::
     const double     qe                 = uepm::constants::q_e;
     const double     hbar_eV            = uepm::constants::h_bar_eV;
 
-    double        inv_mrta_rate = 0.0;
     const vector3 vnk           = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);
 
     for (std::size_t image_index = 0; image_index < positive_octant_images.size(); ++image_index) {
@@ -202,18 +201,12 @@ RateKernel8 ElectronPhonon::compute_electron_phonon_transition_kernel_pair(std::
                 kernels_n1k1_n2kT[rate_index(mode, dir, process)] += value;
                 m_phonon_transport_kernels[local_n1][idx_k1][mode == PhononMode::acoustic ? 0 : 1] +=
                     value * transport_weight_value;
-                if (m_apply_deformation_potential_during_kernel_build) {
-                    const DeformationPotential& defpot = mode == PhononMode::acoustic ? m_ac_defpot_e : m_op_defpot_e;
-                    const double                scale = defpot.A + defpot.B * std::min(Ei_eV, defpot.energy_threshold);
-                    inv_mrta_rate += value * scale * transport_weight_value;
-                }
             };
 
             add_process(PhononEvent::emission, Ei_eV - Eph_eV, N0 + 1.0);
             add_process(PhononEvent::absorption, Ei_eV + Eph_eV, N0);
         }
     }
-    m_phonon_rates_transport[local_n1][idx_k1] += inv_mrta_rate;  // 1/tau_transport
     return kernels_n1k1_n2kT;
 }
 
@@ -378,6 +371,36 @@ Rate8 ElectronPhonon::apply_deformation_potential(const RateKernel8& kernel, dou
     return rates;
 }
 
+void ElectronPhonon::rebuild_transport_rates_from_kernels() {
+    if (m_phonon_transport_kernels.size() != m_nb_bands_elph) {
+        throw std::runtime_error("Transport-kernel band count does not match the configured carrier bands");
+    }
+
+    m_phonon_rates_transport.assign(m_nb_bands_elph, std::vector<double>(m_list_vertices.size(), 0.0));
+    const bool  is_electron = m_elph_particle_type == MeshParticleType::conduction;
+    const auto& acoustic    = is_electron ? m_ac_defpot_e : m_ac_defpot_h;
+    const auto& optical     = is_electron ? m_op_defpot_e : m_op_defpot_h;
+
+    for (std::size_t band = 0; band < m_nb_bands_elph; ++band) {
+        if (m_phonon_transport_kernels[band].size() != m_list_vertices.size()) {
+            throw std::runtime_error("Transport-kernel vertex count does not match the BZ mesh");
+        }
+        const std::size_t global_band = get_global_band_index(band, m_elph_particle_type);
+        for (std::size_t vertex = 0; vertex < m_list_vertices.size(); ++vertex) {
+            const double energy_eV = m_list_vertices[vertex].get_energy_at_band(global_band);
+            const auto   scale     = [energy_eV](const DeformationPotential& defpot) {
+                const double value = defpot.A + defpot.B * std::min(energy_eV, defpot.energy_threshold);
+                if (!(value >= 0.0) || !std::isfinite(value)) {
+                    throw std::domain_error("Transport deformation-potential scale is invalid");
+                }
+                return value;
+            };
+            const auto& kernel = m_phonon_transport_kernels[band][vertex];
+            m_phonon_rates_transport[band][vertex] = kernel[0] * scale(acoustic) + kernel[1] * scale(optical);
+        }
+    }
+}
+
 /**
  * @brief Compute the out-scattering electron-phonon rates over the entire k-point mesh.
  *
@@ -395,8 +418,7 @@ void ElectronPhonon::compute_phonon_rates_over_mesh(double energy_max,
     fmt::print("Computing {}-phonon rates over mesh...\n", carrier_name);
     fmt::print("  Energy max: {:.2f} eV\n", energy_max);
     fmt::print("  Irreducible wedge only: {}\n", irreducible_wedge_only);
-    auto start_time                                   = std::chrono::high_resolution_clock::now();
-    m_apply_deformation_potential_during_kernel_build = apply_deformation_potential;
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     m_phonon_rates_transport.clear();
     m_phonon_rates_transport.resize(get_number_bands(m_elph_particle_type));
@@ -508,6 +530,9 @@ void ElectronPhonon::compute_phonon_rates_over_mesh(double energy_max,
             }
         }
         fmt::print("\nSet rates for all k-points.\n\n");
+    }
+    if (apply_deformation_potential) {
+        rebuild_transport_rates_from_kernels();
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = end_time - start_time;
@@ -1298,14 +1323,8 @@ void ElectronPhonon::read_phonon_rate_kernels_from_file(const std::filesystem::p
         m_list_vertices[local_vertex].set_electron_phonon_rates(band_index, rates);
         m_phonon_transport_kernels[band_index][local_vertex] = {transport_ac, transport_op};
 
-        const bool   is_electron    = m_elph_particle_type == MeshParticleType::conduction;
-        const auto&  acoustic       = is_electron ? m_ac_defpot_e : m_ac_defpot_h;
-        const auto&  optical        = is_electron ? m_op_defpot_e : m_op_defpot_h;
-        const double acoustic_scale = acoustic.A + acoustic.B * std::min(mesh_energy_eV, acoustic.energy_threshold);
-        const double optical_scale  = optical.A + optical.B * std::min(mesh_energy_eV, optical.energy_threshold);
-        m_phonon_rates_transport[band_index][local_vertex] =
-            transport_ac * acoustic_scale + transport_op * optical_scale;
     }
+    rebuild_transport_rates_from_kernels();
     fmt::print("Applied current deformation-potential parameters to loaded kernels.\n");
 }
 
