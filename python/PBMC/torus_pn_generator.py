@@ -1,35 +1,49 @@
 #!/usr/bin/env python3
 
 import argparse
-import importlib
 from pathlib import Path
 
+import gmsh
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 
 
-FULL_CIRCLE = 2.0 * np.pi
-gmsh = None
+SILICON_PHYSICAL_NAME = "Silicon_1"
+OXIDE_PHYSICAL_NAME = "Oxide_1"
 
 
-def require_gmsh():
-    global gmsh
+def add_physical_group(dim, tags, name):
+    physical_tag = gmsh.model.addPhysicalGroup(dim, tags)
+    gmsh.model.setPhysicalName(dim, physical_tag, name)
 
-    if gmsh is None:
-        try:
-            gmsh = importlib.import_module("gmsh")
-        except ImportError as exc:
-            raise RuntimeError(
-                "The gmsh Python module is required to generate the mesh. "
-                "Install it with: python -m pip install gmsh"
-            ) from exc
-
-    return gmsh
+    return physical_tag
 
 
-def smooth_log(x, values, smoothing_length, floor):
-    values = np.clip(values, floor, None)
+def smooth_step(value, edge, smoothing_length, direction):
+    if smoothing_length <= 0.0:
+        if direction > 0:
+            return np.where(value >= edge, 1.0, 0.0)
+
+        return np.where(value <= edge, 1.0, 0.0)
+
+    argument = (value - edge) / smoothing_length
+
+    if direction > 0:
+        return 0.5 * (1.0 + np.tanh(argument))
+
+    return 0.5 * (1.0 - np.tanh(argument))
+
+
+def box_window(value, lower, upper, smoothing_length):
+    left = smooth_step(value, lower, smoothing_length, 1)
+    right = smooth_step(value, upper, smoothing_length, -1)
+
+    return left * right
+
+
+def smooth_log(x, values, smoothing_length):
+    values = np.clip(values, 1.0e11, None)
 
     if smoothing_length <= 0.0:
         return values
@@ -43,208 +57,51 @@ def smooth_log(x, values, smoothing_length, floor):
     return 10.0**smoothed_log_values
 
 
-def raw_acceptor_concentration(
-    s,
+def compute_doping_profile(
+    x,
+    y,
     length,
-    contact_doping_length,
-    contact_doping_level,
-    peak_p_level,
-    diffusion_length,
-):
-    value = peak_p_level * np.exp(
-        -(((s + contact_doping_length) - length) ** 2) / diffusion_length**2
-    )
-
-    value = np.where(s > length - contact_doping_length, contact_doping_level, value)
-
-    return value
-
-
-def raw_donor_concentration(
-    s,
-    contact_doping_length,
-    contact_doping_level,
-    peak_n_level,
-    diffusion_length,
-):
-    value = peak_n_level * np.exp(
-        -((s - contact_doping_length) ** 2) / diffusion_length**2
-    )
-
-    value = np.where(s < contact_doping_length, contact_doping_level, value)
-
-    return value
-
-
-def compute_raw_doping_profile(
-    s,
-    length,
-    contact_doping_length,
-    contact_doping_level,
-    peak_n_level,
-    peak_p_level,
-    diffusion_length,
+    silicon_thickness,
+    source_length,
+    drain_length,
+    n_plus_level,
+    p_body_level,
+    background_doping,
+    junction_depth,
+    lateral_smoothing_length,
+    vertical_smoothing_length,
     min_doping,
     max_doping,
 ):
-    donor = raw_donor_concentration(
-        s=s,
-        contact_doping_length=contact_doping_length,
-        contact_doping_level=contact_doping_level,
-        peak_n_level=peak_n_level,
-        diffusion_length=diffusion_length,
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+
+    acceptor = np.full_like(x, p_body_level, dtype=float)
+    donor = np.full_like(x, background_doping, dtype=float)
+
+    source_mask = smooth_step(x, source_length, lateral_smoothing_length, -1)
+    drain_mask = smooth_step(x, length - drain_length, lateral_smoothing_length, 1)
+    surface_mask = smooth_step(
+        y,
+        silicon_thickness - junction_depth,
+        vertical_smoothing_length,
+        1,
     )
 
-    acceptor = raw_acceptor_concentration(
-        s=s,
-        length=length,
-        contact_doping_length=contact_doping_length,
-        contact_doping_level=contact_doping_level,
-        peak_p_level=peak_p_level,
-        diffusion_length=diffusion_length,
-    )
+    n_implant_mask = np.clip((source_mask + drain_mask) * surface_mask, 0.0, 1.0)
+
+    donor = donor + n_plus_level * n_implant_mask
 
     donor = np.clip(donor, min_doping, max_doping)
     acceptor = np.clip(acceptor, min_doping, max_doping)
 
-    return acceptor, donor
-
-
-def compute_doping_profile(
-    s,
-    length,
-    contact_doping_length,
-    contact_doping_level,
-    peak_n_level,
-    peak_p_level,
-    diffusion_length,
-    min_doping,
-    max_doping,
-    apply_smoothing,
-    smoothing_length,
-):
-    s = np.asarray(s, dtype=float)
-    s = np.clip(s, 0.0, length)
-
-    if not apply_smoothing:
-        acceptor, donor = compute_raw_doping_profile(
-            s=s,
-            length=length,
-            contact_doping_length=contact_doping_length,
-            contact_doping_level=contact_doping_level,
-            peak_n_level=peak_n_level,
-            peak_p_level=peak_p_level,
-            diffusion_length=diffusion_length,
-            min_doping=min_doping,
-            max_doping=max_doping,
-        )
-
-        return acceptor, donor, donor - acceptor
-
-    n_grid = max(1000, s.size)
-    s_grid = np.linspace(0.0, length, n_grid)
-
-    acceptor_grid, donor_grid = compute_raw_doping_profile(
-        s=s_grid,
-        length=length,
-        contact_doping_length=contact_doping_length,
-        contact_doping_level=contact_doping_level,
-        peak_n_level=peak_n_level,
-        peak_p_level=peak_p_level,
-        diffusion_length=diffusion_length,
-        min_doping=min_doping,
-        max_doping=max_doping,
-    )
-
-    donor_grid = smooth_log(s_grid, donor_grid, smoothing_length, min_doping)
-    acceptor_grid = smooth_log(s_grid, acceptor_grid, smoothing_length, min_doping)
-
-    donor = np.interp(s, s_grid, donor_grid)
-    acceptor = np.interp(s, s_grid, acceptor_grid)
-
     return acceptor, donor, donor - acceptor
 
 
-def add_physical_group(dim, tags, name):
-    physical_tag = gmsh.model.addPhysicalGroup(dim, tags)
-    gmsh.model.setPhysicalName(dim, physical_tag, name)
+def compute_temperature_profile(x, length, temperature_source, temperature_drain):
+    x = np.asarray(x, dtype=float)
 
-    return physical_tag
-
-
-def get_entity_center(dim, tag):
-    return np.array(gmsh.model.occ.getCenterOfMass(dim, tag), dtype=float)
-
-
-def find_surface_near_point(point, scale, label):
-    point = np.asarray(point, dtype=float)
-    tolerance = 1.0e-7 * max(scale, 1.0)
-
-    matches = []
-    distances = []
-
-    for dim, tag in gmsh.model.getEntities(2):
-        center = get_entity_center(dim, tag)
-        distance = float(np.linalg.norm(center - point))
-        distances.append((tag, distance, center))
-
-        if distance <= tolerance:
-            matches.append(tag)
-
-    if len(matches) == 1:
-        return matches
-
-    distances.sort(key=lambda item: item[1])
-    nearest = "; ".join(
-        f"tag={tag}, distance={distance:.6e}, center=({center[0]:.6e}, {center[1]:.6e}, {center[2]:.6e})"
-        for tag, distance, center in distances[:5]
-    )
-
-    raise RuntimeError(
-        f"Expected one {label} surface near ({point[0]:.6e}, {point[1]:.6e}, {point[2]:.6e}), "
-        f"found {len(matches)}. Nearest surfaces: {nearest}"
-    )
-
-
-def create_half_torus_geometry(major_radius, minor_radius, arc_angle):
-    bulk_tag = gmsh.model.occ.addTorus(
-        0.0,
-        0.0,
-        0.0,
-        major_radius,
-        minor_radius,
-        -1,
-        arc_angle,
-    )
-
-    gmsh.model.occ.synchronize()
-
-    add_physical_group(3, [bulk_tag], "Silicon_1")
-
-    start_point = np.array([major_radius, 0.0, 0.0])
-    end_point = np.array([
-        major_radius * np.cos(arc_angle),
-        major_radius * np.sin(arc_angle),
-        0.0,
-    ])
-
-    scale = major_radius + minor_radius
-
-    cathode_surfaces = find_surface_near_point(start_point, scale, "cathode")
-    anode_surfaces = find_surface_near_point(end_point, scale, "anode")
-
-    add_physical_group(2, cathode_surfaces, "cathode")
-    add_physical_group(2, anode_surfaces, "anode")
-
-
-def arc_coordinate_from_torus_nodes(node_coordinates, major_radius, arc_angle):
-    x = node_coordinates[0::3]
-    y = node_coordinates[1::3]
-
-    theta = np.mod(np.arctan2(y, x), FULL_CIRCLE)
-    theta = np.clip(theta, 0.0, arc_angle)
-
-    return major_radius * theta
+    return temperature_source + (temperature_drain - temperature_source) * x / length
 
 
 def add_node_view(model_name, mesh_file, view_name, node_tags, values):
@@ -262,65 +119,476 @@ def add_node_view(model_name, mesh_file, view_name, node_tags, values):
     gmsh.view.write(view_tag, str(mesh_file), True)
 
 
-def generate_mesh(
-    mesh_file,
-    major_radius,
-    minor_radius,
-    arc_angle,
+def get_boundary_entities(surface_tag):
+    boundary = gmsh.model.getBoundary([(2, surface_tag)], oriented=False, recursive=False)
+
+    return [tag for dim, tag in boundary if dim == 1]
+
+
+def curve_center(curve_tag):
+    return gmsh.model.occ.getCenterOfMass(1, curve_tag)
+
+
+def curve_bbox(curve_tag):
+    xmin, ymin, _, xmax, ymax, _ = gmsh.model.getBoundingBox(1, curve_tag)
+
+    return xmin, ymin, xmax, ymax
+
+
+def collect_curves(curve_tags, predicate):
+    return [tag for tag in curve_tags if predicate(tag)]
+
+
+def point_bbox(point_tag):
+    xmin, ymin, _, xmax, ymax, _ = gmsh.model.getBoundingBox(0, point_tag)
+
+    return xmin, ymin, xmax, ymax
+
+
+def set_point_mesh_sizes(
+    length,
+    silicon_thickness,
+    oxide_thickness,
+    source_length,
+    drain_length,
+    gate_start,
+    gate_end,
     h_min,
     h_max,
-    contact_doping_length,
-    contact_doping_level,
-    peak_n_level,
-    peak_p_level,
-    diffusion_length,
+    gate_edge_refinement_length,
+):
+    oxide_top = silicon_thickness + oxide_thickness
+    tolerance = 1.0e-8 * max(length, silicon_thickness + oxide_thickness, 1.0)
+
+    points = [tag for _, tag in gmsh.model.getEntities(0)]
+
+    if points:
+        gmsh.model.mesh.setSize([(0, tag) for tag in points], h_max)
+
+    refined_points = []
+
+    for point_tag in points:
+        xmin, ymin, xmax, ymax = point_bbox(point_tag)
+        x = 0.5 * (xmin + xmax)
+        y = 0.5 * (ymin + ymax)
+
+        on_silicon_oxide_interface = abs(y - silicon_thickness) <= tolerance
+        on_gate_top = abs(y - oxide_top) <= tolerance and gate_start - tolerance <= x <= gate_end + tolerance
+        near_source_junction = abs(x - source_length) <= gate_edge_refinement_length and y >= silicon_thickness - gate_edge_refinement_length
+        near_drain_junction = abs(x - (length - drain_length)) <= gate_edge_refinement_length and y >= silicon_thickness - gate_edge_refinement_length
+        near_gate_edge = (
+            abs(x - gate_start) <= gate_edge_refinement_length
+            or abs(x - gate_end) <= gate_edge_refinement_length
+        ) and y >= silicon_thickness - gate_edge_refinement_length
+
+        if on_silicon_oxide_interface or on_gate_top or near_source_junction or near_drain_junction or near_gate_edge:
+            refined_points.append(point_tag)
+
+    if refined_points:
+        gmsh.model.mesh.setSize([(0, tag) for tag in refined_points], h_min)
+
+
+def create_geometry(
+    length,
+    silicon_thickness,
+    oxide_thickness,
+    source_length,
+    drain_length,
+    gate_length,
+):
+    gate_start = 0.5 * (length - gate_length)
+    gate_end = gate_start + gate_length
+
+    silicon = gmsh.model.occ.addRectangle(
+        0.0,
+        0.0,
+        0.0,
+        length,
+        silicon_thickness,
+    )
+
+    oxide = gmsh.model.occ.addRectangle(
+        gate_start,
+        silicon_thickness,
+        0.0,
+        gate_length,
+        oxide_thickness,
+    )
+
+    gmsh.model.occ.fragment([(2, silicon)], [(2, oxide)])
+    gmsh.model.occ.synchronize()
+
+    silicon_surfaces = []
+    oxide_surfaces = []
+
+    tolerance = 1.0e-6 * max(length, silicon_thickness + oxide_thickness, 1.0)
+
+    for _, tag in gmsh.model.getEntities(2):
+        _, ymin, _, _, ymax, _ = gmsh.model.getBoundingBox(2, tag)
+
+        if ymax <= silicon_thickness + tolerance:
+            silicon_surfaces.append(tag)
+        elif ymin >= silicon_thickness - tolerance:
+            oxide_surfaces.append(tag)
+
+    if not oxide_surfaces:
+        for _, tag in gmsh.model.getEntities(2):
+            _, ymin, _, _, ymax, _ = gmsh.model.getBoundingBox(2, tag)
+            center_y = 0.5 * (ymin + ymax)
+
+            if center_y > silicon_thickness:
+                oxide_surfaces.append(tag)
+                if tag in silicon_surfaces:
+                    silicon_surfaces.remove(tag)
+
+    if not silicon_surfaces:
+        raise RuntimeError("No silicon surface found.")
+
+    if not oxide_surfaces:
+        raise RuntimeError("No oxide surface found.")
+
+    add_physical_group(2, silicon_surfaces, SILICON_PHYSICAL_NAME)
+    add_physical_group(2, oxide_surfaces, OXIDE_PHYSICAL_NAME)
+
+    all_curves = [tag for _, tag in gmsh.model.getEntities(1)]
+
+    def has_horizontal_extent(curve_tag):
+        xmin, ymin, xmax, ymax = curve_bbox(curve_tag)
+        return xmax - xmin > tolerance and ymax - ymin <= 10.0 * tolerance
+
+    def has_vertical_extent(curve_tag):
+        xmin, ymin, xmax, ymax = curve_bbox(curve_tag)
+        return ymax - ymin > tolerance and xmax - xmin <= 10.0 * tolerance
+
+    def is_horizontal_at(y_target):
+        def predicate(curve_tag):
+            xmin, ymin, xmax, ymax = curve_bbox(curve_tag)
+            return has_horizontal_extent(curve_tag) and ymin <= y_target + tolerance and ymax >= y_target - tolerance
+
+        return predicate
+
+    def is_vertical_at(x_target):
+        def predicate(curve_tag):
+            xmin, ymin, xmax, ymax = curve_bbox(curve_tag)
+            return has_vertical_extent(curve_tag) and xmin <= x_target + tolerance and xmax >= x_target - tolerance
+
+        return predicate
+
+    def interval_overlaps(a_min, a_max, b_min, b_max):
+        return min(a_max, b_max) >= max(a_min, b_min) - tolerance
+
+    top_silicon_curves = collect_curves(all_curves, is_horizontal_at(silicon_thickness))
+    bottom_silicon_curves = collect_curves(all_curves, is_horizontal_at(0.0))
+    top_oxide_curves = collect_curves(all_curves, is_horizontal_at(silicon_thickness + oxide_thickness))
+    left_silicon_curves = collect_curves(all_curves, is_vertical_at(0.0))
+    right_silicon_curves = collect_curves(all_curves, is_vertical_at(length))
+
+    source_top = []
+    drain_top = []
+
+    for curve_tag in top_silicon_curves:
+        xmin, _, xmax, _ = curve_bbox(curve_tag)
+        center_x = 0.5 * (xmin + xmax)
+
+        if interval_overlaps(xmin, xmax, 0.0, source_length) and center_x <= source_length + tolerance:
+            source_top.append(curve_tag)
+        elif interval_overlaps(xmin, xmax, length - drain_length, length) and center_x >= length - drain_length - tolerance:
+            drain_top.append(curve_tag)
+
+    source_curves = sorted(set(source_top + left_silicon_curves))
+    drain_curves = sorted(set(drain_top + right_silicon_curves))
+
+    if not source_curves:
+        raise RuntimeError("No source boundary found.")
+
+    if not drain_curves:
+        raise RuntimeError("No drain boundary found.")
+
+    if not top_oxide_curves:
+        raise RuntimeError("No gate boundary found.")
+
+    if not bottom_silicon_curves:
+        raise RuntimeError("No body boundary found.")
+
+    add_physical_group(1, source_curves, "source")
+    add_physical_group(1, drain_curves, "drain")
+    add_physical_group(1, top_oxide_curves, "gate")
+    add_physical_group(1, bottom_silicon_curves, "body")
+
+    interface_curves = []
+    for curve_tag in top_silicon_curves:
+        xmin, _, xmax, _ = curve_bbox(curve_tag)
+        if interval_overlaps(xmin, xmax, gate_start, gate_end):
+            interface_curves.append(curve_tag)
+
+    gate_edge_curves = []
+    for curve_tag in all_curves:
+        xmin, ymin, xmax, ymax = curve_bbox(curve_tag)
+        center_x = 0.5 * (xmin + xmax)
+        if (
+            has_vertical_extent(curve_tag)
+            and (abs(center_x - gate_start) <= tolerance or abs(center_x - gate_end) <= tolerance)
+            and ymin <= silicon_thickness + tolerance
+            and ymax >= silicon_thickness - tolerance
+        ):
+            gate_edge_curves.append(curve_tag)
+
+    return {
+        "gate_start": gate_start,
+        "gate_end": gate_end,
+        "silicon_surfaces": silicon_surfaces,
+        "oxide_surfaces": oxide_surfaces,
+        "interface_curves": sorted(set(interface_curves)),
+        "gate_edge_curves": sorted(set(gate_edge_curves)),
+    }
+
+
+def add_box_refinement_field(x_min, x_max, y_min, y_max, h_min, h_max):
+    field = gmsh.model.mesh.field.add("Box")
+    gmsh.model.mesh.field.setNumber(field, "VIn", h_min)
+    gmsh.model.mesh.field.setNumber(field, "VOut", h_max)
+    gmsh.model.mesh.field.setNumber(field, "XMin", x_min)
+    gmsh.model.mesh.field.setNumber(field, "XMax", x_max)
+    gmsh.model.mesh.field.setNumber(field, "YMin", y_min)
+    gmsh.model.mesh.field.setNumber(field, "YMax", y_max)
+
+    return field
+
+
+def add_curve_refinement_field(curve_tags, h_min, h_max, distance_min, distance_max):
+    if not curve_tags:
+        return None
+
+    distance_field = gmsh.model.mesh.field.add("Distance")
+    gmsh.model.mesh.field.setNumbers(distance_field, "CurvesList", curve_tags)
+    gmsh.model.mesh.field.setNumber(distance_field, "Sampling", 100)
+
+    threshold_field = gmsh.model.mesh.field.add("Threshold")
+    gmsh.model.mesh.field.setNumber(threshold_field, "InField", distance_field)
+    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMin", h_min)
+    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMax", h_max)
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", distance_min)
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", distance_max)
+
+    return threshold_field
+
+
+def set_mesh_fields(
+    length,
+    silicon_thickness,
+    oxide_thickness,
+    source_length,
+    drain_length,
+    gate_start,
+    gate_end,
+    interface_curves,
+    gate_edge_curves,
+    h_min,
+    h_max,
+    interface_refinement_length,
+    junction_refinement_length,
+    gate_edge_refinement_length,
+    junction_depth,
+    vertical_smoothing_length,
+):
+    oxide_top = silicon_thickness + oxide_thickness
+    source_channel_x = source_length
+    drain_channel_x = length - drain_length
+
+    fields = []
+
+    interface_field = add_curve_refinement_field(
+        curve_tags=interface_curves,
+        h_min=h_min,
+        h_max=h_max,
+        distance_min=0.0,
+        distance_max=interface_refinement_length,
+    )
+    if interface_field is not None:
+        fields.append(interface_field)
+
+    gate_edge_field = add_curve_refinement_field(
+        curve_tags=gate_edge_curves,
+        h_min=h_min,
+        h_max=h_max,
+        distance_min=0.0,
+        distance_max=gate_edge_refinement_length,
+    )
+    if gate_edge_field is not None:
+        fields.append(gate_edge_field)
+
+    fields.append(
+        add_box_refinement_field(
+            x_min=gate_start,
+            x_max=gate_end,
+            y_min=silicon_thickness - interface_refinement_length,
+            y_max=oxide_top,
+            h_min=h_min,
+            h_max=h_max,
+        )
+    )
+
+    implant_y_min = max(
+        0.0,
+        silicon_thickness - junction_depth - 4.0 * vertical_smoothing_length,
+    )
+    implant_y_max = oxide_top
+
+    fields.append(
+        add_box_refinement_field(
+            x_min=0.0,
+            x_max=source_length + junction_refinement_length,
+            y_min=implant_y_min,
+            y_max=implant_y_max,
+            h_min=h_min,
+            h_max=h_max,
+        )
+    )
+
+    fields.append(
+        add_box_refinement_field(
+            x_min=length - drain_length - junction_refinement_length,
+            x_max=length,
+            y_min=implant_y_min,
+            y_max=implant_y_max,
+            h_min=h_min,
+            h_max=h_max,
+        )
+    )
+
+    for x0 in [source_channel_x, drain_channel_x]:
+        fields.append(
+            add_box_refinement_field(
+                x_min=x0 - junction_refinement_length,
+                x_max=x0 + junction_refinement_length,
+                y_min=silicon_thickness - 2.0 * junction_refinement_length,
+                y_max=oxide_top,
+                h_min=h_min,
+                h_max=h_max,
+            )
+        )
+
+    for x0 in [gate_start, gate_end]:
+        fields.append(
+            add_box_refinement_field(
+                x_min=x0 - gate_edge_refinement_length,
+                x_max=x0 + gate_edge_refinement_length,
+                y_min=silicon_thickness - 2.0 * gate_edge_refinement_length,
+                y_max=oxide_top,
+                h_min=h_min,
+                h_max=h_max,
+            )
+        )
+
+    minimum_field = gmsh.model.mesh.field.add("Min")
+    gmsh.model.mesh.field.setNumbers(minimum_field, "FieldsList", fields)
+    gmsh.model.mesh.field.setAsBackgroundMesh(minimum_field)
+
+
+def generate_mesh(
+    mesh_file,
+    length,
+    silicon_thickness,
+    oxide_thickness,
+    source_length,
+    drain_length,
+    gate_length,
+    h_min,
+    h_max,
+    interface_refinement_length,
+    junction_refinement_length,
+    gate_edge_refinement_length,
+    n_plus_level,
+    p_body_level,
+    background_doping,
+    junction_depth,
+    lateral_smoothing_length,
+    vertical_smoothing_length,
     min_doping,
     max_doping,
-    apply_smoothing,
-    smoothing_length,
+    temperature_source,
+    temperature_drain,
 ):
-    require_gmsh()
-
-    model_name = "Half_Torus_PN_Junction"
-    length = major_radius * arc_angle
+    model_name = "Simple_NMOS_2D"
 
     gmsh.initialize()
 
     try:
         gmsh.model.add(model_name)
 
+        gmsh.option.setNumber("Mesh.Algorithm", 6)
         gmsh.option.setNumber("Mesh.MeshSizeMin", h_min)
         gmsh.option.setNumber("Mesh.MeshSizeMax", h_max)
-        gmsh.option.setNumber("Mesh.Algorithm", 6)
-        gmsh.option.setNumber("Mesh.Algorithm3D", 1)
 
-        create_half_torus_geometry(
-            major_radius=major_radius,
-            minor_radius=minor_radius,
-            arc_angle=arc_angle,
+        geometry = create_geometry(
+            length=length,
+            silicon_thickness=silicon_thickness,
+            oxide_thickness=oxide_thickness,
+            source_length=source_length,
+            drain_length=drain_length,
+            gate_length=gate_length,
         )
 
-        gmsh.model.mesh.generate(3)
+        set_point_mesh_sizes(
+            length=length,
+            silicon_thickness=silicon_thickness,
+            oxide_thickness=oxide_thickness,
+            source_length=source_length,
+            drain_length=drain_length,
+            gate_start=geometry["gate_start"],
+            gate_end=geometry["gate_end"],
+            h_min=h_min,
+            h_max=h_max,
+            gate_edge_refinement_length=gate_edge_refinement_length,
+        )
+
+        set_mesh_fields(
+            length=length,
+            silicon_thickness=silicon_thickness,
+            oxide_thickness=oxide_thickness,
+            source_length=source_length,
+            drain_length=drain_length,
+            gate_start=geometry["gate_start"],
+            gate_end=geometry["gate_end"],
+            interface_curves=geometry["interface_curves"],
+            gate_edge_curves=geometry["gate_edge_curves"],
+            h_min=h_min,
+            h_max=h_max,
+            interface_refinement_length=interface_refinement_length,
+            junction_refinement_length=junction_refinement_length,
+            gate_edge_refinement_length=gate_edge_refinement_length,
+            junction_depth=junction_depth,
+            vertical_smoothing_length=vertical_smoothing_length,
+        )
+
+        gmsh.model.mesh.generate(2)
 
         node_tags, node_coordinates, _ = gmsh.model.mesh.getNodes()
-        s = arc_coordinate_from_torus_nodes(
-            node_coordinates=node_coordinates,
-            major_radius=major_radius,
-            arc_angle=arc_angle,
-        )
+        x = node_coordinates[0::3]
+        y = node_coordinates[1::3]
 
         acceptor, donor, net_doping = compute_doping_profile(
-            s=s,
+            x=x,
+            y=y,
             length=length,
-            contact_doping_length=contact_doping_length,
-            contact_doping_level=contact_doping_level,
-            peak_n_level=peak_n_level,
-            peak_p_level=peak_p_level,
-            diffusion_length=diffusion_length,
+            silicon_thickness=silicon_thickness,
+            source_length=source_length,
+            drain_length=drain_length,
+            n_plus_level=n_plus_level,
+            p_body_level=p_body_level,
+            background_doping=background_doping,
+            junction_depth=junction_depth,
+            lateral_smoothing_length=lateral_smoothing_length,
+            vertical_smoothing_length=vertical_smoothing_length,
             min_doping=min_doping,
             max_doping=max_doping,
-            apply_smoothing=apply_smoothing,
-            smoothing_length=smoothing_length,
+        )
+
+        temperature = compute_temperature_profile(
+            x=x,
+            length=length,
+            temperature_source=temperature_source,
+            temperature_drain=temperature_drain,
         )
 
         gmsh.write(str(mesh_file))
@@ -328,6 +596,7 @@ def generate_mesh(
         add_node_view(model_name, mesh_file, "DonorConcentration", node_tags, donor)
         add_node_view(model_name, mesh_file, "AcceptorConcentration", node_tags, acceptor)
         add_node_view(model_name, mesh_file, "DopingConcentration", node_tags, net_doping)
+        add_node_view(model_name, mesh_file, "Temperature", node_tags, temperature)
 
     finally:
         gmsh.finalize()
@@ -336,53 +605,92 @@ def generate_mesh(
 def export_profile_plot(
     output_prefix,
     length,
-    contact_doping_length,
-    contact_doping_level,
-    peak_n_level,
-    peak_p_level,
-    diffusion_length,
+    silicon_thickness,
+    source_length,
+    drain_length,
+    n_plus_level,
+    p_body_level,
+    background_doping,
+    junction_depth,
+    lateral_smoothing_length,
+    vertical_smoothing_length,
     min_doping,
     max_doping,
-    apply_smoothing,
-    smoothing_length,
     show_plot,
 ):
-    s = np.linspace(0.0, length, 1000)
+    x = np.linspace(0.0, length, 1200)
+    y_surface = np.full_like(x, silicon_thickness)
+    y_mid = np.full_like(x, 0.5 * silicon_thickness)
 
-    acceptor, donor, net_doping = compute_doping_profile(
-        s=s,
+    acceptor_surface, donor_surface, net_surface = compute_doping_profile(
+        x=x,
+        y=y_surface,
         length=length,
-        contact_doping_length=contact_doping_length,
-        contact_doping_level=contact_doping_level,
-        peak_n_level=peak_n_level,
-        peak_p_level=peak_p_level,
-        diffusion_length=diffusion_length,
+        silicon_thickness=silicon_thickness,
+        source_length=source_length,
+        drain_length=drain_length,
+        n_plus_level=n_plus_level,
+        p_body_level=p_body_level,
+        background_doping=background_doping,
+        junction_depth=junction_depth,
+        lateral_smoothing_length=lateral_smoothing_length,
+        vertical_smoothing_length=vertical_smoothing_length,
         min_doping=min_doping,
         max_doping=max_doping,
-        apply_smoothing=apply_smoothing,
-        smoothing_length=smoothing_length,
     )
 
-    profile_file = output_prefix.with_suffix(".profile.csv")
+    acceptor_mid, donor_mid, net_mid = compute_doping_profile(
+        x=x,
+        y=y_mid,
+        length=length,
+        silicon_thickness=silicon_thickness,
+        source_length=source_length,
+        drain_length=drain_length,
+        n_plus_level=n_plus_level,
+        p_body_level=p_body_level,
+        background_doping=background_doping,
+        junction_depth=junction_depth,
+        lateral_smoothing_length=lateral_smoothing_length,
+        vertical_smoothing_length=vertical_smoothing_length,
+        min_doping=min_doping,
+        max_doping=max_doping,
+    )
+
+    profile_file = output_prefix.with_suffix(".channel_profile.csv")
 
     np.savetxt(
         profile_file,
-        np.column_stack([s, acceptor, donor, net_doping]),
+        np.column_stack(
+            [
+                x,
+                acceptor_surface,
+                donor_surface,
+                net_surface,
+                acceptor_mid,
+                donor_mid,
+                net_mid,
+            ]
+        ),
         delimiter=",",
-        header="arc_length,AcceptorConcentration,DonorConcentration,DopingConcentration",
+        header=(
+            "x,SurfaceAcceptorConcentration,SurfaceDonorConcentration,"
+            "SurfaceDopingConcentration,MidAcceptorConcentration,"
+            "MidDonorConcentration,MidDopingConcentration"
+        ),
         comments="",
     )
 
     fig, ax = plt.subplots()
 
-    ax.plot(s, acceptor, label="Acceptor")
-    ax.plot(s, donor, label="Donor")
-    ax.plot(s, np.abs(net_doping), label="|Net doping|", linestyle="--")
+    ax.plot(x, np.clip(donor_surface, min_doping, None), label="Donor at Si surface")
+    ax.plot(x, np.clip(acceptor_surface, min_doping, None), label="Acceptor at Si surface")
+    ax.plot(x, np.clip(np.abs(net_surface), min_doping, None), label="|Net| at Si surface", linestyle="--")
+    ax.plot(x, np.clip(np.abs(net_mid), min_doping, None), label="|Net| at mid Si", linestyle=":")
 
-    ax.set_xlabel("arc length s (µm)")
+    ax.set_xlabel("x (µm)")
     ax.set_ylabel("Concentration (cm⁻³)")
     ax.set_yscale("log")
-    ax.set_ylim(min_doping, 2.0 * max(peak_n_level, peak_p_level, contact_doping_level))
+    ax.set_ylim(min_doping, 2.0 * max(n_plus_level, p_body_level, background_doping))
     ax.set_title(output_prefix.name)
     ax.grid(True, which="both")
     ax.legend()
@@ -398,82 +706,131 @@ def export_profile_plot(
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Generate a 3D half-torus PN junction mesh with curved doping profiles."
+        description="Generate a simple realistic 2D nMOS mesh with silicon and oxide physical groups."
     )
 
     parser.add_argument(
         "mesh_name",
-        help="Output mesh filename, for example half_torus_diode.msh.",
+        help="Output mesh filename, for example nmos.msh.",
     )
 
     parser.add_argument(
-        "--major-radius",
+        "--length",
         type=float,
         default=1.0,
-        help="Major radius of the torus centerline in µm.",
+        help="Total device length in µm.",
     )
 
     parser.add_argument(
-        "--minor-radius",
+        "--silicon-thickness",
         type=float,
-        default=0.15,
-        help="Minor radius of the torus tube in µm.",
+        default=0.2,
+        help="Silicon thickness in µm.",
     )
 
     parser.add_argument(
-        "--angle-deg",
+        "--oxide-thickness",
         type=float,
-        default=180.0,
-        help="Angular span of the torus in degrees. Use 180 for a half-torus.",
+        default=0.01,
+        help="Gate oxide thickness in µm.",
+    )
+
+    parser.add_argument(
+        "--source-length",
+        type=float,
+        default=0.2,
+        help="Source contact/implant length in µm.",
+    )
+
+    parser.add_argument(
+        "--drain-length",
+        type=float,
+        default=0.2,
+        help="Drain contact/implant length in µm.",
+    )
+
+    parser.add_argument(
+        "--gate-length",
+        type=float,
+        default=0.6,
+        help="Gate length in µm. The gate is centered between source and drain by default.",
     )
 
     parser.add_argument(
         "--hmin",
         type=float,
-        default=0.01,
+        default=0.002,
         help="Minimum mesh size in µm.",
     )
 
     parser.add_argument(
         "--hmax",
         type=float,
-        default=0.03,
+        default=0.02,
         help="Maximum mesh size in µm.",
     )
 
     parser.add_argument(
-        "--contact-doping-length",
+        "--interface-refinement-length",
         type=float,
-        default=0.25,
-        help="Highly doped contact length measured along the torus arc in µm.",
+        default=0.025,
+        help="Refinement distance around the silicon/oxide interface in µm.",
     )
 
     parser.add_argument(
-        "--contact-doping-level",
+        "--junction-refinement-length",
         type=float,
-        default=2.0e18,
-        help="Contact doping concentration in cm^-3.",
+        default=0.035,
+        help="Refinement half-width around source/channel and drain/channel junctions in µm.",
     )
 
     parser.add_argument(
-        "--n-level",
+        "--gate-edge-refinement-length",
         type=float,
-        default=2.0e18,
-        help="Peak donor concentration in cm^-3.",
+        default=0.025,
+        help="Refinement half-width around gate edges in µm.",
     )
 
     parser.add_argument(
-        "--p-level",
+        "--n-plus-level",
         type=float,
-        default=2.0e18,
-        help="Peak acceptor concentration in cm^-3.",
+        default=1.0e19,
+        help="Peak N+ source/drain donor concentration in cm^-3.",
     )
 
     parser.add_argument(
-        "--diffusion-length",
+        "--p-body-level",
         type=float,
-        default=0.12,
-        help="Gaussian diffusion length along the torus arc in µm.",
+        default=1.0e16,
+        help="P-body acceptor concentration in cm^-3.",
+    )
+
+    parser.add_argument(
+        "--background-doping",
+        type=float,
+        default=1.0e11,
+        help="Minimum background donor concentration in cm^-3.",
+    )
+
+    parser.add_argument(
+        "--junction-depth",
+        type=float,
+        default=0.05,
+        help="Approximate source/drain junction depth from the silicon surface in µm.",
+    )
+
+    parser.add_argument(
+        "--lateral-smoothing-length",
+        type=float,
+        default=0.015,
+        help="Lateral smoothing length of source/drain junctions in µm.",
+    )
+
+    parser.add_argument(
+        "--vertical-smoothing-length",
+        type=float,
+        default=0.01,
+        help="Vertical smoothing length of source/drain implants in µm.",
     )
 
     parser.add_argument(
@@ -486,27 +843,30 @@ def parse_args():
     parser.add_argument(
         "--max-doping",
         type=float,
-        default=1.0e19,
+        default=1.0e20,
         help="Maximum clipped doping concentration in cm^-3.",
     )
 
     parser.add_argument(
-        "--smooth",
-        action="store_true",
-        help="Apply log-scale Gaussian smoothing to the doping profile.",
+        "--T-source",
+        dest="temperature_source",
+        type=float,
+        default=300.0,
+        help="Temperature at x = 0 in K.",
     )
 
     parser.add_argument(
-        "--smoothing-length",
+        "--T-drain",
+        dest="temperature_drain",
         type=float,
-        default=0.01,
-        help="Smoothing length along the torus arc in µm.",
+        default=300.0,
+        help="Temperature at x = length in K.",
     )
 
     parser.add_argument(
         "--no-plot",
         action="store_true",
-        help="Do not create the doping profile plot.",
+        help="Do not create the channel doping plot.",
     )
 
     parser.add_argument(
@@ -519,20 +879,37 @@ def parse_args():
 
 
 def validate_args(args):
-    if args.major_radius <= 0.0:
-        raise ValueError("--major-radius must be positive.")
+    if args.length <= 0.0:
+        raise ValueError("--length must be positive.")
 
-    if args.minor_radius <= 0.0:
-        raise ValueError("--minor-radius must be positive.")
+    if args.silicon_thickness <= 0.0:
+        raise ValueError("--silicon-thickness must be positive.")
 
-    if args.minor_radius >= args.major_radius:
-        raise ValueError("--minor-radius must be smaller than --major-radius.")
+    if args.oxide_thickness <= 0.0:
+        raise ValueError("--oxide-thickness must be positive.")
 
-    if args.angle_deg <= 0.0:
-        raise ValueError("--angle-deg must be positive.")
+    if args.source_length <= 0.0:
+        raise ValueError("--source-length must be positive.")
 
-    if args.angle_deg >= 360.0:
-        raise ValueError("--angle-deg must be smaller than 360.")
+    if args.drain_length <= 0.0:
+        raise ValueError("--drain-length must be positive.")
+
+    if args.gate_length <= 0.0:
+        raise ValueError("--gate-length must be positive.")
+
+    if args.source_length + args.drain_length >= args.length:
+        raise ValueError("--source-length + --drain-length must be smaller than --length.")
+
+    if args.gate_length > args.length - args.source_length - args.drain_length:
+        raise ValueError("--gate-length must fit between source and drain regions.")
+
+    expected_gate_length = args.length - args.source_length - args.drain_length
+    if abs(args.gate_length - expected_gate_length) > 1.0e-12:
+        gate_start = 0.5 * (args.length - args.gate_length)
+        gate_end = gate_start + args.gate_length
+
+        if gate_start < args.source_length or gate_end > args.length - args.drain_length:
+            raise ValueError("Centered gate overlaps source or drain. Adjust --gate-length or contact lengths.")
 
     if args.hmin <= 0.0:
         raise ValueError("--hmin must be positive.")
@@ -543,25 +920,35 @@ def validate_args(args):
     if args.hmin > args.hmax:
         raise ValueError("--hmin cannot be larger than --hmax.")
 
-    length = args.major_radius * np.deg2rad(args.angle_deg)
+    if args.interface_refinement_length <= 0.0:
+        raise ValueError("--interface-refinement-length must be positive.")
 
-    if args.contact_doping_length <= 0.0:
-        raise ValueError("--contact-doping-length must be positive.")
+    if args.junction_refinement_length <= 0.0:
+        raise ValueError("--junction-refinement-length must be positive.")
 
-    if args.contact_doping_length >= length:
-        raise ValueError("--contact-doping-length must be smaller than the torus arc length.")
+    if args.gate_edge_refinement_length <= 0.0:
+        raise ValueError("--gate-edge-refinement-length must be positive.")
 
-    if args.contact_doping_level <= 0.0:
-        raise ValueError("--contact-doping-level must be positive.")
+    if args.n_plus_level <= 0.0:
+        raise ValueError("--n-plus-level must be positive.")
 
-    if args.n_level <= 0.0:
-        raise ValueError("--n-level must be positive.")
+    if args.p_body_level <= 0.0:
+        raise ValueError("--p-body-level must be positive.")
 
-    if args.p_level <= 0.0:
-        raise ValueError("--p-level must be positive.")
+    if args.background_doping <= 0.0:
+        raise ValueError("--background-doping must be positive.")
 
-    if args.diffusion_length <= 0.0:
-        raise ValueError("--diffusion-length must be positive.")
+    if args.junction_depth <= 0.0:
+        raise ValueError("--junction-depth must be positive.")
+
+    if args.junction_depth >= args.silicon_thickness:
+        raise ValueError("--junction-depth must be smaller than --silicon-thickness.")
+
+    if args.lateral_smoothing_length <= 0.0:
+        raise ValueError("--lateral-smoothing-length must be positive.")
+
+    if args.vertical_smoothing_length <= 0.0:
+        raise ValueError("--vertical-smoothing-length must be positive.")
 
     if args.min_doping <= 0.0:
         raise ValueError("--min-doping must be positive.")
@@ -572,8 +959,11 @@ def validate_args(args):
     if args.min_doping > args.max_doping:
         raise ValueError("--min-doping cannot be larger than --max-doping.")
 
-    if args.smoothing_length <= 0.0:
-        raise ValueError("--smoothing-length must be positive.")
+    if args.temperature_source <= 0.0:
+        raise ValueError("--T-source must be positive.")
+
+    if args.temperature_drain <= 0.0:
+        raise ValueError("--T-drain must be positive.")
 
 
 def main():
@@ -586,52 +976,56 @@ def main():
         mesh_file = mesh_file.with_suffix(".msh")
 
     output_prefix = mesh_file.with_suffix("")
-    arc_angle = np.deg2rad(args.angle_deg)
-    length = args.major_radius * arc_angle
 
     if not args.no_plot:
         export_profile_plot(
             output_prefix=output_prefix,
-            length=length,
-            contact_doping_length=args.contact_doping_length,
-            contact_doping_level=args.contact_doping_level,
-            peak_n_level=args.n_level,
-            peak_p_level=args.p_level,
-            diffusion_length=args.diffusion_length,
+            length=args.length,
+            silicon_thickness=args.silicon_thickness,
+            source_length=args.source_length,
+            drain_length=args.drain_length,
+            n_plus_level=args.n_plus_level,
+            p_body_level=args.p_body_level,
+            background_doping=args.background_doping,
+            junction_depth=args.junction_depth,
+            lateral_smoothing_length=args.lateral_smoothing_length,
+            vertical_smoothing_length=args.vertical_smoothing_length,
             min_doping=args.min_doping,
             max_doping=args.max_doping,
-            apply_smoothing=args.smooth,
-            smoothing_length=args.smoothing_length,
             show_plot=args.show,
         )
 
     generate_mesh(
         mesh_file=mesh_file,
-        major_radius=args.major_radius,
-        minor_radius=args.minor_radius,
-        arc_angle=arc_angle,
+        length=args.length,
+        silicon_thickness=args.silicon_thickness,
+        oxide_thickness=args.oxide_thickness,
+        source_length=args.source_length,
+        drain_length=args.drain_length,
+        gate_length=args.gate_length,
         h_min=args.hmin,
         h_max=args.hmax,
-        contact_doping_length=args.contact_doping_length,
-        contact_doping_level=args.contact_doping_level,
-        peak_n_level=args.n_level,
-        peak_p_level=args.p_level,
-        diffusion_length=args.diffusion_length,
+        interface_refinement_length=args.interface_refinement_length,
+        junction_refinement_length=args.junction_refinement_length,
+        gate_edge_refinement_length=args.gate_edge_refinement_length,
+        n_plus_level=args.n_plus_level,
+        p_body_level=args.p_body_level,
+        background_doping=args.background_doping,
+        junction_depth=args.junction_depth,
+        lateral_smoothing_length=args.lateral_smoothing_length,
+        vertical_smoothing_length=args.vertical_smoothing_length,
         min_doping=args.min_doping,
         max_doping=args.max_doping,
-        apply_smoothing=args.smooth,
-        smoothing_length=args.smoothing_length,
+        temperature_source=args.temperature_source,
+        temperature_drain=args.temperature_drain,
     )
 
     print(f"Wrote {mesh_file}")
 
     if not args.no_plot:
-        print(f"Wrote {output_prefix.with_suffix('.profile.csv')}")
+        print(f"Wrote {output_prefix.with_suffix('.channel_profile.csv')}")
         print(f"Wrote {output_prefix.with_suffix('.doping_profile.png')}")
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except (ValueError, RuntimeError) as exc:
-        raise SystemExit(f"error: {exc}") from None
+    main()

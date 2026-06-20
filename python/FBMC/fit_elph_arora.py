@@ -69,7 +69,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=REPO_ROOT / "fit_elph_arora_output")
     parser.add_argument("--material", default="Si")
     parser.add_argument("--ncbands", type=int, default=2)
-    parser.add_argument("--nvbands", type=int, default=0)
+    parser.add_argument("--nvbands", type=int, default=4)
     parser.add_argument("--nthreads", type=int, default=1)
     parser.add_argument("--energy-window", type=float, default=0.3)
     parser.add_argument("--bz-domain", choices=("full", "octant"), default="full")
