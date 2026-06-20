@@ -115,13 +115,7 @@ int main(int argc, char *argv[]) {
                                              shift_conduction_band,
                                              set_positive_valence_band);
 
-    // DEBUG
-    my_bz_mesh.export_selected_bands_to_gmsh("debug_bands.msh",
-                                             nb_valence_bands,
-                                             nb_conduction_bands,
-                                             true,
-                                             mesh_band_input_file,
-                                             true);
+
 
     my_bz_mesh.apply_scissor(1.12);  // eV
 

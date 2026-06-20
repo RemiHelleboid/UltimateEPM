@@ -74,7 +74,8 @@ class ElectronPhonon : public BZ_States {
     MeshParticleType m_elph_particle_type = MeshParticleType::conduction;
     std::size_t      m_nb_bands_elph      = 0;
 
-    bool m_parallelize_over_k = true;
+    bool m_parallelize_over_k                              = true;
+    bool m_apply_deformation_potential_during_kernel_build = true;
 
     HoleOverlapIntParams m_hole_overlap_int_params;
     DeformationPotential m_ac_defpot_e, m_op_defpot_e;
@@ -85,10 +86,14 @@ class ElectronPhonon : public BZ_States {
 
     // Transport rates. m_phonon_rates_transport[band][k1]
     std::vector<std::vector<double>> m_phonon_rates_transport;  // precomputed 1/τ_tr(E) on uniform grid
+    // DP-independent acoustic/optical transport kernels with the same [band][vertex] layout.
+    std::vector<std::vector<std::array<double, 2>>> m_phonon_transport_kernels;
 
     // Precomputed rates on mesh: [vertex][band][8]
     std::vector<std::vector<Rate8>> m_list_phonon_scattering_rates;
-    std::vector<double>             m_count_weight_tetra_per_vertex;
+    // Same layout, without the deformation-potential factor.
+    std::vector<std::vector<RateKernel8>> m_list_phonon_rate_kernels;
+    std::vector<double>                   m_count_weight_tetra_per_vertex;
 
     PGamma m_P_Gamma_data;
 
@@ -96,6 +101,8 @@ class ElectronPhonon : public BZ_States {
     explicit ElectronPhonon(const uepm::pseudopotential::epm_material& material) : BZ_States(material) {}
 
     void load_phonon_parameters(const uepm::physics::material_repository& repository, const std::string& parameter_set);
+    void load_phonon_parameters_from_file(const std::filesystem::path& filename,
+                                          const std::string&           expected_parameter_set = "");
     void plot_phonon_dispersion(const std::string& filename) const;
     double get_max_phonon_energy() const;
     void   export_phonon_dispersion(const std::string& filename) const;
@@ -108,16 +115,21 @@ class ElectronPhonon : public BZ_States {
     void             set_nb_bands_elph(std::size_t nb) noexcept { m_nb_bands_elph = nb; }
     std::size_t      get_nb_bands_elph() const noexcept { return m_nb_bands_elph; }
 
-    Rate8 compute_electron_phonon_transition_rates_pair(std::size_t idx_n1,
-                                                        std::size_t idx_k1,
-                                                        std::size_t idx_n2,
-                                                        std::size_t idx_tetra_final);
+    RateKernel8 compute_electron_phonon_transition_kernel_pair(std::size_t idx_n1,
+                                                               std::size_t idx_k1,
+                                                               std::size_t idx_n2,
+                                                               std::size_t idx_tetra_final);
 
-    RateValues compute_electron_phonon_rate(std::size_t idx_n1, std::size_t idx_k1);
-    RateValues compute_hole_phonon_rate(std::size_t idx_n1, std::size_t idx_k1);
+    RateKernel8 compute_electron_phonon_rate_kernel(std::size_t idx_n1, std::size_t idx_k1);
+    RateKernel8 compute_hole_phonon_rate_kernel(std::size_t idx_n1, std::size_t idx_k1);
+    RateValues  compute_electron_phonon_rate(std::size_t idx_n1, std::size_t idx_k1);
+    RateValues  compute_hole_phonon_rate(std::size_t idx_n1, std::size_t idx_k1);
+    Rate8       apply_deformation_potential(const RateKernel8& kernel, double initial_energy_eV) const;
 
     double scale_q_norm(double q_norm) const;
-    void   compute_phonon_rates_over_mesh(double energy_max = 100.0, bool irreducible_wedge_only = false);
+    void   compute_phonon_rates_over_mesh(double energy_max                  = 100.0,
+                                          bool   irreducible_wedge_only      = false,
+                                          bool   apply_deformation_potential = true);
     void   compute_electron_phonon_rates_over_mesh(double energy_max = 100.0, bool irreducible_wedge_only = false);
     void   add_electron_phonon_rates_to_mesh(const std::string& initial_filename, const std::string& final_filename);
     void   clean_all_elph_data();
@@ -144,11 +156,13 @@ class ElectronPhonon : public BZ_States {
                                                  std::mt19937&  rng) const;
 
     void export_rate_values(const std::string& filename) const;
+    void export_rate_kernels(const std::string& filename) const;
     void compute_plot_electron_phonon_rates_vs_energy_over_mesh(double             max_energy,
                                                                 double             energy_step,
                                                                 const std::string& filename);
 
     void  read_phonon_scattering_rates_from_file(const std::filesystem::path& path);
+    void  read_phonon_rate_kernels_from_file(const std::filesystem::path& path);
     Rate8 interpolate_phonon_scattering_rate_at_location(const vector3& location, const std::size_t& idx_band) const;
     inline double sum_modes(const Rate8& r) const noexcept;
     double        compute_P_Gamma() const;

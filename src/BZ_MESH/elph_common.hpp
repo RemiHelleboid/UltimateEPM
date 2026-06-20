@@ -28,6 +28,7 @@ struct PhononScatteringEvent {
 };
 
 using Rate8           = std::array<double, 8>;
+using RateKernel8     = std::array<double, 8>;
 using BandRates       = std::vector<Rate8>;
 using VertexBandRates = std::vector<BandRates>;
 

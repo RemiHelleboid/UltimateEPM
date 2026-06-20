@@ -163,6 +163,7 @@ void write_run_metadata(const std::filesystem::path&               outdir,
                         const std::string&                         rates_file,
                         const std::string&                         material,
                         const std::string&                         phonon_parameter_set,
+                        const std::string&                         phonon_parameter_file,
                         const std::string&                         impact_ionization_parameter_set,
                         int                                        nb_particles,
                         int                                        nb_threads,
@@ -188,6 +189,7 @@ void write_run_metadata(const std::filesystem::path&               outdir,
 
     os << "material = " << material << '\n';
     os << "phonon_parameter_set = " << phonon_parameter_set << '\n';
+    os << "phonon_parameter_file = " << (phonon_parameter_file.empty() ? "repository" : phonon_parameter_file) << '\n';
     os << "impact_ionization_parameter_set = "
        << (enable_impact_ionization ? impact_ionization_parameter_set : "disabled") << '\n';
     os << "mesh_file = " << mesh_file << '\n';
@@ -248,6 +250,13 @@ int main(int argc, const char** argv) try {
                                                           false,
                                                           "remi-2026",
                                                           "string");
+    TCLAP::ValueArg<std::string> arg_phonon_parameter_file(
+        "",
+        "phonon-params-file",
+        "Load electron-phonon parameters from an explicit YAML file. Mutually exclusive with --phonon-params.",
+        false,
+        "",
+        "path");
     TCLAP::ValueArg<std::string> arg_impact_ionization_parameter_set(
         "",
         "impact-ionization-params",
@@ -349,6 +358,7 @@ int main(int argc, const char** argv) try {
     cmd.add(arg_phonon_file);
     cmd.add(arg_material);
     cmd.add(arg_phonon_parameter_set);
+    cmd.add(arg_phonon_parameter_file);
     cmd.add(arg_impact_ionization_parameter_set);
     cmd.add(arg_outputdir);
     cmd.add(arg_carrier);
@@ -373,10 +383,14 @@ int main(int argc, const char** argv) try {
     std::filesystem::path       file_phonon_scattering          = arg_phonon_file.getValue();
     const std::string           material_symbol                 = arg_material.getValue();
     const std::string           phonon_parameter_set            = arg_phonon_parameter_set.getValue();
+    const std::string           phonon_parameter_file           = arg_phonon_parameter_file.getValue();
     const std::string           impact_ionization_parameter_set = arg_impact_ionization_parameter_set.getValue();
     const std::string           init_output_directory           = arg_outputdir.getValue();
     const std::string           carrier_name                    = arg_carrier.getValue();
     const auto                  carrier_type                    = parse_particle_type(carrier_name);
+    if (arg_phonon_parameter_file.isSet() && arg_phonon_parameter_set.isSet()) {
+        throw std::invalid_argument("--phonon-params-file and --phonon-params are mutually exclusive");
+    }
 
     const int nb_threads          = arg_nb_threads.getValue();
     const int nb_valence_bands    = arg_nb_valence_bands.getValue();
@@ -473,7 +487,8 @@ int main(int argc, const char** argv) try {
                        file_mesh.string(),
                        file_phonon_scattering.string(),
                        material_symbol,
-                       phonon_parameter_set,
+                       arg_phonon_parameter_file.isSet() ? "external-file" : phonon_parameter_set,
+                       phonon_parameter_file,
                        impact_ionization_parameter_set,
                        nb_particles,
                        nb_threads,
@@ -540,7 +555,11 @@ int main(int argc, const char** argv) try {
         mesh.export_energies_and_gradients_to_vtk(vtk_file.string());
     }
 
-    mesh.load_phonon_parameters(material_repository, phonon_parameter_set);
+    if (arg_phonon_parameter_file.isSet()) {
+        mesh.load_phonon_parameters_from_file(phonon_parameter_file);
+    } else {
+        mesh.load_phonon_parameters(material_repository, phonon_parameter_set);
+    }
     mesh.export_phonon_dispersion((output_dir / "phonon_dispersion.data").string());
 
     mesh.read_phonon_scattering_rates_from_file(file_phonon_scattering.string());

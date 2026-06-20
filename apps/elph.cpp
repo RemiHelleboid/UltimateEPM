@@ -72,11 +72,11 @@ std::filesystem::path make_output_directory(const std::string& requested) {
 
 }  // namespace
 
-int export_result_mobility(const std::string     &filename,
-                           const Eigen::Matrix3d &mu_tensor,
+int export_result_mobility(const std::string&     filename,
+                           const Eigen::Matrix3d& mu_tensor,
                            double                 mu_iso,
                            double                 Ef,
-                           const Options         &my_options,
+                           const Options&         my_options,
                            double                 max_energy,
                            double                 temperature,
                            std::size_t            nb_vtx,
@@ -108,7 +108,7 @@ int export_result_mobility(const std::string     &filename,
     return 0;
 }
 
-int main(int argc, char const *argv[]) {
+int main(int argc, char const* argv[]) {
     TCLAP::CmdLine               cmd("Electron-phonon rate and mobility utility.", ' ', "1.1");
     TCLAP::ValueArg<std::string> arg_mesh_file("f",
                                                "meshbandfile",
@@ -135,20 +135,44 @@ int main(int argc, char const *argv[]) {
                                                           false,
                                                           "remi-2026",
                                                           "string");
+    TCLAP::ValueArg<std::string> arg_phonon_parameter_file(
+        "",
+        "phonon-params-file",
+        "Load electron-phonon parameters from an explicit YAML file. Mutually exclusive with --phonon-params.",
+        false,
+        "",
+        "path");
     TCLAP::ValueArg<std::string> arg_output_dir("d",
                                                 "outdir",
                                                 "Output directory for generated files.",
                                                 false,
                                                 "",
                                                 "string");
-    TCLAP::ValueArg<std::string> arg_carrier(
-        "", "carrier", "Carrier type for phonon rates: electron or hole.", false, "electron", "string");
+    TCLAP::ValueArg<std::string> arg_carrier("",
+                                             "carrier",
+                                             "Carrier type for phonon rates: electron or hole.",
+                                             false,
+                                             "electron",
+                                             "string");
     TCLAP::ValueArg<std::string> arg_rates_output("",
                                                   "rates-out",
                                                   "Output CSV for computed electron-phonon rates.",
                                                   false,
                                                   "",
                                                   "string");
+    TCLAP::ValueArg<std::string> arg_kernel_file("",
+                                                 "kernel-file",
+                                                 "Load DP-independent phonon rate kernels from this CSV. The mesh, "
+                                                 "bands, temperature, and phonon dispersion must match.",
+                                                 false,
+                                                 "",
+                                                 "string");
+    TCLAP::ValueArg<std::string> arg_kernels_output("",
+                                                    "kernels-out",
+                                                    "Output CSV for DP-independent phonon rate kernels.",
+                                                    false,
+                                                    "",
+                                                    "string");
     TCLAP::ValueArg<int>         arg_nb_energies("e", "nenergy", "Number of energies to compute", false, 250, "int");
     TCLAP::ValueArg<int>         arg_nb_conduction_bands("c",
                                                  "ncbands",
@@ -167,18 +191,23 @@ int main(int argc, char const *argv[]) {
                                              0.3,
                                              "double");
     TCLAP::SwitchArg        arg_export_rates("X", "export-rates", "Export electron-phonon rates in k.", false);
-    TCLAP::SwitchArg        plot_with_python("p",
+    TCLAP::SwitchArg arg_export_kernels("", "export-kernels", "Export DP-independent phonon rate kernels in k.", false);
+    TCLAP::SwitchArg arg_rates_only("",
+                                    "rates-only",
+                                    "Stop after exporting rates/kernels; skip diagnostics, mobility, and plotting.",
+                                    false);
+    TCLAP::SwitchArg plot_with_python("p",
                                       "plot",
                                       "Call a python script after the computation to plot the band structure.",
                                       false);
-    TCLAP::SwitchArg        use_irr_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
+    TCLAP::SwitchArg use_irr_wedge("w", "wedge", "Consider only the irreducible wedge of the BZ.", false);
     TCLAP::ValueArg<std::string> arg_bz_domain("",
                                                "bz-domain",
                                                "Stored BZ domain: full or octant.",
                                                false,
                                                "full",
                                                "string");
-    TCLAP::SwitchArg        plot_with_knkpnp("K",
+    TCLAP::SwitchArg             plot_with_knkpnp("K",
                                       "knkpnp",
                                       "Compute and store the full (n,k) -> (n',k') transition rate matrices.",
                                       false);
@@ -186,9 +215,12 @@ int main(int argc, char const *argv[]) {
     cmd.add(arg_mesh_file);
     cmd.add(arg_material);
     cmd.add(arg_phonon_parameter_set);
+    cmd.add(arg_phonon_parameter_file);
     cmd.add(arg_output_dir);
     cmd.add(arg_carrier);
     cmd.add(arg_rates_output);
+    cmd.add(arg_kernel_file);
+    cmd.add(arg_kernels_output);
     cmd.add(arg_nb_conduction_bands);
     cmd.add(arg_nb_valence_bands);
     cmd.add(arg_nb_energies);
@@ -199,6 +231,8 @@ int main(int argc, char const *argv[]) {
     cmd.add(arg_temperature);
     cmd.add(arg_energy_range);
     cmd.add(arg_export_rates);
+    cmd.add(arg_export_kernels);
+    cmd.add(arg_rates_only);
     cmd.add(arg_phonon_rates);
     cmd.add(arg_band_gap);
     cmd.parse(argc, argv);
@@ -222,17 +256,30 @@ int main(int argc, char const *argv[]) {
     const std::string bz_domain_name            = arg_bz_domain.getValue();
     const std::string mesh_band_input_file      = arg_mesh_file.getValue();
     const std::string phonon_parameter_set      = arg_phonon_parameter_set.getValue();
+    const bool        phonon_parameter_file_set = arg_phonon_parameter_file.isSet();
     const std::string carrier_name              = arg_carrier.getValue();
     const auto        carrier_type              = parse_carrier_type(carrier_name);
     const bool        shift_conduction_band     = true;
     const bool        set_positive_valence_band = carrier_type == uepm::mesh_bz::MeshParticleType::valence;
     const bool        export_rates              = arg_export_rates.getValue();
-    bool              phonon_rates_provided          = arg_phonon_rates.isSet();
-    std::string       phonon_rates_file              = "";
+    const bool        export_kernels            = arg_export_kernels.getValue();
+    const bool        rates_only                = arg_rates_only.getValue();
+    bool              phonon_rates_provided     = arg_phonon_rates.isSet();
+    const bool        kernel_file_provided      = arg_kernel_file.isSet();
+    std::string       phonon_rates_file         = "";
     if (phonon_rates_provided) {
         phonon_rates_file = arg_phonon_rates.getValue();
     }
-    double band_gap = arg_band_gap.getValue();
+    if (phonon_rates_provided && kernel_file_provided) {
+        throw std::invalid_argument("--phononrates and --kernel-file are mutually exclusive");
+    }
+    if (phonon_parameter_file_set && arg_phonon_parameter_set.isSet()) {
+        throw std::invalid_argument("--phonon-params-file and --phonon-params are mutually exclusive");
+    }
+    if (rates_only && !export_rates && !export_kernels) {
+        throw std::invalid_argument("--rates-only requires --export-rates and/or --export-kernels");
+    }
+    double     band_gap   = arg_band_gap.getValue();
     const auto output_dir = make_output_directory(arg_output_dir.getValue());
 
     require_positive(my_options.nrThreads, "--nthreads");
@@ -276,7 +323,11 @@ int main(int argc, char const *argv[]) {
         ElectronPhonon.export_energies_and_gradients_to_vtk(vtk_file);
     }
 
-    ElectronPhonon.load_phonon_parameters(material_repository, phonon_parameter_set);
+    if (phonon_parameter_file_set) {
+        ElectronPhonon.load_phonon_parameters_from_file(arg_phonon_parameter_file.getValue());
+    } else {
+        ElectronPhonon.load_phonon_parameters(material_repository, phonon_parameter_set);
+    }
     ElectronPhonon.set_particle_type(carrier_type);
     const auto nb_elph_bands = ElectronPhonon.get_number_bands(carrier_type);
     if (nb_elph_bands == 0) {
@@ -301,14 +352,29 @@ int main(int argc, char const *argv[]) {
     }
     if (phonon_rates_provided) {
         ElectronPhonon.read_phonon_scattering_rates_from_file(phonon_rates_file);
+    } else if (kernel_file_provided) {
+        ElectronPhonon.read_phonon_rate_kernels_from_file(arg_kernel_file.getValue());
     } else {
-        ElectronPhonon.compute_phonon_rates_over_mesh(max_energy, irreducible_wedge_only);
+        const bool build_parameterized_rates = !rates_only || export_rates;
+        ElectronPhonon.compute_phonon_rates_over_mesh(max_energy, irreducible_wedge_only, build_parameterized_rates);
     }
 
     if (export_rates && !phonon_rates_provided) {
-        const std::string rates_file = arg_rates_output.isSet() ? arg_rates_output.getValue()
-                                                                : (output_dir / "phonon_rates.csv").string();
+        const std::string rates_file =
+            arg_rates_output.isSet() ? arg_rates_output.getValue() : (output_dir / "phonon_rates.csv").string();
         ElectronPhonon.export_rate_values(rates_file);
+    }
+    if (export_kernels) {
+        if (phonon_rates_provided) {
+            throw std::invalid_argument("Cannot export kernels from an ordinary phonon-rate file");
+        }
+        const std::string kernels_file = arg_kernels_output.isSet() ? arg_kernels_output.getValue()
+                                                                    : (output_dir / "phonon_rate_kernels.csv").string();
+        ElectronPhonon.export_rate_kernels(kernels_file);
+    }
+    if (rates_only) {
+        fmt::print("Completed requested phonon export workflow.\n");
+        return 0;
     }
     if (carrier_type == uepm::mesh_bz::MeshParticleType::valence) {
         fmt::print("Completed hole-phonon rate workflow.\n");
@@ -325,7 +391,7 @@ int main(int argc, char const *argv[]) {
     fermi_options.use_interp        = false;        // use interpolation when computing DOS at given energy
     fermi_options.T_K               = temperature;  // temperature for Fermi-Dirac
     const bool use_iw               = !ElectronPhonon.stores_positive_octant();
-    fermi_options.abs_max_energy_eV = 1.0;          // absolute max energy to consider (both conduction and valence)
+    fermi_options.abs_max_energy_eV = 1.0;  // absolute max energy to consider (both conduction and valence)
 
     auto result = uepm::mesh_bz::fermi::solve_fermi(ElectronPhonon, fermi_options, use_iw);
     if (result.success) {

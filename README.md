@@ -84,6 +84,10 @@ Find more informations on [GMSH Website](https://gmsh.info/).
 ---
 
 ## Usage
+
+For the practical electron–phonon kernel, rate reconstruction, and bulk FBMC
+workflow, see [Electron–phonon and FBMC runtime guide](doc/elph_fbmc_runtime.md).
+
 ### Band structure plot over a __path of high symmetry points__
 
 To plot the band structure over a path $LKW \Gamma XWL \Gamma K$ for a given materials, use:  
@@ -205,4 +209,4 @@ If you have data for materials that are not yet available in the code, feel free
 ## Acknowledgements
 * Adrian Roman for the initial version of the code.
 * Jeremy Grebot for the BZ meshing script.
-* Marco Pala and Alessandro Pilotto: support for the non-local corrections. 
+* Marco Pala and Alessandro Pilotto: support for the non-local corrections.
