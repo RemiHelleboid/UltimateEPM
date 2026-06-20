@@ -453,6 +453,22 @@ void Single_particle_simulation::run_simulation() {
                m_observables.m_weighted_velocity_z_m / m_observables.m_accumulated_time_s);
     fmt::print("Steady-state average energy: {:.6f} eV\n",
                m_observables.m_weighted_kinetic_energy_eV_s / m_observables.m_accumulated_time_s);
+    if (field_norm > 0.0) {
+        const vector3 mean_velocity{m_observables.m_weighted_velocity_x_m / m_observables.m_accumulated_time_s,
+                                    m_observables.m_weighted_velocity_y_m / m_observables.m_accumulated_time_s,
+                                    m_observables.m_weighted_velocity_z_m / m_observables.m_accumulated_time_s};
+        const double  drift_velocity_parallel_m_per_s = mean_velocity.dot(field_direction);
+        const double  signed_mobility_m2_per_V_s      = drift_velocity_parallel_m_per_s / field_norm;
+        fmt::print("Single-run drift velocity along field: {:.6e} m/s\n", drift_velocity_parallel_m_per_s);
+        fmt::print("Rough single-run mobility: {:.6e} m^2/(V·s) = {:.3f} cm^2/(V·s)"
+                   " (signed: {:.6e} m^2/(V·s))\n",
+                   std::abs(signed_mobility_m2_per_V_s),
+                   std::abs(signed_mobility_m2_per_V_s) * 1.0e4,
+                   signed_mobility_m2_per_V_s);
+        fmt::print("[note] Use a symmetric low-field sweep for a reliable mobility extraction.\n");
+    } else {
+        fmt::print("Single-run mobility unavailable at zero electric field.\n");
+    }
     fmt::print("Impact ionization coefficient: {:.6e} cm^-1\n",
                m_impact_ionization_statistics.ionization_coefficient_cm_1());
 }
@@ -470,6 +486,18 @@ void Single_particle_simulation::export_observables_to_csv(const std::string& fi
         throw std::runtime_error("No FBMC observables have been accumulated");
     }
 
+    const double mean_velocity_x = m_observables.m_weighted_velocity_x_m / m_observables.m_accumulated_time_s;
+    const double mean_velocity_y = m_observables.m_weighted_velocity_y_m / m_observables.m_accumulated_time_s;
+    const double mean_velocity_z = m_observables.m_weighted_velocity_z_m / m_observables.m_accumulated_time_s;
+    const vector3 mean_velocity{mean_velocity_x, mean_velocity_y, mean_velocity_z};
+    const double  field_norm = m_bulk_env.m_electric_field.norm();
+    const vector3 field_direction =
+        field_norm > 0.0 ? m_bulk_env.m_electric_field / field_norm : vector3{0.0, 0.0, 0.0};
+    const double drift_velocity_parallel_m_per_s =
+        field_norm > 0.0 ? mean_velocity.dot(field_direction) : std::numeric_limits<double>::quiet_NaN();
+    const double signed_mobility_m2_per_V_s =
+        field_norm > 0.0 ? drift_velocity_parallel_m_per_s / field_norm : std::numeric_limits<double>::quiet_NaN();
+
     file << "charge_C,"
             "temperature_K,"
             "electric_field_V_per_m,"
@@ -477,6 +505,9 @@ void Single_particle_simulation::export_observables_to_csv(const std::string& fi
             "mean_velocity_x_m_per_s,"
             "mean_velocity_y_m_per_s,"
             "mean_velocity_z_m_per_s,"
+            "drift_velocity_parallel_m_per_s,"
+            "signed_single_run_mobility_m2_per_V_s,"
+            "single_run_mobility_cm2_per_V_s,"
             "mean_kinetic_energy_eV,"
             "sample_count,"
             "impact_ionization_events,"
@@ -486,14 +517,17 @@ void Single_particle_simulation::export_observables_to_csv(const std::string& fi
 
     const double carrier_charge_C =
         m_sim_params.m_particle_type == particle_type::electron ? -uepm::constants::q_e : uepm::constants::q_e;
-    file << fmt::format("{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+    file << fmt::format("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
                         carrier_charge_C,
                         m_bulk_env.m_temperature,
                         m_observables.m_electric_field_V_per_m,
                         m_bulk_env.m_doping_concentration,
-                        m_observables.m_weighted_velocity_x_m / m_observables.m_accumulated_time_s,
-                        m_observables.m_weighted_velocity_y_m / m_observables.m_accumulated_time_s,
-                        m_observables.m_weighted_velocity_z_m / m_observables.m_accumulated_time_s,
+                        mean_velocity_x,
+                        mean_velocity_y,
+                        mean_velocity_z,
+                        drift_velocity_parallel_m_per_s,
+                        signed_mobility_m2_per_V_s,
+                        std::abs(signed_mobility_m2_per_V_s) * 1.0e4,
                         m_observables.m_weighted_kinetic_energy_eV_s / m_observables.m_accumulated_time_s,
                         m_observables.m_accumulated_time_s,
                         m_impact_ionization_statistics.m_events,

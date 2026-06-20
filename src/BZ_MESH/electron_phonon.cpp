@@ -396,7 +396,14 @@ void ElectronPhonon::rebuild_transport_rates_from_kernels() {
                 return value;
             };
             const auto& kernel = m_phonon_transport_kernels[band][vertex];
-            m_phonon_rates_transport[band][vertex] = kernel[0] * scale(acoustic) + kernel[1] * scale(optical);
+            if (!std::isfinite(kernel[0]) || !std::isfinite(kernel[1])) {
+                throw std::runtime_error("Transport kernel contains a non-finite value");
+            }
+            const double rate = kernel[0] * scale(acoustic) + kernel[1] * scale(optical);
+            if (!(rate >= 0.0) || !std::isfinite(rate)) {
+                throw std::runtime_error("Reconstructed transport rate is negative or non-finite");
+            }
+            m_phonon_rates_transport[band][vertex] = rate;
         }
     }
 }
@@ -1289,6 +1296,8 @@ void ElectronPhonon::read_phonon_rate_kernels_from_file(const std::filesystem::p
     RateKernel8 kernel{};
     double      transport_ac = 0.0;
     double      transport_op = 0.0;
+    std::vector<std::vector<bool>> seen(m_list_vertices.size(), std::vector<bool>(m_nb_bands_elph, false));
+    std::size_t                    loaded_rows = 0;
 
     while (csv_reader.read_row(vertex_index,
                                band_index,
@@ -1310,6 +1319,18 @@ void ElectronPhonon::read_phonon_rate_kernels_from_file(const std::filesystem::p
         if (band_index >= m_nb_bands_elph) {
             throw std::runtime_error("Kernel band index is outside the loaded carrier bands");
         }
+        if (seen[local_vertex][band_index]) {
+            throw std::runtime_error("Duplicate kernel row for vertex " + std::to_string(vertex_index) + " band " +
+                                     std::to_string(band_index));
+        }
+        for (double value : kernel) {
+            if (!(value >= 0.0) || !std::isfinite(value)) {
+                throw std::runtime_error("Kernel CSV contains a negative or non-finite scattering kernel");
+            }
+        }
+        if (!std::isfinite(transport_ac) || !std::isfinite(transport_op)) {
+            throw std::runtime_error("Kernel CSV contains a non-finite transport kernel");
+        }
         const std::size_t global_band    = get_global_band_index(band_index, m_elph_particle_type);
         const double      mesh_energy_eV = m_list_vertices[local_vertex].get_energy_at_band(global_band);
         if (std::abs(energy_eV - mesh_energy_eV) > 1e-6) {
@@ -1322,10 +1343,14 @@ void ElectronPhonon::read_phonon_rate_kernels_from_file(const std::filesystem::p
         m_list_phonon_scattering_rates[local_vertex][band_index] = rates;
         m_list_vertices[local_vertex].set_electron_phonon_rates(band_index, rates);
         m_phonon_transport_kernels[band_index][local_vertex] = {transport_ac, transport_op};
-
+        seen[local_vertex][band_index] = true;
+        ++loaded_rows;
+    }
+    if (loaded_rows == 0) {
+        throw std::runtime_error("Kernel CSV contains no rows matching the loaded BZ mesh and carrier bands");
     }
     rebuild_transport_rates_from_kernels();
-    fmt::print("Applied current deformation-potential parameters to loaded kernels.\n");
+    fmt::print("Applied current deformation-potential parameters to {} loaded kernel rows.\n", loaded_rows);
 }
 
 void ElectronPhonon::read_phonon_scattering_rates_from_file(const std::filesystem::path& path) {
@@ -1511,6 +1536,7 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
 
     Eigen::Matrix3d sigma = Eigen::Matrix3d::Zero();  // S/m
     double          n_e   = 0.0;                      // m^-3
+    double          n_e_without_transport_rate = 0.0;
 
     auto bands = get_band_indices(MeshParticleType::conduction);
     if (!conduction_only) {
@@ -1531,9 +1557,11 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
             const double E    = m_list_vertices[k].get_energy_at_band(b);  // eV
             const double f0   = fermi_dirac_distribution(E, fermi_level_eV, temperature_K);
             const double dfdE = -d_de_fermi_dirac_dE(E, fermi_level_eV, temperature_K) / uepm::constants::q_e;  // [1/J]
+            n_e += wk * f0;
 
             const double inv_tau = inv_tau_at_k[k];
             if (!(inv_tau > 0.0) || !std::isfinite(inv_tau)) {
+                n_e_without_transport_rate += wk * f0;
                 continue;
             }
             const double tau = 1.0 / inv_tau;  // s
@@ -1545,9 +1573,6 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
 
             // **Include q^2** to get σ in S/m
             sigma.noalias() += (q * q) * (wk * tau * dfdE) * (v * v.transpose());
-
-            // electron density
-            n_e += wk * f0;
         }
     }
 
@@ -1555,10 +1580,25 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
         throw std::runtime_error("MRTA: computed carrier density n_e is zero/invalid. "
                                  "Check EF, T, and that rates were computed for conduction bands.");
     }
+    const double missing_rate_fraction = n_e_without_transport_rate / n_e;
+    if (!std::isfinite(missing_rate_fraction) || missing_rate_fraction > 1.0e-2) {
+        throw std::runtime_error(
+            "MRTA: more than 1% of the equilibrium electron density has no valid transport rate. "
+            "Increase the kernel/rate energy window.");
+    }
+    if (missing_rate_fraction > 1.0e-4) {
+        fmt::print(stderr,
+                   "[warn] MRTA: {:.3e} of equilibrium electron density has no valid transport rate; "
+                   "consider increasing the energy window.\n",
+                   missing_rate_fraction);
+    }
 
     // 3) μ = σ / (n q)  (returns m^2/(V·s))
     const double    denom = n_e * q;
     Eigen::Matrix3d mu    = sigma / denom;
+    if (!mu.allFinite()) {
+        throw std::runtime_error("MRTA: computed mobility tensor is non-finite");
+    }
     return mu;
 }
 

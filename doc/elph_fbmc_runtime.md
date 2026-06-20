@@ -119,6 +119,13 @@ band selection, density, overlap model or BZ-domain convention does.
 The CSV is sparse: states with zero kernels are omitted. A missing row therefore
 means a zero kernel, not missing data.
 
+Newly generated kernel CSVs also receive a `<kernel>.meta.yaml` sidecar. It
+records the temperature, mesh size, carrier, band counts, energy window,
+BZ-domain convention, Wigner–Seitz radius, and phonon dispersion. The fitting
+script validates this metadata before starting. Older kernels without a
+sidecar remain usable, but their compatibility cannot be checked automatically
+and the fitter prints a warning.
+
 ### Energy window
 
 `-E` selects the carrier-energy range for which kernels are calculated.
@@ -247,7 +254,8 @@ values because low-field mobility does not constrain them reliably. Use
 `--evaluate-only` to evaluate the starting profile without optimization.
 
 The fitting directory contains `best.yaml`, a per-evaluation `history.csv`,
-and the complete `elph.epm` logs. High-field FBMC data should be used in a
+the complete `elph.epm` logs, and `run_manifest.json` with SHA-256 hashes of
+the mesh, profiles, and kernels. High-field FBMC data should be used in a
 separate second stage to fit the energy dependence and threshold.
 
 The fitter loads four valence bands by default because `elph.epm` solves the
@@ -450,6 +458,18 @@ The FBMC output directory also contains `run_info.txt`, which records the mesh,
 profiles, field, temperature, random seed and impact-ionization configuration.
 Keep this file with simulation results; it is the simplest runtime provenance
 record.
+
+For a nonzero electric field, each bulk FBMC run also prints and exports a
+rough single-run mobility:
+
+```text
+mobility = |mean velocity projected along the field| / |field|
+```
+
+The `observables.csv` columns include the projected drift velocity, signed
+mobility in m²/(V·s), and positive mobility magnitude in cm²/(V·s). This is a
+quick diagnostic only; use `python/FBMC/run_field_sweep.py` with several
+positive and negative low fields for a reliable zero-intercept mobility fit.
 
 ## Consistency checklist
 

@@ -22,6 +22,7 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "yaml-cpp/yaml.h"
 #include "BandStructure.h"
 #include "Options.h"
 #include "electron_phonon.hpp"
@@ -68,6 +69,43 @@ std::filesystem::path make_output_directory(const std::string& requested) {
         throw std::runtime_error(fmt::format("Output path is not a directory: {}", outdir.string()));
     }
     return outdir;
+}
+
+void write_kernel_metadata(const std::filesystem::path& kernel_file,
+                           const std::filesystem::path& mesh_file,
+                           const std::filesystem::path& phonon_parameter_file,
+                           const std::string&           material,
+                           const std::string&           carrier,
+                           int                          nb_conduction_bands,
+                           int                          nb_valence_bands,
+                           double                       temperature_K,
+                           double                       energy_window_eV,
+                           const std::string&           bz_domain) {
+    const YAML::Node profile = YAML::LoadFile(phonon_parameter_file.string());
+    YAML::Node       metadata;
+    metadata["schema_version"]          = 1;
+    metadata["model"]                   = "electron_phonon_kernel";
+    metadata["material"]                = material;
+    metadata["carrier"]                 = carrier;
+    metadata["mesh_file"]               = std::filesystem::absolute(mesh_file).lexically_normal().string();
+    metadata["mesh_size_bytes"]         = std::filesystem::file_size(mesh_file);
+    metadata["phonon_parameter_file"]   = std::filesystem::absolute(phonon_parameter_file).lexically_normal().string();
+    metadata["parameter_set"]           = profile["parameter_set"];
+    metadata["n_conduction_bands"]      = nb_conduction_bands;
+    metadata["n_valence_bands"]         = nb_valence_bands;
+    metadata["temperature_K"]           = temperature_K;
+    metadata["energy_window_eV"]        = energy_window_eV;
+    metadata["bz_domain"]               = bz_domain;
+    metadata["Radius-WS"]               = profile["Radius-WS"];
+    metadata["dispersion"]              = profile["dispersion"];
+
+    const auto metadata_file = std::filesystem::path(kernel_file.string() + ".meta.yaml");
+    std::ofstream stream(metadata_file);
+    if (!stream) {
+        throw std::runtime_error("Could not write kernel metadata file " + metadata_file.string());
+    }
+    stream << metadata;
+    fmt::print("Exported kernel metadata to {}\n", metadata_file.string());
 }
 
 }  // namespace
@@ -257,6 +295,10 @@ int main(int argc, char const* argv[]) {
     const std::string mesh_band_input_file      = arg_mesh_file.getValue();
     const std::string phonon_parameter_set      = arg_phonon_parameter_set.getValue();
     const bool        phonon_parameter_file_set = arg_phonon_parameter_file.isSet();
+    const std::filesystem::path phonon_parameter_file =
+        phonon_parameter_file_set
+            ? std::filesystem::path(arg_phonon_parameter_file.getValue())
+            : material_repository.parameter_file(arg_material.getValue(), "electron_phonon", phonon_parameter_set);
     const std::string carrier_name              = arg_carrier.getValue();
     const auto        carrier_type              = parse_carrier_type(carrier_name);
     const bool        shift_conduction_band     = true;
@@ -371,6 +413,16 @@ int main(int argc, char const* argv[]) {
         const std::string kernels_file = arg_kernels_output.isSet() ? arg_kernels_output.getValue()
                                                                     : (output_dir / "phonon_rate_kernels.csv").string();
         ElectronPhonon.export_rate_kernels(kernels_file);
+        write_kernel_metadata(kernels_file,
+                              mesh_band_input_file,
+                              phonon_parameter_file,
+                              my_options.materialName,
+                              carrier_name,
+                              nb_conduction_bands,
+                              nb_valence_bands,
+                              temperature,
+                              max_energy,
+                              bz_domain_name);
     }
     if (rates_only) {
         fmt::print("Completed requested phonon export workflow.\n");
@@ -390,6 +442,8 @@ int main(int argc, char const* argv[]) {
     fermi_options.threads           = my_options.nrThreads;
     fermi_options.use_interp        = false;        // use interpolation when computing DOS at given energy
     fermi_options.T_K               = temperature;  // temperature for Fermi-Dirac
+    fermi_options.dop.Nd_cm3        = 0.0;          // intrinsic phonon-limited mobility target
+    fermi_options.dop.Na_cm3        = 0.0;
     const bool use_iw               = !ElectronPhonon.stores_positive_octant();
     fermi_options.abs_max_energy_eV = 1.0;  // absolute max energy to consider (both conduction and valence)
 
@@ -410,7 +464,7 @@ int main(int argc, char const* argv[]) {
     constexpr double mu_to_cm2Vs = 1e4;  // m^2/(V·s) to cm^2/(V·s)
     Eigen::Matrix3d  M           = mu_tensor * mu_to_cm2Vs;
     fmt::print("\n\nAt T = {:.1f} K and EF = {:.6f} eV:\n\n", temperature, Ef);
-    fmt::print("μ_iso = {:.2f} cm^2/(V·s)\n\n", mu_iso * mu_to_cm2Vs);
+    fmt::print("μ_iso = {:.12e} cm^2/(V·s)\n\n", mu_iso * mu_to_cm2Vs);
     fmt::print("tensor = \n{} cm^2/(V*s)\n\n\n", fmt::streamed(M));
 
     double mean_energy = ElectronPhonon.mean_electron_energy_equilibrium(Ef, T, true);

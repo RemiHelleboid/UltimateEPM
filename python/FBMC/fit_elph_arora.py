@@ -16,6 +16,8 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
+import hashlib
+import json
 import math
 import os
 import re
@@ -113,6 +115,94 @@ def load_yaml(path: Path) -> dict:
     return config
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def validate_kernel_header(path: Path) -> None:
+    expected = [
+        "vertex_index",
+        "local_band_index",
+        "energy_eV",
+        "kernel_ac_L_ab",
+        "kernel_ac_T_ab",
+        "kernel_op_L_ab",
+        "kernel_op_T_ab",
+        "kernel_ac_L_em",
+        "kernel_ac_T_em",
+        "kernel_op_L_em",
+        "kernel_op_T_em",
+        "transport_kernel_ac",
+        "transport_kernel_op",
+    ]
+    with path.open("r", encoding="utf-8", newline="") as stream:
+        header = next(csv.reader(stream), None)
+    if header != expected:
+        raise ValueError(f"{path} does not have the expected electron-phonon kernel header")
+
+
+def normalize_numeric_tree(value):
+    if isinstance(value, dict):
+        return {key: normalize_numeric_tree(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [normalize_numeric_tree(item) for item in value]
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return value
+    return value
+
+
+def validate_kernel_metadata(
+    kernel: KernelInput,
+    args: argparse.Namespace,
+    base_config: dict,
+) -> dict | None:
+    metadata_path = Path(str(kernel.path) + ".meta.yaml")
+    if not metadata_path.is_file():
+        print(
+            f"warning: no metadata sidecar for {kernel.path}; temperature, dispersion, and mesh compatibility "
+            "cannot be verified",
+            flush=True,
+        )
+        return None
+    metadata = load_yaml(metadata_path)
+    checks = {
+        "model": "electron_phonon_kernel",
+        "material": args.material,
+        "carrier": "electron",
+        "n_conduction_bands": args.ncbands,
+        "n_valence_bands": args.nvbands,
+        "bz_domain": args.bz_domain,
+    }
+    for key, expected in checks.items():
+        if metadata.get(key) != expected:
+            raise ValueError(
+                f"Kernel metadata mismatch for {kernel.path}: {key}={metadata.get(key)!r}, expected {expected!r}"
+            )
+    if not math.isclose(float(metadata["temperature_K"]), kernel.temperature_K, rel_tol=0.0, abs_tol=1.0e-9):
+        raise ValueError(f"Kernel temperature metadata does not match --kernel label for {kernel.path}")
+    if not math.isclose(float(metadata["energy_window_eV"]), args.energy_window, rel_tol=1.0e-12, abs_tol=1.0e-12):
+        raise ValueError(f"Kernel energy window does not match --energy-window for {kernel.path}")
+    if int(metadata["mesh_size_bytes"]) != args.mesh.stat().st_size:
+        raise ValueError(f"Kernel mesh size metadata does not match --mesh for {kernel.path}")
+    if normalize_numeric_tree(metadata.get("dispersion")) != normalize_numeric_tree(base_config.get("dispersion")):
+        raise ValueError(f"Kernel phonon dispersion does not match --base-params for {kernel.path}")
+    if not math.isclose(
+        float(metadata["Radius-WS"]),
+        float(base_config["Radius-WS"]),
+        rel_tol=1.0e-12,
+        abs_tol=0.0,
+    ):
+        raise ValueError(f"Kernel Radius-WS does not match --base-params for {kernel.path}")
+    return metadata
+
+
 def parse_kernels(values: list[str]) -> list[KernelInput]:
     kernels: list[KernelInput] = []
     temperatures: set[float] = set()
@@ -129,6 +219,7 @@ def parse_kernels(values: list[str]) -> list[KernelInput]:
             raise ValueError(f"Duplicate kernel temperature: {temperature_K:g} K")
         if not path.is_file():
             raise FileNotFoundError(f"Kernel file not found: {path}")
+        validate_kernel_header(path)
         temperatures.add(temperature_K)
         kernels.append(KernelInput(temperature_K, path))
     return sorted(kernels, key=lambda item: item.temperature_K)
@@ -316,6 +407,8 @@ class Objective:
         self.best_loss = math.inf
         self.evaluation = 0
         self.cache: dict[tuple[float, ...], float] = {}
+        self.trial_profile.unlink(missing_ok=True)
+        self.best_profile.unlink(missing_ok=True)
 
         fieldnames = [
             "evaluation",
@@ -324,6 +417,8 @@ class Objective:
             "target_mobility_cm2_per_V_s",
             "model_mobility_cm2_per_V_s",
             "log_residual",
+            "data_loss",
+            "regularization_loss",
             "total_loss",
         ]
         with self.history_path.open("w", newline="", encoding="utf-8") as stream:
@@ -380,6 +475,8 @@ class Objective:
                 "target_mobility_cm2_per_V_s",
                 "model_mobility_cm2_per_V_s",
                 "log_residual",
+                "data_loss",
+                "regularization_loss",
                 "total_loss",
             ])
             for temperature, target, model, residual in rows:
@@ -391,6 +488,8 @@ class Objective:
                         "target_mobility_cm2_per_V_s": f"{target:.12g}",
                         "model_mobility_cm2_per_V_s": f"{model:.12g}",
                         "log_residual": f"{residual:.12g}",
+                        "data_loss": f"{data_loss:.12g}",
+                        "regularization_loss": f"{regularization:.12g}",
                         "total_loss": f"{loss:.12g}",
                     }
                 )
@@ -412,6 +511,11 @@ def main() -> int:
     args = parse_args()
     validate_args(args)
     kernels = parse_kernels(args.kernel)
+    if len(kernels) < len(args.fit):
+        raise ValueError(
+            f"{len(args.fit)} fitted parameters require at least {len(args.fit)} temperature kernels; "
+            f"received {len(kernels)}"
+        )
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     base_config = load_yaml(args.base_params)
@@ -422,6 +526,38 @@ def main() -> int:
         raise ValueError("Base profile is not an electron_phonon model")
     if arora_config.get("material") != args.material:
         raise ValueError("Arora profile material does not match --material")
+    if arora_config.get("model") != "arora_canali_mobility":
+        raise ValueError("Arora profile has an unexpected model identifier")
+    kernel_metadata = [validate_kernel_metadata(kernel, args, base_config) for kernel in kernels]
+
+    manifest = {
+        "executable": str(args.exe.resolve()),
+        "mesh": str(args.mesh.resolve()),
+        "mesh_sha256": sha256_file(args.mesh),
+        "base_params": str(args.base_params.resolve()),
+        "base_params_sha256": sha256_file(args.base_params),
+        "arora_params": str(args.arora_params.resolve()),
+        "arora_params_sha256": sha256_file(args.arora_params),
+        "material": args.material,
+        "ncbands": args.ncbands,
+        "nvbands": args.nvbands,
+        "energy_window_eV": args.energy_window,
+        "bz_domain": args.bz_domain,
+        "fit_parameters": args.fit,
+        "regularization": args.regularization,
+        "kernels": [
+            {
+                "temperature_K": kernel.temperature_K,
+                "path": str(kernel.path),
+                "sha256": sha256_file(kernel.path),
+                "metadata": metadata,
+            }
+            for kernel, metadata in zip(kernels, kernel_metadata, strict=True)
+        ],
+    }
+    with (args.output_dir / "run_manifest.json").open("w", encoding="utf-8") as stream:
+        json.dump(manifest, stream, indent=2)
+        stream.write("\n")
 
     baseline = base_strengths(base_config)
     for name, value in baseline.items():
