@@ -205,7 +205,9 @@ void particle::select_final_state_after_impact_ionization(double energy_threshol
         throw std::runtime_error(
             "select_final_state_after_impact_ionization: particle energy is below the ionization threshold");
     }
-    state.m_energy -= energy_threshold_eV;  // lose energy due to ionization
+    // Bulk FBMC currently follows only the incident carrier. The generated
+    // electron-hole pair is intentionally not added to the particle ensemble.
+    state.m_energy -= energy_threshold_eV;
     auto [k_final, idx_band_final] = m_mesh_bz->draw_random_k_point_at_energy(state.m_energy, m_random_generator);
     state.m_k_vector               = k_final;
     m_containing_bz_mesh_tetra     = m_mesh_bz->find_tetra_at_location(state.m_k_vector);

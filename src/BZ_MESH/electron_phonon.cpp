@@ -200,7 +200,7 @@ Rate8 ElectronPhonon::compute_electron_phonon_transition_rates_pair(std::size_t 
                 if (!(dos_eV > 0.0)) {
                     return;
                 }
-                const double Delta_J = defpot.get_deformation_potential(q, final_energy) * qe;
+                const double Delta_J = defpot.get_deformation_potential(q, Ei_eV) * qe;
                 const double pref    = (pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) * I2;
                 const double value = pref * bose_factor * (dos_eV / qe);
                 rates_n1k1_n2kT[rate_index(mode, dir, process)] += value;
@@ -327,7 +327,7 @@ RateValues ElectronPhonon::compute_hole_phonon_rate(std::size_t idx_n1, std::siz
                         const double dos_eV = tetra.compute_tetra_dos_energy_band(final_energy, idx_n2);
                         if (dos_eV > 0.0 && std::isfinite(dos_eV)) {
                             const double Delta_J =
-                                defpot.get_deformation_potential(q, final_energy) * uepm::constants::q_e;
+                                defpot.get_deformation_potential(q, Ei_eV) * uepm::constants::q_e;
                             const double prefactor = (uepm::constants::pi / (m_rho_kg_m3 * omega)) *
                                                      (Delta_J * Delta_J) * overlap2 / uepm::constants::q_e;
                             rates_k1_n1.add(mode, dir, process, prefactor * bose_factor * dos_eV);
@@ -582,7 +582,7 @@ SelectedFinalState ElectronPhonon::select_phonon_final_state(std::size_t     idx
                                                 k2_bary,
                                                 m_hole_overlap_int_params);
                 const double I2 = I * I;
-                const double Delta_J = defpot.get_deformation_potential(q, Ef_eV) * qe;
+                const double Delta_J = defpot.get_deformation_potential(q, Ei_eV) * qe;
                 const double dos_per_J = dos_eV / qe;
                 double P = (pi / (m_rho_kg_m3 * omega)) * (Delta_J * Delta_J) * I2 * bose * dos_per_J;
 

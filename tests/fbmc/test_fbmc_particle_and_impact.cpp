@@ -26,6 +26,26 @@ TEST_CASE("Keldysh impact ionization rejects invalid inputs") {
     CHECK_THROWS_AS(uepm::fbmc::KeldyshImpactIonization(1.0, 2.0, -1.0).compute_rate(2.0), std::invalid_argument);
 }
 
+TEST_CASE("Keldysh impact ionization loads explicit YAML parameters") {
+    const YAML::Node                    node = YAML::Load(R"(
+P0: 2.5e11
+alpha: 3.25
+energy_threshold: 1.4
+)");
+    uepm::fbmc::KeldyshImpactIonization model;
+    model.load_from_yaml(node);
+
+    CHECK(model.m_P0 == doctest::Approx(2.5e11));
+    CHECK(model.m_alpha == doctest::Approx(3.25));
+    CHECK(model.m_E_threshold == doctest::Approx(1.4));
+    CHECK(model.compute_rate(1.4) == doctest::Approx(0.0));
+}
+
+TEST_CASE("Keldysh impact ionization rejects incomplete YAML parameters") {
+    uepm::fbmc::KeldyshImpactIonization model;
+    CHECK_THROWS_AS(model.load_from_yaml(YAML::Load("P0: 1.0e11")), std::invalid_argument);
+}
+
 TEST_CASE("FBMC particle free-flight draw is reproducible and stores gamma") {
     uepm::fbmc::particle particle(7, uepm::fbmc::particle_type::electron, nullptr);
     particle.set_random_generator(std::mt19937(1234));

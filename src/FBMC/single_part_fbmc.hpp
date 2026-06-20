@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "electron_phonon.hpp"
+#include "keldysh_impactio.hpp"
 #include "particle.hpp"
 #include "vector_bz.hpp"
 
@@ -31,16 +32,17 @@ struct Bulk_environment {
 };
 
 struct Simulation_parameters {
-    double        m_simulation_time;
-    double        m_warmup_fraction               = 0.2;
-    std::size_t   m_nb_openmp_threads             = 1;
-    double        m_max_energy_eV                 = 10.0;
-    double        m_self_scattering_safety_factor = 1.2;
-    bool          m_enable_impact_ionization      = true;
-    bool          m_record_history                = false;
-    std::uint64_t m_random_seed                   = 1234;
-    std::string   m_history_export_prefix;
-    particle_type m_particle_type = particle_type::electron;
+    double                  m_simulation_time;
+    double                  m_warmup_fraction               = 0.2;
+    std::size_t             m_nb_openmp_threads             = 1;
+    double                  m_max_energy_eV                 = 10.0;
+    double                  m_self_scattering_safety_factor = 1.2;
+    bool                    m_enable_impact_ionization      = true;
+    KeldyshImpactIonization m_impact_ionization_model;
+    bool                    m_record_history = false;
+    std::uint64_t           m_random_seed    = 1234;
+    std::string             m_history_export_prefix;
+    particle_type           m_particle_type = particle_type::electron;
 };
 
 struct bulk_fbmc_simulation_config {
@@ -55,11 +57,12 @@ struct bulk_fbmc_simulation_config {
     double      m_self_scattering_safety_factor = 1.2;
     std::size_t m_nb_threads                    = 1;
 
-    bool          m_enable_impact_ionization = false;
-    bool          m_record_history           = false;
-    std::uint64_t m_random_seed              = 1234;
-    std::string   m_history_export_prefix;
-    particle_type m_particle_type = particle_type::electron;
+    bool                    m_enable_impact_ionization = false;
+    KeldyshImpactIonization m_impact_ionization_model;
+    bool                    m_record_history = false;
+    std::uint64_t           m_random_seed    = 1234;
+    std::string             m_history_export_prefix;
+    particle_type           m_particle_type = particle_type::electron;
 };
 
 struct impact_ionization_coefficient_statistics {

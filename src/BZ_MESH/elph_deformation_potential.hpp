@@ -32,15 +32,15 @@ struct DeformationPotential {
           B(B_),
           energy_threshold(thr) {}
 
-    double get_deformation_potential(const vector3& q, double energy_eV) const {
-        if (!std::isfinite(energy_eV)) {
-            throw std::invalid_argument("Deformation-potential energy must be finite");
+    double get_deformation_potential(const vector3& q, double initial_energy_eV) const {
+        if (!std::isfinite(initial_energy_eV)) {
+            throw std::invalid_argument("Deformation-potential initial carrier energy must be finite");
         }
         if (mode != PhononMode::acoustic && mode != PhononMode::optical) {
             throw std::logic_error("Deformation-potential phonon mode is not configured");
         }
 
-        const double effective_energy_eV = std::min(energy_eV, energy_threshold);
+        const double effective_energy_eV = std::min(initial_energy_eV, energy_threshold);
         const double squared_magnitude   = A + effective_energy_eV * B;
         if (!(squared_magnitude >= 0.0) || !std::isfinite(squared_magnitude)) {
             throw std::domain_error("Deformation-potential A + B*E is negative or non-finite");

@@ -29,7 +29,7 @@ using uepm::mesh_bz::Tetra;
 using uepm::mesh_bz::vector3;
 using uepm::mesh_bz::Vertex;
 
-TEST_CASE("YAML deformation-potential model uses energy and phonon mode") {
+TEST_CASE("YAML deformation-potential model uses initial carrier energy and phonon mode") {
     const vector3 q(3.0, 4.0, 0.0);
 
     const uepm::mesh_bz::DeformationPotential acoustic(

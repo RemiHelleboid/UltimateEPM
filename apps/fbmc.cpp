@@ -158,26 +158,28 @@ uepm::fbmc::particle_type parse_particle_type(const std::string& value) {
     throw std::invalid_argument("--carrier must be 'electron' or 'hole'");
 }
 
-void write_run_metadata(const std::filesystem::path&  outdir,
-                        const std::string&            mesh_file,
-                        const std::string&            rates_file,
-                        const std::string&            material,
-                        const std::string&            phonon_parameter_set,
-                        int                           nb_particles,
-                        int                           nb_threads,
-                        int                           nb_conduction_bands,
-                        int                           nb_valence_bands,
-                        double                        simulation_time,
-                        double                        temperature,
-                        const uepm::mesh_bz::vector3& electric_field_v_per_cm,
-                        double                        max_energy_eV,
-                        double                        gamma_safety,
-                        double                        warmup_fraction,
-                        std::string_view              bz_domain,
-                        std::string_view              carrier,
-                        std::uint64_t                 random_seed,
-                        bool                          enable_impact_ionization,
-                        bool                          export_history) {
+void write_run_metadata(const std::filesystem::path&               outdir,
+                        const std::string&                         mesh_file,
+                        const std::string&                         rates_file,
+                        const std::string&                         material,
+                        const std::string&                         phonon_parameter_set,
+                        const std::string&                         impact_ionization_parameter_set,
+                        int                                        nb_particles,
+                        int                                        nb_threads,
+                        int                                        nb_conduction_bands,
+                        int                                        nb_valence_bands,
+                        double                                     simulation_time,
+                        double                                     temperature,
+                        const uepm::mesh_bz::vector3&              electric_field_v_per_cm,
+                        double                                     max_energy_eV,
+                        double                                     gamma_safety,
+                        double                                     warmup_fraction,
+                        std::string_view                           bz_domain,
+                        std::string_view                           carrier,
+                        std::uint64_t                              random_seed,
+                        bool                                       enable_impact_ionization,
+                        const uepm::fbmc::KeldyshImpactIonization& impact_ionization_model,
+                        bool                                       export_history) {
     const auto    meta_file = outdir / "run_info.txt";
     std::ofstream os(meta_file);
     if (!os) {
@@ -186,6 +188,8 @@ void write_run_metadata(const std::filesystem::path&  outdir,
 
     os << "material = " << material << '\n';
     os << "phonon_parameter_set = " << phonon_parameter_set << '\n';
+    os << "impact_ionization_parameter_set = "
+       << (enable_impact_ionization ? impact_ionization_parameter_set : "disabled") << '\n';
     os << "mesh_file = " << mesh_file << '\n';
     os << "phonon_scattering_rates_file = " << rates_file << '\n';
     os << "n_particles = " << nb_particles << '\n';
@@ -204,6 +208,12 @@ void write_run_metadata(const std::filesystem::path&  outdir,
     os << "carrier = " << carrier << '\n';
     os << "random_seed = " << random_seed << '\n';
     os << "impact_ionization_enabled = " << (enable_impact_ionization ? "true" : "false") << '\n';
+    if (enable_impact_ionization) {
+        os << "impact_ionization_model = keldysh\n";
+        os << "impact_ionization_P0_s_1 = " << impact_ionization_model.m_P0 << '\n';
+        os << "impact_ionization_alpha = " << impact_ionization_model.m_alpha << '\n';
+        os << "impact_ionization_threshold_eV = " << impact_ionization_model.m_E_threshold << '\n';
+    }
     os << "export_history = " << (export_history ? "true" : "false") << '\n';
 }
 
@@ -238,6 +248,13 @@ int main(int argc, const char** argv) try {
                                                           false,
                                                           "remi-2026",
                                                           "string");
+    TCLAP::ValueArg<std::string> arg_impact_ionization_parameter_set(
+        "",
+        "impact-ionization-params",
+        "Impact-ionization parameter set used when --enable-impact-ionization is active.",
+        false,
+        "keldysh",
+        "string");
     TCLAP::ValueArg<std::string> arg_outputdir("d", "outdir", "Output directory for results", false, "", "string");
     TCLAP::ValueArg<std::string> arg_carrier("",
                                              "carrier",
@@ -271,13 +288,13 @@ int main(int argc, const char** argv) try {
                                                         0ULL,
                                                         "integer");
     TCLAP::ValueArg<std::string>        arg_bz_domain("",
-                                                      "bz-domain",
-                                                      "Stored BZ domain: full or octant.",
-                                                      false,
-                                                      "full",
-                                                      "string");
+                                               "bz-domain",
+                                               "Stored BZ domain: full or octant.",
+                                               false,
+                                               "full",
+                                               "string");
     TCLAP::ValueArg<double>             arg_time("t", "time", "Simulation time (s)", false, 1e-12, "double");
-    TCLAP::ValueArg<double> arg_warmup_fraction("",
+    TCLAP::ValueArg<double>             arg_warmup_fraction("",
                                                 "warmup",
                                                 "Fraction of simulation time ignored for steady-state averages.",
                                                 false,
@@ -332,6 +349,7 @@ int main(int argc, const char** argv) try {
     cmd.add(arg_phonon_file);
     cmd.add(arg_material);
     cmd.add(arg_phonon_parameter_set);
+    cmd.add(arg_impact_ionization_parameter_set);
     cmd.add(arg_outputdir);
     cmd.add(arg_carrier);
     cmd.add(arg_nb_part);
@@ -351,13 +369,14 @@ int main(int argc, const char** argv) try {
 
     cmd.parse(argc, argv);
 
-    const std::filesystem::path file_mesh              = arg_mesh_file.getValue();
-    std::filesystem::path       file_phonon_scattering = arg_phonon_file.getValue();
-    const std::string           material_symbol        = arg_material.getValue();
-    const std::string           phonon_parameter_set   = arg_phonon_parameter_set.getValue();
-    const std::string           init_output_directory  = arg_outputdir.getValue();
-    const std::string           carrier_name           = arg_carrier.getValue();
-    const auto                  carrier_type           = parse_particle_type(carrier_name);
+    const std::filesystem::path file_mesh                       = arg_mesh_file.getValue();
+    std::filesystem::path       file_phonon_scattering          = arg_phonon_file.getValue();
+    const std::string           material_symbol                 = arg_material.getValue();
+    const std::string           phonon_parameter_set            = arg_phonon_parameter_set.getValue();
+    const std::string           impact_ionization_parameter_set = arg_impact_ionization_parameter_set.getValue();
+    const std::string           init_output_directory           = arg_outputdir.getValue();
+    const std::string           carrier_name                    = arg_carrier.getValue();
+    const auto                  carrier_type                    = parse_particle_type(carrier_name);
 
     const int nb_threads          = arg_nb_threads.getValue();
     const int nb_valence_bands    = arg_nb_valence_bands.getValue();
@@ -435,6 +454,18 @@ int main(int argc, const char** argv) try {
     }
     require_existing_file(file_phonon_scattering, "Phonon scattering-rate file");
 
+    const uepm::physics::material_repository material_repository;
+    uepm::fbmc::KeldyshImpactIonization      impact_ionization_model;
+    if (enable_impact_ionization) {
+        impact_ionization_model = uepm::fbmc::load_keldysh_impact_ionization(material_repository,
+                                                                             material_symbol,
+                                                                             impact_ionization_parameter_set);
+        fmt::print("Loaded Keldysh impact ionization: P0={:.6e} s^-1, alpha={:.6g}, threshold={:.6g} eV\n",
+                   impact_ionization_model.m_P0,
+                   impact_ionization_model.m_alpha,
+                   impact_ionization_model.m_E_threshold);
+    }
+
     const auto output_dir =
         make_output_directory(init_output_directory, material_symbol, temperature_K, electric_field_V_per_cm);
 
@@ -443,6 +474,7 @@ int main(int argc, const char** argv) try {
                        file_phonon_scattering.string(),
                        material_symbol,
                        phonon_parameter_set,
+                       impact_ionization_parameter_set,
                        nb_particles,
                        nb_threads,
                        nb_conduction_bands,
@@ -457,6 +489,7 @@ int main(int argc, const char** argv) try {
                        carrier_name,
                        random_seed,
                        enable_impact_ionization,
+                       impact_ionization_model,
                        export_history);
 
     if (arg_plot_with_python.getValue()) {
@@ -466,8 +499,7 @@ int main(int argc, const char** argv) try {
         fmt::print(stderr, "[warn] --wedge is parsed but not wired in this executable yet.\n");
     }
 
-    uepm::pseudopotential::Materials         materials;
-    const uepm::physics::material_repository material_repository;
+    uepm::pseudopotential::Materials materials;
     materials.load_material(material_repository, material_symbol, "chel");
     const uepm::pseudopotential::epm_material current_material = materials.materials.at(material_symbol);
 
@@ -532,6 +564,7 @@ int main(int argc, const char** argv) try {
     config.m_self_scattering_safety_factor = gamma_safety;
     config.m_nb_threads                    = static_cast<std::size_t>(nb_threads);
     config.m_enable_impact_ionization      = enable_impact_ionization;
+    config.m_impact_ionization_model       = impact_ionization_model;
     config.m_record_history                = export_history;
     config.m_random_seed                   = random_seed;
     config.m_particle_type                 = carrier_type;

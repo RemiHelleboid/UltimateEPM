@@ -60,9 +60,9 @@ uepm::mesh_bz::MeshParticleType mesh_particle_type(particle_type type) {
 }
 
 std::pair<vector3, std::size_t> draw_carrier_state_at_energy(uepm::mesh_bz::ElectronPhonon& mesh,
-                                                             particle_type                    type,
-                                                             double                           energy_eV,
-                                                             std::mt19937&                    rng) {
+                                                             particle_type                  type,
+                                                             double                         energy_eV,
+                                                             std::mt19937&                  rng) {
     std::vector<std::size_t> candidate_bands;
     std::vector<double>      weights;
     for (const std::size_t band : mesh.get_band_indices(mesh_particle_type(type))) {
@@ -80,7 +80,7 @@ std::pair<vector3, std::size_t> draw_carrier_state_at_energy(uepm::mesh_bz::Elec
         throw std::runtime_error("No carrier band has non-zero DOS at the requested energy");
     }
     std::discrete_distribution<std::size_t> band_distribution(weights.begin(), weights.end());
-    const std::size_t band = candidate_bands[band_distribution(rng)];
+    const std::size_t                       band = candidate_bands[band_distribution(rng)];
     return {mesh.draw_random_k_point_at_energy(energy_eV, band, rng), band};
 }
 
@@ -155,7 +155,7 @@ Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPh
                 continue;
             }
             try {
-                auto [initial_k, initial_band] = draw_carrier_state_at_energy(*m_ptr_mesh_bz,
+                auto [initial_k, initial_band]        = draw_carrier_state_at_energy(*m_ptr_mesh_bz,
                                                                               current_particle.get_type(),
                                                                               thermal_energy,
                                                                               current_particle.get_random_generator());
@@ -203,6 +203,7 @@ Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPh
                                 .m_max_energy_eV                 = config.m_max_energy_eV,
                                 .m_self_scattering_safety_factor = config.m_self_scattering_safety_factor,
                                 .m_enable_impact_ionization      = config.m_enable_impact_ionization,
+                                .m_impact_ionization_model       = config.m_impact_ionization_model,
                                 .m_record_history                = config.m_record_history,
                                 .m_random_seed                   = config.m_random_seed,
                                 .m_history_export_prefix         = config.m_history_export_prefix,
@@ -218,8 +219,8 @@ void Single_particle_simulation::run_simulation() {
         throw std::runtime_error("Invalid maximum carrier-phonon scattering rate");
     }
 
-    KeldyshImpactIonization keldysh_impactio;
-    const double            p_gamma_impact =
+    const KeldyshImpactIonization& keldysh_impactio = m_sim_params.m_impact_ionization_model;
+    const double                   p_gamma_impact =
         m_sim_params.m_enable_impact_ionization ? keldysh_impactio.compute_rate(m_sim_params.m_max_energy_eV) : 0.0;
     if (!(p_gamma_impact >= 0.0) || !std::isfinite(p_gamma_impact)) {
         throw std::runtime_error("Invalid maximum impact-ionization scattering rate");

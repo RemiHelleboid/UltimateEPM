@@ -11,25 +11,23 @@
 #pragma once
 
 #include <cmath>
+#include <limits>
 #include <stdexcept>
+#include <string>
 
+#include "materials.hpp"
 #include "yaml-cpp/yaml.h"
 
 namespace uepm::fbmc {
 
 /**
  * @brief Keldysh impact ionization model.
- * Filled with typical parameters for Si [Kamakura, 1994], but can be adapted for other materials.
- *
+ * Parameters are loaded from the selected material impact-ionization YAML profile.
  */
 struct KeldyshImpactIonization {
-    static constexpr double default_P0_s_1             = 1.0e11;
-    static constexpr double default_alpha              = 4.6;
-    static constexpr double default_energy_threshold_eV = 1.1;
-
-    double m_P0          = default_P0_s_1;              // Pre-exponential factor (1/s)
-    double m_alpha       = default_alpha;               // Exponent
-    double m_E_threshold = default_energy_threshold_eV;  // Threshold energy for impact ionization (eV)
+    double m_P0          = std::numeric_limits<double>::quiet_NaN();  // Pre-exponential factor (1/s)
+    double m_alpha       = std::numeric_limits<double>::quiet_NaN();  // Exponent
+    double m_E_threshold = std::numeric_limits<double>::quiet_NaN();  // Threshold energy (eV)
 
     KeldyshImpactIonization() = default;
     KeldyshImpactIonization(double P0, double alpha, double E_threshold)
@@ -38,6 +36,13 @@ struct KeldyshImpactIonization {
           m_E_threshold(E_threshold) {}
 
     void load_from_yaml(const YAML::Node& node) {
+        if (!node || !node.IsMap()) {
+            throw std::invalid_argument("Keldysh impact-ionization configuration must be a map");
+        }
+        if (!node["P0"] || !node["alpha"] || !node["energy_threshold"]) {
+            throw std::invalid_argument(
+                "Keldysh impact-ionization configuration requires P0, alpha, and energy_threshold");
+        }
         m_P0          = node["P0"].as<double>();
         m_alpha       = node["alpha"].as<double>();
         m_E_threshold = node["energy_threshold"].as<double>();
@@ -68,5 +73,27 @@ struct KeldyshImpactIonization {
         }
     }
 };
+
+inline KeldyshImpactIonization load_keldysh_impact_ionization(const uepm::physics::material_repository& repository,
+                                                              const std::string&                        material_symbol,
+                                                              const std::string&                        parameter_set) {
+    const auto filename = repository.parameter_file(material_symbol, "impact_ionization", parameter_set);
+    const auto config   = YAML::LoadFile(filename.string());
+    if (!config || !config.IsMap() || !config["material"] || !config["model"] || !config["parameter_set"] ||
+        config["material"].as<std::string>() != material_symbol ||
+        config["model"].as<std::string>() != "impact_ionization" ||
+        config["parameter_set"].as<std::string>() != parameter_set) {
+        throw std::runtime_error("Invalid impact-ionization parameter file '" + filename.string() + "'.");
+    }
+
+    KeldyshImpactIonization result;
+    try {
+        result.load_from_yaml(config);
+    } catch (const std::exception& error) {
+        throw std::runtime_error("Invalid Keldysh impact-ionization configuration in '" + filename.string() +
+                                 "': " + error.what());
+    }
+    return result;
+}
 
 }  // namespace uepm::fbmc
