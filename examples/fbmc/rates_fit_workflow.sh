@@ -21,7 +21,7 @@ HIGH_FIELD_WINDOW_EV=10.0
 
 # Generate the Brillouin-zone mesh and compute its band structure.
 if [[ ! -f bz.msh ]]; then
-  bz_meshing.epm --level 0 --mesh 0.1 -o bz.msh
+  bz_meshing.epm --level 0 --mesh 0.1 -o bz.msh --no-gui
   BandsOnBZ \
     -f bz.msh \
     -m Si \
