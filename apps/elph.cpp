@@ -234,6 +234,10 @@ int main(int argc, char const* argv[]) {
                                     "rates-only",
                                     "Stop after exporting rates/kernels; skip diagnostics, mobility, and plotting.",
                                     false);
+    TCLAP::SwitchArg arg_skip_mesh_vtk("",
+                                       "skip-mesh-vtk",
+                                       "Do not export the static BZ mesh VTK file.",
+                                       false);
     TCLAP::SwitchArg plot_with_python("p",
                                       "plot",
                                       "Call a python script after the computation to plot the band structure.",
@@ -271,6 +275,7 @@ int main(int argc, char const* argv[]) {
     cmd.add(arg_export_rates);
     cmd.add(arg_export_kernels);
     cmd.add(arg_rates_only);
+    cmd.add(arg_skip_mesh_vtk);
     cmd.add(arg_phonon_rates);
     cmd.add(arg_band_gap);
     cmd.parse(argc, argv);
@@ -306,6 +311,7 @@ int main(int argc, char const* argv[]) {
     const bool        export_rates              = arg_export_rates.getValue();
     const bool        export_kernels            = arg_export_kernels.getValue();
     const bool        rates_only                = arg_rates_only.getValue();
+    const bool        skip_mesh_vtk             = arg_skip_mesh_vtk.getValue();
     bool              phonon_rates_provided     = arg_phonon_rates.isSet();
     const bool        kernel_file_provided      = arg_kernel_file.isSet();
     std::string       phonon_rates_file         = "";
@@ -361,7 +367,7 @@ int main(int argc, char const* argv[]) {
                                                  shift_conduction_band,
                                                  set_positive_valence_band);
     const std::string vtk_file = (output_dir / "mesh_vtk.vtk").string();
-    if (!std::filesystem::exists(vtk_file)) {
+    if (!skip_mesh_vtk && !std::filesystem::exists(vtk_file)) {
         ElectronPhonon.export_energies_and_gradients_to_vtk(vtk_file);
     }
 

@@ -362,6 +362,7 @@ def run_elph(
         args.bz_domain,
         "--kernel-file",
         str(kernel.path),
+        "--skip-mesh-vtk",
         "--outdir",
         str(run_dir.resolve()),
     ]

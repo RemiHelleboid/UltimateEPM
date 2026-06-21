@@ -258,6 +258,7 @@ void Single_particle_simulation::run_simulation() {
     double                   max_observed_total_rate      = 0.0;
     double                   max_observed_energy_eV       = 0.0;
     std::exception_ptr       parallel_exception;
+    std::atomic<bool>        abort_requested{false};
     std::atomic<std::size_t> completed_particles{0};
     std::atomic<int>         last_reported_progress_bucket{0};
     const auto               simulation_start = std::chrono::steady_clock::now();
@@ -275,11 +276,15 @@ void Single_particle_simulation::run_simulation() {
                   reduced_ii_velocity_integral) reduction(max : max_observed_total_rate, \
                                                                  max_observed_energy_eV)
     for (std::size_t idx = 0; idx < m_list_particle.size(); ++idx) {
+        if (abort_requested.load(std::memory_order_relaxed)) {
+            continue;
+        }
         try {
             auto&                                  current_particle = m_list_particle[idx];
             std::uniform_real_distribution<double> U01(0.0, 1.0);
 
-            while (current_particle.state().m_time < final_time_s) {
+            while (current_particle.state().m_time < final_time_s &&
+                   !abort_requested.load(std::memory_order_relaxed)) {
                 const double time_before_flight = current_particle.state().m_time;
                 current_particle.draw_free_flight_time(m_gamma_max_s_1);
 
@@ -309,9 +314,14 @@ void Single_particle_simulation::run_simulation() {
                 max_observed_energy_eV =
                     std::max(max_observed_energy_eV, current_particle.state().m_energy);
                 if (current_particle.state().m_energy > m_sim_params.m_max_energy_eV) {
-                    throw std::runtime_error(
-                        "FBMC carrier energy exceeded --maxenergy. Generate rates over a larger energy window "
-                        "and increase --maxenergy.");
+                    throw std::runtime_error(fmt::format(
+                        "FBMC carrier {} reached {:.6f} eV at {:.6e} s, exceeding --maxenergy={:.6f} eV. "
+                        "The run is invalid because phonon rates are not guaranteed above this limit; "
+                        "energy was not clamped and rates were not extrapolated.",
+                        current_particle.get_index(),
+                        current_particle.state().m_energy,
+                        current_particle.state().m_time,
+                        m_sim_params.m_max_energy_eV));
                 }
 
                 const vector3 velocity_after_flight = current_particle.state().m_velocity;
@@ -448,10 +458,18 @@ void Single_particle_simulation::run_simulation() {
                            elapsed_s);
             }
         } catch (...) {
+            abort_requested.store(true, std::memory_order_relaxed);
 #pragma omp critical(fbmc_parallel_exception)
             {
                 if (parallel_exception == nullptr) {
                     parallel_exception = std::current_exception();
+                    try {
+                        std::rethrow_exception(parallel_exception);
+                    } catch (const std::exception& error) {
+                        fmt::print(stderr, "[warn] {}\n", error.what());
+                    } catch (...) {
+                        fmt::print(stderr, "[warn] FBMC aborted because a particle simulation failed.\n");
+                    }
                 }
             }
         }
