@@ -95,6 +95,7 @@ class Single_particle_simulation {
     bulk_observables                         m_observables;
     impact_ionization_coefficient_statistics m_impact_ionization_statistics;
     double                                   m_gamma_max_s_1 = 0.0;
+    std::size_t                              m_discarded_carriers_over_max_energy = 0;
 
  public:
     Single_particle_simulation(uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz,
@@ -115,6 +116,9 @@ class Single_particle_simulation {
     const bulk_observables&                         observables() const noexcept { return m_observables; }
     const impact_ionization_coefficient_statistics& impact_ionization_statistics() const noexcept {
         return m_impact_ionization_statistics;
+    }
+    std::size_t discarded_carriers_over_max_energy() const noexcept {
+        return m_discarded_carriers_over_max_energy;
     }
     double gamma_max() const noexcept { return m_gamma_max_s_1; }
 };

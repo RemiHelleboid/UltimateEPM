@@ -246,6 +246,7 @@ void Single_particle_simulation::run_simulation() {
     m_observables                          = {};
     m_observables.m_electric_field_V_per_m = field_norm;
     m_impact_ionization_statistics         = {};
+    m_discarded_carriers_over_max_energy   = 0;
 
     double                   reduced_weighted_velocity_x  = 0.0;
     double                   reduced_weighted_velocity_y  = 0.0;
@@ -259,6 +260,7 @@ void Single_particle_simulation::run_simulation() {
     double                   max_observed_energy_eV       = 0.0;
     std::exception_ptr       parallel_exception;
     std::atomic<bool>        abort_requested{false};
+    std::atomic<std::size_t> discarded_carriers_over_max_energy{0};
     std::atomic<std::size_t> completed_particles{0};
     std::atomic<int>         last_reported_progress_bucket{0};
     const auto               simulation_start = std::chrono::steady_clock::now();
@@ -314,14 +316,19 @@ void Single_particle_simulation::run_simulation() {
                 max_observed_energy_eV =
                     std::max(max_observed_energy_eV, current_particle.state().m_energy);
                 if (current_particle.state().m_energy > m_sim_params.m_max_energy_eV) {
-                    throw std::runtime_error(fmt::format(
-                        "FBMC carrier {} reached {:.6f} eV at {:.6e} s, exceeding --maxenergy={:.6f} eV. "
-                        "The run is invalid because phonon rates are not guaranteed above this limit; "
-                        "energy was not clamped and rates were not extrapolated.",
-                        current_particle.get_index(),
-                        current_particle.state().m_energy,
-                        current_particle.state().m_time,
-                        m_sim_params.m_max_energy_eV));
+                    discarded_carriers_over_max_energy.fetch_add(1, std::memory_order_relaxed);
+#pragma omp critical(fbmc_energy_limit_warning)
+                    {
+                        fmt::print(stderr,
+                                   "[warn] Discarding FBMC carrier {} after it reached {:.6f} eV at {:.6e} s, "
+                                   "exceeding --maxenergy={:.6f} eV. Energy was not clamped and rates were not "
+                                   "extrapolated; the run will continue but its observables are incomplete.\n",
+                                   current_particle.get_index(),
+                                   current_particle.state().m_energy,
+                                   current_particle.state().m_time,
+                                   m_sim_params.m_max_energy_eV);
+                    }
+                    break;
                 }
 
                 const vector3 velocity_after_flight = current_particle.state().m_velocity;
@@ -487,6 +494,8 @@ void Single_particle_simulation::run_simulation() {
     m_impact_ionization_statistics.m_events                         = reduced_ii_events;
     m_impact_ionization_statistics.m_carrier_time_s                 = reduced_ii_carrier_time;
     m_impact_ionization_statistics.m_drift_velocity_time_integral_m = reduced_ii_velocity_integral;
+    m_discarded_carriers_over_max_energy =
+        discarded_carriers_over_max_energy.load(std::memory_order_relaxed);
 
     if (!(m_observables.m_accumulated_time_s > 0.0)) {
         throw std::runtime_error("No FBMC steady-state samples were accumulated");
@@ -495,6 +504,13 @@ void Single_particle_simulation::run_simulation() {
     fmt::print("Completed self-scattering FBMC run with {} particles\n", m_list_particle.size());
     fmt::print("Maximum observed total scattering rate: {:.6e} s^-1\n", max_observed_total_rate);
     fmt::print("Maximum observed carrier energy: {:.6e} eV\n", max_observed_energy_eV);
+    if (m_discarded_carriers_over_max_energy > 0) {
+        fmt::print(stderr,
+                   "[warn] FBMC completed with {} of {} carriers discarded above --maxenergy. "
+                   "Reported observables are incomplete and should be treated as diagnostic only.\n",
+                   m_discarded_carriers_over_max_energy,
+                   m_list_particle.size());
+    }
     fmt::print("Steady-state average velocity: ({:.6e}, {:.6e}, {:.6e}) m/s\n",
                m_observables.m_weighted_velocity_x_m / m_observables.m_accumulated_time_s,
                m_observables.m_weighted_velocity_y_m / m_observables.m_accumulated_time_s,
@@ -561,11 +577,13 @@ void Single_particle_simulation::export_observables_to_csv(const std::string& fi
             "impact_ionization_events,"
             "impact_ionization_rate_per_carrier_s_1,"
             "impact_ionization_drift_velocity_m_per_s,"
-            "impact_ionization_coefficient_cm_1\n";
+            "impact_ionization_coefficient_cm_1,"
+            "discarded_carriers_over_max_energy,"
+            "run_complete\n";
 
     const double carrier_charge_C =
         m_sim_params.m_particle_type == particle_type::electron ? -uepm::constants::q_e : uepm::constants::q_e;
-    file << fmt::format("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+    file << fmt::format("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
                         carrier_charge_C,
                         m_bulk_env.m_temperature,
                         m_observables.m_electric_field_V_per_m,
@@ -581,7 +599,9 @@ void Single_particle_simulation::export_observables_to_csv(const std::string& fi
                         m_impact_ionization_statistics.m_events,
                         m_impact_ionization_statistics.event_rate_per_carrier_s_1(),
                         m_impact_ionization_statistics.average_drift_velocity_m_per_s(),
-                        m_impact_ionization_statistics.ionization_coefficient_cm_1());
+                        m_impact_ionization_statistics.ionization_coefficient_cm_1(),
+                        m_discarded_carriers_over_max_energy,
+                        m_discarded_carriers_over_max_energy == 0 ? 1 : 0);
     fmt::print("Exported FBMC observables to {}\n", filename);
 }
 

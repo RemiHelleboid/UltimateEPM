@@ -328,10 +328,21 @@ def read_stats_row(path: Path) -> dict[str, float]:
     if ionization_column == "impact_ionization_coefficient_cm_1":
         ionization_value *= 100.0
 
+    discarded_carriers = int(float(row.get("discarded_carriers_over_max_energy", 0)))
+    run_complete = bool(int(float(row.get("run_complete", 1))))
+    if discarded_carriers > 0:
+        print(
+            f"Warning: {path} discarded {discarded_carriers} carrier(s) above --max-energy; "
+            "this field point is incomplete.",
+            flush=True,
+        )
+
     return {
         "mean_energy_eV": float(row[energy_column]),
         "mean_velocity_x_m_per_s": float(row[velocity_column]),
         "mean_ionization_coeff_1_per_m": ionization_value,
+        "discarded_carriers_over_max_energy": discarded_carriers,
+        "run_complete": run_complete,
     }
 
 
@@ -369,6 +380,8 @@ def build_sweep_dataframe(args: argparse.Namespace) -> pd.DataFrame:
                 "mean_energy_eV": stats["mean_energy_eV"],
                 "mean_ionization_coeff_1_per_m": stats["mean_ionization_coeff_1_per_m"],
                 "mean_ionization_coeff_cm_1": stats["mean_ionization_coeff_1_per_m"] / 100.0,
+                "discarded_carriers_over_max_energy": stats["discarded_carriers_over_max_energy"],
+                "run_complete": stats["run_complete"],
                 "runtime_s": elapsed,
                 "stats_file": str(stats_file),
             }
