@@ -129,10 +129,12 @@ TEST_CASE("FBMC bulk impact-ionization statistics use carrier time and cm^-1 out
     stats.m_events                         = 20;
     stats.m_carrier_time_s                 = 2.0e-9;
     stats.m_drift_velocity_time_integral_m = 4.0e-4;
+    stats.m_endpoint_displacement_m        = 2.0e-4;
 
     CHECK(stats.event_rate_per_carrier_s_1() == doctest::Approx(1.0e10));
     CHECK(stats.average_drift_velocity_m_per_s() == doctest::Approx(2.0e5));
     CHECK(stats.ionization_coefficient_cm_1() == doctest::Approx(500.0));
+    CHECK(stats.endpoint_displacement_coefficient_cm_1() == doctest::Approx(1000.0));
 }
 
 TEST_CASE("FBMC bulk impact-ionization statistics are safe without samples") {
@@ -141,4 +143,5 @@ TEST_CASE("FBMC bulk impact-ionization statistics are safe without samples") {
     CHECK(stats.event_rate_per_carrier_s_1() == doctest::Approx(0.0));
     CHECK(stats.average_drift_velocity_m_per_s() == doctest::Approx(0.0));
     CHECK(stats.ionization_coefficient_cm_1() == doctest::Approx(0.0));
+    CHECK(stats.endpoint_displacement_coefficient_cm_1() == doctest::Approx(0.0));
 }

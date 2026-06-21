@@ -99,6 +99,11 @@ double impact_ionization_coefficient_statistics::ionization_coefficient_cm_1() c
     return drift_velocity_cm_per_s > 0.0 ? event_rate_per_carrier_s_1() / drift_velocity_cm_per_s : 0.0;
 }
 
+double impact_ionization_coefficient_statistics::endpoint_displacement_coefficient_cm_1() const {
+    const double endpoint_displacement_cm = m_endpoint_displacement_m * 1.0e2;
+    return endpoint_displacement_cm > 0.0 ? static_cast<double>(m_events) / endpoint_displacement_cm : 0.0;
+}
+
 Single_particle_simulation::Single_particle_simulation(uepm::mesh_bz::ElectronPhonon* ptr_mesh_bz,
                                                        const Bulk_environment&        bulk_env,
                                                        const Simulation_parameters&   sim_params,
@@ -256,6 +261,7 @@ void Single_particle_simulation::run_simulation() {
     std::size_t              reduced_ii_events            = 0;
     double                   reduced_ii_carrier_time      = 0.0;
     double                   reduced_ii_velocity_integral = 0.0;
+    double                   reduced_ii_endpoint_displacement = 0.0;
     double                   max_observed_total_rate      = 0.0;
     double                   max_observed_energy_eV       = 0.0;
     std::exception_ptr       parallel_exception;
@@ -275,8 +281,9 @@ void Single_particle_simulation::run_simulation() {
                   reduced_accumulated_time,                                              \
                   reduced_ii_events,                                                     \
                   reduced_ii_carrier_time,                                               \
-                  reduced_ii_velocity_integral) reduction(max : max_observed_total_rate, \
-                                                                 max_observed_energy_eV)
+                  reduced_ii_velocity_integral,                                           \
+                  reduced_ii_endpoint_displacement) reduction(max : max_observed_total_rate, \
+                                                                      max_observed_energy_eV)
     for (std::size_t idx = 0; idx < m_list_particle.size(); ++idx) {
         if (abort_requested.load(std::memory_order_relaxed)) {
             continue;
@@ -284,6 +291,7 @@ void Single_particle_simulation::run_simulation() {
         try {
             auto&                                  current_particle = m_list_particle[idx];
             std::uniform_real_distribution<double> U01(0.0, 1.0);
+            vector3                                sampled_displacement{0.0, 0.0, 0.0};
 
             while (current_particle.state().m_time < final_time_s &&
                    !abort_requested.load(std::memory_order_relaxed)) {
@@ -363,6 +371,7 @@ void Single_particle_simulation::run_simulation() {
                     reduced_weighted_energy += mean_energy_sample * sampled_dt_after_warmup;
                     reduced_accumulated_time += sampled_dt_after_warmup;
                     reduced_ii_carrier_time += sampled_dt_after_warmup;
+                    sampled_displacement += mean_velocity_sample * sampled_dt_after_warmup;
                     if (field_norm > 0.0) {
                         reduced_ii_velocity_integral +=
                             0.5 *
@@ -441,6 +450,7 @@ void Single_particle_simulation::run_simulation() {
                     current_particle.update_history();
                 }
             }
+            reduced_ii_endpoint_displacement += sampled_displacement.norm();
 
             if (m_sim_params.m_record_history && !m_sim_params.m_history_export_prefix.empty()) {
                 const std::string history_filename = fmt::format("{}_particle_{}.csv",
@@ -494,6 +504,8 @@ void Single_particle_simulation::run_simulation() {
     m_impact_ionization_statistics.m_events                         = reduced_ii_events;
     m_impact_ionization_statistics.m_carrier_time_s                 = reduced_ii_carrier_time;
     m_impact_ionization_statistics.m_drift_velocity_time_integral_m = reduced_ii_velocity_integral;
+    m_impact_ionization_statistics.m_endpoint_displacement_m =
+        reduced_ii_endpoint_displacement;
     m_discarded_carriers_over_max_energy =
         discarded_carriers_over_max_energy.load(std::memory_order_relaxed);
 
@@ -535,6 +547,8 @@ void Single_particle_simulation::run_simulation() {
     }
     fmt::print("Impact ionization coefficient: {:.6e} cm^-1\n",
                m_impact_ionization_statistics.ionization_coefficient_cm_1());
+    fmt::print("Impact ionization coefficient from endpoint displacement: {:.6e} cm^-1\n",
+               m_impact_ionization_statistics.endpoint_displacement_coefficient_cm_1());
 }
 
 void Single_particle_simulation::extract_stats_and_export(const std::string& filename) {
@@ -578,12 +592,14 @@ void Single_particle_simulation::export_observables_to_csv(const std::string& fi
             "impact_ionization_rate_per_carrier_s_1,"
             "impact_ionization_drift_velocity_m_per_s,"
             "impact_ionization_coefficient_cm_1,"
+            "impact_ionization_endpoint_displacement_m,"
+            "impact_ionization_endpoint_displacement_coefficient_cm_1,"
             "discarded_carriers_over_max_energy,"
             "run_complete\n";
 
     const double carrier_charge_C =
         m_sim_params.m_particle_type == particle_type::electron ? -uepm::constants::q_e : uepm::constants::q_e;
-    file << fmt::format("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+    file << fmt::format("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
                         carrier_charge_C,
                         m_bulk_env.m_temperature,
                         m_observables.m_electric_field_V_per_m,
@@ -600,6 +616,8 @@ void Single_particle_simulation::export_observables_to_csv(const std::string& fi
                         m_impact_ionization_statistics.event_rate_per_carrier_s_1(),
                         m_impact_ionization_statistics.average_drift_velocity_m_per_s(),
                         m_impact_ionization_statistics.ionization_coefficient_cm_1(),
+                        m_impact_ionization_statistics.m_endpoint_displacement_m,
+                        m_impact_ionization_statistics.endpoint_displacement_coefficient_cm_1(),
                         m_discarded_carriers_over_max_energy,
                         m_discarded_carriers_over_max_energy == 0 ? 1 : 0);
     fmt::print("Exported FBMC observables to {}\n", filename);

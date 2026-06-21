@@ -138,6 +138,12 @@ Use a window large enough for both:
 A small window is useful for quick validation, but a production FBMC run can
 leave that range under a strong field.
 
+`fbmc.epm --maxenergy` is a strict validity boundary for the supplied rate
+data. FBMC does not clamp carrier energies and does not extrapolate rates above
+this boundary. If a carrier exceeds it, that carrier is discarded, a warning
+is printed, and the remaining ensemble continues. The resulting observables
+are marked incomplete.
+
 ### Temperature
 
 Temperature is part of the kernel because phonon occupation depends on it.
@@ -330,7 +336,9 @@ The two energy requirements are intentionally different:
 
 The high-field fitter rejects a requested FBMC `--max-energy` larger than the
 kernel metadata window. It does not require the low-field and high-field
-kernels to have the same window.
+kernels to have the same window. The fitter explicitly disables impact
+ionization so that this stage fits the electron–phonon model to the Canali
+velocity curve without introducing a second scattering model.
 
 ### Why the same phonon profile still matters
 
@@ -418,6 +426,8 @@ The important runtime choices are:
 - `-e`: maximum modeled carrier energy in eV;
 - `--seed`: reproducible random streams;
 - `-j`: number of OpenMP threads.
+- `--disable-impact-ionization`: disable the electron impact-ionization
+  channel, which is enabled by default.
 
 The same carrier, bands, temperature and phonon profile used to create the rate
 file should be used in FBMC.
@@ -431,8 +441,8 @@ and cancels during normalization.
 ### Maximum energy and null collisions
 
 FBMC uses `-e` when constructing its maximum scattering-rate bound. It should
-not be smaller than the energy range represented by the rate data or the
-energies expected under the applied field.
+not exceed the energy range represented by the rate data and should be large
+enough for the energies expected under the applied field.
 
 If FBMC reports a self-scattering bound violation:
 
@@ -444,6 +454,20 @@ If FBMC reports a self-scattering bound violation:
 
 Increasing `--gamma-safety` is not a substitute for missing high-energy rate
 data.
+
+If a carrier exceeds `--maxenergy`, FBMC does not evaluate rates outside the
+declared range. It discards that carrier and continues the other trajectories.
+The warning reports the carrier index, energy, time, and configured limit.
+`observables.csv` then records:
+
+```text
+discarded_carriers_over_max_energy
+run_complete
+```
+
+`run_complete` is `0` if at least one carrier was discarded. Such a run is
+useful diagnostically, but removing the highest-energy carriers biases the
+transport averages and impact-ionization statistics.
 
 ### Warmup and reproducibility
 
@@ -473,16 +497,18 @@ Generate a hole rate file from the corresponding hole kernel, then run:
   -t 50e-12 \
   --warmup 0.2 \
   --Ex 1.0e4 \
+  --disable-impact-ionization \
   --seed 1234 \
   -d fbmc_hole
 ```
 
-Hole impact ionization is not currently implemented.
+Hole impact ionization is not currently implemented, so hole runs must pass
+`--disable-impact-ionization`.
 
 ## Electron FBMC with impact ionization
 
-Impact ionization is optional and configured independently from
-electron–phonon scattering:
+Impact ionization is enabled by default for electrons and configured
+independently from electron–phonon scattering:
 
 ```bash
 ./build/apps/fbmc.epm \
@@ -491,7 +517,6 @@ electron–phonon scattering:
   -m Si \
   --carrier electron \
   --phonon-params remi-2026 \
-  --enable-impact-ionization \
   --impact-ionization-params keldysh \
   -c 2 -v 0 \
   -N 1000 \
@@ -512,6 +537,14 @@ data/materials/<material>/impact_ionization/
 
 Bulk FBMC records the event and reduces the incident electron energy. It does
 not currently add the generated electron–hole pair to the simulated ensemble.
+For the default silicon Keldysh profile, the tracked electron loses exactly
+the configured threshold energy, currently 1.1 eV:
+
+```text
+E_after = E_before - energy_threshold
+```
+
+Use `--disable-impact-ionization` for a phonon-only electron run.
 
 ## Useful optional outputs
 
@@ -539,6 +572,38 @@ The `observables.csv` columns include the projected drift velocity, signed
 mobility in m²/(V·s), and positive mobility magnitude in cm²/(V·s). This is a
 quick diagnostic only; use `python/FBMC/run_field_sweep.py` with several
 positive and negative low fields for a reliable zero-intercept mobility fit.
+
+Impact-ionization output includes the event count, event rate per carrier, and
+two coefficient estimators:
+
+```text
+impact_ionization_coefficient_cm_1
+impact_ionization_endpoint_displacement_coefficient_cm_1
+```
+
+The first estimator divides the event rate by the time-averaged absolute
+field-parallel speed:
+
+```text
+alpha_speed = N_II / integral |v dot field_direction| dt
+```
+
+The endpoint estimator divides the total event count by the sum of each
+carrier's straight-line displacement magnitude over the sampled interval:
+
+```text
+alpha_endpoint = sum_i N_II,i / sum_i ||X_f,i - X_0,i||
+```
+
+Here `X_0` is the position at the end of warm-up and `X_f` is the final
+position, or the position where an over-energy carrier was discarded. The
+corresponding denominator is exported as
+`impact_ionization_endpoint_displacement_m`.
+
+The field-sweep wrapper enables impact ionization by default because it
+inherits the executable default. Pass `--disable-impact-ionization` to the
+wrapper for phonon-only sweeps. It copies the endpoint coefficient,
+discarded-carrier count, and completion flag into `field_sweep_results.csv`.
 
 ## Consistency checklist
 

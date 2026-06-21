@@ -436,13 +436,22 @@ class Objective:
             return self.cache[cache_key]
 
         self.evaluation += 1
-        strengths = write_trial_profile(
-            self.base_config,
-            self.baseline,
-            self.args.fit,
-            values,
-            self.trial_profile,
-        )
+        try:
+            strengths = write_trial_profile(
+                self.base_config,
+                self.baseline,
+                self.args.fit,
+                values,
+                self.trial_profile,
+            )
+        except (OverflowError, ValueError) as error:
+            print(
+                f"evaluation {self.evaluation:04d} rejected before simulation: {error}",
+                flush=True,
+            )
+            loss = 1.0e12
+            self.cache[cache_key] = loss
+            return loss
 
         rows = []
         residuals = []

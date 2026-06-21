@@ -415,6 +415,7 @@ def run_fbmc(
         str(args.seed),
         "--bz-domain",
         args.bz_domain,
+        "--disable-impact-ionization",
         "--skip-mesh-vtk",
         "--outdir",
         str(field_dir.resolve()),
@@ -466,13 +467,22 @@ class Objective:
         self.evaluation += 1
         evaluation_dir = self.output_dir / "runs" / f"eval_{self.evaluation:04d}"
         evaluation_dir.mkdir(parents=True, exist_ok=True)
-        parameters = write_trial_profile(
-            self.base_config,
-            self.baseline,
-            self.args.fit,
-            values,
-            self.trial_profile,
-        )
+        try:
+            parameters = write_trial_profile(
+                self.base_config,
+                self.baseline,
+                self.args.fit,
+                values,
+                self.trial_profile,
+            )
+        except (OverflowError, ValueError) as error:
+            (evaluation_dir / "failure.txt").write_text(str(error) + "\n", encoding="utf-8")
+            print(
+                f"evaluation {self.evaluation:04d} rejected before simulation: {error}",
+                flush=True,
+            )
+            self.cache[key] = 1.0e12
+            return 1.0e12
         shutil.copy2(self.trial_profile, evaluation_dir / "trial.yaml")
         rows = []
         try:

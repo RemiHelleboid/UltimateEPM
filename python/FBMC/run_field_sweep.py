@@ -85,9 +85,9 @@ def parse_args() -> argparse.Namespace:
         help="Base random seed. If omitted, each FBMC process generates a random seed.",
     )
     parser.add_argument(
-        "--enable-impact-ionization",
+        "--disable-impact-ionization",
         action="store_true",
-        help="Enable impact-ionization scattering.",
+        help="Disable impact-ionization scattering (enabled by default for electrons).",
     )
     parser.add_argument(
         "--ncbands",
@@ -259,8 +259,8 @@ def run_one_field(args: argparse.Namespace, field_v_per_cm: float) -> Path:
         command.extend(["--phononfile", str(args.phonon_rates)])
     if args.seed is not None:
         command.extend(["--seed", str(args.seed)])
-    if args.enable_impact_ionization:
-        command.append("--enable-impact-ionization")
+    if args.disable_impact_ionization:
+        command.append("--disable-impact-ionization")
 
     log_file = run_dir / "stdout.log"
     print(f"Running Ex = {field_v_per_cm:.6e} V/cm", flush=True)
@@ -328,6 +328,10 @@ def read_stats_row(path: Path) -> dict[str, float]:
     if ionization_column == "impact_ionization_coefficient_cm_1":
         ionization_value *= 100.0
 
+    endpoint_displacement_ionization_cm_1 = float(
+        row.get("impact_ionization_endpoint_displacement_coefficient_cm_1", "nan")
+    )
+
     discarded_carriers = int(float(row.get("discarded_carriers_over_max_energy", 0)))
     run_complete = bool(int(float(row.get("run_complete", 1))))
     if discarded_carriers > 0:
@@ -341,6 +345,7 @@ def read_stats_row(path: Path) -> dict[str, float]:
         "mean_energy_eV": float(row[energy_column]),
         "mean_velocity_x_m_per_s": float(row[velocity_column]),
         "mean_ionization_coeff_1_per_m": ionization_value,
+        "endpoint_displacement_ionization_coeff_cm_1": endpoint_displacement_ionization_cm_1,
         "discarded_carriers_over_max_energy": discarded_carriers,
         "run_complete": run_complete,
     }
@@ -380,6 +385,9 @@ def build_sweep_dataframe(args: argparse.Namespace) -> pd.DataFrame:
                 "mean_energy_eV": stats["mean_energy_eV"],
                 "mean_ionization_coeff_1_per_m": stats["mean_ionization_coeff_1_per_m"],
                 "mean_ionization_coeff_cm_1": stats["mean_ionization_coeff_1_per_m"] / 100.0,
+                "endpoint_displacement_ionization_coeff_cm_1": stats[
+                    "endpoint_displacement_ionization_coeff_cm_1"
+                ],
                 "discarded_carriers_over_max_energy": stats["discarded_carriers_over_max_energy"],
                 "run_complete": stats["run_complete"],
                 "runtime_s": elapsed,

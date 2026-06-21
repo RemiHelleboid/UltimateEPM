@@ -69,10 +69,12 @@ struct impact_ionization_coefficient_statistics {
     std::size_t m_events                         = 0;
     double      m_carrier_time_s                 = 0.0;
     double      m_drift_velocity_time_integral_m = 0.0;
+    double      m_endpoint_displacement_m        = 0.0;
 
     double event_rate_per_carrier_s_1() const;
     double average_drift_velocity_m_per_s() const;
     double ionization_coefficient_cm_1() const;
+    double endpoint_displacement_coefficient_cm_1() const;
 };
 
 struct bulk_observables {

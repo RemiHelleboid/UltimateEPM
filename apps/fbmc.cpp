@@ -260,7 +260,7 @@ int main(int argc, const char** argv) try {
     TCLAP::ValueArg<std::string> arg_impact_ionization_parameter_set(
         "",
         "impact-ionization-params",
-        "Impact-ionization parameter set used when --enable-impact-ionization is active.",
+        "Impact-ionization parameter set. Impact ionization is enabled by default for electrons.",
         false,
         "keldysh",
         "string");
@@ -348,11 +348,11 @@ int main(int argc, const char** argv) try {
         "Export per-particle histories. Disabled by default because sweeps can create many CSV files.",
         cmd,
         false);
-    TCLAP::SwitchArg arg_enable_impact_ionization("",
-                                                  "enable-impact-ionization",
-                                                  "Enable impact ionization scattering.",
-                                                  cmd,
-                                                  false);
+    TCLAP::SwitchArg arg_disable_impact_ionization("",
+                                                   "disable-impact-ionization",
+                                                   "Disable impact ionization scattering.",
+                                                   cmd,
+                                                   false);
     TCLAP::SwitchArg arg_skip_mesh_vtk("",
                                        "skip-mesh-vtk",
                                        "Do not export the static BZ mesh VTK file.",
@@ -411,7 +411,7 @@ int main(int argc, const char** argv) try {
     const double        electric_field_y_V_per_cm = arg_electric_field_y.getValue();
     const double        electric_field_z_V_per_cm = arg_electric_field_z.getValue();
     const bool          export_history            = arg_export_history.getValue();
-    const bool          enable_impact_ionization  = arg_enable_impact_ionization.getValue();
+    const bool          enable_impact_ionization  = !arg_disable_impact_ionization.getValue();
     const bool          skip_mesh_vtk             = arg_skip_mesh_vtk.getValue();
     const std::string   bz_domain_name            = arg_bz_domain.getValue();
     const std::uint64_t random_seed               = [&]() {
@@ -433,7 +433,8 @@ int main(int argc, const char** argv) try {
         throw std::invalid_argument("--nvbands must be -1 or non-negative");
     }
     if (carrier_type == uepm::fbmc::particle_type::hole && enable_impact_ionization) {
-        throw std::invalid_argument("--enable-impact-ionization is not available for holes");
+        throw std::invalid_argument(
+            "Impact ionization is not available for holes; pass --disable-impact-ionization");
     }
     require_positive(max_energy_eV, "--maxenergy");
     require_finite(gamma_safety, "--gamma-safety");
