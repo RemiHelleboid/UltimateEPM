@@ -26,5 +26,5 @@ Transfinite Surface {1};
 Physical Surface("Si", 1) = {1};
 
 Physical Curve("kathode", 2) = {2};
-Physical Curve("anode", 3) = {4};
+Physical Curve("drain", 3) = {4};
 Physical Curve("insulation", 4) = {1, 3};

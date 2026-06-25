@@ -754,6 +754,7 @@ void device_pbmc_simulation::run() {
             export_current_time_step_as_csv(m_simulation_options.m_prefix_export_filename);
         }
     }
+    export_current_snapshot();
 }
 
 std::vector<mesh::vector3> device_pbmc_simulation::get_all_particles_position() const {

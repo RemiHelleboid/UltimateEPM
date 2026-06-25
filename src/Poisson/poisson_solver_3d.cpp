@@ -25,6 +25,8 @@ void poisson_solver_3d::compute_stiffness_matrix() {
     constexpr int number_element_per_line_matrix = 60;
     std::size_t   number_vertices                = m_p_mesh->get_nb_vertices();
     m_matrix_lhs.resize(number_vertices, number_vertices);
+    m_matrix_lhs.setZero();
+    m_list_bulk_elements.clear();
     m_matrix_lhs.reserve(Eigen::VectorXd::Constant(number_vertices, number_element_per_line_matrix));
 
     int index_element = 0;

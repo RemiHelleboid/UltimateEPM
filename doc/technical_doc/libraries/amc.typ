@@ -658,7 +658,7 @@ Any scalar YAML value can be overridden without editing the file. Both
 ```sh
 device_PBMC.epm --config config.yaml \
   --set run.threads=8 \
-  --set contacts.cathode_voltage_V 30 \
+  --set contacts.voltages_V.cathode=30 \
   --set simulation.final_time_s=2e-12
 ```
 
@@ -783,12 +783,8 @@ small relative to scattering and field-evolution time scales.
   columns: (1.65fr, 0.75fr, 2.6fr),
   align: (left, center, left),
   table.header([YAML key], [Default], [Meaning]),
-  [`contacts.anode_voltage_V`], [0 V],
-  [Dirichlet voltage applied to the automatically created anode contact unless
-   that contact is the dynamically biased quench-circuit node.],
-  [`contacts.cathode_voltage_V`], [0 V],
-  [Dirichlet voltage applied to the automatically created cathode contact
-   unless that contact is the dynamically biased quench-circuit node.],
+  [`contacts.voltages_V.<name>`], [device-dependent],
+  [Dirichlet voltage applied to the named mesh contact.],
   [`particles.initial_electrons`], [1],
   [Number of explicit electrons created at `particles.initial_position` before
    transport starts.],
@@ -913,7 +909,7 @@ corresponding output mode requires them.
 The circuit supply voltage and initial device voltage are derived from the
 configured voltage of `quench_circuit.biased_contact`. For example, with the
 default `cathode` selection, both are initialized from
-`contacts.cathode_voltage_V`; they are not independent YAML parameters.
+`contacts.voltages_V.cathode`; they are not independent YAML parameters.
 
 === Avalanche and successful-quench detection
 
@@ -969,8 +965,13 @@ transport:
   impurity_model: mobility
   impurity_screening: debye
 contacts:
-  anode_voltage_V: 0
-  cathode_voltage_V: 0
+  voltages_V:
+    anode: 0
+    cathode: 0
+  collecting:
+    anode: true
+    cathode: true
+  ramo_electrode: anode
 particles:
   initial_electrons: 1
   initial_holes: 0

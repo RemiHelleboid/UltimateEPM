@@ -77,7 +77,7 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     device_options.m_material_model                    = load_pbmc_material_model(material_repository, common_material);
 
     uepm::device::device simulation_device(mesh);
-    add_default_contacts(simulation_device, *mesh);
+    add_collecting_contacts(simulation_device, *mesh, config.collecting_contacts);
 
     const std::string material_symbol = config.material_symbol;
 
@@ -88,8 +88,17 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     fmt::print("  final time: {:.6e} s\n", config.device_options.m_t_max);
     fmt::print("  time step: {:.6e} s\n", config.device_options.m_time_step);
     fmt::print("  Poisson frequency: {}\n", config.self_consistent_options_2d.m_common.m_poisson_frequency);
-    fmt::print("  anode voltage: {:.6e} V\n", config.self_consistent_options_2d.m_common.m_anode_voltage);
-    fmt::print("  cathode voltage: {:.6e} V\n", config.self_consistent_options_2d.m_common.m_cathode_voltage);
+    fmt::print("  contact voltages:\n");
+    for (const auto& [contact_name, voltage_V] :
+         config.self_consistent_options_2d.m_common.m_contact_voltages_V) {
+        fmt::print("    {}: {:.6e} V\n", contact_name, voltage_V);
+    }
+    fmt::print("  Ramo electrode: {}\n", config.self_consistent_options_2d.m_common.m_ramo_electrode);
+    fmt::print("  collecting contacts:");
+    for (const auto& contact_name : config.collecting_contacts) {
+        fmt::print(" {}", contact_name);
+    }
+    fmt::print("\n");
     fmt::print("  built-in potential: {}\n",
                config.self_consistent_options_2d.m_common.m_enable_built_in_potential ? "enabled" : "disabled");
     if (config.self_consistent_options_2d.m_common.m_enable_built_in_potential) {
@@ -169,8 +178,13 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
 
     manifest.add("self_consistent", "poisson_frequency", common_options.m_poisson_frequency);
     manifest.add("self_consistent", "frozen_field_mode", common_options.m_frozen_field_mode);
-    manifest.add("self_consistent", "anode_voltage_V", common_options.m_anode_voltage);
-    manifest.add("self_consistent", "cathode_voltage_V", common_options.m_cathode_voltage);
+    manifest.add("self_consistent", "ramo_electrode", common_options.m_ramo_electrode);
+    for (const auto& [contact_name, voltage_V] : common_options.m_contact_voltages_V) {
+        manifest.add("contact_voltages_V", contact_name, voltage_V);
+    }
+    for (const auto& contact_name : config.collecting_contacts) {
+        manifest.add("collecting_contacts", contact_name, true);
+    }
     manifest.add("self_consistent", "built_in_potential_enabled", common_options.m_enable_built_in_potential);
     manifest.add("self_consistent",
                  "intrinsic_concentration_cm_3",
@@ -194,7 +208,7 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     manifest.add("quench_circuit", "enabled", quench_options.m_enabled);
     manifest.add("quench_circuit",
                  "biased_contact",
-                 common_options.m_quench_biased_contact == quench_biased_contact::anode ? "anode" : "cathode");
+                 common_options.m_quench_biased_contact);
     manifest.add("quench_circuit", "bias_voltage_V", quench_options.m_bias_voltage_V);
     manifest.add("quench_circuit", "initial_device_voltage_V", quench_options.m_initial_device_voltage_V);
     manifest.add("quench_circuit", "resistance_ohm", quench_options.m_resistance_ohm);

@@ -21,9 +21,12 @@
 #include <vector>
 
 #include "doctest/doctest.h"
+#include "physical_constants.hpp"
+#include "vector_bz.hpp"
 #include "elph_deformation_potential.hpp"
 #include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
+#include "tetra_energy_index.hpp"
 
 using uepm::mesh_bz::Tetra;
 using uepm::mesh_bz::vector3;
@@ -133,6 +136,78 @@ TEST_CASE("tetra DOS matches an analytic linear band") {
 
     CHECK(tetra.compute_tetra_dos_energy_band(energy, 0) ==
           doctest::Approx(expected_dos).epsilon(1e-12).scale(1.0));
+}
+
+TEST_CASE("reusing an iso-energy polygon preserves tetra DOS") {
+    std::array<Vertex, 4> vertices = {
+        Vertex(0, v3(0.0, 0.0, 0.0)),
+        Vertex(1, v3(1.0, 0.0, 0.0)),
+        Vertex(2, v3(0.0, 1.0, 0.0)),
+        Vertex(3, v3(0.0, 0.0, 1.0)),
+    };
+    for (Vertex& vertex : vertices) {
+        vertex.add_band_energy_value(vertex.get_position().x());
+    }
+    std::array<Vertex*, 4> pointers = {&vertices[0], &vertices[1], &vertices[2], &vertices[3]};
+    Tetra                  tetra(0, pointers);
+    tetra.compute_min_max_energies_at_bands();
+
+    for (int sample = 1; sample < 20; ++sample) {
+        const double energy  = static_cast<double>(sample) / 20.0;
+        const auto   polygon = tetra.compute_band_iso_energy_polygon(energy, 0);
+        const double direct  = tetra.compute_tetra_dos_energy_band(energy, 0);
+        const double reused  = tetra.compute_tetra_dos_energy_band(energy, 0, polygon);
+        CHECK(reused == doctest::Approx(direct).epsilon(1e-12));
+    }
+}
+
+TEST_CASE("tetra energy interval index exactly matches brute-force overlap") {
+    constexpr std::array<std::array<double, 4>, 4> energy_ranges = {
+        std::array<double, 4>{0.0, 0.2, 0.4, 0.6},
+        std::array<double, 4>{0.5, 0.8, 1.0, 1.2},
+        std::array<double, 4>{1.1, 1.4, 1.8, 2.0},
+        std::array<double, 4>{2.5, 2.7, 2.9, 3.0},
+    };
+    std::array<std::array<Vertex, 4>, energy_ranges.size()> vertices;
+    std::vector<Tetra>                                      tetrahedra;
+    tetrahedra.reserve(energy_ranges.size());
+
+    for (std::size_t tetra_index = 0; tetra_index < energy_ranges.size(); ++tetra_index) {
+        vertices[tetra_index] = {
+            Vertex(4 * tetra_index + 0, v3(0.0, 0.0, 0.0)),
+            Vertex(4 * tetra_index + 1, v3(1.0, 0.0, 0.0)),
+            Vertex(4 * tetra_index + 2, v3(0.0, 1.0, 0.0)),
+            Vertex(4 * tetra_index + 3, v3(0.0, 0.0, 1.0)),
+        };
+        std::array<Vertex*, 4> pointers{};
+        for (std::size_t vertex_index = 0; vertex_index < 4; ++vertex_index) {
+            vertices[tetra_index][vertex_index].add_band_energy_value(energy_ranges[tetra_index][vertex_index]);
+            pointers[vertex_index] = &vertices[tetra_index][vertex_index];
+        }
+        tetrahedra.emplace_back(tetra_index, pointers);
+        tetrahedra.back().compute_min_max_energies_at_bands();
+    }
+
+    uepm::mesh_bz::TetraEnergyIndex index;
+    index.rebuild(tetrahedra, 1, 10.0, 1);
+
+    for (const auto [minimum_energy, maximum_energy] :
+         {std::pair{0.1, 0.3}, std::pair{0.55, 1.15}, std::pair{1.5, 2.6}, std::pair{3.1, 4.0}}) {
+        std::vector<std::size_t> indexed;
+        index.at(0).for_each_candidate(
+            minimum_energy, maximum_energy, [&](std::size_t tetra_index) { indexed.push_back(tetra_index); });
+
+        std::vector<std::size_t> brute_force;
+        for (std::size_t tetra_index = 0; tetra_index < tetrahedra.size(); ++tetra_index) {
+            if (tetrahedra[tetra_index].get_min_energy_at_band(0) <= maximum_energy &&
+                tetrahedra[tetra_index].get_max_energy_at_band(0) >= minimum_energy) {
+                brute_force.push_back(tetra_index);
+            }
+        }
+        std::sort(indexed.begin(), indexed.end());
+        std::sort(brute_force.begin(), brute_force.end());
+        CHECK(indexed == brute_force);
+    }
 }
 
 TEST_CASE("equal vertex energies produce a finite quadrilateral iso-surface") {

@@ -16,46 +16,50 @@
 #include "poisson_solver_2d.hpp"
 #include "vtkWriter.hpp"
 
-TEST_CASE("Testing Poisson 2d on a PN Junction.") {
-    // const uepm::physics::material_repository repository;
-    // const auto                               material_database = repository.load_all_materials();
+TEST_CASE("Testing Poisson 2d on a NMOS.") {
+//     std::string mesh_file_path = "./nmos_test.msh";
+//     fmt::print("Loading mesh: {}\n", mesh_file_path);
 
-    // static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/tests/test_data/pn_2d.msh");
-    // uepm::file::msh_file     fileMSH(file_input_test_msh);
-    // fileMSH.read_mesh();
-    // fileMSH.read_states();
-    // uepm::mesh::mesh* p_mesh     = fileMSH.get_p_mesh();
-    // std::size_t       nbVertices = p_mesh->get_nb_vertices();
+//     uepm::file::msh_file msh_file(mesh_file_path);
+//     msh_file.read_mesh();
+//     msh_file.read_states();
 
-    // std::cout << "Start building Poisson system ..." << std::endl;
-    // uepm::fem::poisson_solver_2d MyPoissonSolver(p_mesh, p_mesh->get_nb_vertices(), material_database);
-    // MyPoissonSolver.compute_stiffness_matrix();
-    // MyPoissonSolver.update_second_member();
+//     uepm::mesh::mesh* mesh = msh_file.get_p_mesh();
+//     if (mesh == nullptr) {
+//         throw std::runtime_error("Mesh loading failed.");
+//     }
 
-    // MyPoissonSolver.apply_dirichlet_condition("kathode", 10.0);
-    // MyPoissonSolver.apply_dirichlet_condition("anode", 0.0);
-    // std::cout << "Start computing poisson solution ..." << std::endl;
+//     const int mesh_dimension = mesh->get_dimension();
+//     if (mesh_dimension != 2 && mesh_dimension != 3) {
+//         throw std::runtime_error("Only 2D and 3D meshes are supported.");
+//     }
 
-    // MyPoissonSolver.decompose_matrix();
-    // MyPoissonSolver.solve_system();
-    // MyPoissonSolver.export_solution_csv("5_PN_JUNCTION_SOLUTION.csv");
-    // MyPoissonSolver.add_solution_to_mesh_functions("Poisson_Solution");
-    // fileMSH.export_as_msh("TEST_POISSON_DIODE_PN_5V.msh", {}, 1);
-    // const std::string FileName = "TEST_POISSON_DIODE_PN_5V.vtk";
-    // uepm::file::export_as_vtk(*(p_mesh), FileName);
+// }
+//     uepm::PBMC::pbmc_transport_config cfg;
+//     cfg.m_carrier_type                     = carrier_type;
+//     cfg.m_lattice_temperature              = options.m_lattice_temperature;
+//     cfg.m_max_energy_eV                    = options.m_max_energy_eV;
+//     cfg.m_self_scattering_safety_factor    = options.m_self_scattering_safety_factor;
+//     cfg.m_gamma_max_energy_samples         = options.m_gamma_max_energy_samples;
+//     cfg.m_enable_impact_ionization         = options.m_activate_impact_ionization;
+//     cfg.m_enable_impurity_scattering       = options.m_enable_impurity_scattering;
+//     cfg.m_impurity_density_source          = impurity_density_source::particle_local;
+//     cfg.m_background_impurity_density_cm_3 = 0.0;
+//     if (options.m_enable_impurity_scattering) {
+//         cfg.m_impurity_scattering_model = options.m_impurity_scattering_model;
+//         cfg.m_impurity_screening_model  = options.m_impurity_screening_model;
+//     }
 
-    // // p_mesh->export_all_vertices_data_to_csv("POISSON_PN_CSV.csv");
+//     fmt::print("Mesh dimension: {}D\n", mesh_dimension);
+//     const uepm::physics::material_repository material_repository =
+//         config.material_root.empty() ? uepm::physics::material_repository{}
+//                                      : uepm::physics::material_repository{config.material_root};
+//     fmt::print("Loading materials from repository: {}\n", material_repository.root().string());
 
-    // auto   solution     = MyPoissonSolver.get_solution();
-    // double min_solution = *std::min_element(solution.begin(), solution.end());
-    // double max_solution = *std::max_element(solution.begin(), solution.end());
+//     uepm::physics::material_database material_database = material_repository.load_all_materials();
+//     const auto&                      common_material   = material_database.require(config.material_symbol);
+//     device_options.m_material_model                    = load_pbmc_material_model(material_repository, common_material);
 
-    // std::cout << "MIN SOL = " << min_solution << std::endl;
-    // std::cout << "MAX SOL = " << max_solution << std::endl;
-
-    // const double min_test_si_ge = -0.765151;
-    // const double max_test_si_ge = 5.28987;
-
-    // // CHECK(min_solution == doctest::Approx(min_test_si_ge));
-    // // CHECK_EQ(max_solution, doctest::Approx(max_test_si_ge));
+//     uepm::device::device simulation_device(mesh);
+//     // add_default_PN_contacts(simulation_device, *mesh);
 }

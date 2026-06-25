@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstddef>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -27,14 +28,12 @@
 
 namespace uepm::PBMC {
 
-enum class quench_biased_contact { anode, cathode };
-
 struct options_self_consistent_device_pbmc_common {
     bool        m_frozen_field_mode = false;
     std::size_t m_poisson_frequency = 10;
 
-    double m_anode_voltage   = 0.0;
-    double m_cathode_voltage = 0.0;
+    std::map<std::string, double> m_contact_voltages_V;
+    std::string                   m_ramo_electrode;
 
     bool   m_enable_built_in_potential       = false;
     double m_intrinsic_concentration_cm_3    = 1.0e10;
@@ -47,7 +46,7 @@ struct options_self_consistent_device_pbmc_common {
 
     passive_quench_circuit_options m_passive_quench_circuit{};
 
-    quench_biased_contact m_quench_biased_contact = quench_biased_contact::cathode;
+    std::string m_quench_biased_contact = "cathode";
 
     // Converts signed Ramo current into current drawn from the biased circuit node.
     double m_ramo_current_to_quench_current_sign  = 1.0;
@@ -67,8 +66,7 @@ class self_consistent_device_pbmc_simulation_base : public device_pbmc_simulatio
     voltage_drop_avalanche_detector           m_avalanche_detector;
     successful_quench_detector                m_successful_quench_detector;
 
-    double m_anode_built_in_voltage_offset_V   = 0.0;
-    double m_cathode_built_in_voltage_offset_V = 0.0;
+    std::map<std::string, double> m_built_in_contact_voltage_offsets_V;
 
     self_consistent_device_pbmc_simulation_base(const device::device&                            simulation_device,
                                                const options_device_PBMC&                        simulation_options,
@@ -84,16 +82,19 @@ class self_consistent_device_pbmc_simulation_base : public device_pbmc_simulatio
                                                int seed_random_generator = 0);
 
     void validate_common_self_consistent_options() const;
-    void update_built_in_contact_voltage_offsets(
-        const std::vector<std::shared_ptr<mesh::element>>& anode_contact_elements,
-        const std::vector<std::shared_ptr<mesh::element>>& cathode_contact_elements);
+    void update_built_in_contact_voltage_offset(
+        const std::string&                                  contact_name,
+        const std::vector<std::shared_ptr<mesh::element>>& contact_elements);
 
     const options_self_consistent_device_pbmc_common& common_options() const;
+    const std::map<std::string, double>&               contact_voltages_V() const;
+    const std::string&                                 ramo_electrode() const;
 
     std::size_t poisson_frequency() const;
 
-    double anode_voltage_for_poisson() const;
-    double cathode_voltage_for_poisson() const;
+    double contact_voltage_for_poisson(const std::string& contact_name) const;
+    double ramo_electrode_voltage_for_history() const;
+    double reference_electrode_voltage_for_history() const;
     double device_bias_voltage_for_history() const;
 
     void   advance_quench_circuit(double averaged_ramo_current_A, double dt_s, double sample_time_s);

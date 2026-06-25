@@ -143,6 +143,7 @@ void FiniteElementP1System3d::compute_stiffness_matrix() {
     std::size_t                                 number_vertices = m_p_mesh->get_nb_vertices();
     std::vector<std::shared_ptr<mesh::element>> list_p_tetra    = m_p_mesh->get_list_bulk_element();
     m_matrix_lhs.resize(number_vertices, number_vertices);
+    m_matrix_lhs.setZero();
     constexpr int number_element_per_line_matrix = 16;
     m_matrix_lhs.reserve(Eigen::VectorXd::Constant(number_vertices, number_element_per_line_matrix));
 

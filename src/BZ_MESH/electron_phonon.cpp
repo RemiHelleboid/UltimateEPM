@@ -608,16 +608,9 @@ SelectedFinalState ElectronPhonon::select_phonon_final_state(std::size_t     idx
             continue;
         }
 
-        const auto& list_idx_tetra = get_ordered_tetra_indices_at_band(idx_n2);
-        for (auto idx_tetra : list_idx_tetra) {
+        const auto& tetra_energy_index = get_tetra_energy_index_at_band(idx_n2);
+        tetra_energy_index.for_each_candidate(Ef_min_win, Ef_max_win, [&](std::size_t idx_tetra) {
             const auto& T = m_list_tetrahedra[idx_tetra];
-
-            if (T.get_min_energy_at_band(idx_n2) > Ef_max_win) {
-                break;
-            }
-            if (T.get_max_energy_at_band(idx_n2) < Ef_min_win) {
-                continue;
-            }
 
             const vector3 k2_representative = T.get_barycenter();
             for (std::size_t image_index = 0; image_index < positive_octant_images.size(); ++image_index) {
@@ -641,7 +634,8 @@ SelectedFinalState ElectronPhonon::select_phonon_final_state(std::size_t     idx
                     continue;
                 }
 
-                const double dos_eV = T.compute_tetra_dos_energy_band(Ef_eV, idx_n2);
+                const IsoEnergyPolygon polygon = T.compute_band_iso_energy_polygon(Ef_eV, idx_n2);
+                const double dos_eV = T.compute_tetra_dos_energy_band(Ef_eV, idx_n2, polygon);
                 if (!(dos_eV > 0.0) || !std::isfinite(dos_eV)) {
                     continue;
                 }
@@ -667,37 +661,33 @@ SelectedFinalState ElectronPhonon::select_phonon_final_state(std::size_t     idx
                     candidates.push_back(Candidate{idx_n2, idx_tetra, Ef_eV, P, signs});
                 }
             }
-        }
+        });
     }
 
-    double total = 0.0;
-    for (const auto& c : candidates) {
-        total += c.weight;
+    double total_weight = 0.0;
+    for (const Candidate& candidate : candidates) {
+        total_weight += candidate.weight;
     }
-
-    if (!(total > 0.0) || !std::isfinite(total)) {
+    if (!(total_weight > 0.0) || !std::isfinite(total_weight)) {
         return SelectedFinalState{idx_band_initial, init_tetra->get_index(), init_tetra, k_initial, Ei_eV};
     }
 
-    std::uniform_real_distribution<double> U(0.0, total);
-    const double                           r = U(rng);
-
-    double      acc  = 0.0;
-    std::size_t pick = 0;
-    for (; pick < candidates.size(); ++pick) {
-        acc += candidates[pick].weight;
-        if (acc >= r) {
+    std::uniform_real_distribution<double> uniform_weight(0.0, total_weight);
+    const double                           target = uniform_weight(rng);
+    double                                 cumulative_weight = 0.0;
+    std::size_t                            selected_index    = candidates.size() - 1;
+    for (std::size_t index = 0; index < candidates.size(); ++index) {
+        cumulative_weight += candidates[index].weight;
+        if (cumulative_weight >= target) {
+            selected_index = index;
             break;
         }
     }
-    if (pick >= candidates.size()) {
-        pick = candidates.size() - 1;
-    }
+    const Candidate& chosen = candidates[selected_index];
+    const auto&       Tsel           = m_list_tetrahedra[chosen.tetra];
+    const auto        chosen_polygon = Tsel.compute_band_iso_energy_polygon(chosen.Ef_eV, chosen.band);
 
-    const auto& chosen = candidates[pick];
-    const auto& Tsel   = m_list_tetrahedra[chosen.tetra];
-
-    const vector3 k_final_representative = Tsel.draw_random_uniform_point_at_energy(chosen.Ef_eV, chosen.band, rng);
+    const vector3 k_final_representative = Tsel.draw_random_uniform_point_at_energy(chosen_polygon, rng);
     const vector3 k_final =
         stores_positive_octant() ? apply_sign_image(k_final_representative, chosen.signs) : k_final_representative;
 

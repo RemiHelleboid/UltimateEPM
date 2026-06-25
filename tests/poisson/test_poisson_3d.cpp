@@ -35,8 +35,8 @@ TEST_CASE("Testing Poisson 3d on a PN Junction.") {
     // std::cout << "Start computing second member ..." << std::endl;
     // MyPoissonSolver.update_second_member();
 
-    // // MyPoissonSolver.apply_dirichlet_condition("cathode", -0.36);
-    // MyPoissonSolver.apply_dirichlet_condition("anode", 0.49);
+    // // MyPoissonSolver.apply_dirichlet_condition("source", -0.36);
+    // MyPoissonSolver.apply_dirichlet_condition("drain", 0.49);
     // std::cout << "Start computing poisson solution ..." << std::endl;
 
     // MyPoissonSolver.decompose_matrix();
@@ -80,7 +80,7 @@ TEST_CASE("Testing Poisson 3d on a PN Junction.") {
 
 //     MyPoissonSolver.apply_dirichlet_condition("kathode", 1.0);
 //     // MyPoissonSolver.apply_dirichlet_condition("kathode", 0.0);
-//     // MyPoissonSolver.apply_dirichlet_condition("anode", -0.432793);
+//     // MyPoissonSolver.apply_dirichlet_condition("drain", -0.432793);
 //     std::cout << "Start computing poisson solution ..." << std::endl;
 
 //     MyPoissonSolver.decompose_matrix();

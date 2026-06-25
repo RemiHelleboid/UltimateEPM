@@ -63,6 +63,12 @@ struct UniformDos {
     }
 };
 
+struct IsoEnergyPolygon {
+    std::array<vector3, 4> points{};
+    std::size_t            size{0};
+    double                 area{0.0};
+};
+
 class Tetra {
  private:
     /**
@@ -136,6 +142,7 @@ class Tetra {
      *
      */
     std::vector<vector3> m_gradient_energy_per_band;
+    std::vector<double>  m_gradient_norm_per_band;
 
     /**
      * @brief For each band, store the indices of the vertices sorted by increasing energy.
@@ -219,8 +226,13 @@ class Tetra {
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
     double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;
     double               compute_tetra_dos_energy_band(double energy, std::size_t band_index) const;
+    double compute_tetra_dos_energy_band(double                  energy,
+                                         std::size_t             band_index,
+                                         const IsoEnergyPolygon& polygon) const;
     double               compute_tetra_dos_energy_band_reference(double energy, std::size_t band_index) const;
+    IsoEnergyPolygon     compute_band_iso_energy_polygon(double iso_energy, std::size_t band_index) const;
     vector3 draw_random_uniform_point_at_energy(double iso_energy, std::size_t band_index, std::mt19937& rng) const;
+    vector3 draw_random_uniform_point_at_energy(const IsoEnergyPolygon& polygon, std::mt19937& rng) const;
 
     std::array<double, 8> get_tetra_electron_phonon_rates(int band_index) const;
     std::array<double, 8> interpolate_phonon_scattering_rate_at_location(const vector3&     location,

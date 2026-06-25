@@ -20,6 +20,7 @@ TEST_CASE("empty PBMC device history exports a header-only CSV") {
 
     CHECK(contents ==
           "time,nb_electrons,nb_holes,nb_impact_ionization,ramo_current_electron,ramo_current_hole,ramo_current,"
-          "max_electric_field,anode_voltage_V,cathode_voltage_V,quench_bias_voltage_V,quench_device_current_A,"
+          "max_electric_field,ramo_electrode_voltage_V,reference_electrode_voltage_V,quench_bias_voltage_V,"
+          "quench_device_current_A,"
           "quench_resistor_current_A,quench_voltage_drop_V\n");
 }

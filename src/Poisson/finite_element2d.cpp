@@ -74,6 +74,7 @@ void FiniteElementP1System2d::compute_stiffness_matrix() {
     std::size_t                                 number_vertices  = m_p_mesh->get_nb_vertices();
     std::vector<std::shared_ptr<mesh::element>> list_p_triangles = m_p_mesh->get_list_bulk_element();
     m_matrix_lhs.resize(number_vertices, number_vertices);
+    m_matrix_lhs.setZero();
     constexpr int number_element_per_line_matrix = 12;
     m_matrix_lhs.reserve(Eigen::VectorXd::Constant(number_vertices, number_element_per_line_matrix));
 
@@ -122,6 +123,9 @@ void FiniteElementP1System2d::compute_second_member(std::function<double(double,
 
 void FiniteElementP1System2d::apply_dirichlet_condition(const std::string& region_name, const double boundary_value) {
     const mesh::region*      boundary_region              = m_p_mesh->get_p_region(region_name);
+    if (boundary_region == nullptr) {
+        throw std::runtime_error("Region '" + region_name + "' does not exist in the mesh.");
+    }
     std::vector<std::size_t> region_unique_vertices_index = boundary_region->get_unique_vertices_as_vector();
     for (auto&& index_vertex : region_unique_vertices_index) {
         m_matrix_lhs.coeffRef(index_vertex, index_vertex) += FiniteElementSystem::very_large_value;
@@ -132,6 +136,9 @@ void FiniteElementP1System2d::apply_dirichlet_condition(const std::string& regio
 void FiniteElementP1System2d::apply_dirichlet_condition_second_member(const std::string& region_name,
                                                                       const double       boundary_value) {
     const mesh::region*      boundary_region              = m_p_mesh->get_p_region(region_name);
+    if (boundary_region == nullptr) {
+        throw std::runtime_error("Region '" + region_name + "' does not exist in the mesh.");
+    }
     std::vector<std::size_t> region_unique_vertices_index = boundary_region->get_unique_vertices_as_vector();
     for (auto&& index_vertex : region_unique_vertices_index) {
         m_second_member(index_vertex) = FiniteElementSystem::very_large_value * boundary_value;

@@ -73,8 +73,8 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--swept-contact",
-        choices=["anode", "cathode"],
-        default="anode",
+        choices=["drain", "source"],
+        default="drain",
         help="Contact voltage varied by the sweep.",
     )
 
@@ -239,7 +239,7 @@ def build_voltage_list(vmin: float, vmax: float, vstep: float) -> list[float]:
 
 
 def voltage_directory_name(contact: str, voltage: float) -> str:
-    prefix = "Va" if contact == "anode" else "Vc"
+    prefix = "Va" if contact == "drain" else "Vc"
     return f"{prefix}_{voltage:+.6e}_V".replace("+", "p").replace("-", "m")
 
 
@@ -284,7 +284,7 @@ def contact_voltage_override(overrides: list[str], contact: str) -> float | None
 
 
 def fixed_contact_voltage(args: argparse.Namespace) -> float:
-    fixed_contact = "cathode" if args.swept_contact == "anode" else "anode"
+    fixed_contact = "source" if args.swept_contact == "drain" else "drain"
     override = contact_voltage_override(args.config_overrides, fixed_contact)
     if override is not None:
         return override
@@ -293,7 +293,7 @@ def fixed_contact_voltage(args: argparse.Namespace) -> float:
 
 def diode_voltage_from_sweep(args: argparse.Namespace, swept_voltage: float) -> float:
     fixed_voltage = fixed_contact_voltage(args)
-    if args.swept_contact == "anode":
+    if args.swept_contact == "drain":
         return swept_voltage - fixed_voltage
     return fixed_voltage - swept_voltage
 
@@ -303,7 +303,7 @@ def swept_voltage_from_input(args: argparse.Namespace, input_voltage: float) -> 
         return input_voltage
 
     fixed_voltage = fixed_contact_voltage(args)
-    if args.swept_contact == "anode":
+    if args.swept_contact == "drain":
         return fixed_voltage + input_voltage
     return fixed_voltage - input_voltage
 
@@ -500,8 +500,8 @@ def extract_iv_point(
 
     optional_mean_max(result, df, steady, "nb_impact_ionization")
     optional_mean_max(result, df, steady, "max_electric_field")
-    optional_mean_final(result, df, steady, "anode_voltage_V")
-    optional_mean_final(result, df, steady, "cathode_voltage_V")
+    optional_mean_final(result, df, steady, "ramo_electrode_voltage_V")
+    optional_mean_final(result, df, steady, "reference_electrode_voltage_V")
     optional_mean_final(result, df, steady, "quench_bias_voltage_V")
     optional_mean_final(result, df, steady, "quench_device_current_A")
     optional_mean_final(result, df, steady, "quench_resistor_current_A")
@@ -784,7 +784,7 @@ def main() -> int:
 
     print("Voltage sweep:")
     fixed_voltage = fixed_contact_voltage(args)
-    fixed_contact = "cathode" if args.swept_contact == "anode" else "anode"
+    fixed_contact = "source" if args.swept_contact == "drain" else "drain"
     print(f"  fixed {fixed_contact}: {fixed_voltage:.6e} V")
     print(f"  input voltage: {args.sweep_voltage}")
     for input_voltage, swept_voltage in zip(input_voltages, swept_voltages):

@@ -260,6 +260,14 @@ class MeshBZ {
     const std::vector<std::size_t>& get_ordered_tetra_indices_at_band(std::size_t band_index) const {
         return m_tetra_energy_index.at(band_index).ordered_tetra_indices;
     }
+    std::span<const std::size_t> get_candidate_tetra_indices_at_band(std::size_t band_index,
+                                                                     double      minimum_energy,
+                                                                     double      maximum_energy) const noexcept {
+        return m_tetra_energy_index.at(band_index).candidate_indices(minimum_energy, maximum_energy);
+    }
+    const BandTetraEnergyIndex& get_tetra_energy_index_at_band(std::size_t band_index) const {
+        return m_tetra_energy_index.at(band_index);
+    }
 
     void precompute_dos_tetra(double energy_step = 0.01, double energy_max = 100.0);
     void set_energy_gradient_at_vertices_by_averaging_tetras();

@@ -13,6 +13,9 @@
 
 #include <fmt/core.h>
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <filesystem>
 #include <stdexcept>
 
@@ -68,32 +71,83 @@ std::string make_default_output_directory(const std::string& mesh_file) {
     return fmt::format("self_consistent_pbmc_{}", std::filesystem::path(mesh_file).stem().string());
 }
 
-void add_default_contacts(uepm::device::device& simulation_device, uepm::mesh::mesh& mesh) {
+void add_collecting_contacts(uepm::device::device&          simulation_device,
+                             uepm::mesh::mesh&              mesh,
+                             const std::vector<std::string>& contact_names) {
     constexpr double contact_collection_depth = 0.001;  // µm
     constexpr double contact_margin           = 10.0;   // µm
     constexpr double ohmic_resistance         = 0.0;
 
-    const double min_x = mesh.get_bounding_box().get_x_min();
-    const double max_x = mesh.get_bounding_box().get_x_max();
-    const double min_y = mesh.get_bounding_box().get_y_min();
-    const double max_y = mesh.get_bounding_box().get_y_max();
-    const double min_z = mesh.get_bounding_box().get_z_min();
-    const double max_z = mesh.get_bounding_box().get_z_max();
+    const mesh::bbox device_bbox = mesh.get_bounding_box();
+    const std::array<double, 3> device_min{
+        device_bbox.get_x_min(), device_bbox.get_y_min(), device_bbox.get_z_min()};
+    const std::array<double, 3> device_max{
+        device_bbox.get_x_max(), device_bbox.get_y_max(), device_bbox.get_z_max()};
+    const double tolerance = 1.0e-8 * std::max(device_bbox.get_diagonal_size(), 1.0);
 
-    const mesh::vector3 cathode_corner1(min_x - contact_margin, min_y - contact_margin, min_z - contact_margin);
-    const mesh::vector3 cathode_corner2(min_x + contact_collection_depth,
-                                        max_y + contact_margin,
-                                        max_z + contact_margin);
+    for (const auto& contact_name : contact_names) {
+        const auto* region = mesh.get_p_region(contact_name);
+        if (region == nullptr) {
+            throw std::runtime_error("Collecting contact region '" + contact_name + "' does not exist in the mesh.");
+        }
+        if (region->get_region_type() != mesh::RegionType::contact) {
+            throw std::runtime_error("Collecting contact '" + contact_name + "' is not a mesh contact region.");
+        }
 
-    simulation_device.add_contact("cathode", cathode_corner1, cathode_corner2, ohmic_resistance);
-    const mesh::vector3 anode_corner1(max_x - contact_collection_depth, min_y - contact_margin, min_z - contact_margin);
+        const mesh::bbox region_bbox = region->compute_bounding_box();
+        const std::array<double, 3> region_min{
+            region_bbox.get_x_min(), region_bbox.get_y_min(), region_bbox.get_z_min()};
+        const std::array<double, 3> region_max{
+            region_bbox.get_x_max(), region_bbox.get_y_max(), region_bbox.get_z_max()};
+        std::array<double, 3> box_min{};
+        std::array<double, 3> box_max{};
+        bool                  found_boundary_normal = false;
 
-    const mesh::vector3 anode_corner2(max_x + contact_margin, max_y + contact_margin, max_z + contact_margin);
-    simulation_device.add_contact("anode", anode_corner1, anode_corner2, ohmic_resistance);
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            const double device_size = device_max[axis] - device_min[axis];
+            const bool at_min = std::abs(region_min[axis] - device_min[axis]) <= tolerance &&
+                                std::abs(region_max[axis] - device_min[axis]) <= tolerance;
+            const bool at_max = std::abs(region_min[axis] - device_max[axis]) <= tolerance &&
+                                std::abs(region_max[axis] - device_max[axis]) <= tolerance;
 
-    fmt::print("Added device contacts:\n");
-    fmt::print("  anode   x in [{:.6e}, {:.6e}]\n", anode_corner1.x(), anode_corner2.x());
-    fmt::print("  cathode x in [{:.6e}, {:.6e}]\n", cathode_corner1.x(), cathode_corner2.x());
+            if (device_size > tolerance && at_min) {
+                box_min[axis] = device_min[axis] - contact_margin;
+                box_max[axis] = device_min[axis] + contact_collection_depth;
+                found_boundary_normal = true;
+            } else if (device_size > tolerance && at_max) {
+                box_min[axis] = device_max[axis] - contact_collection_depth;
+                box_max[axis] = device_max[axis] + contact_margin;
+                found_boundary_normal = true;
+            } else if (device_size <= tolerance) {
+                box_min[axis] = region_min[axis] - contact_margin;
+                box_max[axis] = region_max[axis] + contact_margin;
+            } else if (std::abs(region_min[axis] - device_min[axis]) <= tolerance &&
+                       std::abs(region_max[axis] - device_max[axis]) <= tolerance) {
+                box_min[axis] = device_min[axis] - contact_margin;
+                box_max[axis] = device_max[axis] + contact_margin;
+            } else {
+                box_min[axis] = region_min[axis] - tolerance;
+                box_max[axis] = region_max[axis] + tolerance;
+            }
+        }
+
+        if (!found_boundary_normal) {
+            throw std::runtime_error("Collecting contact '" + contact_name +
+                                     "' is not located on an exterior face of the mesh.");
+        }
+
+        const mesh::vector3 corner1{box_min[0], box_min[1], box_min[2]};
+        const mesh::vector3 corner2{box_max[0], box_max[1], box_max[2]};
+        simulation_device.add_contact(contact_name, corner1, corner2, ohmic_resistance);
+        fmt::print("Added collecting contact '{}': ({:.6e}, {:.6e}, {:.6e}) to ({:.6e}, {:.6e}, {:.6e})\n",
+                   contact_name,
+                   corner1.x(),
+                   corner1.y(),
+                   corner1.z(),
+                   corner2.x(),
+                   corner2.y(),
+                   corner2.z());
+    }
 }
 
 }  // namespace uepm::PBMC

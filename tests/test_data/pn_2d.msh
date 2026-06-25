@@ -4,7 +4,7 @@ $EndMeshFormat
 $PhysicalNames
 4
 1 2 "kathode"
-1 3 "anode"
+1 3 "drain"
 1 4 "insulation"
 2 1 "Si"
 $EndPhysicalNames

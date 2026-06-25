@@ -39,52 +39,39 @@ void self_consistent_device_pbmc_simulation_3d::validate_self_consistent_options
  *
  */
 void self_consistent_device_pbmc_simulation_3d::initialize_contact_elements() {
-    const auto list_contact_elem_anode =
-        m_device.get_p_mesh()->get_idx_bulk_elements_adjacent_to_contact_region("anode");
-
-    const auto list_contact_elem_cathode =
-        m_device.get_p_mesh()->get_idx_bulk_elements_adjacent_to_contact_region("cathode");
-
     const auto list_bulk_elements = m_device.get_p_mesh()->get_list_bulk_element();
 
     m_list_element_contact.clear();
     m_list_element_contact_ptr.clear();
     m_list_element_contact_equilibrium_charge.clear();
 
-    m_list_element_contact.reserve(list_contact_elem_anode.size() + list_contact_elem_cathode.size());
-    m_list_element_contact_ptr.reserve(list_contact_elem_anode.size() + list_contact_elem_cathode.size());
-    m_list_element_contact_equilibrium_charge.reserve(list_contact_elem_anode.size() +
-                                                      list_contact_elem_cathode.size());
+    for (const auto& device_contact : m_device.get_list_contacts()) {
+        const std::string contact_name = device_contact.get_contact_name();
+        if (!contact_voltages_V().contains(contact_name)) {
+            throw std::runtime_error("Particle-collection contact '" + contact_name +
+                                     "' has no configured Poisson voltage.");
+        }
+        const auto element_indices =
+            m_device.get_p_mesh()->get_idx_bulk_elements_adjacent_to_contact_region(contact_name);
+        std::vector<std::shared_ptr<mesh::element>> contact_elements;
+        contact_elements.reserve(element_indices.size());
 
-    std::vector<std::shared_ptr<mesh::element>> anode_contact_elements;
-    std::vector<std::shared_ptr<mesh::element>> cathode_contact_elements;
-    anode_contact_elements.reserve(list_contact_elem_anode.size());
-    cathode_contact_elements.reserve(list_contact_elem_cathode.size());
-
-    const auto add_contact_element = [&](std::size_t element_index,
-                                         std::vector<std::shared_ptr<mesh::element>>& contact_elements) {
-        if (element_index >= list_bulk_elements.size()) {
-            throw std::runtime_error("Contact-adjacent bulk element index is out of range.");
+        for (const auto element_index : element_indices) {
+            if (element_index >= list_bulk_elements.size()) {
+                throw std::runtime_error("Contact-adjacent bulk element index is out of range.");
+            }
+            auto element = list_bulk_elements[element_index];
+            contact_elements.push_back(element);
+            m_list_element_contact.push_back(element_index);
+            m_list_element_contact_ptr.push_back(element);
+            m_list_element_contact_equilibrium_charge.push_back(
+                element->integrate_scalar("DopingConcentration"));
         }
 
-        auto element = list_bulk_elements[element_index];
-        contact_elements.push_back(element);
-        m_list_element_contact.push_back(element_index);
-        m_list_element_contact_ptr.push_back(element);
-
-        const double equilibrium_charge = element->integrate_scalar("DopingConcentration");
-        m_list_element_contact_equilibrium_charge.push_back(equilibrium_charge);
-    };
-
-    for (const auto element_index : list_contact_elem_anode) {
-        add_contact_element(element_index, anode_contact_elements);
+        if (!contact_elements.empty()) {
+            update_built_in_contact_voltage_offset(contact_name, contact_elements);
+        }
     }
-
-    for (const auto element_index : list_contact_elem_cathode) {
-        add_contact_element(element_index, cathode_contact_elements);
-    }
-
-    update_built_in_contact_voltage_offsets(anode_contact_elements, cathode_contact_elements);
 }
 
 void self_consistent_device_pbmc_simulation_3d::place_initial_charges_according_to_doping(double particle_weight) {
@@ -294,8 +281,10 @@ void self_consistent_device_pbmc_simulation_3d::add_missing_contact_charge_to_po
 
 void self_consistent_device_pbmc_simulation_3d::compute_unitary_potential() {
     m_poisson_solver.compute_second_member(0.0);
-    m_poisson_solver.apply_dirichlet_condition("anode", 1.0);
-    m_poisson_solver.apply_dirichlet_condition("cathode", 0.0);
+    for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
+        static_cast<void>(unused_voltage);
+        m_poisson_solver.apply_dirichlet_condition(contact_name, contact_name == ramo_electrode() ? 1.0 : 0.0);
+    }
     m_poisson_solver.decompose_matrix();
     m_poisson_solver.solve_system();
 
@@ -336,6 +325,14 @@ void self_consistent_device_pbmc_simulation_3d::initialize_poisson_solver() {
         throw std::runtime_error("Unitary potential maximum is non-positive.");
     }
     fmt::print("Unitary potential computed. Max value: {:.6e}\n", unitary_potential_max);
+
+    m_poisson_solver.compute_stiffness_matrix();
+    m_poisson_solver.compute_second_member(0.0);
+    for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
+        static_cast<void>(unused_voltage);
+        m_poisson_solver.apply_dirichlet_condition(contact_name, contact_voltage_for_poisson(contact_name));
+    }
+    m_poisson_solver.decompose_matrix();
 }
 
 self_consistent_device_pbmc_simulation_3d::self_consistent_device_pbmc_simulation_3d(
@@ -417,8 +414,11 @@ void self_consistent_device_pbmc_simulation_3d::recompute_vertex_space_charge_fr
 
 void self_consistent_device_pbmc_simulation_3d::update_self_consistent_potential() {
     m_poisson_solver.update_second_member();
-    m_poisson_solver.apply_dirichlet_condition_second_member("anode", anode_voltage_for_poisson());
-    m_poisson_solver.apply_dirichlet_condition_second_member("cathode", cathode_voltage_for_poisson());
+    for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
+        static_cast<void>(unused_voltage);
+        m_poisson_solver.apply_dirichlet_condition_second_member(contact_name,
+                                                                  contact_voltage_for_poisson(contact_name));
+    }
     m_poisson_solver.solve_system();
     constexpr bool add_gradient = true;
     m_poisson_solver.add_solution_to_mesh_functions("PoissonSolution", add_gradient);
@@ -508,8 +508,8 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
                                                  ramo_current_hole,
                                                  ramo_current,
                                                  max_electric_field_V_per_cm,
-                                                 anode_voltage_for_poisson(),
-                                                 cathode_voltage_for_poisson(),
+                                                 ramo_electrode_voltage_for_history(),
+                                                 reference_electrode_voltage_for_history(),
                                                  quench_supply_voltage_for_history(),
                                                  quench_device_current_for_history(),
                                                  quench_resistor_current_for_history(),
@@ -533,6 +533,7 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
     }
 
     stream.close();
+    export_current_state();
     fmt::print("END 3D SELF-CONSISTENT PBMC SIMULATION\n");
 }
 

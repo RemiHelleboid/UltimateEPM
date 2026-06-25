@@ -13,6 +13,7 @@
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 #include "pbmc_self_consistent_device_simulation_2d.hpp"
 #include "pbmc_self_consistent_device_simulation_3d.hpp"
@@ -28,6 +29,7 @@ struct self_consistent_device_pbmc_run_config {
     std::string output_dir;
     std::string simulation_name = "self_consistent_PBMC";
     std::string command_line;
+    std::vector<std::string> collecting_contacts;
 
     mesh::vector3 starting_position{0.0, 0.0, 0.0};
     std::size_t   number_electrons_start = 1;

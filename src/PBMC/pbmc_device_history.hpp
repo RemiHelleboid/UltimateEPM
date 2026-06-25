@@ -33,8 +33,8 @@ struct history_device_PBMC {
     std::vector<double>        m_list_ramo_current{};
     std::vector<mesh::vector3> m_impact_ionization_positions{};
     std::vector<double>        m_max_electric_field{};
-    std::vector<double>        m_list_anode_voltage_V{};
-    std::vector<double>        m_list_cathode_voltage_V{};
+    std::vector<double>        m_list_ramo_electrode_voltage_V{};
+    std::vector<double>        m_list_reference_electrode_voltage_V{};
     std::vector<double>        m_list_quench_bias_voltage_V{};
     std::vector<double>        m_list_quench_device_current_A{};
     std::vector<double>        m_list_quench_resistor_current_A{};
@@ -52,8 +52,8 @@ struct history_device_PBMC {
         m_list_ramo_current_hole.reserve(size);
         m_list_ramo_current.reserve(size);
         m_max_electric_field.reserve(size);
-        m_list_anode_voltage_V.reserve(size);
-        m_list_cathode_voltage_V.reserve(size);
+        m_list_ramo_electrode_voltage_V.reserve(size);
+        m_list_reference_electrode_voltage_V.reserve(size);
         m_list_quench_bias_voltage_V.reserve(size);
         m_list_quench_device_current_A.reserve(size);
         m_list_quench_resistor_current_A.reserve(size);
@@ -68,8 +68,8 @@ struct history_device_PBMC {
                              double      ramo_current_hole,
                              double      ramo_current,
                              double      max_electric_field,
-                             double      anode_voltage_V,
-                             double      cathode_voltage_V,
+                             double      ramo_electrode_voltage_V,
+                             double      reference_electrode_voltage_V,
                              double      quench_bias_voltage_V,
                              double      quench_device_current_A,
                              double      quench_resistor_current_A,
@@ -82,8 +82,8 @@ struct history_device_PBMC {
         m_list_ramo_current_hole.push_back(ramo_current_hole);
         m_list_ramo_current.push_back(ramo_current);
         m_max_electric_field.push_back(max_electric_field);
-        m_list_anode_voltage_V.push_back(anode_voltage_V);
-        m_list_cathode_voltage_V.push_back(cathode_voltage_V);
+        m_list_ramo_electrode_voltage_V.push_back(ramo_electrode_voltage_V);
+        m_list_reference_electrode_voltage_V.push_back(reference_electrode_voltage_V);
         m_list_quench_bias_voltage_V.push_back(quench_bias_voltage_V);
         m_list_quench_device_current_A.push_back(quench_device_current_A);
         m_list_quench_resistor_current_A.push_back(quench_resistor_current_A);
@@ -93,7 +93,8 @@ struct history_device_PBMC {
     void print_header_csv(const std::string &filename) {
         std::ofstream file(filename);
         file << "time,nb_electrons,nb_holes,nb_impact_ionization,ramo_current_electron,ramo_current_hole,ramo_current,"
-                "max_electric_field,anode_voltage_V,cathode_voltage_V,quench_bias_voltage_V,quench_device_current_A,"
+                "max_electric_field,ramo_electrode_voltage_V,reference_electrode_voltage_V,quench_bias_voltage_V,"
+                "quench_device_current_A,"
                 "quench_resistor_current_A,quench_voltage_drop_V\n";
         file.close();
     }
@@ -102,8 +103,8 @@ struct history_device_PBMC {
         file << m_list_times.back() << ',' << m_list_nb_electrons.back() << ',' << m_list_nb_holes.back() << ','
              << m_list_nb_impact_ionization.back() << ',' << m_list_ramo_current_electron.back() << ','
              << m_list_ramo_current_hole.back() << ',' << m_list_ramo_current.back() << ','
-             << m_max_electric_field.back() << ',' << m_list_anode_voltage_V.back() << ','
-             << m_list_cathode_voltage_V.back() << ',' << m_list_quench_bias_voltage_V.back() << ','
+             << m_max_electric_field.back() << ',' << m_list_ramo_electrode_voltage_V.back() << ','
+             << m_list_reference_electrode_voltage_V.back() << ',' << m_list_quench_bias_voltage_V.back() << ','
              << m_list_quench_device_current_A.back() << ',' << m_list_quench_resistor_current_A.back() << ','
              << m_list_quench_voltage_drop_V.back() << '\n';
     }
@@ -125,8 +126,8 @@ struct history_device_PBMC {
         std::vector<double> double_list_ramo_current_electron;
         std::vector<double> double_list_ramo_current_hole;
         std::vector<double> double_list_ramo_current;
-        std::vector<double> double_list_anode_voltage_V;
-        std::vector<double> double_list_cathode_voltage_V;
+        std::vector<double> double_list_ramo_electrode_voltage_V;
+        std::vector<double> double_list_reference_electrode_voltage_V;
         std::vector<double> double_list_quench_bias_voltage_V;
         std::vector<double> double_list_quench_device_current_A;
         std::vector<double> double_list_quench_resistor_current_A;
@@ -142,8 +143,8 @@ struct history_device_PBMC {
             double_list_ramo_current_hole.push_back(m_list_ramo_current_hole[iter_nb]);
             double_list_ramo_current.push_back(m_list_ramo_current[iter_nb]);
             double_list_max_electric_field.push_back(m_max_electric_field[iter_nb]);
-            double_list_anode_voltage_V.push_back(m_list_anode_voltage_V[iter_nb]);
-            double_list_cathode_voltage_V.push_back(m_list_cathode_voltage_V[iter_nb]);
+            double_list_ramo_electrode_voltage_V.push_back(m_list_ramo_electrode_voltage_V[iter_nb]);
+            double_list_reference_electrode_voltage_V.push_back(m_list_reference_electrode_voltage_V[iter_nb]);
             double_list_quench_bias_voltage_V.push_back(m_list_quench_bias_voltage_V[iter_nb]);
             double_list_quench_device_current_A.push_back(m_list_quench_device_current_A[iter_nb]);
             double_list_quench_resistor_current_A.push_back(m_list_quench_resistor_current_A[iter_nb]);
@@ -158,8 +159,10 @@ struct history_device_PBMC {
         double_list_ramo_current_hole.push_back(m_list_ramo_current_hole[m_list_nb_electrons.size() - 1]);
         double_list_ramo_current.push_back(m_list_ramo_current[m_list_nb_electrons.size() - 1]);
         double_list_max_electric_field.push_back(m_max_electric_field[m_list_nb_electrons.size() - 1]);
-        double_list_anode_voltage_V.push_back(m_list_anode_voltage_V[m_list_nb_electrons.size() - 1]);
-        double_list_cathode_voltage_V.push_back(m_list_cathode_voltage_V[m_list_nb_electrons.size() - 1]);
+        double_list_ramo_electrode_voltage_V.push_back(
+            m_list_ramo_electrode_voltage_V[m_list_nb_electrons.size() - 1]);
+        double_list_reference_electrode_voltage_V.push_back(
+            m_list_reference_electrode_voltage_V[m_list_nb_electrons.size() - 1]);
         double_list_quench_bias_voltage_V.push_back(m_list_quench_bias_voltage_V[m_list_nb_electrons.size() - 1]);
         double_list_quench_device_current_A.push_back(m_list_quench_device_current_A[m_list_nb_electrons.size() - 1]);
         double_list_quench_resistor_current_A.push_back(
@@ -174,8 +177,8 @@ struct history_device_PBMC {
                                                "ramo_current_hole",
                                                "ramo_current",
                                                "max_electric_field",
-                                               "anode_voltage_V",
-                                               "cathode_voltage_V",
+                                               "ramo_electrode_voltage_V",
+                                               "reference_electrode_voltage_V",
                                                "quench_bias_voltage_V",
                                                "quench_device_current_A",
                                                "quench_resistor_current_A",
@@ -190,8 +193,8 @@ struct history_device_PBMC {
                                               double_list_ramo_current_hole,
                                               double_list_ramo_current,
                                               double_list_max_electric_field,
-                                              double_list_anode_voltage_V,
-                                              double_list_cathode_voltage_V,
+                                              double_list_ramo_electrode_voltage_V,
+                                              double_list_reference_electrode_voltage_V,
                                               double_list_quench_bias_voltage_V,
                                               double_list_quench_device_current_A,
                                               double_list_quench_resistor_current_A,

@@ -13,6 +13,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "pbmc_transport_kernel.hpp"
 #include "device.hpp"
@@ -30,6 +31,8 @@ void validate_material_symbol(const std::string& material_symbol);
 
 std::string make_default_output_directory(const std::string& mesh_file);
 
-void add_default_contacts(uepm::device::device& simulation_device, uepm::mesh::mesh& mesh);
+void add_collecting_contacts(uepm::device::device&       simulation_device,
+                             uepm::mesh::mesh&           mesh,
+                             const std::vector<std::string>& contact_names);
 
 }  // namespace uepm::PBMC

@@ -25,11 +25,27 @@ void options_self_consistent_device_pbmc_common::validate() const {
     if (m_poisson_frequency == 0) {
         throw std::invalid_argument("Poisson frequency must be positive.");
     }
-    if (!std::isfinite(m_anode_voltage)) {
-        throw std::invalid_argument("Anode voltage must be finite.");
+    if (m_contact_voltages_V.empty()) {
+        throw std::invalid_argument("At least one contact voltage must be configured.");
     }
-    if (!std::isfinite(m_cathode_voltage)) {
-        throw std::invalid_argument("Cathode voltage must be finite.");
+    for (const auto& [contact_name, voltage_V] : m_contact_voltages_V) {
+        if (contact_name.empty()) {
+            throw std::invalid_argument("Contact names must not be empty.");
+        }
+        if (!std::isfinite(voltage_V)) {
+            throw std::invalid_argument("Contact voltage must be finite.");
+        }
+    }
+    if (m_ramo_electrode.empty()) {
+        throw std::invalid_argument("Ramo electrode must be specified.");
+    }
+    if (!m_contact_voltages_V.contains(m_ramo_electrode)) {
+        throw std::invalid_argument("Ramo electrode '" + m_ramo_electrode +
+                                    "' is not present in the contact voltage map.");
+    }
+    if (m_passive_quench_circuit.m_enabled && !m_contact_voltages_V.contains(m_quench_biased_contact)) {
+        throw std::invalid_argument("Quench biased contact '" + m_quench_biased_contact +
+                                    "' is not present in the contact voltage map.");
     }
     if (!std::isfinite(m_intrinsic_concentration_cm_3) || m_intrinsic_concentration_cm_3 <= 0.0) {
         throw std::invalid_argument("Intrinsic concentration must be positive and finite.");
@@ -147,68 +163,76 @@ double contact_equilibrium_voltage_offset_V(const contact_doping_summary& summar
 
 }  // namespace
 
-void self_consistent_device_pbmc_simulation_base::update_built_in_contact_voltage_offsets(
-    const std::vector<std::shared_ptr<mesh::element>>& anode_contact_elements,
-    const std::vector<std::shared_ptr<mesh::element>>& cathode_contact_elements) {
-    m_anode_built_in_voltage_offset_V   = 0.0;
-    m_cathode_built_in_voltage_offset_V = 0.0;
-
+void self_consistent_device_pbmc_simulation_base::update_built_in_contact_voltage_offset(
+    const std::string&                                  contact_name,
+    const std::vector<std::shared_ptr<mesh::element>>& contact_elements) {
+    m_built_in_contact_voltage_offsets_V[contact_name] = 0.0;
     if (!m_common_options.m_enable_built_in_potential) {
         return;
     }
 
-    const auto anode_doping   = summarize_contact_doping(anode_contact_elements);
-    const auto cathode_doping = summarize_contact_doping(cathode_contact_elements);
-
-    m_anode_built_in_voltage_offset_V =
+    const auto doping = summarize_contact_doping(contact_elements);
+    const double offset_V =
         m_common_options.m_built_in_contact_voltage_scale *
-        contact_equilibrium_voltage_offset_V(anode_doping,
+        contact_equilibrium_voltage_offset_V(doping,
                                              m_common_options.m_intrinsic_concentration_cm_3,
                                              m_simulation_options.m_lattice_temperature);
-    m_cathode_built_in_voltage_offset_V =
-        m_common_options.m_built_in_contact_voltage_scale *
-        contact_equilibrium_voltage_offset_V(cathode_doping,
-                                             m_common_options.m_intrinsic_concentration_cm_3,
-                                             m_simulation_options.m_lattice_temperature);
+    m_built_in_contact_voltage_offsets_V[contact_name] = offset_V;
 
-    fmt::print("Built-in contact voltage offsets:\n");
-    fmt::print("  intrinsic concentration: {:.6e} cm^-3\n", m_common_options.m_intrinsic_concentration_cm_3);
-    fmt::print("  anode doping:   Nd={:.6e} cm^-3, Na={:.6e} cm^-3, offset={:.6e} V\n",
-               anode_doping.donor_cm_3,
-               anode_doping.acceptor_cm_3,
-               m_anode_built_in_voltage_offset_V);
-    fmt::print("  cathode doping: Nd={:.6e} cm^-3, Na={:.6e} cm^-3, offset={:.6e} V\n",
-               cathode_doping.donor_cm_3,
-               cathode_doping.acceptor_cm_3,
-               m_cathode_built_in_voltage_offset_V);
-    fmt::print("  built-in contact voltage difference cathode-anode: {:.6e} V\n",
-               m_cathode_built_in_voltage_offset_V - m_anode_built_in_voltage_offset_V);
+    fmt::print("Built-in contact '{}': Nd={:.6e} cm^-3, Na={:.6e} cm^-3, offset={:.6e} V\n",
+               contact_name,
+               doping.donor_cm_3,
+               doping.acceptor_cm_3,
+               offset_V);
 }
 
 const options_self_consistent_device_pbmc_common& self_consistent_device_pbmc_simulation_base::common_options() const {
     return m_common_options;
 }
 
+const std::map<std::string, double>& self_consistent_device_pbmc_simulation_base::contact_voltages_V() const {
+    return m_common_options.m_contact_voltages_V;
+}
+
+const std::string& self_consistent_device_pbmc_simulation_base::ramo_electrode() const {
+    return m_common_options.m_ramo_electrode;
+}
+
 std::size_t self_consistent_device_pbmc_simulation_base::poisson_frequency() const {
     return m_common_options.m_poisson_frequency;
 }
 
-double self_consistent_device_pbmc_simulation_base::anode_voltage_for_poisson() const {
-    if (m_quench_circuit.is_enabled() && m_common_options.m_quench_biased_contact == quench_biased_contact::anode) {
-        return m_quench_circuit.device_voltage_V() + m_anode_built_in_voltage_offset_V;
+double self_consistent_device_pbmc_simulation_base::contact_voltage_for_poisson(
+    const std::string& contact_name) const {
+    const auto contact_it = m_common_options.m_contact_voltages_V.find(contact_name);
+    if (contact_it == m_common_options.m_contact_voltages_V.end()) {
+        throw std::invalid_argument("Unknown configured contact '" + contact_name + "'.");
     }
-    return m_common_options.m_anode_voltage + m_anode_built_in_voltage_offset_V;
+
+    double voltage_V = contact_it->second;
+    if (m_quench_circuit.is_enabled() && m_common_options.m_quench_biased_contact == contact_name) {
+        voltage_V = m_quench_circuit.device_voltage_V();
+    }
+    const auto offset_it = m_built_in_contact_voltage_offsets_V.find(contact_name);
+    return voltage_V + (offset_it == m_built_in_contact_voltage_offsets_V.end() ? 0.0 : offset_it->second);
 }
 
-double self_consistent_device_pbmc_simulation_base::cathode_voltage_for_poisson() const {
-    if (m_quench_circuit.is_enabled() && m_common_options.m_quench_biased_contact == quench_biased_contact::cathode) {
-        return m_quench_circuit.device_voltage_V() + m_cathode_built_in_voltage_offset_V;
+double self_consistent_device_pbmc_simulation_base::ramo_electrode_voltage_for_history() const {
+    return contact_voltage_for_poisson(m_common_options.m_ramo_electrode);
+}
+
+double self_consistent_device_pbmc_simulation_base::reference_electrode_voltage_for_history() const {
+    for (const auto& [contact_name, unused_voltage] : m_common_options.m_contact_voltages_V) {
+        static_cast<void>(unused_voltage);
+        if (contact_name != m_common_options.m_ramo_electrode) {
+            return contact_voltage_for_poisson(contact_name);
+        }
     }
-    return m_common_options.m_cathode_voltage + m_cathode_built_in_voltage_offset_V;
+    return 0.0;
 }
 
 double self_consistent_device_pbmc_simulation_base::device_bias_voltage_for_history() const {
-    return cathode_voltage_for_poisson() - anode_voltage_for_poisson();
+    return ramo_electrode_voltage_for_history() - reference_electrode_voltage_for_history();
 }
 
 void self_consistent_device_pbmc_simulation_base::advance_quench_circuit(double averaged_ramo_current_A,

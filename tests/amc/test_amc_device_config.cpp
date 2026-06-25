@@ -30,7 +30,9 @@ run:
 simulation:
   final_time_s: 2.0e-12
 contacts:
-  cathode_voltage_V: 25.0
+  voltages_V:
+    anode: 0.0
+    cathode: 25.0
 scheduled_injection:
   enabled: true
   time_s: 1.0e-12
@@ -41,14 +43,63 @@ scheduled_injection:
 
     const auto config = uepm::PBMC::load_device_pbmc_config(
         config_file,
-        {"run.threads=8", "contacts.cathode_voltage_V=30.0", "scheduled_injection.weight=4.5"});
+        {"run.threads=8", "contacts.voltages_V.cathode=30.0", "scheduled_injection.weight=4.5"});
 
     CHECK(config.device_options.m_nb_threads == 8);
     CHECK(config.device_options.m_t_max == doctest::Approx(2.0e-12));
-    CHECK(config.self_consistent_options_2d.m_common.m_cathode_voltage == doctest::Approx(30.0));
+    CHECK(config.self_consistent_options_2d.m_common.m_contact_voltages_V.at("cathode") == doctest::Approx(30.0));
     CHECK(config.device_options.m_scheduled_particle_injection.m_particle_type == uepm::PBMC::particle_type::hole);
     CHECK(config.device_options.m_scheduled_particle_injection.m_weight == doctest::Approx(4.5));
     CHECK(std::filesystem::path(config.mesh_file) == config_file.parent_path() / "mesh/device.msh");
+}
+
+TEST_CASE("PBMC device config supports arbitrary named contacts and a Ramo electrode") {
+    const auto config_file = write_config(R"(
+input:
+  device_mesh: nmos.msh
+contacts:
+  voltages_V:
+    source: 0.0
+    drain: 0.1
+    body: 0.0
+    gate: 1.2
+  collecting:
+    source: true
+    drain: true
+  ramo_electrode: drain
+quench_circuit:
+  enabled: false
+)");
+
+    const auto config =
+        uepm::PBMC::load_device_pbmc_config(config_file, {"contacts.voltages_V.drain=0.25"});
+    const auto& common = config.self_consistent_options_2d.m_common;
+
+    CHECK(common.m_contact_voltages_V.size() == 4);
+    CHECK(common.m_contact_voltages_V.at("drain") == doctest::Approx(0.25));
+    CHECK(common.m_contact_voltages_V.at("gate") == doctest::Approx(1.2));
+    CHECK(common.m_ramo_electrode == "drain");
+}
+
+TEST_CASE("PBMC device config rejects a Ramo electrode that is not a configured contact") {
+    const auto config_file = write_config(R"(
+input:
+  device_mesh: device.msh
+contacts:
+  voltages_V:
+    source: 0.0
+    drain: 0.1
+  collecting:
+    source: true
+    drain: true
+  ramo_electrode: gate
+quench_circuit:
+  enabled: false
+)");
+
+    CHECK_THROWS_WITH_AS(uepm::PBMC::load_device_pbmc_config(config_file),
+                         "Ramo electrode 'gate' is not present in the contact voltage map.",
+                         std::invalid_argument);
 }
 
 TEST_CASE("PBMC device config rejects unknown YAML and override keys") {

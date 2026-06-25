@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 
 #include "numerical_helper.hpp"
@@ -57,8 +58,10 @@ void TetraEnergyIndex::rebuild(const std::vector<Tetra>& tetrahedra,
         auto&      band            = m_bands[band_index];
         band.ordered_tetra_indices = sorted_indices;
         band.ordered_min_energies.resize(sorted_indices.size());
+        std::vector<double> ordered_maximum_energies(sorted_indices.size());
         for (std::size_t index = 0; index < sorted_indices.size(); ++index) {
             band.ordered_min_energies[index] = minimum_energies[sorted_indices[index]];
+            ordered_maximum_energies[index] = maximum_energies[sorted_indices[index]];
         }
 
         const auto last =
@@ -74,10 +77,27 @@ void TetraEnergyIndex::rebuild(const std::vector<Tetra>& tetrahedra,
 
         band.ordered_tetra_indices.resize(retained);
         band.ordered_min_energies.resize(retained);
+        ordered_maximum_energies.resize(retained);
         if (retained == 0) {
             band.maximum_energy_spread = 0.0;
+            band.maximum_energy_tree.clear();
             continue;
         }
+
+        band.maximum_energy_tree.assign(4 * retained, -std::numeric_limits<double>::infinity());
+        const auto build_maximum_energy_tree = [&](auto&& self,
+                                                   std::size_t node,
+                                                   std::size_t begin,
+                                                   std::size_t end) -> double {
+            if (end - begin == 1) {
+                return band.maximum_energy_tree[node] = ordered_maximum_energies[begin];
+            }
+            const std::size_t middle = begin + (end - begin) / 2;
+            return band.maximum_energy_tree[node] =
+                       std::max(self(self, 2 * node + 1, begin, middle),
+                                self(self, 2 * node + 2, middle, end));
+        };
+        build_maximum_energy_tree(build_maximum_energy_tree, 0, 0, retained);
 
         std::vector<double> energy_spreads(retained);
         for (std::size_t index = 0; index < retained; ++index) {

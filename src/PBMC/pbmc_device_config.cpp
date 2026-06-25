@@ -45,8 +45,11 @@ YAML::Node make_default_config() {
     config["transport"]["impurity_model"]      = "mobility";
     config["transport"]["impurity_screening"]  = "debye";
 
-    config["contacts"]["anode_voltage_V"]   = 0.0;
-    config["contacts"]["cathode_voltage_V"] = 0.0;
+    config["contacts"]["voltages_V"]["anode"]   = 0.0;
+    config["contacts"]["voltages_V"]["cathode"] = 0.0;
+    config["contacts"]["collecting"]["anode"]    = true;
+    config["contacts"]["collecting"]["cathode"]  = true;
+    config["contacts"]["ramo_electrode"]         = "anode";
     config["contacts"]["apply_built_in_potential"]    = false;
     config["contacts"]["intrinsic_concentration_cm_3"] = 1.0e10;
     config["contacts"]["built_in_voltage_scale"]       = 1.0;
@@ -99,6 +102,13 @@ void merge_config(YAML::Node target, const YAML::Node& source, const std::string
     for (const auto& entry : source) {
         const std::string key       = entry.first.as<std::string>();
         const std::string full_path = path.empty() ? key : path + "." + key;
+        if (path == "contacts.voltages_V" || path == "contacts.collecting") {
+            if (!entry.second.IsScalar()) {
+                throw std::invalid_argument(fmt::format("Configuration value '{}' must be a scalar.", full_path));
+            }
+            target[key] = entry.second;
+            continue;
+        }
         if (!target[key]) {
             throw std::invalid_argument(fmt::format("Unknown configuration key '{}'.", full_path));
         }
@@ -126,6 +136,32 @@ void apply_override(YAML::Node config, const std::string& override_text) {
 
     const std::string path       = override_text.substr(0, equals);
     const std::string value_text = override_text.substr(equals + 1);
+    constexpr std::string_view contact_voltage_prefix = "contacts.voltages_V.";
+    if (path.starts_with(contact_voltage_prefix)) {
+        const std::string contact_name = path.substr(contact_voltage_prefix.size());
+        if (contact_name.empty()) {
+            throw std::invalid_argument("Contact voltage override must include a contact name.");
+        }
+        YAML::Node value = YAML::Load(value_text);
+        if (!value.IsScalar()) {
+            throw std::invalid_argument(fmt::format("Override value for '{}' must be a scalar.", path));
+        }
+        config["contacts"]["voltages_V"][contact_name] = value;
+        return;
+    }
+    constexpr std::string_view collecting_contact_prefix = "contacts.collecting.";
+    if (path.starts_with(collecting_contact_prefix)) {
+        const std::string contact_name = path.substr(collecting_contact_prefix.size());
+        if (contact_name.empty()) {
+            throw std::invalid_argument("Collecting-contact override must include a contact name.");
+        }
+        YAML::Node value = YAML::Load(value_text);
+        if (!value.IsScalar()) {
+            throw std::invalid_argument(fmt::format("Override value for '{}' must be a scalar.", path));
+        }
+        config["contacts"]["collecting"][contact_name] = value;
+        return;
+    }
     YAML::Node        node       = config;
     std::size_t       begin      = 0;
 
@@ -185,25 +221,46 @@ std::string resolve_input_path(const std::filesystem::path& config_file, const s
                               : (config_file.parent_path() / path).lexically_normal().string();
 }
 
-quench_biased_contact parse_biased_contact(const std::string& value) {
-    if (value == "anode") {
-        return quench_biased_contact::anode;
-    }
-    if (value == "cathode") {
-        return quench_biased_contact::cathode;
-    }
-    throw std::invalid_argument("quench_circuit.biased_contact must be either anode or cathode.");
-}
-
 }  // namespace
 
 self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesystem::path&    config_file,
                                                              const std::vector<std::string>& overrides) {
     YAML::Node config = make_default_config();
 
+    YAML::Node explicit_contact_voltages;
+    YAML::Node explicit_collecting_contacts;
     try {
-        merge_config(config, YAML::LoadFile(config_file.string()));
+        const YAML::Node user_config = YAML::LoadFile(config_file.string());
+        if (user_config["contacts"] && user_config["contacts"]["voltages_V"]) {
+            explicit_contact_voltages = YAML::Clone(user_config["contacts"]["voltages_V"]);
+        }
+        const bool collecting_contacts_explicit =
+            user_config["contacts"] && user_config["contacts"]["collecting"];
+        if (collecting_contacts_explicit) {
+            explicit_collecting_contacts = YAML::Clone(user_config["contacts"]["collecting"]);
+        }
+        merge_config(config, user_config);
         for (const auto& override_text : overrides) {
+            if (override_text.starts_with("contacts.voltages_V.")) {
+                if (!explicit_contact_voltages) {
+                    explicit_contact_voltages = YAML::Clone(config["contacts"]["voltages_V"]);
+                }
+                const std::size_t equals = override_text.find('=');
+                const std::string contact_name =
+                    override_text.substr(std::string_view("contacts.voltages_V.").size(),
+                                         equals - std::string_view("contacts.voltages_V.").size());
+                explicit_contact_voltages[contact_name] = YAML::Load(override_text.substr(equals + 1));
+            }
+            if (override_text.starts_with("contacts.collecting.")) {
+                if (!explicit_collecting_contacts) {
+                    explicit_collecting_contacts = YAML::Clone(config["contacts"]["collecting"]);
+                }
+                const std::size_t equals = override_text.find('=');
+                const std::string contact_name =
+                    override_text.substr(std::string_view("contacts.collecting.").size(),
+                                         equals - std::string_view("contacts.collecting.").size());
+                explicit_collecting_contacts[contact_name] = YAML::Load(override_text.substr(equals + 1));
+            }
             apply_override(config, override_text);
         }
     } catch (const YAML::Exception& error) {
@@ -218,6 +275,16 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
     result.output_dir      = value_at<std::string>(config, "run", "output_directory");
     result.simulation_name = value_at<std::string>(config, "run", "name");
     result.seed_random_generator = value_at<int>(config, "run", "seed");
+    const YAML::Node collecting_contacts =
+        explicit_collecting_contacts ? explicit_collecting_contacts : config["contacts"]["collecting"];
+    for (const auto& entry : collecting_contacts) {
+        if (entry.second.as<bool>()) {
+            result.collecting_contacts.push_back(entry.first.as<std::string>());
+        }
+    }
+    if (result.collecting_contacts.empty()) {
+        throw std::invalid_argument("At least one contacts.collecting entry must be enabled.");
+    }
 
     if (result.mesh_file.empty()) {
         throw std::invalid_argument("input.device_mesh is required.");
@@ -261,8 +328,22 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
 
     options_self_consistent_device_pbmc_common common;
     common.m_poisson_frequency                 = value_at<std::size_t>(config, "simulation", "poisson_frequency");
-    common.m_anode_voltage                     = value_at<double>(config, "contacts", "anode_voltage_V");
-    common.m_cathode_voltage                   = value_at<double>(config, "contacts", "cathode_voltage_V");
+    if (explicit_contact_voltages) {
+        for (const auto& entry : explicit_contact_voltages) {
+            common.m_contact_voltages_V.emplace(entry.first.as<std::string>(), entry.second.as<double>());
+        }
+    } else {
+        for (const auto& entry : config["contacts"]["voltages_V"]) {
+            common.m_contact_voltages_V.emplace(entry.first.as<std::string>(), entry.second.as<double>());
+        }
+    }
+    common.m_ramo_electrode = value_at<std::string>(config, "contacts", "ramo_electrode");
+    for (const auto& contact_name : result.collecting_contacts) {
+        if (!common.m_contact_voltages_V.contains(contact_name)) {
+            throw std::invalid_argument("Collecting contact '" + contact_name +
+                                        "' is not present in contacts.voltages_V.");
+        }
+    }
     common.m_enable_built_in_potential         = value_at<bool>(config, "contacts", "apply_built_in_potential");
     common.m_intrinsic_concentration_cm_3      = value_at<double>(config, "contacts", "intrinsic_concentration_cm_3");
     common.m_built_in_contact_voltage_scale    = value_at<double>(config, "contacts", "built_in_voltage_scale");
@@ -272,8 +353,7 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
     common.m_passive_quench_circuit.m_enabled  = value_at<bool>(config, "quench_circuit", "enabled");
     common.m_passive_quench_circuit.m_resistance_ohm = value_at<double>(config, "quench_circuit", "resistance_ohm");
     common.m_passive_quench_circuit.m_capacitance_F  = value_at<double>(config, "quench_circuit", "capacitance_F");
-    common.m_quench_biased_contact =
-        parse_biased_contact(value_at<std::string>(config, "quench_circuit", "biased_contact"));
+    common.m_quench_biased_contact = value_at<std::string>(config, "quench_circuit", "biased_contact");
     common.m_ramo_current_to_quench_current_sign = value_at<double>(config, "quench_circuit", "ramo_current_sign");
     common.m_background_ramo_current_A = value_at<double>(config, "quench_circuit", "background_ramo_current_A");
     common.m_auto_background_ramo_current =
@@ -282,9 +362,14 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
     common.m_quench_high_field_threshold_V_per_cm = value_at<double>(config, "quench_detection", "high_field_V_per_cm");
     common.m_quench_quiet_time_s                  = value_at<double>(config, "quench_detection", "quiet_time_s");
 
-    const auto biased_voltage                        = common.m_quench_biased_contact == quench_biased_contact::anode
-                                                           ? common.m_anode_voltage
-                                                           : common.m_cathode_voltage;
+    double biased_voltage = 0.0;
+    if (common.m_passive_quench_circuit.m_enabled) {
+        const auto biased_contact_it = common.m_contact_voltages_V.find(common.m_quench_biased_contact);
+        if (biased_contact_it == common.m_contact_voltages_V.end()) {
+            throw std::invalid_argument("quench_circuit.biased_contact must name a configured contact.");
+        }
+        biased_voltage = biased_contact_it->second;
+    }
     common.m_passive_quench_circuit.m_bias_voltage_V = biased_voltage;
     common.m_passive_quench_circuit.m_initial_device_voltage_V = biased_voltage;
 
