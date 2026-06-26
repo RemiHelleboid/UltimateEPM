@@ -29,14 +29,14 @@ YAML::Node make_default_config() {
     config["run"]["threads"]          = 1;
     config["run"]["seed"]             = 0;
 
-    config["simulation"]["final_time_s"]           = 1.0e-12;
-    config["simulation"]["time_step_s"]            = 1.0e-15;
+    config["simulation"]["final_time_s"]           = 100.0e-12;
+    config["simulation"]["time_step_s"]            = 5.0e-16;
     config["simulation"]["temperature_K"]          = 300.0;
     config["simulation"]["max_particles"]          = 1000000000;
-    config["simulation"]["poisson_frequency"]      = 10;
+    config["simulation"]["poisson_frequency"]      = 5;
     config["simulation"]["stop_when_no_electrons"] = true;
 
-    config["transport"]["max_energy_eV"]       = 10.0;
+    config["transport"]["max_energy_eV"]       = 1.0;
     config["transport"]["gamma_safety_factor"] = 1.2;
     config["transport"]["gamma_samples"]       = 1000;
     config["transport"]["impact_ionization"]   = true;
@@ -45,15 +45,15 @@ YAML::Node make_default_config() {
     config["transport"]["impurity_model"]      = "mobility";
     config["transport"]["impurity_screening"]  = "debye";
 
-    config["contacts"]["voltages_V"]["anode"]   = 0.0;
-    config["contacts"]["voltages_V"]["cathode"] = 0.0;
-    config["contacts"]["collecting"]["anode"]    = true;
-    config["contacts"]["collecting"]["cathode"]  = true;
-    config["contacts"]["ramo_electrode"]         = "anode";
-    config["contacts"]["apply_built_in_potential"]    = false;
-    config["contacts"]["built_in_voltage_scale"]       = 1.0;
+    config["contacts"]["voltages_V"]["anode"]      = 0.0;
+    config["contacts"]["voltages_V"]["cathode"]    = 0.0;
+    config["contacts"]["collecting"]["anode"]      = true;
+    config["contacts"]["collecting"]["cathode"]    = true;
+    config["contacts"]["ramo_electrode"]           = "anode";
+    config["contacts"]["apply_built_in_potential"] = false;
+    config["contacts"]["built_in_voltage_scale"]   = 1.0;
 
-    config["particles"]["initial_electrons"]        = 1;
+    config["particles"]["initial_electrons"]        = 0;
     config["particles"]["initial_holes"]            = 0;
     config["particles"]["initial_position"]["x_um"] = 0.0;
     config["particles"]["initial_position"]["y_um"] = 0.0;
@@ -74,15 +74,15 @@ YAML::Node make_default_config() {
     config["scheduled_injection"]["weight"]           = 1.0;
 
     config["output"]["keep_particle_history"] = false;
-    config["output"]["export_time_steps"]     = false;
-    config["output"]["export_frequency"]      = 100;
+    config["output"]["export_time_steps"]     = true;
+    config["output"]["export_frequency"]      = 1000;
 
-    config["quench_circuit"]["enabled"]                   = true;
-    config["quench_circuit"]["resistance_ohm"]            = 1.0;
-    config["quench_circuit"]["capacitance_F"]             = 1.0;
-    config["quench_circuit"]["biased_contact"]            = "cathode";
-    config["quench_circuit"]["ramo_current_sign"]         = -1.0;
-    config["quench_circuit"]["background_ramo_current_A"] = 0.0;
+    config["quench_circuit"]["enabled"]                      = false;
+    config["quench_circuit"]["resistance_ohm"]               = 1.0;
+    config["quench_circuit"]["capacitance_F"]                = 1.0;
+    config["quench_circuit"]["biased_contact"]               = "cathode";
+    config["quench_circuit"]["ramo_current_sign"]            = -1.0;
+    config["quench_circuit"]["background_ramo_current_A"]    = 0.0;
     config["quench_circuit"]["auto_background_ramo_current"] = false;
 
     config["avalanche_detection"]["voltage_drop_V"]   = 1.0;
@@ -133,8 +133,8 @@ void apply_override(YAML::Node config, const std::string& override_text) {
         throw std::invalid_argument(fmt::format("Invalid override '{}'. Expected path.to.value=value.", override_text));
     }
 
-    const std::string path       = override_text.substr(0, equals);
-    const std::string value_text = override_text.substr(equals + 1);
+    const std::string          path                   = override_text.substr(0, equals);
+    const std::string          value_text             = override_text.substr(equals + 1);
     constexpr std::string_view contact_voltage_prefix = "contacts.voltages_V.";
     if (path.starts_with(contact_voltage_prefix)) {
         const std::string contact_name = path.substr(contact_voltage_prefix.size());
@@ -161,8 +161,8 @@ void apply_override(YAML::Node config, const std::string& override_text) {
         config["contacts"]["collecting"][contact_name] = value;
         return;
     }
-    YAML::Node        node       = config;
-    std::size_t       begin      = 0;
+    YAML::Node  node  = config;
+    std::size_t begin = 0;
 
     while (true) {
         const std::size_t dot = path.find('.', begin);
@@ -223,7 +223,7 @@ std::string resolve_input_path(const std::filesystem::path& config_file, const s
 }  // namespace
 
 self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesystem::path&    config_file,
-                                                             const std::vector<std::string>& overrides) {
+                                                               const std::vector<std::string>& overrides) {
     YAML::Node config = make_default_config();
 
     YAML::Node explicit_contact_voltages;
@@ -233,8 +233,7 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
         if (user_config["contacts"] && user_config["contacts"]["voltages_V"]) {
             explicit_contact_voltages = YAML::Clone(user_config["contacts"]["voltages_V"]);
         }
-        const bool collecting_contacts_explicit =
-            user_config["contacts"] && user_config["contacts"]["collecting"];
+        const bool collecting_contacts_explicit = user_config["contacts"] && user_config["contacts"]["collecting"];
         if (collecting_contacts_explicit) {
             explicit_collecting_contacts = YAML::Clone(user_config["contacts"]["collecting"]);
         }
@@ -326,7 +325,7 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
     result.number_holes_start     = value_at<std::size_t>(config, "particles", "initial_holes");
 
     options_self_consistent_device_pbmc_common common;
-    common.m_poisson_frequency                 = value_at<std::size_t>(config, "simulation", "poisson_frequency");
+    common.m_poisson_frequency = value_at<std::size_t>(config, "simulation", "poisson_frequency");
     if (explicit_contact_voltages) {
         for (const auto& entry : explicit_contact_voltages) {
             common.m_contact_voltages_V.emplace(entry.first.as<std::string>(), entry.second.as<double>());
@@ -351,11 +350,10 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
     common.m_passive_quench_circuit.m_enabled  = value_at<bool>(config, "quench_circuit", "enabled");
     common.m_passive_quench_circuit.m_resistance_ohm = value_at<double>(config, "quench_circuit", "resistance_ohm");
     common.m_passive_quench_circuit.m_capacitance_F  = value_at<double>(config, "quench_circuit", "capacitance_F");
-    common.m_quench_biased_contact = value_at<std::string>(config, "quench_circuit", "biased_contact");
+    common.m_quench_biased_contact               = value_at<std::string>(config, "quench_circuit", "biased_contact");
     common.m_ramo_current_to_quench_current_sign = value_at<double>(config, "quench_circuit", "ramo_current_sign");
-    common.m_background_ramo_current_A = value_at<double>(config, "quench_circuit", "background_ramo_current_A");
-    common.m_auto_background_ramo_current =
-        value_at<bool>(config, "quench_circuit", "auto_background_ramo_current");
+    common.m_background_ramo_current_A    = value_at<double>(config, "quench_circuit", "background_ramo_current_A");
+    common.m_auto_background_ramo_current = value_at<bool>(config, "quench_circuit", "auto_background_ramo_current");
     common.m_avalanche_voltage_drop_threshold_V   = value_at<double>(config, "avalanche_detection", "voltage_drop_V");
     common.m_quench_high_field_threshold_V_per_cm = value_at<double>(config, "quench_detection", "high_field_V_per_cm");
     common.m_quench_quiet_time_s                  = value_at<double>(config, "quench_detection", "quiet_time_s");
@@ -368,7 +366,7 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
         }
         biased_voltage = biased_contact_it->second;
     }
-    common.m_passive_quench_circuit.m_bias_voltage_V = biased_voltage;
+    common.m_passive_quench_circuit.m_bias_voltage_V           = biased_voltage;
     common.m_passive_quench_circuit.m_initial_device_voltage_V = biased_voltage;
 
     result.self_consistent_options_2d.m_common = common;
