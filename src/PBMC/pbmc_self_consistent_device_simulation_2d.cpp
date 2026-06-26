@@ -555,7 +555,10 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
                                                  quench_resistor_current_for_history(),
                                                  quench_voltage_drop_for_history());
 
-        m_simulation_history.append_last_iter_to_csv(stream);
+        // The "full" history is exported at the end of the sim
+        if (m_state.m_iteration % 10 == 0) {
+            m_simulation_history.append_last_iter_to_csv(stream);
+        }                                                 
         if (m_state.m_iteration == 1 ||
             m_state.m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0) {
             fmt::print("\rExported iteration at time {:<10.3e}ps - {:>9d} / {} ({:.1f}%) -- number of particles: {}",
