@@ -73,8 +73,8 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--swept-contact",
-        choices=["drain", "source"],
-        default="drain",
+        choices=["anode", "cathode"],
+        default="anode",
         help="Contact voltage varied by the sweep.",
     )
 
@@ -208,7 +208,7 @@ def validate_args(args: argparse.Namespace) -> None:
             )
 
         runner_owned_keys = {
-            f"contacts.{args.swept_contact}_voltage_V",
+            contact_voltage_key(args.swept_contact),
             "run.output_directory",
         }
         if args.seed is not None:
@@ -239,7 +239,7 @@ def build_voltage_list(vmin: float, vmax: float, vstep: float) -> list[float]:
 
 
 def voltage_directory_name(contact: str, voltage: float) -> str:
-    prefix = "Va" if contact == "drain" else "Vc"
+    prefix = "Va" if contact == "anode" else "Vc"
     return f"{prefix}_{voltage:+.6e}_V".replace("+", "p").replace("-", "m")
 
 
@@ -249,32 +249,48 @@ def parse_scalar_text(value: object) -> float:
     return float(str(value))
 
 
-def read_contact_voltage_from_config(config_file: Path, contact: str) -> float:
-    key = f"{contact}_voltage_V"
+def contact_voltage_key(contact: str) -> str:
+    return f"contacts.voltages_V.{contact}"
 
+
+def fixed_contact_name(swept_contact: str) -> str:
+    return "cathode" if swept_contact == "anode" else "anode"
+
+
+def read_contact_voltage_from_config(config_file: Path, contact: str) -> float:
     if yaml is not None:
         with config_file.open("r", encoding="utf-8") as stream:
             data = yaml.safe_load(stream) or {}
-        return parse_scalar_text(data.get("contacts", {}).get(key, 0.0))
+        contacts = data.get("contacts", {})
+        voltages = contacts.get("voltages_V", {}) if isinstance(contacts, dict) else {}
+        return parse_scalar_text(voltages.get(contact, 0.0))
 
     in_contacts = False
+    in_voltages = False
     with config_file.open("r", encoding="utf-8") as stream:
         for raw_line in stream:
             line = raw_line.split("#", 1)[0].rstrip()
             if not line:
                 continue
-            if not raw_line.startswith(" ") and line.endswith(":"):
+            indent = len(raw_line) - len(raw_line.lstrip(" "))
+            if indent == 0 and line.endswith(":"):
                 in_contacts = line[:-1] == "contacts"
+                in_voltages = False
                 continue
-            if in_contacts:
+            if in_contacts and indent == 2 and line.strip() == "voltages_V:":
+                in_voltages = True
+                continue
+            if in_contacts and indent == 2 and line.strip().endswith(":"):
+                in_voltages = False
+            if in_contacts and in_voltages and indent >= 4:
                 stripped = line.strip()
-                if stripped.startswith(f"{key}:"):
+                if stripped.startswith(f"{contact}:"):
                     return float(stripped.split(":", 1)[1].strip())
     return 0.0
 
 
 def contact_voltage_override(overrides: list[str], contact: str) -> float | None:
-    key = f"contacts.{contact}_voltage_V"
+    key = contact_voltage_key(contact)
     value: float | None = None
     for override in overrides:
         override_key, _, override_value = override.partition("=")
@@ -284,7 +300,7 @@ def contact_voltage_override(overrides: list[str], contact: str) -> float | None
 
 
 def fixed_contact_voltage(args: argparse.Namespace) -> float:
-    fixed_contact = "source" if args.swept_contact == "drain" else "drain"
+    fixed_contact = fixed_contact_name(args.swept_contact)
     override = contact_voltage_override(args.config_overrides, fixed_contact)
     if override is not None:
         return override
@@ -293,7 +309,7 @@ def fixed_contact_voltage(args: argparse.Namespace) -> float:
 
 def diode_voltage_from_sweep(args: argparse.Namespace, swept_voltage: float) -> float:
     fixed_voltage = fixed_contact_voltage(args)
-    if args.swept_contact == "drain":
+    if args.swept_contact == "anode":
         return swept_voltage - fixed_voltage
     return fixed_voltage - swept_voltage
 
@@ -303,7 +319,7 @@ def swept_voltage_from_input(args: argparse.Namespace, input_voltage: float) -> 
         return input_voltage
 
     fixed_voltage = fixed_contact_voltage(args)
-    if args.swept_contact == "drain":
+    if args.swept_contact == "anode":
         return fixed_voltage + input_voltage
     return fixed_voltage - input_voltage
 
@@ -333,7 +349,7 @@ def build_command(
     for override in args.config_overrides:
         command.extend(["--set", override])
 
-    swept_voltage_key = f"contacts.{args.swept_contact}_voltage_V"
+    swept_voltage_key = contact_voltage_key(args.swept_contact)
     command.extend(["--set", f"{swept_voltage_key}={voltage}"])
     command.extend(["--set", f"run.output_directory={run_dir}"])
 
@@ -784,7 +800,7 @@ def main() -> int:
 
     print("Voltage sweep:")
     fixed_voltage = fixed_contact_voltage(args)
-    fixed_contact = "source" if args.swept_contact == "drain" else "drain"
+    fixed_contact = fixed_contact_name(args.swept_contact)
     print(f"  fixed {fixed_contact}: {fixed_voltage:.6e} V")
     print(f"  input voltage: {args.sweep_voltage}")
     for input_voltage, swept_voltage in zip(input_voltages, swept_voltages):
