@@ -214,6 +214,9 @@ double self_consistent_device_pbmc_simulation_base::contact_voltage_for_poisson(
         voltage_V = m_quench_circuit.device_voltage_V();
     }
     const auto offset_it = m_built_in_contact_voltage_offsets_V.find(contact_name);
+
+
+
     return voltage_V + (offset_it == m_built_in_contact_voltage_offsets_V.end() ? 0.0 : offset_it->second);
 }
 

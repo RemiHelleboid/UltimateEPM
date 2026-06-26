@@ -105,10 +105,10 @@ void self_consistent_device_pbmc_simulation_2d::place_initial_charges_according_
         throw std::invalid_argument("particle_weight must be positive.");
     }
 
-    const std::string donor_field_name    = "DonorConcentration";
-    const std::string acceptor_field_name = "AcceptorConcentration";
-    auto* mesh = m_device.get_p_mesh();
-    const auto integrate_carriers_over_2d_mesh = [&](const std::string& field_name) {
+    const std::string donor_field_name                = "DonorConcentration";
+    const std::string acceptor_field_name             = "AcceptorConcentration";
+    auto*             mesh                            = m_device.get_p_mesh();
+    const auto        integrate_carriers_over_2d_mesh = [&](const std::string& field_name) {
         double total_charge = 0.0;
 
         for (const auto& element : mesh->get_list_bulk_element()) {
@@ -158,10 +158,10 @@ void self_consistent_device_pbmc_simulation_2d::place_initial_charges_according_
     const mesh::bbox active_region_bbox = mesh->get_p_region("Silicon_1")->compute_bounding_box();
 
     while (electron_positions.size() < number_electrons) {
-        const mesh::vector3 position         = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
+        const mesh::vector3 position = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
 
-        const double        donor_density    = mesh->interpolate_scalar_at_location(donor_field_name, position);
-        const double        acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
+        const double donor_density    = mesh->interpolate_scalar_at_location(donor_field_name, position);
+        const double acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
         if (acceptor_density > donor_density) {
             continue;
         }
@@ -362,15 +362,15 @@ void self_consistent_device_pbmc_simulation_2d::initialize_poisson_solver() {
 }
 
 self_consistent_device_pbmc_simulation_2d::self_consistent_device_pbmc_simulation_2d(
-    const device::device&                        simulation_device,
+    const device::device&                         simulation_device,
     const options_device_PBMC&                    simulation_options,
     const options_self_consistent_device_pbmc_2d& self_consistent_options,
-    const physics::material_database&            material_database,
-    int                                          seed_random_generator)
+    const physics::material_database&             material_database,
+    int                                           seed_random_generator)
     : self_consistent_device_pbmc_simulation_base(simulation_device,
-                                                 simulation_options,
-                                                 self_consistent_options.m_common,
-                                                 seed_random_generator),
+                                                  simulation_options,
+                                                  self_consistent_options.m_common,
+                                                  seed_random_generator),
       m_self_consistent_options(self_consistent_options),
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(seed_random_generator + 1) {
@@ -384,21 +384,21 @@ self_consistent_device_pbmc_simulation_2d::self_consistent_device_pbmc_simulatio
 }
 
 self_consistent_device_pbmc_simulation_2d::self_consistent_device_pbmc_simulation_2d(
-    const device::device&                        simulation_device,
+    const device::device&                         simulation_device,
     const options_device_PBMC&                    simulation_options,
     const options_self_consistent_device_pbmc_2d& self_consistent_options,
-    const physics::material_database&            material_database,
-    const mesh::vector3&                         starting_position,
-    std::size_t                                  number_electrons_start,
-    std::size_t                                  number_holes_start,
-    int                                          seed_random_generator)
+    const physics::material_database&             material_database,
+    const mesh::vector3&                          starting_position,
+    std::size_t                                   number_electrons_start,
+    std::size_t                                   number_holes_start,
+    int                                           seed_random_generator)
     : self_consistent_device_pbmc_simulation_base(simulation_device,
-                                                 simulation_options,
-                                                 self_consistent_options.m_common,
-                                                 starting_position,
-                                                 number_electrons_start,
-                                                 number_holes_start,
-                                                 seed_random_generator),
+                                                  simulation_options,
+                                                  self_consistent_options.m_common,
+                                                  starting_position,
+                                                  number_electrons_start,
+                                                  number_holes_start,
+                                                  seed_random_generator),
       m_self_consistent_options(self_consistent_options),
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(seed_random_generator + 1) {
@@ -455,7 +455,7 @@ void self_consistent_device_pbmc_simulation_2d::update_self_consistent_potential
     for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
         static_cast<void>(unused_voltage);
         m_poisson_solver.apply_dirichlet_condition_second_member(contact_name,
-                                                                  contact_voltage_for_poisson(contact_name));
+                                                                 contact_voltage_for_poisson(contact_name));
     }
     m_poisson_solver.solve_system();
     constexpr bool add_gradient = true;
@@ -481,8 +481,9 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
 
     const double sim_poisson_frequency = static_cast<double>(poisson_frequency());
 
-    while (m_state.m_time_s <= m_simulation_options.m_t_max && !m_list_particles.empty()) {
-        if (m_simulation_options.m_stop_simu_when_no_electron_remaining && get_number_electrons() == 0) {
+    while (m_state.m_time_s <= m_simulation_options.m_t_max) {
+        if (m_state.m_iteration > 10 && m_simulation_options.m_stop_simu_when_no_electron_remaining == 0 &&
+            get_number_electrons() == 0) {
             fmt::print("Stop: no electrons remaining in device.\n");
             break;
         }

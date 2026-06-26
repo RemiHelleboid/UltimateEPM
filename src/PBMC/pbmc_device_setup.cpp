@@ -17,6 +17,7 @@
 #include <array>
 #include <cmath>
 #include <filesystem>
+#include <optional>
 #include <stdexcept>
 
 namespace uepm::PBMC {
@@ -79,11 +80,8 @@ void add_collecting_contacts(uepm::device::device&          simulation_device,
     constexpr double ohmic_resistance         = 0.0;
 
     const mesh::bbox device_bbox = mesh.get_bounding_box();
-    const std::array<double, 3> device_min{
-        device_bbox.get_x_min(), device_bbox.get_y_min(), device_bbox.get_z_min()};
-    const std::array<double, 3> device_max{
-        device_bbox.get_x_max(), device_bbox.get_y_max(), device_bbox.get_z_max()};
     const double tolerance = 1.0e-8 * std::max(device_bbox.get_diagonal_size(), 1.0);
+    const auto   bulk_elements = mesh.get_list_bulk_element();
 
     for (const auto& contact_name : contact_names) {
         const auto* region = mesh.get_p_region(contact_name);
@@ -101,39 +99,57 @@ void add_collecting_contacts(uepm::device::device&          simulation_device,
             region_bbox.get_x_max(), region_bbox.get_y_max(), region_bbox.get_z_max()};
         std::array<double, 3> box_min{};
         std::array<double, 3> box_max{};
-        bool                  found_boundary_normal = false;
+        std::optional<std::size_t> normal_axis;
 
         for (std::size_t axis = 0; axis < 3; ++axis) {
-            const double device_size = device_max[axis] - device_min[axis];
-            const bool at_min = std::abs(region_min[axis] - device_min[axis]) <= tolerance &&
-                                std::abs(region_max[axis] - device_min[axis]) <= tolerance;
-            const bool at_max = std::abs(region_min[axis] - device_max[axis]) <= tolerance &&
-                                std::abs(region_max[axis] - device_max[axis]) <= tolerance;
-
-            if (device_size > tolerance && at_min) {
-                box_min[axis] = device_min[axis] - contact_margin;
-                box_max[axis] = device_min[axis] + contact_collection_depth;
-                found_boundary_normal = true;
-            } else if (device_size > tolerance && at_max) {
-                box_min[axis] = device_max[axis] - contact_collection_depth;
-                box_max[axis] = device_max[axis] + contact_margin;
-                found_boundary_normal = true;
+            const double region_size = region_max[axis] - region_min[axis];
+            const double device_size = axis == 0   ? device_bbox.get_x_size()
+                                       : axis == 1 ? device_bbox.get_y_size()
+                                                   : device_bbox.get_z_size();
+            if (device_size > tolerance && region_size <= tolerance) {
+                if (normal_axis.has_value()) {
+                    throw std::runtime_error("Cannot determine a unique normal for collecting contact '" +
+                                             contact_name + "'.");
+                }
+                normal_axis = axis;
             } else if (device_size <= tolerance) {
                 box_min[axis] = region_min[axis] - contact_margin;
                 box_max[axis] = region_max[axis] + contact_margin;
-            } else if (std::abs(region_min[axis] - device_min[axis]) <= tolerance &&
-                       std::abs(region_max[axis] - device_max[axis]) <= tolerance) {
-                box_min[axis] = device_min[axis] - contact_margin;
-                box_max[axis] = device_max[axis] + contact_margin;
             } else {
                 box_min[axis] = region_min[axis] - tolerance;
                 box_max[axis] = region_max[axis] + tolerance;
             }
         }
 
-        if (!found_boundary_normal) {
+        if (!normal_axis.has_value()) {
+            throw std::runtime_error("Cannot determine the normal of collecting contact '" + contact_name + "'.");
+        }
+
+        const auto adjacent_indices = mesh.get_idx_bulk_elements_adjacent_to_contact_region(contact_name);
+        if (adjacent_indices.empty()) {
             throw std::runtime_error("Collecting contact '" + contact_name +
-                                     "' is not located on an exterior face of the mesh.");
+                                     "' has no adjacent bulk element.");
+        }
+
+        double mean_adjacent_coordinate = 0.0;
+        for (const auto element_index : adjacent_indices) {
+            if (element_index >= bulk_elements.size()) {
+                throw std::runtime_error("Contact-adjacent bulk element index is out of range.");
+            }
+            const auto barycenter = bulk_elements[element_index]->get_barycenter();
+            mean_adjacent_coordinate += (*normal_axis == 0   ? barycenter.x()
+                                         : *normal_axis == 1 ? barycenter.y()
+                                                             : barycenter.z());
+        }
+        mean_adjacent_coordinate /= static_cast<double>(adjacent_indices.size());
+
+        const double contact_plane = 0.5 * (region_min[*normal_axis] + region_max[*normal_axis]);
+        if (mean_adjacent_coordinate < contact_plane) {
+            box_min[*normal_axis] = contact_plane - contact_collection_depth;
+            box_max[*normal_axis] = contact_plane + contact_margin;
+        } else {
+            box_min[*normal_axis] = contact_plane - contact_margin;
+            box_max[*normal_axis] = contact_plane + contact_collection_depth;
         }
 
         const mesh::vector3 corner1{box_min[0], box_min[1], box_min[2]};

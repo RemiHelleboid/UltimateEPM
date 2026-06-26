@@ -121,14 +121,25 @@ void write_paraview_scene_script(const std::filesystem::path &base_directory) {
     stream << "mesh = OpenDataFile(mesh_file)\n";
     stream << "particles = OpenDataFile(particles_file)\n\n";
 
-    stream << "view = GetActiveViewOrCreate(\"RenderView\")\n\n";
+    // Pour qu'on voit les particules au dessus du mesh...sinon ça passe a travers
+    stream << "particles_transform = Transform(Input=particles)\n";
+    stream << "particles_transform.Transform.Translate = [0.0, 0.0, 1e-1]\n";
+    stream << "try:\n";
+    stream << "    particles_transform.ShowBox = 0\n";
+    stream << "except Exception:\n";
+    stream << "    pass\n\n";
+
+    stream << "view = GetActiveViewOrCreate(\"RenderView\")\n";
+    stream << "view.InteractionMode = \"2D\"\n\n";
 
     stream << "mesh_display = Show(mesh, view)\n";
     stream << "mesh_display.Representation = \"Surface\"\n\n";
 
-    stream << "particles_display = Show(particles, view)\n";
-    stream << "particles_display.Representation = \"Point Gaussian\"\n";
-    stream << "particles_display.PointSize = 6.0\n\n";
+    stream << "particles_display = Show(particles_transform, view)\n";
+    // transform1Display = GetRepresentation(transform1, view=renderView1)
+    stream << "transform1Display = GetRepresentation(particles_transform, view)\n";
+    stream << "transform1Display.Representation = \"Point Gaussian\"\n";
+    stream << "transform1Display.GaussianRadius = 0.001\n\n";
 
     stream << "ColorBy(particles_display, (\"POINTS\", \"energy_eV\"))\n";
     stream << "particles_display.RescaleTransferFunctionToDataRange(True, False)\n\n";
@@ -137,8 +148,31 @@ void write_paraview_scene_script(const std::filesystem::path &base_directory) {
     stream << "mesh_display.RescaleTransferFunctionToDataRange(True, False)\n\n";
 
     stream << "animation_scene = GetAnimationScene()\n";
-    stream << "animation_scene.UpdateAnimationUsingDataTimeSteps()\n";
+    stream << "animation_scene.UpdateAnimationUsingDataTimeSteps()\n\n";
+
+    stream << "mesh.UpdatePipeline()\n";
+    stream << "particles_transform.UpdatePipeline()\n\n";
+    stream << "animation_scene = GetAnimationScene()\n";
+    stream << "animation_scene.UpdateAnimationUsingDataTimeSteps()\n\n";
+
+    stream << "view.InteractionMode = \"2D\"\n\n";
+
+    stream << "mesh.UpdatePipeline()\n";
+    stream << "particles_transform.UpdatePipeline()\n\n";
+
+    // Reset camera using only the mesh bounds.
+    stream << "particles_display.Visibility = 0\n";
     stream << "ResetCamera(view)\n";
+    stream << "particles_display.Visibility = 1\n\n";
+
+    // Top-down 2D view.
+    stream << "view.CameraPosition = [0.0, 0.0, 1.0]\n";
+    stream << "view.CameraFocalPoint = [0.0, 0.0, 0.0]\n";
+    stream << "view.CameraViewUp = [0.0, 1.0, 0.0]\n\n";
+
+    // Do not leave Transform1 selected, otherwise ParaView shows the transform box.
+    stream << "SetActiveSource(mesh)\n\n";
+
     stream << "Render()\n";
 }
 
