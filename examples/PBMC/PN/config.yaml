@@ -37,7 +37,6 @@ contacts:
     cathode: true
   ramo_electrode: anode
   apply_built_in_potential: true
-  intrinsic_concentration_cm_3: 1.0e10
   built_in_voltage_scale: 1.0
 
 particles:

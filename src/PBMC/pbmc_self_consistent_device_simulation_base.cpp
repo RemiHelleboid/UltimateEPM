@@ -47,9 +47,6 @@ void options_self_consistent_device_pbmc_common::validate() const {
         throw std::invalid_argument("Quench biased contact '" + m_quench_biased_contact +
                                     "' is not present in the contact voltage map.");
     }
-    if (!std::isfinite(m_intrinsic_concentration_cm_3) || m_intrinsic_concentration_cm_3 <= 0.0) {
-        throw std::invalid_argument("Intrinsic concentration must be positive and finite.");
-    }
     if (!std::isfinite(m_built_in_contact_voltage_scale)) {
         throw std::invalid_argument("Built-in contact voltage scale must be finite.");
     }
@@ -113,6 +110,13 @@ void self_consistent_device_pbmc_simulation_base::validate_common_self_consisten
 
 namespace {
 
+double silicon_band_gap_varshni_eV(double temperature_K) {
+    constexpr double eg_0_eV  = 1.17;
+    constexpr double alpha_eV = 4.73e-4;
+    constexpr double beta_K   = 636.0;
+    return eg_0_eV - alpha_eV * temperature_K * temperature_K / (temperature_K + beta_K);
+}
+
 struct contact_doping_summary {
     double donor_cm_3    = 0.0;
     double acceptor_cm_3 = 0.0;
@@ -146,11 +150,11 @@ contact_doping_summary summarize_contact_doping(
 }
 
 double contact_equilibrium_voltage_offset_V(const contact_doping_summary& summary,
-                                            double                         intrinsic_concentration_cm_3,
                                             double                         temperature_K) {
     const double donor_excess    = summary.donor_cm_3 - summary.acceptor_cm_3;
     const double acceptor_excess = summary.acceptor_cm_3 - summary.donor_cm_3;
     const double thermal_voltage = uepm::constants::k_B * temperature_K / uepm::constants::q_e;
+    const double intrinsic_concentration_cm_3 = silicon_intrinsic_concentration_cm_3(temperature_K);
 
     if (donor_excess > 0.0) {
         return thermal_voltage * std::log(donor_excess / intrinsic_concentration_cm_3);
@@ -163,6 +167,23 @@ double contact_equilibrium_voltage_offset_V(const contact_doping_summary& summar
 
 }  // namespace
 
+double silicon_intrinsic_concentration_cm_3(double temperature_K) {
+    if (!std::isfinite(temperature_K) || temperature_K <= 0.0) {
+        throw std::invalid_argument("Intrinsic concentration temperature must be positive and finite.");
+    }
+
+    constexpr double reference_temperature_K       = 300.0;
+    constexpr double reference_concentration_cm_3  = 1.0e10;
+    const double     reference_band_gap_eV         = silicon_band_gap_varshni_eV(reference_temperature_K);
+    const double     band_gap_eV                   = silicon_band_gap_varshni_eV(temperature_K);
+    const double     effective_density_ratio       = std::pow(temperature_K / reference_temperature_K, 1.5);
+    const double     band_gap_boltzmann_correction = std::exp(
+        reference_band_gap_eV / (2.0 * uepm::constants::k_b_eV * reference_temperature_K) -
+        band_gap_eV / (2.0 * uepm::constants::k_b_eV * temperature_K));
+
+    return reference_concentration_cm_3 * effective_density_ratio * band_gap_boltzmann_correction;
+}
+
 void self_consistent_device_pbmc_simulation_base::update_built_in_contact_voltage_offset(
     const std::string&                                  contact_name,
     const std::vector<std::shared_ptr<mesh::element>>& contact_elements) {
@@ -172,17 +193,18 @@ void self_consistent_device_pbmc_simulation_base::update_built_in_contact_voltag
     }
 
     const auto doping = summarize_contact_doping(contact_elements);
+    const double intrinsic_concentration_cm_3 =
+        silicon_intrinsic_concentration_cm_3(m_simulation_options.m_lattice_temperature);
     const double offset_V =
         m_common_options.m_built_in_contact_voltage_scale *
-        contact_equilibrium_voltage_offset_V(doping,
-                                             m_common_options.m_intrinsic_concentration_cm_3,
-                                             m_simulation_options.m_lattice_temperature);
+        contact_equilibrium_voltage_offset_V(doping, m_simulation_options.m_lattice_temperature);
     m_built_in_contact_voltage_offsets_V[contact_name] = offset_V;
 
-    fmt::print("Built-in contact '{}': Nd={:.6e} cm^-3, Na={:.6e} cm^-3, offset={:.6e} V\n",
+    fmt::print("Built-in contact '{}': Nd={:.6e} cm^-3, Na={:.6e} cm^-3, ni(T)={:.6e} cm^-3, offset={:.6e} V\n",
                contact_name,
                doping.donor_cm_3,
                doping.acceptor_cm_3,
+               intrinsic_concentration_cm_3,
                offset_V);
 }
 

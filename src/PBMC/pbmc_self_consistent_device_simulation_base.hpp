@@ -35,9 +35,8 @@ struct options_self_consistent_device_pbmc_common {
     std::map<std::string, double> m_contact_voltages_V;
     std::string                   m_ramo_electrode;
 
-    bool   m_enable_built_in_potential       = false;
-    double m_intrinsic_concentration_cm_3    = 1.0e10;
-    double m_built_in_contact_voltage_scale  = 1.0;
+    bool   m_enable_built_in_potential      = false;
+    double m_built_in_contact_voltage_scale = 1.0;
 
     double m_contact_injection_particle_weight = 2.0;
 
@@ -58,6 +57,8 @@ struct options_self_consistent_device_pbmc_common {
 
     void validate() const;
 };
+
+double silicon_intrinsic_concentration_cm_3(double temperature_K);
 
 class self_consistent_device_pbmc_simulation_base : public device_pbmc_simulation {
  protected:

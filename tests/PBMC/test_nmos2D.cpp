@@ -166,8 +166,9 @@ TEST_CASE("Testing PBMC Simulation 2d on a NMOS.") {
     fmt::print("  built-in potential: {}\n",
                config.self_consistent_options_2d.m_common.m_enable_built_in_potential ? "enabled" : "disabled");
     if (config.self_consistent_options_2d.m_common.m_enable_built_in_potential) {
-        fmt::print("  intrinsic concentration: {:.6e} cm^-3\n",
-                   config.self_consistent_options_2d.m_common.m_intrinsic_concentration_cm_3);
+        fmt::print("  intrinsic concentration at {:.3f} K: {:.6e} cm^-3\n",
+                   config.device_options.m_lattice_temperature,
+                   uepm::PBMC::silicon_intrinsic_concentration_cm_3(config.device_options.m_lattice_temperature));
     }
     fmt::print("  export time steps: {}\n", config.device_options.m_export_time_step ? "enabled" : "disabled");
     if (mesh_dimension == 2) {

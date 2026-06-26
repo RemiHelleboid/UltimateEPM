@@ -102,8 +102,9 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     fmt::print("  built-in potential: {}\n",
                config.self_consistent_options_2d.m_common.m_enable_built_in_potential ? "enabled" : "disabled");
     if (config.self_consistent_options_2d.m_common.m_enable_built_in_potential) {
-        fmt::print("  intrinsic concentration: {:.6e} cm^-3\n",
-                   config.self_consistent_options_2d.m_common.m_intrinsic_concentration_cm_3);
+        fmt::print("  intrinsic concentration at {:.3f} K: {:.6e} cm^-3\n",
+                   config.device_options.m_lattice_temperature,
+                   silicon_intrinsic_concentration_cm_3(config.device_options.m_lattice_temperature));
     }
     fmt::print("  export time steps: {}\n", config.device_options.m_export_time_step ? "enabled" : "disabled");
     if (mesh_dimension == 2) {
@@ -187,8 +188,11 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     }
     manifest.add("self_consistent", "built_in_potential_enabled", common_options.m_enable_built_in_potential);
     manifest.add("self_consistent",
+                 "intrinsic_concentration_model",
+                 "silicon_varshni_normalized_1e10_cm-3_at_300K");
+    manifest.add("self_consistent",
                  "intrinsic_concentration_cm_3",
-                 common_options.m_intrinsic_concentration_cm_3);
+                 silicon_intrinsic_concentration_cm_3(device_options.m_lattice_temperature));
     manifest.add("self_consistent",
                  "built_in_contact_voltage_scale",
                  common_options.m_built_in_contact_voltage_scale);

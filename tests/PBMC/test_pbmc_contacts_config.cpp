@@ -6,6 +6,7 @@
 #include <string>
 
 #include "pbmc_device_config.hpp"
+#include "pbmc_self_consistent_device_simulation_base.hpp"
 
 namespace {
 
@@ -97,4 +98,13 @@ quench_circuit:
     CHECK_THROWS_WITH_AS(uepm::PBMC::load_device_pbmc_config(path),
                          "Ramo electrode 'gate' is not present in the contact voltage map.",
                          std::invalid_argument);
+}
+
+TEST_CASE("PBMC silicon intrinsic concentration follows temperature") {
+    CHECK(uepm::PBMC::silicon_intrinsic_concentration_cm_3(300.0) == doctest::Approx(1.0e10));
+    CHECK(uepm::PBMC::silicon_intrinsic_concentration_cm_3(350.0) >
+          uepm::PBMC::silicon_intrinsic_concentration_cm_3(300.0));
+    CHECK(uepm::PBMC::silicon_intrinsic_concentration_cm_3(250.0) <
+          uepm::PBMC::silicon_intrinsic_concentration_cm_3(300.0));
+    CHECK_THROWS_AS(uepm::PBMC::silicon_intrinsic_concentration_cm_3(0.0), std::invalid_argument);
 }

@@ -13,6 +13,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -21,6 +22,24 @@
 #include "unit_conversion.hpp"
 
 namespace uepm::PBMC {
+namespace {
+
+double local_ionized_impurity_density_cm_3(const mesh::element& containing_element,
+                                           const mesh::vector3& location,
+                                           double               net_doping_cm_3) {
+    const double donor_density_cm_3 =
+        containing_element.interpolate_scalar_at_location("DonorConcentration", location);
+    const double acceptor_density_cm_3 =
+        containing_element.interpolate_scalar_at_location("AcceptorConcentration", location);
+
+    if (std::isfinite(donor_density_cm_3) && std::isfinite(acceptor_density_cm_3)) {
+        return std::max(0.0, donor_density_cm_3) + std::max(0.0, acceptor_density_cm_3);
+    }
+
+    return std::abs(net_doping_cm_3);
+}
+
+}  // namespace
 
 std::string_view carrier_type_to_string(particle_type type) {
     switch (type) {
@@ -67,12 +86,13 @@ void pbmc_particle::set_data_from_device(int m_dimension) {
         interp_position.to_2d_inplace();
     }
     if (m_state.m_containing_element != nullptr) {
-        m_state.electric_field = m_state.m_containing_element->interpolate_electric_field_at_location(interp_position);
+        const auto& containing_element = *m_state.m_containing_element;
+        m_state.electric_field         = containing_element.interpolate_electric_field_at_location(interp_position);
         m_state.doping_concentration_cm_3 =
-            m_state.m_containing_element->interpolate_doping_at_location(interp_position);
-        m_state.impurity_concentration_cm_3 = std::abs(m_state.doping_concentration_cm_3);
-        m_state.lattice_temperature_K =
-            m_state.m_containing_element->interpolate_temperature_at_location(interp_position);
+            containing_element.interpolate_doping_at_location(interp_position);
+        m_state.impurity_concentration_cm_3 =
+            local_ionized_impurity_density_cm_3(containing_element, interp_position, m_state.doping_concentration_cm_3);
+        m_state.lattice_temperature_K = containing_element.interpolate_temperature_at_location(interp_position);
     } else {
         std::cout << "Error no element at particle position." << std::endl;
     }
