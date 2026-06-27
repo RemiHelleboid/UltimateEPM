@@ -1648,21 +1648,20 @@ void mesh::convert_element_function_to_vertex_function_scalar(const std::string 
  * @param factor
  */
 void mesh::convert_charge_on_element_into_charge_at_vtx(double factor) {
-    auto                list_sp_bulk_elements = get_list_bulk_element();
     std::vector<double> scalar_values(get_nb_vertices(), 0.0);
     std::vector<double> sum_volume_per_vertices(get_nb_vertices(), 0);
     constexpr double    conversion_factor = 1e12;
 
-    for (auto &&p_element : list_sp_bulk_elements) {
-        double                volume_element    = std::fabs(p_element->get_measure()) / conversion_factor;
-        double                element_n_density = (p_element->get_n_charge() * factor) / volume_element;
-        double                element_p_density = (p_element->get_p_charge() * factor) / volume_element;
-        std::vector<vertex *> p_vertices_list   = p_element->get_vertices();
+    for_each_bulk_element([&](const element &element) {
+        double                volume_element    = std::fabs(element.get_measure()) / conversion_factor;
+        double                element_n_density = (element.get_n_charge() * factor) / volume_element;
+        double                element_p_density = (element.get_p_charge() * factor) / volume_element;
+        std::vector<vertex *> p_vertices_list   = element.get_vertices();
         for (const auto &p_vtx : p_vertices_list) {
             scalar_values[p_vtx->get_index()] += (element_p_density - element_n_density) * volume_element;
             sum_volume_per_vertices[p_vtx->get_index()] += volume_element;
         }
-    }
+    });
 
     // If a vertex "received" density from several elements, we average the density.
     for (std::size_t index_vtx = 0; index_vtx < get_nb_vertices(); ++index_vtx) {

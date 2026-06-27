@@ -151,6 +151,12 @@ class mesh {
     //   Elements
     std::vector<sp_element> get_list_bulk_element() const;
     std::vector<element *>  get_list_p_bulk_element() const;
+    template <typename Function>
+    void for_each_bulk_element(Function &&function) const {
+        for (const auto &bulk_region : m_ListRegionsBulk) {
+            bulk_region.for_each_element(function);
+        }
+    }
     void                    transfer_element_to_other_region(sp_element p_element, region *new_region);
     static void transfer_element_to_other_region(sp_element p_element, region *origin_region, region *new_region);
     static void transfer_elements_to_other_region(std::vector<std::size_t> list_element_indexes,

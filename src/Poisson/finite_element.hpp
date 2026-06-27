@@ -77,6 +77,7 @@ class FiniteElementSystem {
     void   export_solution_csv(const std::string& filename);
     void   add_second_member_to_mesh_functions(const std::string& function_name);
     void   add_solution_to_mesh_functions(const std::string& function_name, bool add_gradient = true);
+    void   update_mesh_electric_field_from_solution();
     void   export_solution_to_vertices();
 };
 

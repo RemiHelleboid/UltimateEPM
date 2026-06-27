@@ -16,11 +16,11 @@
 #include <string>
 #include <vector>
 
-#include "pbmc_quench_circuit.hpp"
-#include "pbmc_self_consistent_device_simulation_base.hpp"
 #include "device.hpp"
 #include "device_pbmc_simulation.hpp"
 #include "materials.hpp"
+#include "pbmc_quench_circuit.hpp"
+#include "pbmc_self_consistent_device_simulation_base.hpp"
 #include "poisson_solver_2d.hpp"
 #include "vtkWriter.hpp"
 
@@ -38,7 +38,7 @@ struct options_self_consistent_device_pbmc_2d {
 class self_consistent_device_pbmc_simulation_2d : public self_consistent_device_pbmc_simulation_base {
  private:
     options_self_consistent_device_pbmc_2d m_self_consistent_options;
-    uepm::fem::poisson_solver_2d          m_poisson_solver;
+    uepm::fem::poisson_solver_2d           m_poisson_solver;
 
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
@@ -54,29 +54,30 @@ class self_consistent_device_pbmc_simulation_2d : public self_consistent_device_
     void initialize_contact_elements();
     void add_charges_at_contacts(std::size_t poisson_frequency);
     void add_missing_contact_charge_to_poisson_reservoir(std::size_t accumulation_steps);
-    void update_self_consistent_potential();
+    void update_self_consistent_potential(bool publish_mesh_functions = true);
 
     // 2D-specific methods
     double scale_integrated_2d_doping_to_carriers(double integrated_doping) const;
     double charge_deposition_factor(std::size_t accumulation_steps) const;
     void   apply_z_periodicity_to_particles() override;
     double ramo_current_scale_factor() const override;
+    double current_density_cell_volume_m3(const mesh::element& element) const override;
 
  public:
-    self_consistent_device_pbmc_simulation_2d(const device::device&                        simulation_device,
-                                             const options_device_PBMC&                    simulation_options,
-                                             const options_self_consistent_device_pbmc_2d& self_consistent_options,
-                                             const physics::material_database&            material_database,
-                                             int                                          seed_random_generator = 0);
+    self_consistent_device_pbmc_simulation_2d(const device::device&                         simulation_device,
+                                              const options_device_PBMC&                    simulation_options,
+                                              const options_self_consistent_device_pbmc_2d& self_consistent_options,
+                                              const physics::material_database&             material_database,
+                                              int                                           seed_random_generator = 0);
 
-    self_consistent_device_pbmc_simulation_2d(const device::device&                        simulation_device,
-                                             const options_device_PBMC&                    simulation_options,
-                                             const options_self_consistent_device_pbmc_2d& self_consistent_options,
-                                             const physics::material_database&            material_database,
-                                             const mesh::vector3&                         starting_position,
-                                             std::size_t                                  number_electrons_start,
-                                             std::size_t                                  number_holes_start,
-                                             int                                          seed_random_generator = 0);
+    self_consistent_device_pbmc_simulation_2d(const device::device&                         simulation_device,
+                                              const options_device_PBMC&                    simulation_options,
+                                              const options_self_consistent_device_pbmc_2d& self_consistent_options,
+                                              const physics::material_database&             material_database,
+                                              const mesh::vector3&                          starting_position,
+                                              std::size_t                                   number_electrons_start,
+                                              std::size_t                                   number_holes_start,
+                                              int                                           seed_random_generator = 0);
 
     void run_self_consistent_transport_simulation();
 

@@ -14,10 +14,10 @@
 #include <memory>
 #include <vector>
 
-#include "pbmc_device_history.hpp"
-#include "pbmc_transport_kernel.hpp"
 #include "device.hpp"
+#include "pbmc_device_history.hpp"
 #include "pbmc_particle.hpp"
+#include "pbmc_transport_kernel.hpp"
 #include "vector.hpp"
 
 namespace uepm::PBMC {
@@ -66,15 +66,15 @@ struct options_device_PBMC {
     options_device_PBMC() = default;
 
     options_device_PBMC(double      t_max,
-                       double      time_step,
-                       std::size_t max_number_particle,
-                       bool        activate_impact_ionization,
-                       bool        particle_creation_activated,
-                       bool        stop_simu_when_no_electron_remaining,
-                       bool        keep_particles_history,
-                       bool        export_time_step,
-                       int         frequency_export_trajectory,
-                       int         nb_threads = 1)
+                        double      time_step,
+                        std::size_t max_number_particle,
+                        bool        activate_impact_ionization,
+                        bool        particle_creation_activated,
+                        bool        stop_simu_when_no_electron_remaining,
+                        bool        keep_particles_history,
+                        bool        export_time_step,
+                        int         frequency_export_trajectory,
+                        int         nb_threads = 1)
         : m_time_step(time_step),
           m_t_max(t_max),
           m_max_number_particle(max_number_particle),
@@ -126,29 +126,30 @@ struct vtk_time_series_record {
 class device_pbmc_simulation {
  protected:
     state_device_pbmc_simulation       m_state;
-    device::device                    m_device;
+    device::device                     m_device;
     pbmc_transport_kernel              m_electron_transport;
     pbmc_transport_kernel              m_hole_transport;
     std::vector<pbmc_transport_kernel> m_thread_electron_transports;
     std::vector<pbmc_transport_kernel> m_thread_hole_transports;
-    int                               m_dimension;
+    int                                m_dimension;
     options_device_PBMC                m_simulation_options;
     history_device_PBMC                m_simulation_history{};
 
-    std::vector<std::unique_ptr<pbmc_particle>>   m_list_particles;
+    std::vector<std::unique_ptr<pbmc_particle>>  m_list_particles;
     std::vector<std::optional<scattering_event>> m_scattering_events_scratch;
 
-    void                        initialize_scheduled_particle_injection();
-    bool                        has_pending_scheduled_particle_injection() const;
-    void                        inject_scheduled_particle_if_due();
+    void                         initialize_scheduled_particle_injection();
+    bool                         has_pending_scheduled_particle_injection() const;
+    void                         inject_scheduled_particle_if_due();
+    void                         validate_time_step_against_scattering_rate() const;
     static pbmc_transport_config make_transport_config(const options_device_PBMC &options, particle_type carrier_type);
-    void                        initialize_thread_transports(int seed_random_generator);
+    void                         initialize_thread_transports(int seed_random_generator);
     pbmc_transport_kernel       &transport_for(particle_type type);
     const pbmc_transport_kernel &transport_for(particle_type type) const;
     pbmc_transport_kernel       &transport_for(particle_type type, std::size_t thread_index);
-    void                        initialize_particle_transport_state(pbmc_particle &particle);
-    std::string                 initialize_simulation_history_file();
-    virtual void                apply_z_periodicity_to_particles();
+    void                         initialize_particle_transport_state(pbmc_particle &particle);
+    std::string                  initialize_simulation_history_file();
+    virtual void                 apply_z_periodicity_to_particles();
 
     // Export functions
 
@@ -158,10 +159,13 @@ class device_pbmc_simulation {
     void export_current_particles_as_vtp(const std::string &directory) const;
     void write_particle_vtp_time_collection(const std::string &pvd_filename) const;
     void export_current_mesh_as_vtk(const std::string &directory) const;
+    void publish_mesh_particle_local_average_energy() const;
+    void publish_mesh_particle_local_current_density() const;
     void write_mesh_vtk_time_collection(const std::string &pvd_filename) const;
     void export_current_snapshot() const;
 
-    vector3 get_RamoUnitaryElectricField_at_position(const mesh::vector3 &position) const;
+    vector3        get_RamoUnitaryElectricField_at_position(const mesh::vector3 &position) const;
+    virtual double current_density_cell_volume_m3(const mesh::element &element) const;
 
  public:
     /**
@@ -171,9 +175,9 @@ class device_pbmc_simulation {
      * @param simulation_option
      * @param seed_random_generator
      */
-    device_pbmc_simulation(const device::device     &simulation_device,
-                          const options_device_PBMC &simulation_option,
-                          int                       seed_random_generator = 0);
+    device_pbmc_simulation(const device::device      &simulation_device,
+                           const options_device_PBMC &simulation_option,
+                           int                        seed_random_generator = 0);
 
     /**
      * @brief Construct a new device admc simulation object
@@ -184,12 +188,12 @@ class device_pbmc_simulation {
      * @param number_electrons_start
      * @param number_holes_start
      */
-    device_pbmc_simulation(const device::device     &simulation_device,
-                          const options_device_PBMC &simulation_option,
-                          const mesh::vector3      &starting_position,
-                          std::size_t               number_electrons_start,
-                          std::size_t               number_holes_start,
-                          int                       seed_random_generator = 0);
+    device_pbmc_simulation(const device::device      &simulation_device,
+                           const options_device_PBMC &simulation_option,
+                           const mesh::vector3       &starting_position,
+                           std::size_t                number_electrons_start,
+                           std::size_t                number_holes_start,
+                           int                        seed_random_generator = 0);
 
     void add_particle_at_position(const mesh::vector3 &location, particle_type type_of_particle, double weight = 1.0);
     void add_particles_at_positions(const std::vector<mesh::vector3> &positions,

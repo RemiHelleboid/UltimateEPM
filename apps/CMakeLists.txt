@@ -43,6 +43,10 @@ add_executable(device_pbmc.epm pbmc_device.cpp)
 target_link_libraries(device_pbmc.epm PRIVATE libepp uepm::PBMC uepm::mesh libfile)
 target_compile_features(device_pbmc.epm PRIVATE cxx_std_20)
 
+add_executable(device_admc.epm admc_device.cpp)
+target_link_libraries(device_admc.epm PRIVATE uepm::ADMC fmt::fmt)
+target_compile_features(device_admc.epm PRIVATE cxx_std_20)
+
 add_executable(impact_io.epm impact_io.cpp)
 target_link_libraries(impact_io.epm PRIVATE libepp lib_bzmesh)
 target_compile_features(impact_io.epm PRIVATE cxx_std_20)

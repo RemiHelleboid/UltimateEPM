@@ -25,6 +25,8 @@ class quadtree_node : public tree_node {
     bbox                                        m_bottom_right_subbox;
     bbox                                        m_top_right_subbox;
     bbox                                        m_top_left_subbox;
+    double                                      m_center_x = 0.0;
+    double                                      m_center_y = 0.0;
 
     std::vector<element *> find_overlapping_elements(const std::vector<element *> &list_p_elements,
                                                      const bbox                   &bounding_box) override;

@@ -57,6 +57,12 @@ double self_consistent_device_pbmc_simulation_2d::ramo_current_scale_factor() co
     return 1.0 / m_self_consistent_options.m_effective_depth_um;
 }
 
+double self_consistent_device_pbmc_simulation_2d::current_density_cell_volume_m3(const mesh::element& element) const {
+    const double area_um2             = std::abs(element.get_measure());
+    const double effective_volume_um3 = area_um2 * m_self_consistent_options.m_effective_depth_um;
+    return effective_volume_um3 * std::pow(uepm::units::micron_to_meter, 3);
+}
+
 /**
  * @brief We need to identify the elements adjacent to the contacts, and compute their equilibrium charge (integral of
  * doping concentration) to be able to properly update their charge during the simulation (so that they are not fixed at
@@ -426,9 +432,7 @@ void self_consistent_device_pbmc_simulation_2d::add_particle_charges_to_elements
 }
 
 void self_consistent_device_pbmc_simulation_2d::reset_element_charges() {
-    for (const auto& element : m_device.get_p_mesh()->get_list_bulk_element()) {
-        element->reset_charge();
-    }
+    m_device.get_p_mesh()->for_each_bulk_element([](mesh::element& element) { element.reset_charge(); });
 }
 
 void self_consistent_device_pbmc_simulation_2d::recompute_vertex_space_charge_from_element_charges(
@@ -450,7 +454,7 @@ void self_consistent_device_pbmc_simulation_2d::apply_z_periodicity_to_particles
     }
 }
 
-void self_consistent_device_pbmc_simulation_2d::update_self_consistent_potential() {
+void self_consistent_device_pbmc_simulation_2d::update_self_consistent_potential(bool publish_mesh_functions) {
     m_poisson_solver.update_second_member();
     for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
         static_cast<void>(unused_voltage);
@@ -458,8 +462,12 @@ void self_consistent_device_pbmc_simulation_2d::update_self_consistent_potential
                                                                  contact_voltage_for_poisson(contact_name));
     }
     m_poisson_solver.solve_system();
-    constexpr bool add_gradient = true;
-    m_poisson_solver.add_solution_to_mesh_functions("PoissonSolution", add_gradient);
+    if (publish_mesh_functions) {
+        constexpr bool add_gradient = true;
+        m_poisson_solver.add_solution_to_mesh_functions("PoissonSolution", add_gradient);
+    } else {
+        m_poisson_solver.update_mesh_electric_field_from_solution();
+    }
 }
 
 void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_simulation() {
@@ -523,7 +531,7 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
             add_particle_charges_to_elements();
             add_missing_contact_charge_to_poisson_reservoir(poisson_frequency() + 1);
             recompute_vertex_space_charge_from_element_charges(poisson_frequency() + 1);
-            update_self_consistent_potential();
+            update_self_consistent_potential(false);
             reset_element_charges();
 
             if (m_common_options.m_auto_background_ramo_current && m_state.m_scheduled_particle_injection_done &&
@@ -558,7 +566,7 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
         // The "full" history is exported at the end of the sim
         if (m_state.m_iteration % 10 == 0) {
             m_simulation_history.append_last_iter_to_csv(stream);
-        }                                                 
+        }
         if (m_state.m_iteration == 1 ||
             m_state.m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0) {
             fmt::print("\rExported iteration at time {:<10.3e}ps - {:>9d} / {} ({:.1f}%) -- number of particles: {}",
@@ -570,12 +578,16 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
             std::fflush(stdout);
             stream.flush();
             if (m_simulation_options.m_export_time_step) {
+                constexpr bool add_gradient = true;
+                m_poisson_solver.add_solution_to_mesh_functions("PoissonSolution", add_gradient);
                 export_current_state();
             }
         }
     }
 
     stream.close();
+    constexpr bool add_gradient = true;
+    m_poisson_solver.add_solution_to_mesh_functions("PoissonSolution", add_gradient);
     export_current_state();
     fmt::print("END 2D SELF-CONSISTENT PBMC SIMULATION\n");
 }

@@ -16,6 +16,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <chrono>
+#include <cmath>
 #include <fstream>
 
 namespace uepm::fem {
@@ -90,6 +91,61 @@ void FiniteElementSystem::add_solution_to_mesh_functions(const std::string &func
         m_p_mesh->create_gradient_function(function_name, function_name + "_gradient");
         constexpr double gradient_scale = 1.0;
         m_p_mesh->add_electric_field_to_vertices(function_name + "_gradient", gradient_scale);
+    }
+}
+
+void FiniteElementSystem::update_mesh_electric_field_from_solution() {
+    const mesh::vector3 null_vector{0.0, 0.0, 0.0};
+    std::vector<mesh::vector3> vector_values(m_p_mesh->get_nb_vertices(), null_vector);
+    std::vector<double>        vector_average_renormalization(m_p_mesh->get_nb_vertices(), 0.0);
+
+    m_p_mesh->for_each_bulk_element([&](const mesh::element &element) {
+        const auto &vertices = element.get_vertices();
+        if (vertices.size() != 3) {
+            return;
+        }
+
+        const double x_0     = vertices[0]->x();
+        const double y_0     = vertices[0]->y();
+        const double x_1     = vertices[1]->x();
+        const double y_1     = vertices[1]->y();
+        const double x_2     = vertices[2]->x();
+        const double y_2     = vertices[2]->y();
+        const double value_0 = m_solution(vertices[0]->get_index());
+        const double value_1 = m_solution(vertices[1]->get_index());
+        const double value_2 = m_solution(vertices[2]->get_index());
+
+        const double surface = x_0 * y_1 - x_0 * y_2 - x_1 * y_0 + x_1 * y_2 + x_2 * y_0 - x_2 * y_1;
+        if (surface == 0.0) {
+            return;
+        }
+
+        const double grad_x =
+            (value_0 * y_1 - value_0 * y_2 - value_1 * y_0 + value_1 * y_2 + value_2 * y_0 - value_2 * y_1) /
+            surface;
+        const double grad_y =
+            (-value_0 * x_1 + value_0 * x_2 + value_1 * x_0 - value_1 * x_2 - value_2 * x_0 + value_2 * x_1) /
+            surface;
+        mesh::vector3 gradient_at_element{grad_x, grad_y, 0.0};
+        if (std::isnan(gradient_at_element.norm())) {
+            gradient_at_element = null_vector;
+        }
+
+        for (const auto *vertex : vertices) {
+            const auto index = vertex->get_index();
+            vector_values[index] += gradient_at_element;
+            vector_average_renormalization[index] += 1.0;
+        }
+    });
+
+    constexpr double electric_field_scale = -1.0e4;
+    for (std::size_t index_vtx = 0; index_vtx < m_p_mesh->get_nb_vertices(); ++index_vtx) {
+        auto *vertex = m_p_mesh->get_p_vertex(index_vtx);
+        if (vertex == nullptr || vector_average_renormalization[index_vtx] == 0.0) {
+            continue;
+        }
+        vector_values[index_vtx] *= electric_field_scale / vector_average_renormalization[index_vtx];
+        vertex->set_electric_field(vector_values[index_vtx]);
     }
 }
 

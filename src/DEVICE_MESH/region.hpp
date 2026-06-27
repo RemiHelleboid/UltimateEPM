@@ -57,6 +57,13 @@ class region {
     RegionType                            get_region_type() const { return m_region_type; }
     std::vector<std::size_t>              get_list_elements_index() const;
     std::vector<vertex *>                 get_list_all_p_vertices() const;
+    template <typename Function>
+    void for_each_element(Function &&function) const {
+        for (const auto &[unused_index, sp_element] : m_ListElements) {
+            static_cast<void>(unused_index);
+            function(*sp_element);
+        }
+    }
 
     // Others
     const std::set<unsigned int> &get_unique_vertices() const { return m_UniqueVertices; }

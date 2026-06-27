@@ -1,0 +1,271 @@
+/**
+ * @file admc_device_config.cpp
+ * @brief YAML configuration support for self-consistent ADMC device simulation.
+ */
+
+#include "admc_device_config.hpp"
+
+#include <fmt/format.h>
+#include <yaml-cpp/yaml.h>
+
+#include <fstream>
+#include <stdexcept>
+#include <string_view>
+
+namespace uepm::ADMC {
+namespace {
+
+YAML::Node make_default_config() {
+    YAML::Node config;
+    config["input"]["device_mesh"]                           = "";
+    config["input"]["material_root"]                         = "";
+    config["input"]["material"]                              = "Si";
+    config["run"]["name"]                                    = "self_consistent_ADMC";
+    config["run"]["output_directory"]                        = "";
+    config["run"]["seed"]                                    = 0;
+    config["run"]["threads"]                                 = 1;
+    config["simulation"]["final_time_s"]                     = 100.0e-12;
+    config["simulation"]["time_step_s"]                      = 1.0e-15;
+    config["simulation"]["temperature_K"]                    = 300.0;
+    config["simulation"]["max_particles"]                    = 100000000;
+    config["simulation"]["poisson_frequency"]                = 10;
+    config["simulation"]["stop_when_no_electrons"]           = false;
+    config["transport"]["impact_ionization"]                 = false;
+    config["transport"]["particle_creation"]                 = false;
+    config["transport"]["impurity_scattering"]               = false;
+    config["transport"]["impurity_model"]                    = "mobility";
+    config["transport"]["impurity_screening"]                = "debye";
+    config["transport"]["max_energy_eV"]                     = 1.0;
+    config["transport"]["gamma_safety_factor"]               = 1.2;
+    config["transport"]["gamma_samples"]                     = 1000;
+    config["contacts"]["voltages_V"]["anode"]                = 0.0;
+    config["contacts"]["voltages_V"]["cathode"]              = 0.0;
+    config["contacts"]["collecting"]["anode"]                = true;
+    config["contacts"]["collecting"]["cathode"]              = true;
+    config["contacts"]["ramo_electrode"]                     = "anode";
+    config["contacts"]["apply_built_in_potential"]           = true;
+    config["contacts"]["built_in_voltage_scale"]             = 1.0;
+    config["particles"]["initial_electrons"]                 = 0;
+    config["particles"]["initial_holes"]                     = 0;
+    config["particles"]["initial_position"]["x_um"]          = 0.0;
+    config["particles"]["initial_position"]["y_um"]          = 0.0;
+    config["particles"]["initial_position"]["z_um"]          = 0.0;
+    config["particles"]["initialize_from_doping"]            = true;
+    config["particles"]["initial_weight"]                    = 1.0;
+    config["particles"]["contact_injection_weight"]          = 1.0;
+    config["geometry_2d"]["effective_depth_um"]              = 1.0;
+    config["geometry_2d"]["particle_z_period_um"]            = 1.0e-3;
+    config["output"]["export_time_steps"]                    = true;
+    config["output"]["export_frequency"]                     = 1000;
+    config["output"]["keep_particle_history"]                = false;
+    config["output"]["mesh_particle_local_averages"]         = true;
+    config["scheduled_injection"]["enabled"]                 = false;
+    config["scheduled_injection"]["time_s"]                  = 0.0;
+    config["scheduled_injection"]["position"]["x_um"]        = 0.0;
+    config["scheduled_injection"]["position"]["y_um"]        = 0.0;
+    config["scheduled_injection"]["position"]["z_um"]        = 0.0;
+    config["scheduled_injection"]["type"]                    = "electron";
+    config["scheduled_injection"]["weight"]                  = 1.0;
+    config["quench_circuit"]["enabled"]                      = false;
+    config["quench_circuit"]["resistance_ohm"]               = 1.0;
+    config["quench_circuit"]["capacitance_F"]                = 1.0;
+    config["quench_circuit"]["biased_contact"]               = "cathode";
+    config["quench_circuit"]["ramo_current_sign"]            = -1.0;
+    config["quench_circuit"]["background_ramo_current_A"]    = 0.0;
+    config["quench_circuit"]["auto_background_ramo_current"] = false;
+    config["avalanche_detection"]["voltage_drop_V"]          = 1.0;
+    config["quench_detection"]["high_field_V_per_cm"]        = 1.0e5;
+    config["quench_detection"]["quiet_time_s"]               = 1.0e-11;
+    return config;
+}
+
+void merge_config(YAML::Node target, const YAML::Node& source, const std::string& path = "") {
+    if (!source.IsMap()) {
+        throw std::invalid_argument(
+            fmt::format("Configuration section '{}' must be a mapping.", path.empty() ? "<root>" : path));
+    }
+    for (const auto& entry : source) {
+        const std::string key       = entry.first.as<std::string>();
+        const std::string full_path = path.empty() ? key : path + "." + key;
+        if (path == "contacts.voltages_V" || path == "contacts.collecting") {
+            target[key] = entry.second;
+            continue;
+        }
+        if (!target[key]) {
+            throw std::invalid_argument(fmt::format("Unknown configuration key '{}'.", full_path));
+        }
+        if (target[key].IsMap()) {
+            if (!entry.second.IsMap()) {
+                throw std::invalid_argument(fmt::format("Configuration section '{}' must be a mapping.", full_path));
+            }
+            merge_config(target[key], entry.second, full_path);
+        } else {
+            if (!entry.second.IsScalar()) {
+                throw std::invalid_argument(fmt::format("Configuration value '{}' must be a scalar.", full_path));
+            }
+            target[key] = entry.second;
+        }
+    }
+}
+
+void apply_override(YAML::Node config, const std::string& override_text) {
+    const std::size_t equals = override_text.find('=');
+    if (equals == std::string::npos || equals == 0 || equals + 1 >= override_text.size()) {
+        throw std::invalid_argument(fmt::format("Invalid override '{}'. Expected path.to.value=value.", override_text));
+    }
+    const std::string path  = override_text.substr(0, equals);
+    YAML::Node        value = YAML::Load(override_text.substr(equals + 1));
+    YAML::Node        node  = config;
+    std::size_t       begin = 0;
+    while (true) {
+        const std::size_t dot = path.find('.', begin);
+        const std::string key = path.substr(begin, dot == std::string::npos ? dot : dot - begin);
+        if (key.empty()) {
+            throw std::invalid_argument(fmt::format("Invalid override '{}'.", path));
+        }
+        if (dot == std::string::npos) {
+            node[key] = value;
+            return;
+        }
+        if (!node[key]) {
+            node[key] = YAML::Node(YAML::NodeType::Map);
+        }
+        node.reset(node[key]);
+        begin = dot + 1;
+    }
+}
+
+template <typename T>
+T value_at(const YAML::Node& config, std::string_view section, std::string_view key) {
+    return config[std::string(section)][std::string(key)].as<T>();
+}
+
+template <typename T>
+T nested_value_at(const YAML::Node& config,
+                  std::string_view  section,
+                  std::string_view  subsection,
+                  std::string_view  key) {
+    return config[std::string(section)][std::string(subsection)][std::string(key)].as<T>();
+}
+
+std::string resolve_input_path(const std::filesystem::path& config_file, const std::string& value) {
+    if (value.empty()) {
+        return value;
+    }
+    const std::filesystem::path path(value);
+    return path.is_absolute() ? path.lexically_normal().string()
+                              : (config_file.parent_path() / path).lexically_normal().string();
+}
+
+}  // namespace
+
+self_consistent_device_admc_run_config load_device_admc_config(const std::filesystem::path&    config_file,
+                                                               const std::vector<std::string>& overrides) {
+    YAML::Node config = make_default_config();
+    YAML::Node explicit_contact_voltages;
+    YAML::Node explicit_collecting_contacts;
+    try {
+        const YAML::Node user_config = YAML::LoadFile(config_file.string());
+        if (user_config["contacts"] && user_config["contacts"]["voltages_V"]) {
+            explicit_contact_voltages = YAML::Clone(user_config["contacts"]["voltages_V"]);
+        }
+        if (user_config["contacts"] && user_config["contacts"]["collecting"]) {
+            explicit_collecting_contacts = YAML::Clone(user_config["contacts"]["collecting"]);
+        }
+        merge_config(config, user_config);
+        for (const auto& override_text : overrides) {
+            apply_override(config, override_text);
+        }
+    } catch (const YAML::Exception& error) {
+        throw std::invalid_argument(
+            fmt::format("Could not read ADMC configuration '{}': {}", config_file.string(), error.what()));
+    }
+
+    self_consistent_device_admc_run_config result;
+    result.mesh_file       = resolve_input_path(config_file, value_at<std::string>(config, "input", "device_mesh"));
+    result.material_root   = resolve_input_path(config_file, value_at<std::string>(config, "input", "material_root"));
+    result.material_symbol = value_at<std::string>(config, "input", "material");
+    result.output_dir      = value_at<std::string>(config, "run", "output_directory");
+    result.simulation_name = value_at<std::string>(config, "run", "name");
+    result.random_seed     = value_at<std::uint64_t>(config, "run", "seed");
+    if (result.mesh_file.empty()) {
+        throw std::invalid_argument("input.device_mesh is required.");
+    }
+
+    const YAML::Node contacts =
+        explicit_contact_voltages ? explicit_contact_voltages : config["contacts"]["voltages_V"];
+    for (const auto& entry : contacts) {
+        result.self_consistent_options_2d.m_common.m_contact_voltages_V.emplace(entry.first.as<std::string>(),
+                                                                                entry.second.as<double>());
+    }
+    const YAML::Node collecting =
+        explicit_collecting_contacts ? explicit_collecting_contacts : config["contacts"]["collecting"];
+    for (const auto& entry : collecting) {
+        if (entry.second.as<bool>()) {
+            result.collecting_contacts.push_back(entry.first.as<std::string>());
+        }
+    }
+    if (result.collecting_contacts.empty()) {
+        throw std::invalid_argument("At least one contacts.collecting entry must be enabled.");
+    }
+
+    auto& device                                 = result.device_options;
+    device.m_final_time_s                        = value_at<double>(config, "simulation", "final_time_s");
+    device.m_time_step_s                         = value_at<double>(config, "simulation", "time_step_s");
+    device.m_lattice_temperature_K               = value_at<double>(config, "simulation", "temperature_K");
+    device.m_max_number_particles                = value_at<std::size_t>(config, "simulation", "max_particles");
+    device.m_stop_when_no_electrons              = value_at<bool>(config, "simulation", "stop_when_no_electrons");
+    device.m_export_time_step                    = value_at<bool>(config, "output", "export_time_steps");
+    device.m_frequency_export                    = value_at<int>(config, "output", "export_frequency");
+    device.m_export_mesh_particle_local_averages = value_at<bool>(config, "output", "mesh_particle_local_averages");
+    device.m_enable_scheduled_particle_injection = value_at<bool>(config, "scheduled_injection", "enabled");
+    device.m_scheduled_injection_time_s          = value_at<double>(config, "scheduled_injection", "time_s");
+    device.m_scheduled_injection_position_um =
+        mesh::vector3{nested_value_at<double>(config, "scheduled_injection", "position", "x_um"),
+                      nested_value_at<double>(config, "scheduled_injection", "position", "y_um"),
+                      nested_value_at<double>(config, "scheduled_injection", "position", "z_um")};
+    const auto injection_type = value_at<std::string>(config, "scheduled_injection", "type");
+    if (injection_type == "electron" || injection_type == "e") {
+        device.m_scheduled_injection_type = carrier_type::electron;
+    } else if (injection_type == "hole" || injection_type == "h") {
+        device.m_scheduled_injection_type = carrier_type::hole;
+    } else {
+        throw std::invalid_argument("scheduled_injection.type must be electron/e or hole/h.");
+    }
+    device.m_scheduled_injection_weight = value_at<double>(config, "scheduled_injection", "weight");
+
+    result.number_electrons_start = value_at<std::size_t>(config, "particles", "initial_electrons");
+    result.number_holes_start     = value_at<std::size_t>(config, "particles", "initial_holes");
+    result.starting_position_um =
+        mesh::vector3{nested_value_at<double>(config, "particles", "initial_position", "x_um"),
+                      nested_value_at<double>(config, "particles", "initial_position", "y_um"),
+                      nested_value_at<double>(config, "particles", "initial_position", "z_um")};
+
+    auto& common                               = result.self_consistent_options_2d.m_common;
+    common.m_poisson_frequency                 = value_at<std::size_t>(config, "simulation", "poisson_frequency");
+    common.m_ramo_electrode                    = value_at<std::string>(config, "contacts", "ramo_electrode");
+    common.m_enable_built_in_potential         = value_at<bool>(config, "contacts", "apply_built_in_potential");
+    common.m_built_in_contact_voltage_scale    = value_at<double>(config, "contacts", "built_in_voltage_scale");
+    common.m_initialize_particles_from_doping  = value_at<bool>(config, "particles", "initialize_from_doping");
+    common.m_initial_particle_weight           = value_at<double>(config, "particles", "initial_weight");
+    common.m_contact_injection_particle_weight = value_at<double>(config, "particles", "contact_injection_weight");
+
+    result.self_consistent_options_2d.m_effective_depth_um =
+        value_at<double>(config, "geometry_2d", "effective_depth_um");
+    result.self_consistent_options_2d.m_particle_z_period_um =
+        value_at<double>(config, "geometry_2d", "particle_z_period_um");
+
+    result.device_options.validate();
+    result.self_consistent_options_2d.validate();
+    return result;
+}
+
+void write_basic_device_admc_config(const std::filesystem::path& config_file) {
+    std::ofstream stream(config_file);
+    if (!stream.is_open()) {
+        throw std::runtime_error("Could not open ADMC configuration file for writing: " + config_file.string());
+    }
+    stream << make_default_config();
+}
+
+}  // namespace uepm::ADMC

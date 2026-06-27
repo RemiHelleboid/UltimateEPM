@@ -398,9 +398,7 @@ void self_consistent_device_pbmc_simulation_3d::add_particle_charges_to_elements
 }
 
 void self_consistent_device_pbmc_simulation_3d::reset_element_charges() {
-    for (const auto& element : m_device.get_p_mesh()->get_list_bulk_element()) {
-        element->reset_charge();
-    }
+    m_device.get_p_mesh()->for_each_bulk_element([](mesh::element& element) { element.reset_charge(); });
 }
 
 void self_consistent_device_pbmc_simulation_3d::recompute_vertex_space_charge_from_element_charges(

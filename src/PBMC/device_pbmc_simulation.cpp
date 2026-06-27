@@ -29,6 +29,7 @@
 #include <memory>
 #include <random>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "physical_constants.hpp"
@@ -257,7 +258,7 @@ double device_pbmc_simulation::get_total_hole_weight() const {
 }
 
 pbmc_transport_config device_pbmc_simulation::make_transport_config(const options_device_PBMC &options,
-                                                                  particle_type             carrier_type) {
+                                                                    particle_type              carrier_type) {
     pbmc_transport_config cfg;
     cfg.m_carrier_type                     = carrier_type;
     cfg.m_lattice_temperature              = options.m_lattice_temperature;
@@ -364,6 +365,40 @@ bool device_pbmc_simulation::has_pending_scheduled_particle_injection() const {
     return m_simulation_options.m_scheduled_particle_injection.m_time_s <= m_simulation_options.m_t_max;
 }
 
+void device_pbmc_simulation::validate_time_step_against_scattering_rate() const {
+    const double gamma_max_s_1 = std::max(m_electron_transport.gamma_max(), m_hole_transport.gamma_max());
+    if (gamma_max_s_1 <= 0.0) {
+        throw std::invalid_argument("PBMC gamma_max must be positive before validating the device time step.");
+    }
+
+    const double     scattering_step_ratio = m_simulation_options.m_time_step * gamma_max_s_1;
+    constexpr double warning_ratio         = 0.05;
+    constexpr double error_ratio           = 0.10;
+
+    if (scattering_step_ratio > error_ratio) {
+        throw std::invalid_argument(fmt::format(
+            "PBMC device time step is too large for fixed-step scattering: dt * gamma_max = {:.6e} "
+            "(dt = {:.6e} s, gamma_max = {:.6e} s^-1). Device PBMC applies at most one scattering event per "
+            "fixed time step, so use dt <= {:.6e} s or increase gamma/max-energy settings only if gamma_max is "
+            "underestimated.",
+            scattering_step_ratio,
+            m_simulation_options.m_time_step,
+            gamma_max_s_1,
+            error_ratio / gamma_max_s_1));
+    }
+
+    if (scattering_step_ratio > warning_ratio) {
+        fmt::print(stderr,
+                   "WARNING: PBMC device time step is close to the fixed-step scattering limit: "
+                   "dt * gamma_max = {:.6e} (dt = {:.6e} s, gamma_max = {:.6e} s^-1). "
+                   "For better accuracy, prefer dt <= {:.6e} s.\n",
+                   scattering_step_ratio,
+                   m_simulation_options.m_time_step,
+                   gamma_max_s_1,
+                   warning_ratio / gamma_max_s_1);
+    }
+}
+
 void device_pbmc_simulation::inject_scheduled_particle_if_due() {
     if (!has_pending_scheduled_particle_injection()) {
         return;
@@ -400,9 +435,9 @@ void device_pbmc_simulation::inject_scheduled_particle_if_due() {
                injection.m_weight);
 }
 
-device_pbmc_simulation::device_pbmc_simulation(const device::device     &simulation_device,
-                                             const options_device_PBMC &simulation_option,
-                                             int                       seed_random_generator)
+device_pbmc_simulation::device_pbmc_simulation(const device::device      &simulation_device,
+                                               const options_device_PBMC &simulation_option,
+                                               int                        seed_random_generator)
     : m_device(simulation_device),
       m_electron_transport(make_transport_config(simulation_option, particle_type::electron),
                            simulation_option.m_material_model,
@@ -415,16 +450,17 @@ device_pbmc_simulation::device_pbmc_simulation(const device::device     &simulat
     m_simulation_history.m_initial_seed_rng = seed_random_generator;
     m_electron_transport.initialize();
     m_hole_transport.initialize();
+    validate_time_step_against_scattering_rate();
     initialize_thread_transports(seed_random_generator);
     initialize_scheduled_particle_injection();
 }
 
-device_pbmc_simulation::device_pbmc_simulation(const device::device     &device_simulation,
-                                             const options_device_PBMC &simulation_option,
-                                             const mesh::vector3      &starting_position,
-                                             std::size_t               number_electrons_start,
-                                             std::size_t               number_holes_start,
-                                             int                       seed_random_generator)
+device_pbmc_simulation::device_pbmc_simulation(const device::device      &device_simulation,
+                                               const options_device_PBMC &simulation_option,
+                                               const mesh::vector3       &starting_position,
+                                               std::size_t                number_electrons_start,
+                                               std::size_t                number_holes_start,
+                                               int                        seed_random_generator)
     : m_device(device_simulation),
       m_electron_transport(make_transport_config(simulation_option, particle_type::electron),
                            simulation_option.m_material_model,
@@ -436,6 +472,7 @@ device_pbmc_simulation::device_pbmc_simulation(const device::device     &device_
       m_simulation_options(simulation_option) {
     m_electron_transport.initialize();
     m_hole_transport.initialize();
+    validate_time_step_against_scattering_rate();
     initialize_thread_transports(seed_random_generator);
     mesh::element *first_element{nullptr};
     if (m_dimension == 2) {
@@ -475,8 +512,8 @@ device_pbmc_simulation::device_pbmc_simulation(const device::device     &device_
 }
 
 void device_pbmc_simulation::add_particle_at_position(const mesh::vector3 &location,
-                                                     particle_type        type_of_particle,
-                                                     double               weight) {
+                                                      particle_type        type_of_particle,
+                                                      double               weight) {
     mesh::element *first_element{nullptr};
     if (m_dimension == 2) {
         first_element = m_device.find_element_at_location(location.to_2d());
@@ -506,8 +543,8 @@ void device_pbmc_simulation::add_particle_at_position(const mesh::vector3 &locat
 }
 
 void device_pbmc_simulation::add_particles_at_positions(const std::vector<mesh::vector3> &positions,
-                                                       particle_type                     type_of_particle,
-                                                       double                            weight) {
+                                                        particle_type                     type_of_particle,
+                                                        double                            weight) {
     // Reserve memory for all particles upfront
     m_list_particles.reserve(m_list_particles.size() + positions.size());
     for (const auto &location : positions) {
@@ -1091,6 +1128,139 @@ void device_pbmc_simulation::write_particle_vtp_time_collection(const std::strin
     write_vtk_time_collection(pvd_filename, m_particle_vtp_export_records);
 }
 
+double device_pbmc_simulation::current_density_cell_volume_m3(const mesh::element &element) const {
+    const double measure_um = std::abs(element.get_measure());
+    return measure_um * std::pow(uepm::units::micron_to_meter, m_dimension);
+}
+
+void device_pbmc_simulation::publish_mesh_particle_local_average_energy() const {
+    auto *mesh = m_device.get_p_mesh();
+    if (mesh == nullptr) {
+        return;
+    }
+
+    const auto                                             list_bulk_elements = mesh->get_list_bulk_element();
+    std::unordered_map<const mesh::element *, std::size_t> element_indices;
+    element_indices.reserve(list_bulk_elements.size());
+    for (std::size_t index = 0; index < list_bulk_elements.size(); ++index) {
+        element_indices.emplace(list_bulk_elements[index].get(), index);
+    }
+
+    std::vector<double> particle_count(list_bulk_elements.size(), 0.0);
+    std::vector<double> energy_sum_eV(list_bulk_elements.size(), 0.0);
+
+    for (const auto &p_particle : m_list_particles) {
+        const auto index_it = element_indices.find(p_particle->get_containing_element());
+        if (index_it == element_indices.end()) {
+            continue;
+        }
+        const std::size_t index = index_it->second;
+        particle_count[index] += 1.0;
+        energy_sum_eV[index] += p_particle->state().kinetic_energy;
+    }
+
+    std::vector<double> average_energy_eV(list_bulk_elements.size(), 0.0);
+    for (std::size_t index = 0; index < list_bulk_elements.size(); ++index) {
+        if (particle_count[index] > 0.0) {
+            average_energy_eV[index] = energy_sum_eV[index] / particle_count[index];
+        }
+    }
+
+    const std::string field_name = "particle_local_average_energy_eV";
+    if (mesh->scalar_function_exists(field_name)) {
+        mesh->remove_scalar_function(field_name);
+    }
+
+    for (const auto &region : mesh->get_list_bulk_region()) {
+        const auto               region_elements = region.get_list_elements();
+        std::vector<double>      region_values;
+        std::vector<std::size_t> region_element_indices;
+        region_values.reserve(region_elements.size());
+        region_element_indices.reserve(region_elements.size());
+
+        for (const auto &element : region_elements) {
+            const auto index_it = element_indices.find(element.get());
+            region_values.push_back(index_it == element_indices.end() ? 0.0 : average_energy_eV[index_it->second]);
+            region_element_indices.push_back(element->get_index());
+        }
+
+        auto dataset = std::make_shared<mesh::dataset<double>>(field_name,
+                                                               mesh->get_total_number_dataset() + 1,
+                                                               region.get_index(),
+                                                               region_values,
+                                                               region_element_indices,
+                                                               mesh::DataType::scalar,
+                                                               mesh::DataLocationType::cell,
+                                                               1);
+        mesh->add_scalar_dataset(dataset);
+        mesh->add_scalar_data_to_elements(*dataset);
+    }
+}
+
+void device_pbmc_simulation::publish_mesh_particle_local_current_density() const {
+    auto *mesh = m_device.get_p_mesh();
+    if (mesh == nullptr) {
+        return;
+    }
+
+    const auto                                             list_bulk_elements = mesh->get_list_bulk_element();
+    std::unordered_map<const mesh::element *, std::size_t> element_indices;
+    element_indices.reserve(list_bulk_elements.size());
+    for (std::size_t index = 0; index < list_bulk_elements.size(); ++index) {
+        element_indices.emplace(list_bulk_elements[index].get(), index);
+    }
+
+    std::vector<mesh::vector3> current_density_A_per_m2(list_bulk_elements.size(), mesh::vector3{0.0, 0.0, 0.0});
+    for (const auto &p_particle : m_list_particles) {
+        const auto index_it = element_indices.find(p_particle->get_containing_element());
+        if (index_it == element_indices.end()) {
+            continue;
+        }
+
+        const std::size_t index = index_it->second;
+        current_density_A_per_m2[index] +=
+            p_particle->weight() * p_particle->get_signed_charge() * p_particle->state().velocity;
+    }
+
+    for (std::size_t index = 0; index < list_bulk_elements.size(); ++index) {
+        const double cell_volume_m3 = current_density_cell_volume_m3(*list_bulk_elements[index]);
+        if (cell_volume_m3 > 0.0) {
+            current_density_A_per_m2[index] /= cell_volume_m3;
+        }
+    }
+
+    const std::string field_name = "particle_local_current_density_A_per_m2";
+    if (mesh->vector_function_exists(field_name)) {
+        mesh->remove_vector_function(field_name);
+    }
+
+    for (const auto &region : mesh->get_list_bulk_region()) {
+        const auto                 region_elements = region.get_list_elements();
+        std::vector<mesh::vector3> region_values;
+        std::vector<std::size_t>   region_element_indices;
+        region_values.reserve(region_elements.size());
+        region_element_indices.reserve(region_elements.size());
+
+        for (const auto &element : region_elements) {
+            const auto index_it = element_indices.find(element.get());
+            region_values.push_back(index_it == element_indices.end() ? mesh::vector3{0.0, 0.0, 0.0}
+                                                                      : current_density_A_per_m2[index_it->second]);
+            region_element_indices.push_back(element->get_index());
+        }
+
+        auto dataset = std::make_shared<mesh::dataset<mesh::vector3>>(field_name,
+                                                                      mesh->get_total_number_dataset() + 1,
+                                                                      region.get_index(),
+                                                                      region_values,
+                                                                      region_element_indices,
+                                                                      mesh::DataType::vector,
+                                                                      mesh::DataLocationType::cell,
+                                                                      m_dimension);
+        mesh->add_vector_dataset(dataset);
+        mesh->add_vector_data_to_elements(*dataset);
+    }
+}
+
 void device_pbmc_simulation::export_current_mesh_as_vtk(const std::string &directory) const {
     const std::filesystem::path output_directory(directory);
     std::filesystem::create_directories(output_directory);
@@ -1100,6 +1270,8 @@ void device_pbmc_simulation::export_current_mesh_as_vtk(const std::string &direc
     const std::filesystem::path vtu_path = output_directory / filename;
     const std::filesystem::path pvd_path = output_directory / "mesh.pvd";
 
+    publish_mesh_particle_local_average_energy();
+    publish_mesh_particle_local_current_density();
     file::export_as_vtu(*(m_device.get_p_mesh()), vtu_path.string());
 
     const auto already_recorded =
@@ -1113,6 +1285,17 @@ void device_pbmc_simulation::export_current_mesh_as_vtk(const std::string &direc
     }
 
     write_mesh_vtk_time_collection(pvd_path.string());
+
+    const bool export_x_cut_enabled = true;
+    if (export_x_cut_enabled) {
+        const auto                  device_box = m_device.get_p_mesh()->get_bounding_box();
+        const auto                  y_middle   = 0.5 * (device_box.get_y_min() + device_box.get_y_max());
+        const auto                  z_middle   = 0.5 * (device_box.get_z_min() + device_box.get_z_max());
+        const auto                  dx         = 1e-3;  // 1 nm
+        const std::filesystem::path x_cut_path =
+            output_directory / fmt::format("mesh_x_cut_{:012d}.csv", m_state.m_iteration);
+        m_device.get_p_mesh()->export_x_cut(x_cut_path.string(), y_middle, z_middle, dx);
+    }
 }
 
 void device_pbmc_simulation::write_mesh_vtk_time_collection(const std::string &pvd_filename) const {

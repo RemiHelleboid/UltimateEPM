@@ -50,7 +50,7 @@ YAML::Node make_default_config() {
     config["contacts"]["collecting"]["anode"]      = true;
     config["contacts"]["collecting"]["cathode"]    = true;
     config["contacts"]["ramo_electrode"]           = "anode";
-    config["contacts"]["apply_built_in_potential"] = false;
+    config["contacts"]["apply_built_in_potential"] = true;
     config["contacts"]["built_in_voltage_scale"]   = 1.0;
 
     config["particles"]["initial_electrons"]        = 0;

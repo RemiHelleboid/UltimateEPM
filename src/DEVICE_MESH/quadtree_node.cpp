@@ -40,6 +40,9 @@ quadtree_node::quadtree_node(const std::vector<element *> &list_p_elements, cons
     m_bottom_right_subbox                  = list_sub_boxes[1];
     m_top_right_subbox                     = list_sub_boxes[2];
     m_top_left_subbox                      = list_sub_boxes[3];
+    const vector3 box_center               = bounding_box.get_center();
+    m_center_x                             = box_center.x();
+    m_center_y                             = box_center.y();
 
     constexpr uint number_quadrant = 4;
     m_sub_nodes.resize(number_quadrant);
@@ -73,20 +76,13 @@ element *quadtree_node::find_element_at_location(const vector3 &position) const 
         }
         return nullptr;
     }
-    // Descend down in the quadtree
-    if (m_bottom_left_subbox.is_inside(position)) {
-        return m_sub_nodes[0]->find_element_at_location(position);
+    if (!m_node_box.is_inside_2d(position)) {
+        return nullptr;
     }
-    if (m_bottom_right_subbox.is_inside(position)) {
-        return m_sub_nodes[1]->find_element_at_location(position);
-    }
-    if (m_top_right_subbox.is_inside(position)) {
-        return m_sub_nodes[2]->find_element_at_location(position);
-    }
-    if (m_top_left_subbox.is_inside(position)) {
-        return m_sub_nodes[3]->find_element_at_location(position);
-    }
-    return nullptr;
+    const bool is_right = position.x() > m_center_x;
+    const bool is_top   = position.y() > m_center_y;
+    const uint index_sub_node = is_top ? (is_right ? 2 : 3) : (is_right ? 1 : 0);
+    return m_sub_nodes[index_sub_node]->find_element_at_location(position);
 }
 
 std::vector<element *> quadtree_node::find_elements_overlapping_box(const bbox &box) const {
