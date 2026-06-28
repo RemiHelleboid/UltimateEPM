@@ -28,6 +28,7 @@
 #include <limits>
 #include <memory>
 #include <random>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -122,7 +123,6 @@ void write_paraview_scene_script(const std::filesystem::path &base_directory) {
     stream << "mesh = OpenDataFile(mesh_file)\n";
     stream << "particles = OpenDataFile(particles_file)\n\n";
 
-    // Pour qu'on voit les particules au dessus du mesh...sinon ça passe a travers
     stream << "particles_transform = Transform(Input=particles)\n";
     stream << "particles_transform.Transform.Translate = [0.0, 0.0, 1e-1]\n";
     stream << "try:\n";
@@ -131,52 +131,79 @@ void write_paraview_scene_script(const std::filesystem::path &base_directory) {
     stream << "    pass\n\n";
 
     stream << "view = GetActiveViewOrCreate(\"RenderView\")\n";
-    stream << "view.InteractionMode = \"2D\"\n\n";
+    stream << "view.InteractionMode = \"2D\"\n";
+    stream << "view.Background = [0.0, 0.0, 0.0]\n";
+    stream << "view.OrientationAxesVisibility = 1\n\n";
 
     stream << "mesh_display = Show(mesh, view)\n";
-    stream << "mesh_display.Representation = \"Surface\"\n\n";
-
-    stream << "particles_display = Show(particles_transform, view)\n";
-    // transform1Display = GetRepresentation(transform1, view=renderView1)
-    stream << "transform1Display = GetRepresentation(particles_transform, view)\n";
-    stream << "transform1Display.Representation = \"Point Gaussian\"\n";
-    stream << "transform1Display.GaussianRadius = 0.001\n\n";
-
-    stream << "ColorBy(particles_display, (\"POINTS\", \"energy_eV\"))\n";
-    stream << "particles_display.RescaleTransferFunctionToDataRange(True, False)\n\n";
-
-    stream << "ColorBy(mesh_display, (\"POINTS\", \"PoissonSolution_gradient\"))\n";
+    stream << "mesh_display.Representation = \"Surface\"\n";
+    stream << "ColorBy(mesh_display, (\"POINTS\", \"PoissonSolution\"))\n";
     stream << "mesh_display.RescaleTransferFunctionToDataRange(True, False)\n\n";
 
+    stream << "poisson_lut = GetColorTransferFunction(\"PoissonSolution\")\n";
+    stream << "poisson_lut.ApplyPreset(\"Jet\", True)\n";
+    stream << "poisson_lut.RescaleTransferFunction(-0.18, 1.0)\n";
+    stream << "poisson_lut.ColorSpace = \"RGB\"\n\n";
+
+    stream << "poisson_bar = GetScalarBar(poisson_lut, view)\n";
+    stream << "poisson_bar.Title = \"PoissonSolution\"\n";
+    stream << "poisson_bar.ComponentTitle = \"\"\n";
+    stream << "poisson_bar.Visibility = 1\n";
+    stream << "poisson_bar.WindowLocation = \"Upper Right Corner\"\n";
+    stream << "poisson_bar.TitleColor = [1.0, 1.0, 1.0]\n";
+    stream << "poisson_bar.LabelColor = [1.0, 1.0, 1.0]\n";
+    stream << "mesh_display.SetScalarBarVisibility(view, True)\n\n";
+
+    stream << "particles_display = Show(particles_transform, view)\n";
+    stream << "particles_display.Representation = \"Point Gaussian\"\n";
+    stream << "particles_display.GaussianRadius = 0.001\n";
+    stream << "particles_display.Opacity = 1.0\n";
+    stream << "particles_display.RenderPointsAsSpheres = 1\n";
+    stream << "ColorBy(particles_display, (\"POINTS\", \"particle_type\"))\n\n";
+
+    stream << "particle_lut = GetColorTransferFunction(\"particle_type\")\n";
+    stream << "particle_lut.InterpretValuesAsCategories = 1\n";
+    stream << "particle_lut.AnnotationsInitialized = 1\n";
+    stream << "particle_lut.Annotations = [\"0\", \"electron\", \"1\", \"hole\"]\n";
+    stream << "particle_lut.IndexedColors = [0.25, 0.0, 1.0, 1.0, 0.0, 0.0]\n\n";
+
+    stream << "particles_display.LookupTable = particle_lut\n";
+    stream << "particles_display.SetScalarBarVisibility(view, True)\n\n";
+
+    stream << "particle_bar = GetScalarBar(particle_lut, view)\n";
+    stream << "particle_bar.Title = \"particle_type\"\n";
+    stream << "particle_bar.ComponentTitle = \"\"\n";
+    stream << "particle_bar.Visibility = 1\n";
+    stream << "particle_bar.WindowLocation = \"Lower Right Corner\"\n";
+    stream << "particle_bar.TitleColor = [1.0, 1.0, 1.0]\n";
+    stream << "particle_bar.LabelColor = [1.0, 1.0, 1.0]\n\n";
+
     stream << "animation_scene = GetAnimationScene()\n";
     stream << "animation_scene.UpdateAnimationUsingDataTimeSteps()\n\n";
 
+    stream << "time_keeper = GetTimeKeeper()\n";
+    stream << "AnnotateTimeFilter1 = AnnotateTimeFilter(Input=mesh)\n";
+    stream << "AnnotateTimeFilter1.Format = \"time: %.3e s\"\n";
+    stream << "time_display = Show(AnnotateTimeFilter1, view)\n";
+    stream << "time_display.FontSize = 18\n";
+    stream << "time_display.Color = [1.0, 1.0, 1.0]\n";
+    stream << "time_display.WindowLocation = \"Upper Center\"\n\n";
+
     stream << "mesh.UpdatePipeline()\n";
     stream << "particles_transform.UpdatePipeline()\n\n";
-    stream << "animation_scene = GetAnimationScene()\n";
-    stream << "animation_scene.UpdateAnimationUsingDataTimeSteps()\n\n";
 
-    stream << "view.InteractionMode = \"2D\"\n\n";
-
-    stream << "mesh.UpdatePipeline()\n";
-    stream << "particles_transform.UpdatePipeline()\n\n";
-
-    // Reset camera using only the mesh bounds.
     stream << "particles_display.Visibility = 0\n";
     stream << "ResetCamera(view)\n";
     stream << "particles_display.Visibility = 1\n\n";
 
-    // Top-down 2D view.
     stream << "view.CameraPosition = [0.0, 0.0, 1.0]\n";
     stream << "view.CameraFocalPoint = [0.0, 0.0, 0.0]\n";
-    stream << "view.CameraViewUp = [0.0, 1.0, 0.0]\n\n";
+    stream << "view.CameraViewUp = [0.0, 1.0, 0.0]\n";
+    stream << "view.CameraParallelScale *= 0.75\n\n";
 
-    // Do not leave Transform1 selected, otherwise ParaView shows the transform box.
-    stream << "SetActiveSource(mesh)\n\n";
-
+    stream << "SetActiveSource(mesh)\n";
     stream << "Render()\n";
 }
-
 }  // namespace
 
 }  // namespace
@@ -185,6 +212,88 @@ struct impact_ionization_pair_seed {
     mesh::vector3 position;
     double        weight = 1.0;
 };
+
+std::vector<std::string> split_csv_line(const std::string &line) {
+    std::vector<std::string> fields;
+    std::stringstream        stream(line);
+    std::string              field;
+    while (std::getline(stream, field, ',')) {
+        fields.push_back(field);
+    }
+    if (!line.empty() && line.back() == ',') {
+        fields.emplace_back();
+    }
+    return fields;
+}
+
+std::unordered_map<std::string, std::size_t> csv_header_index(const std::string &header_line) {
+    std::unordered_map<std::string, std::size_t> indices;
+    const auto                                   columns = split_csv_line(header_line);
+    for (std::size_t i = 0; i < columns.size(); ++i) {
+        indices.emplace(columns[i], i);
+    }
+    return indices;
+}
+
+const std::string &required_csv_field(const std::vector<std::string>                    &fields,
+                                      const std::unordered_map<std::string, std::size_t> &indices,
+                                      const std::string                                 &name,
+                                      std::size_t                                        line_number) {
+    const auto it = indices.find(name);
+    if (it == indices.end()) {
+        throw std::invalid_argument(fmt::format("Particle state CSV is missing required column '{}'.", name));
+    }
+    if (it->second >= fields.size()) {
+        throw std::invalid_argument(fmt::format("Particle state CSV line {} is missing value '{}'.", line_number, name));
+    }
+    return fields[it->second];
+}
+
+double required_csv_double(const std::vector<std::string>                    &fields,
+                           const std::unordered_map<std::string, std::size_t> &indices,
+                           const std::string                                 &name,
+                           std::size_t                                        line_number) {
+    return std::stod(required_csv_field(fields, indices, name, line_number));
+}
+
+std::size_t required_csv_size(const std::vector<std::string>                    &fields,
+                              const std::unordered_map<std::string, std::size_t> &indices,
+                              const std::string                                 &name,
+                              std::size_t                                        line_number) {
+    return static_cast<std::size_t>(std::stoull(required_csv_field(fields, indices, name, line_number)));
+}
+
+double optional_csv_double(const std::vector<std::string>                    &fields,
+                           const std::unordered_map<std::string, std::size_t> &indices,
+                           const std::string                                 &name,
+                           double                                             fallback) {
+    const auto it = indices.find(name);
+    if (it == indices.end() || it->second >= fields.size() || fields[it->second].empty()) {
+        return fallback;
+    }
+    return std::stod(fields[it->second]);
+}
+
+std::size_t optional_csv_size(const std::vector<std::string>                    &fields,
+                              const std::unordered_map<std::string, std::size_t> &indices,
+                              const std::string                                 &name,
+                              std::size_t                                        fallback) {
+    const auto it = indices.find(name);
+    if (it == indices.end() || it->second >= fields.size() || fields[it->second].empty()) {
+        return fallback;
+    }
+    return static_cast<std::size_t>(std::stoull(fields[it->second]));
+}
+
+particle_type parse_particle_type_field(const std::string &value) {
+    if (value == "0" || value == "electron") {
+        return particle_type::electron;
+    }
+    if (value == "1" || value == "hole") {
+        return particle_type::hole;
+    }
+    throw std::invalid_argument(fmt::format("Invalid particle type '{}'. Expected 0/electron or 1/hole.", value));
+}
 
 void options_device_PBMC::validate() const {
     if (m_time_step <= 0.0) {
@@ -446,7 +555,8 @@ device_pbmc_simulation::device_pbmc_simulation(const device::device      &simula
                        simulation_option.m_material_model,
                        seed_random_generator + 1),
       m_dimension(m_device.get_dimension()),
-      m_simulation_options(simulation_option) {
+      m_simulation_options(simulation_option),
+      m_boundary_reflection_rng(static_cast<unsigned int>(seed_random_generator + 2)) {
     m_simulation_history.m_initial_seed_rng = seed_random_generator;
     m_electron_transport.initialize();
     m_hole_transport.initialize();
@@ -469,11 +579,17 @@ device_pbmc_simulation::device_pbmc_simulation(const device::device      &device
                        simulation_option.m_material_model,
                        seed_random_generator + 1),
       m_dimension(m_device.get_dimension()),
-      m_simulation_options(simulation_option) {
+      m_simulation_options(simulation_option),
+      m_boundary_reflection_rng(static_cast<unsigned int>(seed_random_generator + 2)) {
     m_electron_transport.initialize();
     m_hole_transport.initialize();
     validate_time_step_against_scattering_rate();
     initialize_thread_transports(seed_random_generator);
+    m_simulation_history.m_initial_seed_rng = seed_random_generator;
+    if (number_electrons_start + number_holes_start == 0) {
+        initialize_scheduled_particle_injection();
+        return;
+    }
     mesh::element *first_element{nullptr};
     if (m_dimension == 2) {
         first_element = m_device.find_element_at_location(starting_position.to_2d());
@@ -507,7 +623,6 @@ device_pbmc_simulation::device_pbmc_simulation(const device::device      &device
         initialize_particle_transport_state(*p_particle);
     }
 
-    m_simulation_history.m_initial_seed_rng = seed_random_generator;
     initialize_scheduled_particle_injection();
 }
 
@@ -580,6 +695,87 @@ void device_pbmc_simulation::add_particles_at_positions(const std::vector<mesh::
     }
 }
 
+std::size_t device_pbmc_simulation::load_particles_from_state_csv(const std::string &filename) {
+    std::ifstream stream(filename);
+    if (!stream.is_open()) {
+        throw std::runtime_error(fmt::format("Could not open initial particle state CSV '{}'.", filename));
+    }
+
+    std::string header_line;
+    if (!std::getline(stream, header_line)) {
+        throw std::invalid_argument(fmt::format("Initial particle state CSV '{}' is empty.", filename));
+    }
+
+    const auto indices = csv_header_index(header_line);
+    m_list_particles.clear();
+    m_state.m_counter_particles_created = 0;
+
+    std::string line;
+    std::size_t line_number = 1;
+    std::size_t loaded_particles = 0;
+    std::size_t next_generated_index = 0;
+    std::size_t max_loaded_index_plus_one = 0;
+
+    while (std::getline(stream, line)) {
+        ++line_number;
+        if (line.empty()) {
+            continue;
+        }
+
+        const auto fields = split_csv_line(line);
+
+        particle_state state{};
+        state.time = 0.0;
+        state.position = mesh::vector3{required_csv_double(fields, indices, "x_um", line_number),
+                                       required_csv_double(fields, indices, "y_um", line_number),
+                                       required_csv_double(fields, indices, "z_um", line_number)};
+        state.previous_position = state.position;
+        state.local_k = mesh::vector3{required_csv_double(fields, indices, "local_kx_1_per_m", line_number),
+                                      required_csv_double(fields, indices, "local_ky_1_per_m", line_number),
+                                      required_csv_double(fields, indices, "local_kz_1_per_m", line_number)};
+        state.velocity = mesh::vector3{required_csv_double(fields, indices, "vx_m_per_s", line_number),
+                                       required_csv_double(fields, indices, "vy_m_per_s", line_number),
+                                       required_csv_double(fields, indices, "vz_m_per_s", line_number)};
+        state.kinetic_energy = required_csv_double(fields, indices, "energy_eV", line_number);
+        state.gamma = optional_csv_double(fields, indices, "gamma_eV", state.kinetic_energy);
+        state.valley_index = required_csv_size(fields, indices, "valley_index", line_number);
+
+        const auto type = parse_particle_type_field(required_csv_field(fields, indices, "type", line_number));
+        const double weight = required_csv_double(fields, indices, "weight", line_number);
+        const std::size_t particle_index =
+            optional_csv_size(fields, indices, "particle_index", next_generated_index);
+        next_generated_index = std::max(next_generated_index, particle_index + 1);
+        max_loaded_index_plus_one = std::max(max_loaded_index_plus_one, particle_index + 1);
+
+        mesh::vector3 lookup_position = state.position;
+        if (m_dimension == 2) {
+            lookup_position.to_2d_inplace();
+        }
+        auto *element = m_device.find_element_at_location(lookup_position);
+        if (element == nullptr) {
+            throw std::invalid_argument(fmt::format(
+                "Initial particle state CSV line {} has position outside the device: ({:.6e}, {:.6e}, {:.6e}) um.",
+                line_number,
+                state.position.x(),
+                state.position.y(),
+                state.position.z()));
+        }
+
+        auto particle = std::make_unique<pbmc_particle>(particle_index, type, state, weight);
+        particle->set_containing_element(element);
+        particle->set_data_from_device(m_dimension);
+        if (m_simulation_options.m_keep_particles_history) {
+            particle->record_state();
+        }
+        m_list_particles.push_back(std::move(particle));
+        ++loaded_particles;
+    }
+
+    m_state.m_counter_particles_created = std::max(max_loaded_index_plus_one, loaded_particles);
+    fmt::print("Loaded {} particles from initial state '{}'.\n", loaded_particles, filename);
+    return loaded_particles;
+}
+
 std::size_t device_pbmc_simulation::get_number_electrons() const {
     std::size_t nb_electron =
         std::accumulate(m_list_particles.begin(),
@@ -613,7 +809,7 @@ double device_pbmc_simulation::compute_ramo_current_for_particle(const pbmc_part
     }
     const auto weighting_field_m    = get_RamoUnitaryElectricField_at_position(position);
     double     current_contribution = scale_factor * particle.weight() * particle.get_signed_charge() *
-                                  particle.state().velocity.dot(weighting_field_m);
+                                      particle.state().velocity.dot(weighting_field_m);
     return current_contribution;
 }
 
@@ -642,6 +838,42 @@ std::pair<double, double> device_pbmc_simulation::compute_ramo_current() const {
     }
 
     return std::make_pair(total_electron_current, total_hole_current);
+}
+
+std::pair<double, double> device_pbmc_simulation::compute_probe_ramo_current() const {
+    if (!m_simulation_options.m_current_probe.m_enabled) {
+        return {0.0, 0.0};
+    }
+
+    double total_electron_current = 0.0;
+    double total_hole_current     = 0.0;
+
+    const double scale_factor = ramo_current_scale_factor();
+
+    for (const auto &particle : m_list_particles) {
+        auto position = particle->state().position;
+
+        if (m_dimension == 2) {
+            position.to_2d_inplace();
+            if (!m_simulation_options.m_current_probe.m_box_um.is_inside_2d(position)) {
+                continue;
+            }
+        } else if (!m_simulation_options.m_current_probe.m_box_um.is_inside(position)) {
+            continue;
+        }
+
+        const auto weighting_field_m = get_RamoUnitaryElectricField_at_position(position);
+        const auto current = scale_factor * particle->weight() * particle->get_signed_charge() *
+                             particle->state().velocity.dot(weighting_field_m);
+
+        if (particle->type() == particle_type::electron) {
+            total_electron_current += current;
+        } else {
+            total_hole_current += current;
+        }
+    }
+
+    return {total_electron_current, total_hole_current};
 }
 
 void device_pbmc_simulation::transport_particles_one_time_step() {
@@ -735,6 +967,56 @@ void reflect_particle_to_previous_position(pbmc_particle &particle) {
     state.local_k *= -1.0;
 }
 
+void reflect_particle_to_previous_position(pbmc_particle                  &particle,
+                                           mesh::boundary_reflection_model reflection_model,
+                                           const mesh::element            &old_element,
+                                           int                             dimension,
+                                           const pbmc_transport_kernel     &transport,
+                                           std::minstd_rand               &rng) {
+    auto &state = particle.state();
+
+    if (reflection_model == mesh::boundary_reflection_model::reverse) {
+        reflect_particle_to_previous_position(particle);
+        return;
+    }
+
+    const auto hit = mesh::find_boundary_exit_hit(old_element, state.previous_position, state.position, dimension);
+    if (!hit.has_value()) {
+        reflect_particle_to_previous_position(particle);
+        return;
+    }
+
+    const mesh::vector3 trial_position         = state.position;
+    const mesh::vector3 remaining_displacement = trial_position - hit->position;
+
+    if (reflection_model == mesh::boundary_reflection_model::specular) {
+        const mesh::vector3 outgoing_velocity_direction =
+            mesh::reflect_vector_specular(state.velocity, hit->inward_normal);
+        transport.set_particle_velocity_direction_preserving_energy(particle, outgoing_velocity_direction);
+        const mesh::vector3 outgoing_displacement =
+            mesh::reflect_vector_specular(remaining_displacement, hit->inward_normal);
+        state.position = mesh::place_reflected_position_inside(old_element,
+                                                               state.previous_position,
+                                                               trial_position,
+                                                               *hit,
+                                                               outgoing_displacement,
+                                                               dimension);
+        return;
+    }
+
+    const mesh::vector3 outgoing_velocity_direction =
+        mesh::draw_diffuse_reflection_vector(state.velocity, hit->inward_normal, dimension, rng);
+    transport.set_particle_velocity_direction_preserving_energy(particle, outgoing_velocity_direction);
+    const mesh::vector3 outgoing_displacement =
+        mesh::align_displacement_with_direction(remaining_displacement, state.velocity);
+    state.position = mesh::place_reflected_position_inside(old_element,
+                                                           state.previous_position,
+                                                           trial_position,
+                                                           *hit,
+                                                           outgoing_displacement,
+                                                           dimension);
+}
+
 void device_pbmc_simulation::update_element_and_check_boundary() {
     const bool is_2d = m_dimension == 2;
     for (auto &p_particle : m_list_particles) {
@@ -757,11 +1039,21 @@ void device_pbmc_simulation::update_element_and_check_boundary() {
         }
         auto *new_element = m_device.find_element_at_location(current_position);
         if (new_element == nullptr) {
-            reflect_particle_to_previous_position(particle);
+            reflect_particle_to_previous_position(particle,
+                                                  m_simulation_options.m_boundary_reflection_model,
+                                                  *old_element,
+                                                  m_dimension,
+                                                  transport_for(particle.type()),
+                                                  m_boundary_reflection_rng);
             continue;
         }
         if (m_device.get_material_name_at_element(new_element) != "Silicon") {
-            reflect_particle_to_previous_position(particle);
+            reflect_particle_to_previous_position(particle,
+                                                  m_simulation_options.m_boundary_reflection_model,
+                                                  *old_element,
+                                                  m_dimension,
+                                                  transport_for(particle.type()),
+                                                  m_boundary_reflection_rng);
             continue;
         }
         particle.set_containing_element(new_element);
@@ -809,6 +1101,9 @@ void device_pbmc_simulation::run() {
                                                  nb_electrons,
                                                  nb_holes,
                                                  nb_impact_ionization,
+                                                 dumb_ramo_current_e_h_total,
+                                                 dumb_ramo_current_e_h_total,
+                                                 dumb_ramo_current_e_h_total,
                                                  dumb_ramo_current_e_h_total,
                                                  dumb_ramo_current_e_h_total,
                                                  dumb_ramo_current_e_h_total,
@@ -888,11 +1183,19 @@ std::string device_pbmc_simulation::initialize_simulation_history_file() {
 
 void device_pbmc_simulation::export_current_time_step_as_csv(const std::string &prefix_filename) const {
     const std::string iteration_filename = fmt::format("{}.{:012d}.csv", prefix_filename, m_state.m_iteration);
+    export_particle_state_csv(iteration_filename);
+}
 
-    std::ofstream stream(iteration_filename);
+void device_pbmc_simulation::export_particle_state_csv(const std::string &filename) const {
+    std::filesystem::path output_path(filename);
+    if (output_path.has_parent_path()) {
+        std::filesystem::create_directories(output_path.parent_path());
+    }
+
+    std::ofstream stream(filename);
 
     if (!stream.is_open()) {
-        throw std::runtime_error(fmt::format("Could not open particle CSV file '{}'", iteration_filename));
+        throw std::runtime_error(fmt::format("Could not open particle CSV file '{}'", filename));
     }
 
     stream << std::setprecision(std::numeric_limits<double>::max_digits10);
@@ -910,6 +1213,7 @@ void device_pbmc_simulation::export_current_time_step_as_csv(const std::string &
            << "vy_m_per_s,"
            << "vz_m_per_s,"
            << "energy_eV,"
+           << "gamma_eV,"
            << "lattice_temperature_K,"
            << "electric_field_x_V_per_cm,"
            << "electric_field_y_V_per_cm,"
@@ -931,8 +1235,9 @@ void device_pbmc_simulation::export_current_time_step_as_csv(const std::string &
         stream << particle.index() << ',' << static_cast<int>(particle.type()) << ',' << state.time << ','
                << position.x() << ',' << position.y() << ',' << position.z() << ',' << local_k.x() << ',' << local_k.y()
                << ',' << local_k.z() << ',' << velocity.x() << ',' << velocity.y() << ',' << velocity.z() << ','
-               << state.kinetic_energy << ',' << state.lattice_temperature_K << ',' << electric_field.x() << ','
-               << electric_field.y() << ',' << electric_field.z() << ',' << electric_field.norm() << ','
+               << state.kinetic_energy << ',' << state.gamma << ',' << state.lattice_temperature_K << ','
+               << electric_field.x() << ',' << electric_field.y() << ',' << electric_field.z() << ','
+               << electric_field.norm() << ','
                << particle.weight() << ',' << state.valley_index << ',' << particle.get_signed_charge() << '\n';
     }
 }

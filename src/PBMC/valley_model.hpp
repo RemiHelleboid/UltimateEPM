@@ -216,6 +216,32 @@ class valley_model {
                        pref * std::sqrt(m_longitudinal_effective_mass) * u.z()};
     }
 
+    vector3 k_valley_from_energy_velocity_direction(double energy, const vector3& velocity_direction) const {
+        if (energy < 0.0) {
+            throw std::invalid_argument("kinetic energy must be non-negative");
+        }
+
+        const double norm = velocity_direction.norm();
+        if (norm <= std::numeric_limits<double>::epsilon()) {
+            throw std::invalid_argument("velocity direction must be non-zero");
+        }
+
+        const vector3 u           = velocity_direction / norm;
+        const double  gamma_eV    = gamma_from_kinetic_energy(energy);
+        const double  gamma_joule = gamma_eV * uepm::constants::eV_to_J;
+        const double mass_projected =
+            m_transverse_effective_mass * (u.x() * u.x() + u.y() * u.y()) +
+            m_longitudinal_effective_mass * u.z() * u.z();
+        if (mass_projected <= 0.0) {
+            throw std::runtime_error("invalid effective mass projection");
+        }
+
+        const double pref = std::sqrt(2.0 * gamma_joule / mass_projected) / uepm::constants::h_bar;
+        return vector3{pref * m_transverse_effective_mass * u.x(),
+                       pref * m_transverse_effective_mass * u.y(),
+                       pref * m_longitudinal_effective_mass * u.z()};
+    }
+
     vector3 k_global_from_energy_direction(double energy, const vector3& direction_valley_frame) const {
         return to_global_frame(k_valley_from_energy_direction(energy, direction_valley_frame));
     }

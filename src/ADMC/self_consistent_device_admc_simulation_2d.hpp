@@ -27,8 +27,12 @@ struct options_self_consistent_device_ADMC_common {
     bool   m_enable_built_in_potential      = false;
     double m_built_in_contact_voltage_scale = 1.0;
 
+    bool   m_enable_poisson_mixing                = false;
+    double m_poisson_mixing_old_solution_fraction = 0.0;
+
     bool   m_initialize_particles_from_doping = true;
     double m_initial_particle_weight          = 2.0;
+    std::string m_initial_particle_state_file;
     double m_contact_injection_particle_weight = 2.0;
 
     void validate() const;
@@ -71,6 +75,7 @@ class self_consistent_device_admc_simulation_2d : public device_admc_simulation 
     void initialize_poisson_solver();
     void compute_unitary_potential();
     void update_self_consistent_potential(bool publish_mesh_functions = true);
+    void initialize_particles_for_self_consistent_run();
     void update_built_in_contact_voltage_offset(
         const std::string& contact_name,
         const std::vector<std::shared_ptr<mesh::element>>& contact_elements);
@@ -83,6 +88,7 @@ class self_consistent_device_admc_simulation_2d : public device_admc_simulation 
 
     options_self_consistent_device_ADMC_2d m_self_consistent_options;
     fem::poisson_solver_2d                m_poisson_solver;
+    fem::EigenVector                      m_previous_poisson_solution;
 
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;

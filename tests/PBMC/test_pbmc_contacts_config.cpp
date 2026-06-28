@@ -79,6 +79,28 @@ quench_circuit:
     CHECK(config.collecting_contacts[1] == "cathode");
 }
 
+TEST_CASE("PBMC config parses boundary reflection model") {
+    const auto path = write_contact_config(R"(
+input:
+  device_mesh: pn.msh
+transport:
+  boundary_reflection: specular
+contacts:
+  voltages_V:
+    anode: 2.0
+    cathode: 0.0
+  collecting:
+    anode: true
+    cathode: true
+  ramo_electrode: anode
+quench_circuit:
+  enabled: false
+)");
+
+    const auto config = uepm::PBMC::load_device_pbmc_config(path);
+    CHECK(config.device_options.m_boundary_reflection_model == uepm::mesh::boundary_reflection_model::specular);
+}
+
 TEST_CASE("PBMC config rejects an unknown Ramo electrode") {
     const auto path = write_contact_config(R"(
 input:

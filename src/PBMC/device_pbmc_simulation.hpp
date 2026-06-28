@@ -12,8 +12,11 @@
 
 #include <fstream>
 #include <memory>
+#include <random>
 #include <vector>
 
+#include "boundary_reflection.hpp"
+#include "bbox.hpp"
 #include "device.hpp"
 #include "pbmc_device_history.hpp"
 #include "pbmc_particle.hpp"
@@ -28,6 +31,11 @@ struct scheduled_particle_injection {
     particle_type m_particle_type = particle_type::electron;
     double        m_weight        = 1.0;
     bool          m_done          = false;
+};
+
+struct current_probe_options {
+    bool       m_enabled = false;
+    mesh::bbox m_box_um{};
 };
 
 /**
@@ -57,11 +65,13 @@ struct options_device_PBMC {
 
     bool                         m_enable_scheduled_particle_injection = false;
     scheduled_particle_injection m_scheduled_particle_injection{};
+    current_probe_options        m_current_probe{};
 
     bool                      m_activate_impact_ionization = true;
     bool                      m_enable_impurity_scattering = false;
     impurity_scattering_model m_impurity_scattering_model  = impurity_scattering_model::mobility_empirical;
     impurity_screening_model  m_impurity_screening_model   = impurity_screening_model::debye_analytic;
+    mesh::boundary_reflection_model m_boundary_reflection_model = mesh::boundary_reflection_model::reverse;
 
     options_device_PBMC() = default;
 
@@ -134,6 +144,7 @@ class device_pbmc_simulation {
     int                                m_dimension;
     options_device_PBMC                m_simulation_options;
     history_device_PBMC                m_simulation_history{};
+    std::minstd_rand                   m_boundary_reflection_rng;
 
     std::vector<std::unique_ptr<pbmc_particle>>  m_list_particles;
     std::vector<std::optional<scattering_event>> m_scattering_events_scratch;
@@ -199,6 +210,7 @@ class device_pbmc_simulation {
     void add_particles_at_positions(const std::vector<mesh::vector3> &positions,
                                     particle_type                     type_of_particle,
                                     double                            weight = 1.0);
+    std::size_t load_particles_from_state_csv(const std::string &filename);
 
     void transport_particles_one_time_step();
     void advance_particles_one_time_step();
@@ -208,6 +220,7 @@ class device_pbmc_simulation {
 
     void                      remove_collected_particles();
     std::pair<double, double> compute_ramo_current() const;
+    std::pair<double, double> compute_probe_ramo_current() const;
     double                    compute_ramo_current_for_particle(const pbmc_particle &particle) const;
     virtual double            ramo_current_scale_factor() const;
 
@@ -254,6 +267,7 @@ class device_pbmc_simulation {
      * @param prefix_filename
      */
     void export_current_time_step_as_csv(const std::string &prefix_filename) const;
+    void export_particle_state_csv(const std::string &filename) const;
 
     /**
      * @brief Export all trajectories in a single csv files.

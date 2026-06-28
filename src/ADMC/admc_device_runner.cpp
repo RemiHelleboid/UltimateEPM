@@ -197,6 +197,16 @@ void write_manifest(const std::filesystem::path&                     filename,
     stream << "export_frequency = " << config.device_options.m_frequency_export << "\n";
     stream << "mesh_particle_local_averages = "
            << (config.device_options.m_export_mesh_particle_local_averages ? "true" : "false") << "\n";
+    stream << "boundary_reflection = "
+           << mesh::boundary_reflection_model_name(config.device_options.m_boundary_reflection_model) << "\n";
+    stream << "current_probe_enabled = " << (config.device_options.m_current_probe.m_enabled ? "true" : "false")
+           << "\n";
+    stream << "current_probe_x_min_um = " << config.device_options.m_current_probe.m_box_um.get_x_min() << "\n";
+    stream << "current_probe_x_max_um = " << config.device_options.m_current_probe.m_box_um.get_x_max() << "\n";
+    stream << "current_probe_y_min_um = " << config.device_options.m_current_probe.m_box_um.get_y_min() << "\n";
+    stream << "current_probe_y_max_um = " << config.device_options.m_current_probe.m_box_um.get_y_max() << "\n";
+    stream << "current_probe_z_min_um = " << config.device_options.m_current_probe.m_box_um.get_z_min() << "\n";
+    stream << "current_probe_z_max_um = " << config.device_options.m_current_probe.m_box_um.get_z_max() << "\n";
     stream << "effective_depth_um = " << config.self_consistent_options_2d.m_effective_depth_um << "\n";
     stream << "particle_z_period_um = " << config.self_consistent_options_2d.m_particle_z_period_um << "\n";
     stream << "poisson_frequency = " << config.self_consistent_options_2d.m_common.m_poisson_frequency << "\n";
@@ -209,11 +219,17 @@ void write_manifest(const std::filesystem::path&                     filename,
            << silicon_intrinsic_concentration_admc_cm_3(config.device_options.m_lattice_temperature_K) << "\n";
     stream << "built_in_contact_voltage_scale = "
            << config.self_consistent_options_2d.m_common.m_built_in_contact_voltage_scale << "\n";
+    stream << "poisson_mixing_enabled = "
+           << (config.self_consistent_options_2d.m_common.m_enable_poisson_mixing ? "true" : "false") << "\n";
+    stream << "poisson_mixing_old_solution_fraction = "
+           << config.self_consistent_options_2d.m_common.m_poisson_mixing_old_solution_fraction << "\n";
     stream << "initialize_particles_from_doping = "
            << (config.self_consistent_options_2d.m_common.m_initialize_particles_from_doping ? "true" : "false")
            << "\n";
     stream << "initial_particle_weight = " << config.self_consistent_options_2d.m_common.m_initial_particle_weight
            << "\n";
+    stream << "initial_particle_state_file = "
+           << config.self_consistent_options_2d.m_common.m_initial_particle_state_file << "\n";
     stream << "contact_injection_particle_weight = "
            << config.self_consistent_options_2d.m_common.m_contact_injection_particle_weight << "\n";
     stream << "\n[contact_voltages_V]\n";
@@ -269,6 +285,8 @@ void run_self_consistent_device_admc_simulation(const self_consistent_device_adm
     const std::string output_dir =
         config.output_dir.empty() ? make_default_output_directory(config.mesh_file) : config.output_dir;
     std::filesystem::create_directories(output_dir);
+    auto device_options = config.device_options;
+    device_options.m_output_directory = output_dir;
 
     fmt::print("Loading mesh: {}\n", config.mesh_file);
     uepm::file::msh_file msh_file(config.mesh_file);
@@ -294,8 +312,8 @@ void run_self_consistent_device_admc_simulation(const self_consistent_device_adm
     fmt::print("Self-consistent ADMC 2D simulation\n");
     fmt::print("  output directory: {}\n", output_dir);
     fmt::print("  material: {}\n", config.material_symbol);
-    fmt::print("  final time: {:.6e} s\n", config.device_options.m_final_time_s);
-    fmt::print("  time step: {:.6e} s\n", config.device_options.m_time_step_s);
+    fmt::print("  final time: {:.6e} s\n", device_options.m_final_time_s);
+    fmt::print("  time step: {:.6e} s\n", device_options.m_time_step_s);
     fmt::print("  Poisson frequency: {}\n", config.self_consistent_options_2d.m_common.m_poisson_frequency);
     fmt::print("  contact voltages:\n");
     for (const auto& [contact_name, voltage_V] : config.self_consistent_options_2d.m_common.m_contact_voltages_V) {
@@ -309,12 +327,25 @@ void run_self_consistent_device_admc_simulation(const self_consistent_device_adm
     fmt::print("\n");
     fmt::print("  built-in potential: {}\n",
                config.self_consistent_options_2d.m_common.m_enable_built_in_potential ? "enabled" : "disabled");
+    fmt::print("  Poisson mixing: {}\n",
+               config.self_consistent_options_2d.m_common.m_enable_poisson_mixing ? "enabled" : "disabled");
+    if (config.self_consistent_options_2d.m_common.m_enable_poisson_mixing) {
+        fmt::print("    old solution fraction: {:.6e}\n",
+                   config.self_consistent_options_2d.m_common.m_poisson_mixing_old_solution_fraction);
+    }
     if (config.self_consistent_options_2d.m_common.m_enable_built_in_potential) {
         fmt::print("  intrinsic concentration at {:.3f} K: {:.6e} cm^-3\n",
-                   config.device_options.m_lattice_temperature_K,
-                   silicon_intrinsic_concentration_admc_cm_3(config.device_options.m_lattice_temperature_K));
+                   device_options.m_lattice_temperature_K,
+                   silicon_intrinsic_concentration_admc_cm_3(device_options.m_lattice_temperature_K));
     }
-    fmt::print("  export time steps: {}\n", config.device_options.m_export_time_step ? "enabled" : "disabled");
+    fmt::print("  export time steps: {}\n", device_options.m_export_time_step ? "enabled" : "disabled");
+    fmt::print("  current probe: {}\n", device_options.m_current_probe.m_enabled ? "enabled" : "disabled");
+    if (device_options.m_current_probe.m_enabled) {
+        const auto& box = device_options.m_current_probe.m_box_um;
+        fmt::print("    x: [{:.6e}, {:.6e}] um\n", box.get_x_min(), box.get_x_max());
+        fmt::print("    y: [{:.6e}, {:.6e}] um\n", box.get_y_min(), box.get_y_max());
+        fmt::print("    z: [{:.6e}, {:.6e}] um\n", box.get_z_min(), box.get_z_max());
+    }
     fmt::print("  effective depth: {:.6e} um\n", config.self_consistent_options_2d.m_effective_depth_um);
     fmt::print("  particle z period: {:.6e} um\n", config.self_consistent_options_2d.m_particle_z_period_um);
     fmt::print("  initial electrons: {}\n", config.number_electrons_start);
@@ -323,21 +354,21 @@ void run_self_consistent_device_admc_simulation(const self_consistent_device_adm
                config.starting_position_um.x(),
                config.starting_position_um.y(),
                config.starting_position_um.z());
-    if (config.device_options.m_enable_scheduled_particle_injection) {
+    if (device_options.m_enable_scheduled_particle_injection) {
         fmt::print("  scheduled injection: enabled\n");
-        fmt::print("    time: {:.6e} s\n", config.device_options.m_scheduled_injection_time_s);
+        fmt::print("    time: {:.6e} s\n", device_options.m_scheduled_injection_time_s);
         fmt::print("    position: ({:.6e}, {:.6e}, {:.6e}) um\n",
-                   config.device_options.m_scheduled_injection_position_um.x(),
-                   config.device_options.m_scheduled_injection_position_um.y(),
-                   config.device_options.m_scheduled_injection_position_um.z());
+                   device_options.m_scheduled_injection_position_um.x(),
+                   device_options.m_scheduled_injection_position_um.y(),
+                   device_options.m_scheduled_injection_position_um.z());
         fmt::print("    type: {}\n",
-                   config.device_options.m_scheduled_injection_type == carrier_type::electron ? "electron" : "hole");
-        fmt::print("    weight: {:.6e}\n", config.device_options.m_scheduled_injection_weight);
+                   device_options.m_scheduled_injection_type == carrier_type::electron ? "electron" : "hole");
+        fmt::print("    weight: {:.6e}\n", device_options.m_scheduled_injection_weight);
     }
 
     const auto                                start = std::chrono::high_resolution_clock::now();
     self_consistent_device_admc_simulation_2d simulation(simulation_device,
-                                                         config.device_options,
+                                                         device_options,
                                                          config.self_consistent_options_2d,
                                                          material_database,
                                                          config.starting_position_um,

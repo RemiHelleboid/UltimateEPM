@@ -90,6 +90,8 @@ class pbmc_transport_kernel {
     scattering_channel select_scattering_channel(const scattering_channel_list& channels, double total_rate);
     scattering_event   apply_scattering_channel(pbmc_particle& p, const scattering_channel& channel);
     double             uniform01();
+    void               set_particle_velocity_direction_preserving_energy(pbmc_particle& p,
+                                                                         const vector3& desired_global_direction) const;
 
  private:
     pbmc_transport_config m_cfg;

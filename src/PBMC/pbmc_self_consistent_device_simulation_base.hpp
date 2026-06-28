@@ -38,10 +38,14 @@ struct options_self_consistent_device_pbmc_common {
     bool   m_enable_built_in_potential      = false;
     double m_built_in_contact_voltage_scale = 1.0;
 
+    bool   m_enable_poisson_mixing                 = false;
+    double m_poisson_mixing_old_solution_fraction  = 0.0;
+
     double m_contact_injection_particle_weight = 2.0;
 
     bool   m_initialize_particles_from_doping = true;
     double m_initial_particle_weight          = 2.0;
+    std::string m_initial_particle_state_file;
 
     passive_quench_circuit_options m_passive_quench_circuit{};
 
@@ -86,6 +90,7 @@ class self_consistent_device_pbmc_simulation_base : public device_pbmc_simulatio
     void update_built_in_contact_voltage_offset(
         const std::string&                                  contact_name,
         const std::vector<std::shared_ptr<mesh::element>>& contact_elements);
+    bool is_transport_material_element(mesh::element& element);
 
     const options_self_consistent_device_pbmc_common& common_options() const;
     const std::map<std::string, double>&               contact_voltages_V() const;

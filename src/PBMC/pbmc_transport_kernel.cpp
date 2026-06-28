@@ -233,6 +233,28 @@ void pbmc_transport_kernel::drift_particle(pbmc_particle& p, const mesh::vector3
     p.state().time += dt;
 }
 
+void pbmc_transport_kernel::set_particle_velocity_direction_preserving_energy(
+    pbmc_particle&  p,
+    const vector3& desired_global_direction) const {
+    const auto valley_index = p.state().valley_index;
+    if (valley_index >= m_valleys.size()) {
+        throw std::out_of_range("invalid valley index in boundary reflection");
+    }
+
+    if (desired_global_direction.norm_squared() == 0.0) {
+        return;
+    }
+
+    const auto&   valley                   = m_valleys[valley_index];
+    const vector3 desired_direction_valley = valley.to_valley_frame(desired_global_direction);
+    p.state().local_k =
+        valley.k_valley_from_energy_velocity_direction(p.state().kinetic_energy, desired_direction_valley);
+    p.state().gamma = valley.gamma_from_k_valley(p.state().local_k);
+    p.state().kinetic_energy = valley.kinetic_energy_from_gamma(p.state().gamma);
+    p.state().velocity =
+        valley.to_global_frame(valley.velocity_from_k_valley_and_energy(p.state().local_k, p.state().kinetic_energy));
+}
+
 double pbmc_transport_kernel::sample_free_flight_time() {
     if (m_gamma_max_s_1 <= 0.0) {
         throw std::invalid_argument("max self-scattering rate must be > 0");

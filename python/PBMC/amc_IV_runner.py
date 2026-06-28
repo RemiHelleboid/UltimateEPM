@@ -54,14 +54,14 @@ def parse_args() -> argparse.Namespace:
         "--vmin",
         required=True,
         type=float,
-        help="Minimum sweep voltage in V. By default this is diode voltage Vanode - Vcathode.",
+        help="Minimum sweep voltage in V.",
     )
 
     parser.add_argument(
         "--vmax",
         required=True,
         type=float,
-        help="Maximum sweep voltage in V. By default this is diode voltage Vanode - Vcathode.",
+        help="Maximum sweep voltage in V.",
     )
 
     parser.add_argument(
@@ -73,28 +73,38 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--swept-contact",
-        choices=["anode", "cathode"],
         default="anode",
         help="Contact voltage varied by the sweep.",
     )
 
     parser.add_argument(
+        "--reference-contact",
+        default=None,
+        help=(
+            "Reference contact for generic bias sweeps. For example, use "
+            "--swept-contact drain --reference-contact source for Vds."
+        ),
+    )
+
+    parser.add_argument(
         "--voltage-axis",
-        choices=["diode", "swept"],
+        choices=["bias", "diode", "swept"],
         default="diode",
         help=(
-            "Voltage stored on the main x-axis. 'diode' uses "
-            "Vanode - Vcathode, positive in forward bias for a p-anode/n-cathode PN junction."
+            "Voltage stored on the main x-axis. 'bias' uses Vswept - Vreference, "
+            "'diode' keeps the PN convention Vanode - Vcathode, and 'swept' "
+            "uses the swept contact voltage directly."
         ),
     )
 
     parser.add_argument(
         "--sweep-voltage",
-        choices=["diode", "swept"],
+        choices=["bias", "diode", "swept"],
         default="diode",
         help=(
-            "Meaning of --vmin/--vmax/--vstep. 'diode' sweeps Vanode - Vcathode "
-            "and converts to the selected contact voltage."
+            "Meaning of --vmin/--vmax/--vstep. 'bias' sweeps Vswept - Vreference, "
+            "'diode' keeps the PN convention Vanode - Vcathode, and 'swept' "
+            "sets the swept contact voltage directly."
         ),
     )
 
@@ -110,6 +120,15 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.5,
         help="Fraction of each run discarded before current averaging.",
+    )
+
+    parser.add_argument(
+        "--current-column",
+        default="ramo_current",
+        help=(
+            "History CSV current column used for the IV extraction. Use "
+            "probe_ramo_current to extract the configured current_probe box."
+        ),
     )
 
     parser.add_argument(
@@ -194,6 +213,23 @@ def validate_args(args: argparse.Namespace) -> None:
     if args.threads_per_run is not None and args.threads_per_run <= 0:
         raise ValueError("--threads-per-run must be positive.")
 
+    if args.reference_contact == args.swept_contact:
+        raise ValueError("--reference-contact must differ from --swept-contact.")
+
+    uses_diode_mode = args.sweep_voltage == "diode" or args.voltage_axis == "diode"
+    if uses_diode_mode and args.swept_contact not in {"anode", "cathode"}:
+        raise ValueError(
+            "'diode' voltage mode only supports --swept-contact anode/cathode. "
+            "Use --sweep-voltage bias --voltage-axis bias with --reference-contact "
+            "for nMOS contacts such as drain/source."
+        )
+
+    uses_bias_mode = args.sweep_voltage == "bias" or args.voltage_axis == "bias"
+    if uses_bias_mode and reference_contact_name(args) is None:
+        raise ValueError(
+            "--reference-contact is required for generic bias sweeps with non-PN contacts."
+        )
+
     if args.history_filename != "device_history.csv":
         raise ValueError(
             "--history-filename must be 'device_history.csv'; "
@@ -239,7 +275,7 @@ def build_voltage_list(vmin: float, vmax: float, vstep: float) -> list[float]:
 
 
 def voltage_directory_name(contact: str, voltage: float) -> str:
-    prefix = "Va" if contact == "anode" else "Vc"
+    prefix = "".join(ch if ch.isalnum() else "_" for ch in contact).strip("_") or "V"
     return f"{prefix}_{voltage:+.6e}_V".replace("+", "p").replace("-", "m")
 
 
@@ -253,8 +289,16 @@ def contact_voltage_key(contact: str) -> str:
     return f"contacts.voltages_V.{contact}"
 
 
-def fixed_contact_name(swept_contact: str) -> str:
+def pn_fixed_contact_name(swept_contact: str) -> str:
     return "cathode" if swept_contact == "anode" else "anode"
+
+
+def reference_contact_name(args: argparse.Namespace) -> str | None:
+    if args.reference_contact:
+        return args.reference_contact
+    if args.swept_contact in {"anode", "cathode"}:
+        return pn_fixed_contact_name(args.swept_contact)
+    return None
 
 
 def read_contact_voltage_from_config(config_file: Path, contact: str) -> float:
@@ -299,16 +343,34 @@ def contact_voltage_override(overrides: list[str], contact: str) -> float | None
     return value
 
 
-def fixed_contact_voltage(args: argparse.Namespace) -> float:
-    fixed_contact = fixed_contact_name(args.swept_contact)
+def reference_contact_voltage(args: argparse.Namespace) -> float:
+    reference_contact = reference_contact_name(args)
+    if reference_contact is None:
+        raise ValueError(
+            "--reference-contact is required when --sweep-voltage or "
+            "--voltage-axis uses 'bias' with a non-PN contact name."
+        )
+
+    override = contact_voltage_override(args.config_overrides, reference_contact)
+    if override is not None:
+        return override
+    return read_contact_voltage_from_config(args.config, reference_contact)
+
+
+def pn_fixed_contact_voltage(args: argparse.Namespace) -> float:
+    fixed_contact = pn_fixed_contact_name(args.swept_contact)
     override = contact_voltage_override(args.config_overrides, fixed_contact)
     if override is not None:
         return override
     return read_contact_voltage_from_config(args.config, fixed_contact)
 
 
+def bias_voltage_from_sweep(args: argparse.Namespace, swept_voltage: float) -> float:
+    return swept_voltage - reference_contact_voltage(args)
+
+
 def diode_voltage_from_sweep(args: argparse.Namespace, swept_voltage: float) -> float:
-    fixed_voltage = fixed_contact_voltage(args)
+    fixed_voltage = pn_fixed_contact_voltage(args)
     if args.swept_contact == "anode":
         return swept_voltage - fixed_voltage
     return fixed_voltage - swept_voltage
@@ -318,19 +380,31 @@ def swept_voltage_from_input(args: argparse.Namespace, input_voltage: float) -> 
     if args.sweep_voltage == "swept":
         return input_voltage
 
-    fixed_voltage = fixed_contact_voltage(args)
+    if args.sweep_voltage == "bias":
+        return reference_contact_voltage(args) + input_voltage
+
+    fixed_voltage = pn_fixed_contact_voltage(args)
     if args.swept_contact == "anode":
         return fixed_voltage + input_voltage
     return fixed_voltage - input_voltage
 
 
 def plot_voltage_column(args: argparse.Namespace) -> str:
-    return "diode_voltage_V" if args.voltage_axis == "diode" else "swept_voltage_V"
+    if args.voltage_axis == "diode":
+        return "diode_voltage_V"
+    if args.voltage_axis == "bias":
+        return "bias_voltage_V"
+    return "swept_voltage_V"
 
 
 def plot_voltage_label(args: argparse.Namespace) -> str:
     if args.voltage_axis == "diode":
         return "Diode voltage Vanode - Vcathode (V)"
+    if args.voltage_axis == "bias":
+        reference_contact = reference_contact_name(args)
+        if reference_contact is None:
+            return f"{args.swept_contact} bias voltage (V)"
+        return f"{args.swept_contact} - {reference_contact} voltage (V)"
     return f"Swept {args.swept_contact} voltage (V)"
 
 
@@ -415,6 +489,16 @@ def require_columns(df: pd.DataFrame, columns: list[str], filename: Path) -> Non
             raise KeyError(f"Missing column '{column}' in {filename}")
 
 
+def component_current_columns(current_column: str) -> tuple[str, str]:
+    if current_column.endswith("_current"):
+        prefix = current_column[: -len("_current")]
+        return f"{prefix}_current_electron", f"{prefix}_current_hole"
+    if current_column.endswith("_current_A"):
+        prefix = current_column[: -len("_current_A")]
+        return f"{prefix}_current_electron_A", f"{prefix}_current_hole_A"
+    return f"{current_column}_electron", f"{current_column}_hole"
+
+
 def optional_mean_final(
     result: dict[str, float | str],
     df: pd.DataFrame,
@@ -453,13 +537,15 @@ def extract_iv_point(
     if df.empty:
         raise RuntimeError(f"History file is empty: {history_file}")
 
+    electron_current_column, hole_current_column = component_current_columns(args.current_column)
+
     required_columns = [
         "time",
         "nb_electrons",
         "nb_holes",
-        "ramo_current_electron",
-        "ramo_current_hole",
-        "ramo_current",
+        args.current_column,
+        electron_current_column,
+        hole_current_column,
     ]
 
     require_columns(df, required_columns, history_file)
@@ -476,24 +562,44 @@ def extract_iv_point(
             f"Decrease --transient-fraction or run longer."
         )
 
-    current = steady["ramo_current"].to_numpy(dtype=float)
-    current_e = steady["ramo_current_electron"].to_numpy(dtype=float)
-    current_h = steady["ramo_current_hole"].to_numpy(dtype=float)
+    current = steady[args.current_column].to_numpy(dtype=float)
+    current_e = steady[electron_current_column].to_numpy(dtype=float)
+    current_h = steady[hole_current_column].to_numpy(dtype=float)
 
     mean_current = float(np.mean(current))
     std_current = float(np.std(current, ddof=1))
     stderr_current = std_current / float(np.sqrt(len(current)))
+    diode_voltage = (
+        float(diode_voltage_from_sweep(args, voltage))
+        if args.swept_contact in {"anode", "cathode"}
+        else float("nan")
+    )
+    reference_contact = reference_contact_name(args)
+    bias_voltage = (
+        float(bias_voltage_from_sweep(args, voltage))
+        if reference_contact is not None
+        else float("nan")
+    )
+    if args.voltage_axis == "bias":
+        primary_voltage = bias_voltage
+    elif args.voltage_axis == "swept":
+        primary_voltage = float(voltage)
+    else:
+        primary_voltage = diode_voltage
 
     result: dict[str, float | str] = {
-        "voltage_V": float(diode_voltage_from_sweep(args, voltage)),
-        "diode_voltage_V": float(diode_voltage_from_sweep(args, voltage)),
+        "voltage_V": primary_voltage,
+        "diode_voltage_V": diode_voltage,
+        "bias_voltage_V": bias_voltage,
         "swept_voltage_V": float(voltage),
         "swept_contact": args.swept_contact,
+        "reference_contact": reference_contact or "",
         "time_min_s": t_min,
         "time_max_s": t_max,
         "transient_cut_s": t_cut,
         "n_samples_total": int(len(df)),
         "n_samples_steady": int(len(steady)),
+        "current_column": args.current_column,
         "mean_current_A": mean_current,
         "std_current_A": std_current,
         "stderr_current_A": float(stderr_current),
@@ -516,6 +622,12 @@ def extract_iv_point(
 
     optional_mean_max(result, df, steady, "nb_impact_ionization")
     optional_mean_max(result, df, steady, "max_electric_field")
+    optional_mean_final(result, df, steady, "ramo_current")
+    optional_mean_final(result, df, steady, "ramo_current_electron")
+    optional_mean_final(result, df, steady, "ramo_current_hole")
+    optional_mean_final(result, df, steady, "probe_ramo_current")
+    optional_mean_final(result, df, steady, "probe_ramo_current_electron")
+    optional_mean_final(result, df, steady, "probe_ramo_current_hole")
     optional_mean_final(result, df, steady, "ramo_electrode_voltage_V")
     optional_mean_final(result, df, steady, "reference_electrode_voltage_V")
     optional_mean_final(result, df, steady, "quench_bias_voltage_V")
@@ -758,9 +870,12 @@ def write_manifest(args: argparse.Namespace, input_voltages: list[float], swept_
         stream.write(f"outdir = {args.outdir}\n\n")
 
         stream.write(f"swept_contact = {args.swept_contact}\n")
+        stream.write(f"reference_contact = {reference_contact_name(args) or ''}\n")
         stream.write(f"sweep_voltage = {args.sweep_voltage}\n")
         stream.write(f"voltage_axis = {args.voltage_axis}\n")
+        stream.write(f"current_column = {args.current_column}\n")
         stream.write("diode_voltage_convention = Vanode - Vcathode\n")
+        stream.write("bias_voltage_convention = Vswept - Vreference\n")
         stream.write(f"vmin = {args.vmin:.8e}\n")
         stream.write(f"vmax = {args.vmax:.8e}\n")
         stream.write(f"vstep = {args.vstep:.8e}\n")
@@ -799,16 +914,25 @@ def main() -> int:
     write_manifest(args, input_voltages, swept_voltages)
 
     print("Voltage sweep:")
-    fixed_voltage = fixed_contact_voltage(args)
-    fixed_contact = fixed_contact_name(args.swept_contact)
-    print(f"  fixed {fixed_contact}: {fixed_voltage:.6e} V")
+    reference_contact = reference_contact_name(args)
+    if reference_contact is not None:
+        reference_voltage = reference_contact_voltage(args)
+        print(f"  reference {reference_contact}: {reference_voltage:.6e} V")
+    if args.sweep_voltage == "diode" or args.voltage_axis == "diode":
+        fixed_voltage = pn_fixed_contact_voltage(args)
+        fixed_contact = pn_fixed_contact_name(args.swept_contact)
+        print(f"  PN fixed {fixed_contact}: {fixed_voltage:.6e} V")
     print(f"  input voltage: {args.sweep_voltage}")
     for input_voltage, swept_voltage in zip(input_voltages, swept_voltages):
-        print(
-            f"  input={input_voltage:.6e} V, "
-            f"{args.swept_contact}={swept_voltage:.6e} V, "
-            f"Vd=Vanode-Vcathode={diode_voltage_from_sweep(args, swept_voltage):.6e} V"
-        )
+        pieces = [
+            f"  input={input_voltage:.6e} V",
+            f"{args.swept_contact}={swept_voltage:.6e} V",
+        ]
+        if reference_contact is not None:
+            pieces.append(f"Vbias={bias_voltage_from_sweep(args, swept_voltage):.6e} V")
+        if args.swept_contact in {"anode", "cathode"}:
+            pieces.append(f"Vd=Vanode-Vcathode={diode_voltage_from_sweep(args, swept_voltage):.6e} V")
+        print(", ".join(pieces))
 
     print(f"Swept contact: {args.swept_contact}", flush=True)
     print(

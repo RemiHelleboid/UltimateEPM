@@ -104,23 +104,82 @@ void write_paraview_scene_script(const std::filesystem::path& base_directory) {
     stream << "particles = OpenDataFile(particles_file)\n\n";
     stream << "particles_transform = Transform(Input=particles)\n";
     stream << "particles_transform.Transform.Translate = [0.0, 0.0, 1e-1]\n";
+    stream << "try:\n";
+    stream << "    particles_transform.ShowBox = 0\n";
+    stream << "except Exception:\n";
+    stream << "    pass\n\n";
+
     stream << "view = GetActiveViewOrCreate(\"RenderView\")\n";
     stream << "view.InteractionMode = \"2D\"\n";
+    stream << "view.Background = [0.0, 0.0, 0.0]\n";
+    stream << "view.OrientationAxesVisibility = 1\n\n";
+
     stream << "mesh_display = Show(mesh, view)\n";
     stream << "mesh_display.Representation = \"Surface\"\n";
+    stream << "ColorBy(mesh_display, (\"POINTS\", \"PoissonSolution\"))\n";
+    stream << "mesh_display.RescaleTransferFunctionToDataRange(True, False)\n\n";
+
+    stream << "poisson_lut = GetColorTransferFunction(\"PoissonSolution\")\n";
+    stream << "poisson_lut.ApplyPreset(\"Jet\", True)\n";
+    stream << "poisson_lut.RescaleTransferFunction(-0.18, 1.0)\n";
+    stream << "poisson_lut.ColorSpace = \"RGB\"\n\n";
+
+    stream << "poisson_bar = GetScalarBar(poisson_lut, view)\n";
+    stream << "poisson_bar.Title = \"PoissonSolution\"\n";
+    stream << "poisson_bar.ComponentTitle = \"\"\n";
+    stream << "poisson_bar.Visibility = 1\n";
+    stream << "poisson_bar.WindowLocation = \"Upper Right Corner\"\n";
+    stream << "poisson_bar.TitleColor = [1.0, 1.0, 1.0]\n";
+    stream << "poisson_bar.LabelColor = [1.0, 1.0, 1.0]\n";
+    stream << "mesh_display.SetScalarBarVisibility(view, True)\n\n";
+
     stream << "particles_display = Show(particles_transform, view)\n";
     stream << "particles_display.Representation = \"Point Gaussian\"\n";
     stream << "particles_display.GaussianRadius = 0.001\n";
-    stream << "ColorBy(particles_display, (\"POINTS\", \"mobility_m2_per_V_s\"))\n";
-    stream << "ColorBy(mesh_display, (\"POINTS\", \"PoissonSolution_gradient\"))\n";
+    stream << "particles_display.Opacity = 1.0\n";
+    stream << "particles_display.RenderPointsAsSpheres = 1\n";
+    stream << "ColorBy(particles_display, (\"POINTS\", \"particle_type\"))\n\n";
+
+    stream << "particle_lut = GetColorTransferFunction(\"particle_type\")\n";
+    stream << "particle_lut.InterpretValuesAsCategories = 1\n";
+    stream << "particle_lut.AnnotationsInitialized = 1\n";
+    stream << "particle_lut.Annotations = [\"0\", \"electron\", \"1\", \"hole\"]\n";
+    stream << "particle_lut.IndexedColors = [0.25, 0.0, 1.0, 1.0, 0.0, 0.0]\n\n";
+
+    stream << "particles_display.LookupTable = particle_lut\n";
+    stream << "particles_display.SetScalarBarVisibility(view, True)\n\n";
+
+    stream << "particle_bar = GetScalarBar(particle_lut, view)\n";
+    stream << "particle_bar.Title = \"particle_type\"\n";
+    stream << "particle_bar.ComponentTitle = \"\"\n";
+    stream << "particle_bar.Visibility = 1\n";
+    stream << "particle_bar.WindowLocation = \"Lower Right Corner\"\n";
+    stream << "particle_bar.TitleColor = [1.0, 1.0, 1.0]\n";
+    stream << "particle_bar.LabelColor = [1.0, 1.0, 1.0]\n\n";
+
     stream << "animation_scene = GetAnimationScene()\n";
-    stream << "animation_scene.UpdateAnimationUsingDataTimeSteps()\n";
+    stream << "animation_scene.UpdateAnimationUsingDataTimeSteps()\n\n";
+
+    stream << "time_keeper = GetTimeKeeper()\n";
+    stream << "AnnotateTimeFilter1 = AnnotateTimeFilter(Input=mesh)\n";
+    stream << "AnnotateTimeFilter1.Format = \"time: %.3e s\"\n";
+    stream << "time_display = Show(AnnotateTimeFilter1, view)\n";
+    stream << "time_display.FontSize = 18\n";
+    stream << "time_display.Color = [1.0, 1.0, 1.0]\n";
+    stream << "time_display.WindowLocation = \"Upper Center\"\n\n";
+
+    stream << "mesh.UpdatePipeline()\n";
+    stream << "particles_transform.UpdatePipeline()\n\n";
+
     stream << "particles_display.Visibility = 0\n";
     stream << "ResetCamera(view)\n";
-    stream << "particles_display.Visibility = 1\n";
+    stream << "particles_display.Visibility = 1\n\n";
+
     stream << "view.CameraPosition = [0.0, 0.0, 1.0]\n";
     stream << "view.CameraFocalPoint = [0.0, 0.0, 0.0]\n";
     stream << "view.CameraViewUp = [0.0, 1.0, 0.0]\n";
+    stream << "view.CameraParallelScale *= 0.75\n\n";
+
     stream << "SetActiveSource(mesh)\n";
     stream << "Render()\n";
 }
@@ -162,6 +221,9 @@ void history_device_ADMC::add(double      time_s,
                               double      electron_current_A,
                               double      hole_current_A,
                               double      total_current_A,
+                              double      probe_electron_current_A,
+                              double      probe_hole_current_A,
+                              double      probe_total_current_A,
                               double      max_field_V_per_m) {
     times_s.push_back(time_s);
     nb_electrons.push_back(electrons);
@@ -169,7 +231,35 @@ void history_device_ADMC::add(double      time_s,
     ramo_current_electron_A.push_back(electron_current_A);
     ramo_current_hole_A.push_back(hole_current_A);
     ramo_current_A.push_back(total_current_A);
+    probe_ramo_current_electron_A.push_back(probe_electron_current_A);
+    probe_ramo_current_hole_A.push_back(probe_hole_current_A);
+    probe_ramo_current_A.push_back(probe_total_current_A);
     max_electric_field_V_per_m.push_back(max_field_V_per_m);
+}
+
+void history_device_ADMC::print_header_csv(const std::string& filename) const {
+    std::ofstream stream(filename);
+    if (!stream.is_open()) {
+        throw std::runtime_error("Could not open ADMC history CSV file '" + filename + "'.");
+    }
+    stream << "time,nb_electrons,nb_holes,nb_impact_ionization,ramo_current_electron,ramo_current_hole,ramo_current,"
+              "probe_ramo_current_electron,probe_ramo_current_hole,probe_ramo_current,"
+              "max_electric_field,ramo_electrode_voltage_V,reference_electrode_voltage_V,quench_bias_voltage_V,"
+              "quench_device_current_A,"
+              "quench_resistor_current_A,quench_voltage_drop_V\n";
+}
+
+void history_device_ADMC::append_last_iter_to_csv(std::fstream& file) const {
+    if (times_s.empty()) {
+        return;
+    }
+    const std::size_t i = times_s.size() - 1;
+    constexpr double electric_field_V_per_m_to_V_per_cm = 0.01;
+    file << times_s[i] << ',' << nb_electrons[i] << ',' << nb_holes[i] << ',' << 0 << ','
+         << ramo_current_electron_A[i] << ',' << ramo_current_hole_A[i] << ',' << ramo_current_A[i] << ','
+         << probe_ramo_current_electron_A[i] << ',' << probe_ramo_current_hole_A[i] << ','
+         << probe_ramo_current_A[i] << ',' << max_electric_field_V_per_m[i] * electric_field_V_per_m_to_V_per_cm
+         << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << '\n';
 }
 
 void history_device_ADMC::export_to_csv(const std::string& filename) const {
@@ -177,12 +267,20 @@ void history_device_ADMC::export_to_csv(const std::string& filename) const {
     if (!stream.is_open()) {
         throw std::runtime_error("Could not open ADMC history CSV file '" + filename + "'.");
     }
-    stream << "time_s,nb_electrons,nb_holes,ramo_current_electron_A,ramo_current_hole_A,ramo_current_A,"
-              "max_electric_field_V_per_m\n";
+    stream.close();
+    print_header_csv(filename);
+    stream.open(filename, std::ios::app);
+    if (!stream.is_open()) {
+        throw std::runtime_error("Could not open ADMC history CSV file '" + filename + "'.");
+    }
     stream << std::setprecision(std::numeric_limits<double>::max_digits10);
+    constexpr double electric_field_V_per_m_to_V_per_cm = 0.01;
     for (std::size_t i = 0; i < times_s.size(); ++i) {
-        stream << times_s[i] << ',' << nb_electrons[i] << ',' << nb_holes[i] << ',' << ramo_current_electron_A[i] << ','
-               << ramo_current_hole_A[i] << ',' << ramo_current_A[i] << ',' << max_electric_field_V_per_m[i] << '\n';
+        stream << times_s[i] << ',' << nb_electrons[i] << ',' << nb_holes[i] << ',' << 0 << ','
+               << ramo_current_electron_A[i] << ',' << ramo_current_hole_A[i] << ',' << ramo_current_A[i] << ','
+               << probe_ramo_current_electron_A[i] << ',' << probe_ramo_current_hole_A[i] << ','
+               << probe_ramo_current_A[i] << ',' << max_electric_field_V_per_m[i] * electric_field_V_per_m_to_V_per_cm
+               << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << '\n';
     }
 }
 
@@ -229,6 +327,11 @@ mesh::vector3 device_admc_simulation::to_mesh_position_um(const vector3& positio
 
 vector3 device_admc_simulation::to_admc_position_m(const mesh::vector3& position_um) const {
     return normalize_mesh_position_for_dimension(position_um) * uepm::units::micron_to_meter;
+}
+
+bool device_admc_simulation::is_transport_material_element(mesh::element& element) {
+    const std::string material_name = m_device.get_material_name_at_element(&element);
+    return material_name == "Si" || material_name == "Silicon";
 }
 
 vector3 device_admc_simulation::draw_standard_normal() {
@@ -279,6 +382,9 @@ void device_admc_simulation::add_particle_at_position(const mesh::vector3& posit
     const mesh::vector3 mesh_position_um = normalize_mesh_position_for_dimension(position_um);
     auto*               element          = m_device.find_element_at_location(mesh_position_um);
     if (element == nullptr) {
+        return;
+    }
+    if (!is_transport_material_element(*element)) {
         return;
     }
 
@@ -333,11 +439,48 @@ void device_admc_simulation::update_element_and_check_boundary(device_admc_parti
     }
 
     auto* new_element = m_device.find_element_at_location(current_position_um);
-    if (new_element == nullptr || m_device.get_material_name_at_element(new_element) != "Silicon") {
-        auto& state      = particle.particle.state();
-        state.position_m = state.previous_position_m;
-        state.total_velocity_m_per_s *= -1.0;
-        state.drift_velocity_m_per_s *= -1.0;
+    if (new_element == nullptr || !is_transport_material_element(*new_element)) {
+        auto&              state                = particle.particle.state();
+        const mesh::vector3 previous_position_um = to_mesh_position_um(state.previous_position_m);
+        const auto          hit = mesh::find_boundary_exit_hit(*particle.containing_element,
+                                                              previous_position_um,
+                                                              current_position_um,
+                                                              m_dimension);
+        if (m_options.m_boundary_reflection_model == mesh::boundary_reflection_model::reverse || !hit.has_value()) {
+            state.position_m = state.previous_position_m;
+            state.total_velocity_m_per_s *= -1.0;
+            state.drift_velocity_m_per_s *= -1.0;
+            return;
+        }
+
+        const mesh::vector3 remaining_displacement_um = current_position_um - hit->position;
+        mesh::vector3       outgoing_displacement_um;
+
+        if (m_options.m_boundary_reflection_model == mesh::boundary_reflection_model::specular) {
+            state.total_velocity_m_per_s =
+                mesh::reflect_vector_specular(state.total_velocity_m_per_s, hit->inward_normal);
+            state.drift_velocity_m_per_s =
+                mesh::reflect_vector_specular(state.drift_velocity_m_per_s, hit->inward_normal);
+            outgoing_displacement_um =
+                mesh::reflect_vector_specular(remaining_displacement_um, hit->inward_normal);
+        } else {
+            state.total_velocity_m_per_s = mesh::draw_diffuse_reflection_vector(state.total_velocity_m_per_s,
+                                                                                hit->inward_normal,
+                                                                                m_dimension,
+                                                                                m_random_generator);
+            state.drift_velocity_m_per_s = mesh::draw_diffuse_reflection_vector(state.drift_velocity_m_per_s,
+                                                                                hit->inward_normal,
+                                                                                m_dimension,
+                                                                                m_random_generator);
+            outgoing_displacement_um =
+                mesh::align_displacement_with_direction(remaining_displacement_um, state.total_velocity_m_per_s);
+        }
+        state.position_m = to_admc_position_m(mesh::place_reflected_position_inside(*particle.containing_element,
+                                                                                    previous_position_um,
+                                                                                    current_position_um,
+                                                                                    *hit,
+                                                                                    outgoing_displacement_um,
+                                                                                    m_dimension));
         return;
     }
     particle.containing_element = new_element;
@@ -368,6 +511,9 @@ void device_admc_simulation::advance_particles_one_time_step() {
     const auto [electron_current_A, hole_current_A] = compute_ramo_current();
     m_state.m_last_ramo_current_electron_A          = electron_current_A;
     m_state.m_last_ramo_current_hole_A              = hole_current_A;
+    const auto [probe_electron_current_A, probe_hole_current_A] = compute_probe_ramo_current();
+    m_state.m_last_probe_ramo_current_electron_A = probe_electron_current_A;
+    m_state.m_last_probe_ramo_current_hole_A     = probe_hole_current_A;
     record_history(electron_current_A, hole_current_A);
 }
 
@@ -392,11 +538,29 @@ void device_admc_simulation::record_history(double electron_current_A, double ho
                   electron_current_A,
                   hole_current_A,
                   electron_current_A + hole_current_A,
+                  m_state.m_last_probe_ramo_current_electron_A,
+                  m_state.m_last_probe_ramo_current_hole_A,
+                  m_state.m_last_probe_ramo_current_electron_A + m_state.m_last_probe_ramo_current_hole_A,
                   max_particle_electric_field_V_per_m());
+}
+
+std::string device_admc_simulation::initialize_simulation_history_file() {
+    const std::string simulation_name_for_file =
+        m_options.m_simulation_name.empty() ? "simulation" : m_options.m_simulation_name;
+    const std::string history_filename =
+        fmt::format("{}/{}_history.csv", m_options.m_output_directory, simulation_name_for_file);
+    fmt::print("Initializing ADMC simulation history file at '{}'\n", history_filename);
+    std::filesystem::create_directories(m_options.m_output_directory);
+    m_history.print_header_csv(history_filename);
+    return history_filename;
 }
 
 std::pair<double, double> device_admc_simulation::last_ramo_current() const {
     return {m_state.m_last_ramo_current_electron_A, m_state.m_last_ramo_current_hole_A};
+}
+
+std::pair<double, double> device_admc_simulation::last_probe_ramo_current() const {
+    return {m_state.m_last_probe_ramo_current_electron_A, m_state.m_last_probe_ramo_current_hole_A};
 }
 
 std::size_t device_admc_simulation::get_number_electrons() const {
@@ -447,6 +611,39 @@ std::pair<double, double> device_admc_simulation::compute_ramo_current() const {
             hole_current_A += current_A;
         }
     }
+    return {electron_current_A, hole_current_A};
+}
+
+std::pair<double, double> device_admc_simulation::compute_probe_ramo_current() const {
+    if (!m_options.m_current_probe.m_enabled) {
+        return {0.0, 0.0};
+    }
+
+    double electron_current_A = 0.0;
+    double hole_current_A     = 0.0;
+
+    for (const auto& particle : m_particles) {
+        mesh::vector3 position_um = to_mesh_position_um(particle.particle.state().position_m);
+        if (m_dimension == 2) {
+            position_um.to_2d_inplace();
+            if (!m_options.m_current_probe.m_box_um.is_inside_2d(position_um)) {
+                continue;
+            }
+        } else if (!m_options.m_current_probe.m_box_um.is_inside(position_um)) {
+            continue;
+        }
+
+        const vector3 weighting_field = get_RamoUnitaryElectricField_at_position(position_um);
+        const double  current_A       = particle.weight * carrier_charge_sign(particle.particle.type()) *
+                                 uepm::constants::q_e *
+                                 particle.particle.state().total_velocity_m_per_s.dot(weighting_field);
+        if (particle.particle.type() == carrier_type::electron) {
+            electron_current_A += current_A;
+        } else {
+            hole_current_A += current_A;
+        }
+    }
+
     return {electron_current_A, hole_current_A};
 }
 

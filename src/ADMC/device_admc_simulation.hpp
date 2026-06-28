@@ -7,15 +7,23 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <random>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "admc_transport.hpp"
+#include "boundary_reflection.hpp"
+#include "bbox.hpp"
 #include "device.hpp"
 
 namespace uepm::ADMC {
+
+struct current_probe_options {
+    bool       m_enabled = false;
+    mesh::bbox m_box_um{};
+};
 
 struct options_device_ADMC {
     std::string m_simulation_name;
@@ -30,6 +38,8 @@ struct options_device_ADMC {
     int         m_frequency_export                    = 10;
     bool        m_export_mesh_particle_local_averages = true;
     std::string m_prefix_export_filename              = "trajectory";
+    mesh::boundary_reflection_model m_boundary_reflection_model = mesh::boundary_reflection_model::reverse;
+    current_probe_options m_current_probe{};
 
     bool          m_enable_scheduled_particle_injection = false;
     double        m_scheduled_injection_time_s          = 0.0;
@@ -56,6 +66,8 @@ struct state_device_ADMC {
     vector3     m_RamoUnitaryElectricField_Vm_per_cm{0.0, 0.0, 0.0};
     double      m_last_ramo_current_electron_A = 0.0;
     double      m_last_ramo_current_hole_A     = 0.0;
+    double      m_last_probe_ramo_current_electron_A = 0.0;
+    double      m_last_probe_ramo_current_hole_A     = 0.0;
 };
 
 struct admc_vtk_time_series_record {
@@ -70,6 +82,9 @@ struct history_device_ADMC {
     std::vector<double>      ramo_current_electron_A;
     std::vector<double>      ramo_current_hole_A;
     std::vector<double>      ramo_current_A;
+    std::vector<double>      probe_ramo_current_electron_A;
+    std::vector<double>      probe_ramo_current_hole_A;
+    std::vector<double>      probe_ramo_current_A;
     std::vector<double>      max_electric_field_V_per_m;
 
     void add(double      time_s,
@@ -78,7 +93,12 @@ struct history_device_ADMC {
              double      electron_current_A,
              double      hole_current_A,
              double      total_current_A,
+             double      probe_electron_current_A,
+             double      probe_hole_current_A,
+             double      probe_total_current_A,
              double      max_field_V_per_m);
+    void print_header_csv(const std::string& filename) const;
+    void append_last_iter_to_csv(std::fstream& file) const;
     void export_to_csv(const std::string& filename) const;
 };
 
@@ -106,6 +126,7 @@ class device_admc_simulation {
     double      current_time_s() const noexcept { return m_state.m_time_s; }
 
     std::pair<double, double> compute_ramo_current() const;
+    std::pair<double, double> compute_probe_ramo_current() const;
     double                    max_particle_electric_field_V_per_m() const;
 
     const std::vector<device_admc_particle>& particles() const noexcept { return m_particles; }
@@ -121,6 +142,7 @@ class device_admc_simulation {
     mesh::vector3 to_mesh_position_um(const vector3& position_m) const;
     vector3       to_admc_position_m(const mesh::vector3& position_um) const;
     mesh::vector3 normalize_mesh_position_for_dimension(mesh::vector3 position_um) const;
+    bool          is_transport_material_element(mesh::element& element);
     vector3       draw_standard_normal();
 
     admc_local_environment    local_environment(const device_admc_particle& particle) const;
@@ -131,7 +153,9 @@ class device_admc_simulation {
     bool                      has_pending_scheduled_particle_injection() const;
     void                      inject_scheduled_particle_if_due();
     void                      record_history(double electron_current_A, double hole_current_A);
+    std::string               initialize_simulation_history_file();
     std::pair<double, double> last_ramo_current() const;
+    std::pair<double, double> last_probe_ramo_current() const;
     vector3                   get_RamoUnitaryElectricField_at_position(const mesh::vector3& position) const;
     void                      export_current_particles_as_vtp(const std::string& directory) const;
     void export_current_mesh_as_vtu(const std::string& directory, bool export_x_cut_enabled = false) const;

@@ -18,6 +18,7 @@
 #include <chrono>
 #include <cmath>
 #include <fstream>
+#include <stdexcept>
 
 namespace uepm::fem {
 
@@ -39,8 +40,8 @@ std::string get_status_string(fem_status status) {
 
 void FiniteElementSystem::reset_system() {
     m_matrix_lhs    = EigenSparseMatrix(0, 0);
-    m_solution      = EigenVector(0);
-    m_second_member = EigenVector(0);
+    m_solution      = EigenVector::Zero(0);
+    m_second_member = EigenVector::Zero(0);
     m_status        = fem_status::None;
 }
 
@@ -61,6 +62,38 @@ void FiniteElementSystem::solve_system() {
     if (m_solver.info() != Eigen::Success) {
         fmt::print("The resolution of the linear system failed.\n");
         throw std::runtime_error("The resolution of the linear system failed. ");
+    }
+    if (!m_solution.allFinite()) {
+        throw std::runtime_error("The Poisson linear system produced a non-finite solution.");
+    }
+}
+
+void FiniteElementSystem::set_solution(const EigenVector &solution) {
+    if (solution.size() != m_solution.size()) {
+        throw std::invalid_argument("FiniteElementSystem::set_solution size mismatch.");
+    }
+    if (!solution.allFinite()) {
+        throw std::invalid_argument("FiniteElementSystem::set_solution received a non-finite solution.");
+    }
+    m_solution = solution;
+}
+
+void FiniteElementSystem::mix_solution_with(const EigenVector &old_solution, double old_solution_fraction) {
+    if (old_solution.size() != m_solution.size()) {
+        throw std::invalid_argument("FiniteElementSystem::mix_solution_with size mismatch.");
+    }
+    if (!std::isfinite(old_solution_fraction) || old_solution_fraction < 0.0 || old_solution_fraction > 1.0) {
+        throw std::invalid_argument("Poisson mixing old_solution_fraction must be in [0, 1].");
+    }
+    if (!old_solution.allFinite()) {
+        throw std::invalid_argument("Poisson mixing old solution contains non-finite values.");
+    }
+    if (!m_solution.allFinite()) {
+        throw std::invalid_argument("Poisson mixing new solution contains non-finite values.");
+    }
+    m_solution = old_solution_fraction * old_solution + (1.0 - old_solution_fraction) * m_solution;
+    if (!m_solution.allFinite()) {
+        throw std::runtime_error("Poisson mixing produced a non-finite solution.");
     }
 }
 

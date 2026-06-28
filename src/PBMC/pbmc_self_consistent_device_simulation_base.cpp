@@ -50,6 +50,10 @@ void options_self_consistent_device_pbmc_common::validate() const {
     if (!std::isfinite(m_built_in_contact_voltage_scale)) {
         throw std::invalid_argument("Built-in contact voltage scale must be finite.");
     }
+    if (!std::isfinite(m_poisson_mixing_old_solution_fraction) ||
+        m_poisson_mixing_old_solution_fraction < 0.0 || m_poisson_mixing_old_solution_fraction > 1.0) {
+        throw std::invalid_argument("Poisson mixing old solution fraction must be in [0, 1].");
+    }
     if (!std::isfinite(m_contact_injection_particle_weight) || m_contact_injection_particle_weight <= 0.0) {
         throw std::invalid_argument("Contact injection particle weight must be positive.");
     }
@@ -206,6 +210,18 @@ void self_consistent_device_pbmc_simulation_base::update_built_in_contact_voltag
                doping.acceptor_cm_3,
                intrinsic_concentration_cm_3,
                offset_V);
+}
+
+bool self_consistent_device_pbmc_simulation_base::is_transport_material_element(
+    mesh::element& element) {
+    const std::string material_name = m_device.get_material_name_at_element(&element);
+
+    switch (m_simulation_options.m_material_model.m_id) {
+        case uepm::physics::material_id::silicon:
+            return material_name == "Si" || material_name == "Silicon";
+        default:
+            return false;
+    }
 }
 
 const options_self_consistent_device_pbmc_common& self_consistent_device_pbmc_simulation_base::common_options() const {

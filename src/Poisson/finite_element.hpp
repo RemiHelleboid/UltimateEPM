@@ -46,15 +46,15 @@ class FiniteElementSystem {
     FiniteElementSystem(std::size_t system_size)
         : m_p_mesh{nullptr},
           m_matrix_lhs{EigenSparseMatrix(system_size, system_size)},
-          m_second_member{EigenVector(system_size)},
-          m_solution{EigenVector(system_size)},
+          m_second_member{EigenVector::Zero(system_size)},
+          m_solution{EigenVector::Zero(system_size)},
           m_status{fem_status::None} {}
 
     FiniteElementSystem(mesh::mesh* p_mesh, std::size_t system_size)
         : m_p_mesh{p_mesh},
           m_matrix_lhs{EigenSparseMatrix(system_size, system_size)},
-          m_second_member{EigenVector(system_size)},
-          m_solution{EigenVector(system_size)},
+          m_second_member{EigenVector::Zero(system_size)},
+          m_solution{EigenVector::Zero(system_size)},
           m_status{fem_status::None} {}
 
     virtual ~FiniteElementSystem() = default;
@@ -65,6 +65,8 @@ class FiniteElementSystem {
     const EigenVector&       get_solution() const { return m_solution; }
     fem_status               get_status() const { return m_status; }
     std::size_t              get_system_size() const { return m_solution.size(); }
+    void                     set_solution(const EigenVector& solution);
+    void                     mix_solution_with(const EigenVector& old_solution, double old_solution_fraction);
 
     virtual void compute_stiffness_matrix()                   = 0;
     virtual void compute_mass_matrix()                        = 0;

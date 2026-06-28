@@ -81,6 +81,9 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
 
     const std::string material_symbol = config.material_symbol;
 
+    const auto& common_options =
+        mesh_dimension == 2 ? self_consistent_options_2d.m_common : self_consistent_options_3d.m_common;
+
     fmt::print("Self-consistent PBMC {}D simulation\n", mesh_dimension);
     fmt::print("  mesh vertices: {}\n", mesh->get_nb_vertices());
     fmt::print("  output directory: {}\n", output_dir);
@@ -101,12 +104,26 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     fmt::print("\n");
     fmt::print("  built-in potential: {}\n",
                config.self_consistent_options_2d.m_common.m_enable_built_in_potential ? "enabled" : "disabled");
+    fmt::print("  Poisson mixing: {}\n", common_options.m_enable_poisson_mixing ? "enabled" : "disabled");
+    if (common_options.m_enable_poisson_mixing) {
+        fmt::print("    old solution fraction: {:.6e}\n", common_options.m_poisson_mixing_old_solution_fraction);
+    }
     if (config.self_consistent_options_2d.m_common.m_enable_built_in_potential) {
         fmt::print("  intrinsic concentration at {:.3f} K: {:.6e} cm^-3\n",
                    config.device_options.m_lattice_temperature,
                    silicon_intrinsic_concentration_cm_3(config.device_options.m_lattice_temperature));
     }
     fmt::print("  export time steps: {}\n", config.device_options.m_export_time_step ? "enabled" : "disabled");
+    if (!common_options.m_initial_particle_state_file.empty()) {
+        fmt::print("  initial particle state: {}\n", common_options.m_initial_particle_state_file);
+    }
+    fmt::print("  current probe: {}\n", device_options.m_current_probe.m_enabled ? "enabled" : "disabled");
+    if (device_options.m_current_probe.m_enabled) {
+        const auto& box = device_options.m_current_probe.m_box_um;
+        fmt::print("    x: [{:.6e}, {:.6e}] um\n", box.get_x_min(), box.get_x_max());
+        fmt::print("    y: [{:.6e}, {:.6e}] um\n", box.get_y_min(), box.get_y_max());
+        fmt::print("    z: [{:.6e}, {:.6e}] um\n", box.get_z_min(), box.get_z_max());
+    }
     if (mesh_dimension == 2) {
         fmt::print("  effective depth: {:.6e} um\n", config.self_consistent_options_2d.m_effective_depth_um);
         fmt::print("  particle z period: {:.6e} um\n", config.self_consistent_options_2d.m_particle_z_period_um);
@@ -118,8 +135,6 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
                config.starting_position.y(),
                config.starting_position.z());
 
-    const auto& common_options =
-        mesh_dimension == 2 ? self_consistent_options_2d.m_common : self_consistent_options_3d.m_common;
     simulation_manifest manifest;
     manifest.add("run", "simulation_type", "self_consistent_device_PBMC");
     manifest.add("run", "simulation_name", config.simulation_name);
@@ -157,6 +172,13 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     manifest.add("simulation", "keep_particle_history", device_options.m_keep_particles_history);
     manifest.add("simulation", "export_time_steps", device_options.m_export_time_step);
     manifest.add("simulation", "export_frequency", device_options.m_frequency_export_trajectory);
+    manifest.add("current_probe", "enabled", device_options.m_current_probe.m_enabled);
+    manifest.add("current_probe", "x_min_um", device_options.m_current_probe.m_box_um.get_x_min());
+    manifest.add("current_probe", "x_max_um", device_options.m_current_probe.m_box_um.get_x_max());
+    manifest.add("current_probe", "y_min_um", device_options.m_current_probe.m_box_um.get_y_min());
+    manifest.add("current_probe", "y_max_um", device_options.m_current_probe.m_box_um.get_y_max());
+    manifest.add("current_probe", "z_min_um", device_options.m_current_probe.m_box_um.get_z_min());
+    manifest.add("current_probe", "z_max_um", device_options.m_current_probe.m_box_um.get_z_max());
     if (mesh_dimension == 2) {
         manifest.add("simulation", "effective_depth_um", self_consistent_options_2d.m_effective_depth_um);
         manifest.add("simulation", "particle_z_period_um", self_consistent_options_2d.m_particle_z_period_um);
@@ -165,6 +187,9 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     manifest.add("transport", "impact_ionization_enabled", device_options.m_activate_impact_ionization);
     manifest.add("transport", "particle_creation_enabled", device_options.m_particle_creation_activated);
     manifest.add("transport", "impurity_scattering_enabled", device_options.m_enable_impurity_scattering);
+    manifest.add("transport",
+                 "boundary_reflection",
+                 std::string(mesh::boundary_reflection_model_name(device_options.m_boundary_reflection_model)));
     manifest.add("transport",
                  "impurity_model",
                  device_options.m_impurity_scattering_model == impurity_scattering_model::mobility_empirical
@@ -196,10 +221,15 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     manifest.add("self_consistent",
                  "built_in_contact_voltage_scale",
                  common_options.m_built_in_contact_voltage_scale);
+    manifest.add("self_consistent", "poisson_mixing_enabled", common_options.m_enable_poisson_mixing);
+    manifest.add("self_consistent",
+                 "poisson_mixing_old_solution_fraction",
+                 common_options.m_poisson_mixing_old_solution_fraction);
     manifest.add("self_consistent",
                  "initialize_particles_from_doping",
                  common_options.m_initialize_particles_from_doping);
     manifest.add("self_consistent", "initial_particle_weight", common_options.m_initial_particle_weight);
+    manifest.add("self_consistent", "initial_particle_state_file", common_options.m_initial_particle_state_file);
     manifest.add("self_consistent",
                  "contact_injection_particle_weight",
                  common_options.m_contact_injection_particle_weight);
@@ -251,6 +281,7 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     double      avalanche_voltage_drop_V   = 0.0;
     bool        successful_quench_detected = false;
     double      successful_quench_time_s   = 0.0;
+    const std::string final_particle_state_file = fmt::format("{}/final_particle_state.csv", output_dir);
 
     const auto start = std::chrono::high_resolution_clock::now();
 
@@ -266,6 +297,8 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
 
         simulation.set_prefix_export_trajectory_filename(trajectory_dir);
         simulation.run_self_consistent_transport_simulation();
+        simulation.export_particle_state_csv(final_particle_state_file);
+        fmt::print("Wrote {}\n", final_particle_state_file);
 
         const std::string history_file = fmt::format("{}/device_history.csv", output_dir);
         simulation.export_history_to_csv(history_file);
@@ -312,6 +345,8 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
 
         simulation.set_prefix_export_trajectory_filename(fmt::format("{}/time_step", trajectory_dir));
         simulation.run_self_consistent_transport_simulation();
+        simulation.export_particle_state_csv(final_particle_state_file);
+        fmt::print("Wrote {}\n", final_particle_state_file);
 
         const std::string history_file = fmt::format("{}/device_history.csv", output_dir);
         simulation.export_history_to_csv(history_file);
@@ -383,6 +418,7 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
         manifest.add("results", "avalanche_to_successful_quench_s", successful_quench_time_s - avalanche_time_s);
     }
     manifest.add("outputs", "device_history_csv", fmt::format("{}/device_history.csv", output_dir));
+    manifest.add("outputs", "final_particle_state_csv", final_particle_state_file);
     manifest.add("outputs", "trajectory_directory", trajectory_dir);
     manifest.add("outputs", "particle_trajectories_exported", device_options.m_keep_particles_history);
     manifest.add("outputs", "time_steps_exported", device_options.m_export_time_step);

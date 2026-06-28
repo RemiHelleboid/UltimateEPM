@@ -38,6 +38,7 @@ YAML::Node make_default_config() {
     config["transport"]["max_energy_eV"]                     = 1.0;
     config["transport"]["gamma_safety_factor"]               = 1.2;
     config["transport"]["gamma_samples"]                     = 1000;
+    config["transport"]["boundary_reflection"]               = "reverse";
     config["contacts"]["voltages_V"]["anode"]                = 0.0;
     config["contacts"]["voltages_V"]["cathode"]              = 0.0;
     config["contacts"]["collecting"]["anode"]                = true;
@@ -45,6 +46,8 @@ YAML::Node make_default_config() {
     config["contacts"]["ramo_electrode"]                     = "anode";
     config["contacts"]["apply_built_in_potential"]           = true;
     config["contacts"]["built_in_voltage_scale"]             = 1.0;
+    config["poisson_mixing"]["enabled"]                      = false;
+    config["poisson_mixing"]["old_solution_fraction"]        = 0.0;
     config["particles"]["initial_electrons"]                 = 0;
     config["particles"]["initial_holes"]                     = 0;
     config["particles"]["initial_position"]["x_um"]          = 0.0;
@@ -52,6 +55,7 @@ YAML::Node make_default_config() {
     config["particles"]["initial_position"]["z_um"]          = 0.0;
     config["particles"]["initialize_from_doping"]            = true;
     config["particles"]["initial_weight"]                    = 1.0;
+    config["particles"]["initial_state_file"]                = "";
     config["particles"]["contact_injection_weight"]          = 1.0;
     config["geometry_2d"]["effective_depth_um"]              = 1.0;
     config["geometry_2d"]["particle_z_period_um"]            = 1.0e-3;
@@ -66,6 +70,13 @@ YAML::Node make_default_config() {
     config["scheduled_injection"]["position"]["z_um"]        = 0.0;
     config["scheduled_injection"]["type"]                    = "electron";
     config["scheduled_injection"]["weight"]                  = 1.0;
+    config["current_probe"]["enabled"]                       = false;
+    config["current_probe"]["x_min_um"]                      = 0.0;
+    config["current_probe"]["x_max_um"]                      = 0.0;
+    config["current_probe"]["y_min_um"]                      = 0.0;
+    config["current_probe"]["y_max_um"]                      = 0.0;
+    config["current_probe"]["z_min_um"]                      = 0.0;
+    config["current_probe"]["z_max_um"]                      = 0.0;
     config["quench_circuit"]["enabled"]                      = false;
     config["quench_circuit"]["resistance_ohm"]               = 1.0;
     config["quench_circuit"]["capacitance_F"]                = 1.0;
@@ -88,6 +99,9 @@ void merge_config(YAML::Node target, const YAML::Node& source, const std::string
         const std::string key       = entry.first.as<std::string>();
         const std::string full_path = path.empty() ? key : path + "." + key;
         if (path == "contacts.voltages_V" || path == "contacts.collecting") {
+            if (!entry.second.IsScalar()) {
+                throw std::invalid_argument(fmt::format("Configuration value '{}' must be a scalar.", full_path));
+            }
             target[key] = entry.second;
             continue;
         }
@@ -113,22 +127,56 @@ void apply_override(YAML::Node config, const std::string& override_text) {
     if (equals == std::string::npos || equals == 0 || equals + 1 >= override_text.size()) {
         throw std::invalid_argument(fmt::format("Invalid override '{}'. Expected path.to.value=value.", override_text));
     }
-    const std::string path  = override_text.substr(0, equals);
-    YAML::Node        value = YAML::Load(override_text.substr(equals + 1));
-    YAML::Node        node  = config;
-    std::size_t       begin = 0;
+    const std::string          path       = override_text.substr(0, equals);
+    const std::string          value_text = override_text.substr(equals + 1);
+    constexpr std::string_view contact_voltage_prefix = "contacts.voltages_V.";
+    if (path.starts_with(contact_voltage_prefix)) {
+        const std::string contact_name = path.substr(contact_voltage_prefix.size());
+        if (contact_name.empty()) {
+            throw std::invalid_argument("Contact voltage override must include a contact name.");
+        }
+        YAML::Node value = YAML::Load(value_text);
+        if (!value.IsScalar()) {
+            throw std::invalid_argument(fmt::format("Override value for '{}' must be a scalar.", path));
+        }
+        config["contacts"]["voltages_V"][contact_name] = value;
+        return;
+    }
+    constexpr std::string_view collecting_contact_prefix = "contacts.collecting.";
+    if (path.starts_with(collecting_contact_prefix)) {
+        const std::string contact_name = path.substr(collecting_contact_prefix.size());
+        if (contact_name.empty()) {
+            throw std::invalid_argument("Collecting-contact override must include a contact name.");
+        }
+        YAML::Node value = YAML::Load(value_text);
+        if (!value.IsScalar()) {
+            throw std::invalid_argument(fmt::format("Override value for '{}' must be a scalar.", path));
+        }
+        config["contacts"]["collecting"][contact_name] = value;
+        return;
+    }
+
+    YAML::Node  node  = config;
+    std::size_t begin = 0;
     while (true) {
         const std::size_t dot = path.find('.', begin);
         const std::string key = path.substr(begin, dot == std::string::npos ? dot : dot - begin);
-        if (key.empty()) {
-            throw std::invalid_argument(fmt::format("Invalid override '{}'.", path));
+        if (key.empty() || !node[key]) {
+            throw std::invalid_argument(fmt::format("Unknown configuration override '{}'.", path));
         }
         if (dot == std::string::npos) {
+            if (!node[key].IsScalar()) {
+                throw std::invalid_argument(fmt::format("Configuration override '{}' does not name a value.", path));
+            }
+            YAML::Node value = YAML::Load(value_text);
+            if (!value.IsScalar()) {
+                throw std::invalid_argument(fmt::format("Override value for '{}' must be a scalar.", path));
+            }
             node[key] = value;
             return;
         }
-        if (!node[key]) {
-            node[key] = YAML::Node(YAML::NodeType::Map);
+        if (!node[key].IsMap()) {
+            throw std::invalid_argument(fmt::format("Configuration override '{}' traverses a scalar value.", path));
         }
         node.reset(node[key]);
         begin = dot + 1;
@@ -174,6 +222,26 @@ self_consistent_device_admc_run_config load_device_admc_config(const std::filesy
         }
         merge_config(config, user_config);
         for (const auto& override_text : overrides) {
+            if (override_text.starts_with("contacts.voltages_V.")) {
+                if (!explicit_contact_voltages) {
+                    explicit_contact_voltages = YAML::Clone(config["contacts"]["voltages_V"]);
+                }
+                const std::size_t equals = override_text.find('=');
+                const std::string contact_name =
+                    override_text.substr(std::string_view("contacts.voltages_V.").size(),
+                                         equals - std::string_view("contacts.voltages_V.").size());
+                explicit_contact_voltages[contact_name] = YAML::Load(override_text.substr(equals + 1));
+            }
+            if (override_text.starts_with("contacts.collecting.")) {
+                if (!explicit_collecting_contacts) {
+                    explicit_collecting_contacts = YAML::Clone(config["contacts"]["collecting"]);
+                }
+                const std::size_t equals = override_text.find('=');
+                const std::string contact_name =
+                    override_text.substr(std::string_view("contacts.collecting.").size(),
+                                         equals - std::string_view("contacts.collecting.").size());
+                explicit_collecting_contacts[contact_name] = YAML::Load(override_text.substr(equals + 1));
+            }
             apply_override(config, override_text);
         }
     } catch (const YAML::Exception& error) {
@@ -218,6 +286,8 @@ self_consistent_device_admc_run_config load_device_admc_config(const std::filesy
     device.m_export_time_step                    = value_at<bool>(config, "output", "export_time_steps");
     device.m_frequency_export                    = value_at<int>(config, "output", "export_frequency");
     device.m_export_mesh_particle_local_averages = value_at<bool>(config, "output", "mesh_particle_local_averages");
+    device.m_boundary_reflection_model =
+        mesh::parse_boundary_reflection_model(value_at<std::string>(config, "transport", "boundary_reflection"));
     device.m_enable_scheduled_particle_injection = value_at<bool>(config, "scheduled_injection", "enabled");
     device.m_scheduled_injection_time_s          = value_at<double>(config, "scheduled_injection", "time_s");
     device.m_scheduled_injection_position_um =
@@ -233,6 +303,14 @@ self_consistent_device_admc_run_config load_device_admc_config(const std::filesy
         throw std::invalid_argument("scheduled_injection.type must be electron/e or hole/h.");
     }
     device.m_scheduled_injection_weight = value_at<double>(config, "scheduled_injection", "weight");
+    device.m_current_probe.m_enabled     = value_at<bool>(config, "current_probe", "enabled");
+    device.m_current_probe.m_box_um =
+        mesh::bbox{value_at<double>(config, "current_probe", "x_min_um"),
+                   value_at<double>(config, "current_probe", "x_max_um"),
+                   value_at<double>(config, "current_probe", "y_min_um"),
+                   value_at<double>(config, "current_probe", "y_max_um"),
+                   value_at<double>(config, "current_probe", "z_min_um"),
+                   value_at<double>(config, "current_probe", "z_max_um")};
 
     result.number_electrons_start = value_at<std::size_t>(config, "particles", "initial_electrons");
     result.number_holes_start     = value_at<std::size_t>(config, "particles", "initial_holes");
@@ -246,8 +324,18 @@ self_consistent_device_admc_run_config load_device_admc_config(const std::filesy
     common.m_ramo_electrode                    = value_at<std::string>(config, "contacts", "ramo_electrode");
     common.m_enable_built_in_potential         = value_at<bool>(config, "contacts", "apply_built_in_potential");
     common.m_built_in_contact_voltage_scale    = value_at<double>(config, "contacts", "built_in_voltage_scale");
+    common.m_enable_poisson_mixing             = value_at<bool>(config, "poisson_mixing", "enabled");
+    common.m_poisson_mixing_old_solution_fraction =
+        value_at<double>(config, "poisson_mixing", "old_solution_fraction");
     common.m_initialize_particles_from_doping  = value_at<bool>(config, "particles", "initialize_from_doping");
     common.m_initial_particle_weight           = value_at<double>(config, "particles", "initial_weight");
+    common.m_initial_particle_state_file =
+        resolve_input_path(config_file, value_at<std::string>(config, "particles", "initial_state_file"));
+    if (!common.m_initial_particle_state_file.empty()) {
+        throw std::invalid_argument(
+            "ADMC accepts particles.initial_state_file for PBMC YAML compatibility, but loading an initial "
+            "particle-state file is not implemented for ADMC yet.");
+    }
     common.m_contact_injection_particle_weight = value_at<double>(config, "particles", "contact_injection_weight");
 
     result.self_consistent_options_2d.m_effective_depth_um =

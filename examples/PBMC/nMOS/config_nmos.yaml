@@ -4,6 +4,7 @@
 
 input:
   device_mesh: device.msh
+  material_root: ""
   material: Si
 
 run:
@@ -27,6 +28,9 @@ transport:
   impact_ionization: false
   particle_creation: false
   impurity_scattering: false
+  impurity_model: mobility
+  impurity_screening: debye
+  boundary_reflection: specular
 
 contacts:
   voltages_V:
@@ -39,15 +43,46 @@ contacts:
     drain: true
   ramo_electrode: drain
   apply_built_in_potential: false
+  built_in_voltage_scale: 1.0
+
+poisson_mixing:
+  enabled: false
+  old_solution_fraction: 0.0
 
 particles:
+  initial_electrons: 0
+  initial_holes: 0
+  initial_position:
+    x_um: 0.0
+    y_um: 0.0
+    z_um: 0.0
   initialize_from_doping: true
   initial_weight: 2.0
+  initial_state_file: ""
   contact_injection_weight: 2.0
 
 geometry_2d:
   effective_depth_um: 0.25
   particle_z_period_um: 0.25
+
+scheduled_injection:
+  enabled: false
+  time_s: 0.0
+  position:
+    x_um: 0.0
+    y_um: 0.0
+    z_um: 0.0
+  type: electron
+  weight: 1.0
+
+current_probe:
+  enabled: false
+  x_min_um: 0.0
+  x_max_um: 0.0
+  y_min_um: 0.0
+  y_max_um: 0.0
+  z_min_um: 0.0
+  z_max_um: 0.0
 
 output:
   keep_particle_history: false
@@ -56,4 +91,16 @@ output:
 
 quench_circuit:
   enabled: false
+  resistance_ohm: 1.0
+  capacitance_F: 1.0
   biased_contact: drain
+  ramo_current_sign: -1.0
+  background_ramo_current_A: 0.0
+  auto_background_ramo_current: false
+
+avalanche_detection:
+  voltage_drop_V: 1.0
+
+quench_detection:
+  high_field_V_per_cm: 1.0e5
+  quiet_time_s: 1.0e-11

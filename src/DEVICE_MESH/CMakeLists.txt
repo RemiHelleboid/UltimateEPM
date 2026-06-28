@@ -20,6 +20,7 @@ set(HEADER_FILES_LIBMESH
     "grid_data.hpp"
     "device.hpp"
     "contact.hpp"
+    "boundary_reflection.hpp"
     )
 
 set(SOURCE_FILES_LIBMESH

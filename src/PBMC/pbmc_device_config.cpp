@@ -44,6 +44,7 @@ YAML::Node make_default_config() {
     config["transport"]["impurity_scattering"] = false;
     config["transport"]["impurity_model"]      = "mobility";
     config["transport"]["impurity_screening"]  = "debye";
+    config["transport"]["boundary_reflection"] = "reverse";
 
     config["contacts"]["voltages_V"]["anode"]      = 0.0;
     config["contacts"]["voltages_V"]["cathode"]    = 0.0;
@@ -53,17 +54,21 @@ YAML::Node make_default_config() {
     config["contacts"]["apply_built_in_potential"] = true;
     config["contacts"]["built_in_voltage_scale"]   = 1.0;
 
+    config["poisson_mixing"]["enabled"]               = false;
+    config["poisson_mixing"]["old_solution_fraction"] = 0.0;
+
     config["particles"]["initial_electrons"]        = 0;
     config["particles"]["initial_holes"]            = 0;
     config["particles"]["initial_position"]["x_um"] = 0.0;
     config["particles"]["initial_position"]["y_um"] = 0.0;
     config["particles"]["initial_position"]["z_um"] = 0.0;
     config["particles"]["initialize_from_doping"]   = true;
-    config["particles"]["initial_weight"]           = 2.0;
-    config["particles"]["contact_injection_weight"] = 2.0;
+    config["particles"]["initial_weight"]           = 1.0;
+    config["particles"]["initial_state_file"]       = "";
+    config["particles"]["contact_injection_weight"] = 1.0;
 
     config["geometry_2d"]["effective_depth_um"]   = 1.0;
-    config["geometry_2d"]["particle_z_period_um"] = 1.0;
+    config["geometry_2d"]["particle_z_period_um"] = 1.0e-3;
 
     config["scheduled_injection"]["enabled"]          = false;
     config["scheduled_injection"]["time_s"]           = 0.0;
@@ -72,6 +77,14 @@ YAML::Node make_default_config() {
     config["scheduled_injection"]["position"]["z_um"] = 0.0;
     config["scheduled_injection"]["type"]             = "electron";
     config["scheduled_injection"]["weight"]           = 1.0;
+
+    config["current_probe"]["enabled"]  = false;
+    config["current_probe"]["x_min_um"] = 0.0;
+    config["current_probe"]["x_max_um"] = 0.0;
+    config["current_probe"]["y_min_um"] = 0.0;
+    config["current_probe"]["y_max_um"] = 0.0;
+    config["current_probe"]["z_min_um"] = 0.0;
+    config["current_probe"]["z_max_um"] = 0.0;
 
     config["output"]["keep_particle_history"] = false;
     config["output"]["export_time_steps"]     = true;
@@ -305,6 +318,8 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
         parse_impurity_model(value_at<std::string>(config, "transport", "impurity_model"));
     device.m_impurity_screening_model =
         parse_impurity_screening_model(value_at<std::string>(config, "transport", "impurity_screening"));
+    device.m_boundary_reflection_model =
+        mesh::parse_boundary_reflection_model(value_at<std::string>(config, "transport", "boundary_reflection"));
     device.m_keep_particles_history      = value_at<bool>(config, "output", "keep_particle_history");
     device.m_export_time_step            = value_at<bool>(config, "output", "export_time_steps");
     device.m_frequency_export_trajectory = value_at<int>(config, "output", "export_frequency");
@@ -317,6 +332,15 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
                                             nested_value_at<double>(config, "scheduled_injection", "position", "z_um")};
     injection.m_particle_type = parse_particle_type(value_at<std::string>(config, "scheduled_injection", "type"));
     injection.m_weight        = value_at<double>(config, "scheduled_injection", "weight");
+
+    device.m_current_probe.m_enabled = value_at<bool>(config, "current_probe", "enabled");
+    device.m_current_probe.m_box_um =
+        mesh::bbox{value_at<double>(config, "current_probe", "x_min_um"),
+                   value_at<double>(config, "current_probe", "x_max_um"),
+                   value_at<double>(config, "current_probe", "y_min_um"),
+                   value_at<double>(config, "current_probe", "y_max_um"),
+                   value_at<double>(config, "current_probe", "z_min_um"),
+                   value_at<double>(config, "current_probe", "z_max_um")};
 
     result.starting_position = mesh::vector3{nested_value_at<double>(config, "particles", "initial_position", "x_um"),
                                              nested_value_at<double>(config, "particles", "initial_position", "y_um"),
@@ -344,8 +368,13 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
     }
     common.m_enable_built_in_potential         = value_at<bool>(config, "contacts", "apply_built_in_potential");
     common.m_built_in_contact_voltage_scale    = value_at<double>(config, "contacts", "built_in_voltage_scale");
+    common.m_enable_poisson_mixing             = value_at<bool>(config, "poisson_mixing", "enabled");
+    common.m_poisson_mixing_old_solution_fraction =
+        value_at<double>(config, "poisson_mixing", "old_solution_fraction");
     common.m_initialize_particles_from_doping  = value_at<bool>(config, "particles", "initialize_from_doping");
     common.m_initial_particle_weight           = value_at<double>(config, "particles", "initial_weight");
+    common.m_initial_particle_state_file =
+        resolve_input_path(config_file, value_at<std::string>(config, "particles", "initial_state_file"));
     common.m_contact_injection_particle_weight = value_at<double>(config, "particles", "contact_injection_weight");
     common.m_passive_quench_circuit.m_enabled  = value_at<bool>(config, "quench_circuit", "enabled");
     common.m_passive_quench_circuit.m_resistance_ohm = value_at<double>(config, "quench_circuit", "resistance_ohm");

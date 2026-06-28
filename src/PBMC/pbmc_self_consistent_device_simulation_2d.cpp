@@ -93,6 +93,9 @@ void self_consistent_device_pbmc_simulation_2d::initialize_contact_elements() {
                 throw std::runtime_error("Contact-adjacent bulk element index is out of range.");
             }
             auto element = list_bulk_elements[element_index];
+            if (!is_transport_material_element(*element)) {
+                continue;
+            }
             contact_elements.push_back(element);
             m_list_element_contact.push_back(element_index);
             m_list_element_contact_ptr.push_back(element);
@@ -128,6 +131,9 @@ void self_consistent_device_pbmc_simulation_2d::place_initial_charges_according_
     const double      total_acceptor_charge = integrate_carriers_over_2d_mesh(acceptor_field_name);
     const std::size_t number_electrons = static_cast<std::size_t>(std::floor(total_donor_charge / particle_weight));
     const std::size_t number_holes     = static_cast<std::size_t>(std::floor(total_acceptor_charge / particle_weight));
+
+    // Pour éviter des trucs relou bref
+    constexpr double min_probability = 50e-2;
 
     fmt::print("Initial doping charge:\n");
     fmt::print("  donor carriers:    {:.6e}\n", total_donor_charge);
@@ -174,7 +180,7 @@ void self_consistent_device_pbmc_simulation_2d::place_initial_charges_according_
 
         const double probability = donor_density / max_donor_concentration;
 
-        if (uniform01(m_contact_rng) < probability) {
+        if (probability > min_probability && uniform01(m_contact_rng) < probability) {
             electron_positions.push_back(position);
         }
     }
@@ -189,7 +195,7 @@ void self_consistent_device_pbmc_simulation_2d::place_initial_charges_according_
         }
 
         const double probability = acceptor_density / max_acceptor_concentration;
-        if (uniform01(m_contact_rng) < probability) {
+        if (probability > min_probability && uniform01(m_contact_rng) < probability) {
             hole_positions.push_back(position);
         }
     }
@@ -383,10 +389,7 @@ self_consistent_device_pbmc_simulation_2d::self_consistent_device_pbmc_simulatio
     validate_self_consistent_options();
     initialize_contact_elements();
     initialize_poisson_solver();
-    if (common_options().m_initialize_particles_from_doping) {
-        place_initial_charges_according_to_doping(common_options().m_initial_particle_weight);
-    }
-    apply_z_periodicity_to_particles();
+    initialize_particles_for_self_consistent_run();
 }
 
 self_consistent_device_pbmc_simulation_2d::self_consistent_device_pbmc_simulation_2d(
@@ -411,6 +414,21 @@ self_consistent_device_pbmc_simulation_2d::self_consistent_device_pbmc_simulatio
     validate_self_consistent_options();
     initialize_contact_elements();
     initialize_poisson_solver();
+    initialize_particles_for_self_consistent_run();
+}
+
+void self_consistent_device_pbmc_simulation_2d::initialize_particles_for_self_consistent_run() {
+    if (!common_options().m_initial_particle_state_file.empty()) {
+        load_particles_from_state_csv(common_options().m_initial_particle_state_file);
+        apply_z_periodicity_to_particles();
+        reset_element_charges();
+        add_particle_charges_to_elements();
+        recompute_vertex_space_charge_from_element_charges(1);
+        update_self_consistent_potential();
+        reset_element_charges();
+        return;
+    }
+
     if (common_options().m_initialize_particles_from_doping) {
         place_initial_charges_according_to_doping(common_options().m_initial_particle_weight);
     }
@@ -462,6 +480,18 @@ void self_consistent_device_pbmc_simulation_2d::update_self_consistent_potential
                                                                  contact_voltage_for_poisson(contact_name));
     }
     m_poisson_solver.solve_system();
+    if (common_options().m_enable_poisson_mixing) {
+        if (m_previous_poisson_solution.size() == m_poisson_solver.get_solution().size()) {
+            if (m_previous_poisson_solution.allFinite()) {
+                m_poisson_solver.mix_solution_with(m_previous_poisson_solution,
+                                                   common_options().m_poisson_mixing_old_solution_fraction);
+            } else {
+                fmt::print("WARNING: previous PBMC Poisson solution is non-finite; skipping Poisson mixing for this "
+                           "update.\n");
+            }
+        }
+        m_previous_poisson_solution = m_poisson_solver.get_solution();
+    }
     if (publish_mesh_functions) {
         constexpr bool add_gradient = true;
         m_poisson_solver.add_solution_to_mesh_functions("PoissonSolution", add_gradient);
@@ -486,6 +516,11 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
     double ramo_current_electron             = 0.0;
     double ramo_current_hole                 = 0.0;
     double ramo_current                      = 0.0;
+    double accumulator_probe_ramo_current_electron = 0.0;
+    double accumulator_probe_ramo_current_hole     = 0.0;
+    double probe_ramo_current_electron             = 0.0;
+    double probe_ramo_current_hole                 = 0.0;
+    double probe_ramo_current                      = 0.0;
 
     const double sim_poisson_frequency = static_cast<double>(poisson_frequency());
 
@@ -508,6 +543,9 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
         const auto [electron_current, hole_current] = compute_ramo_current();
         accumulator_ramo_current_electron += electron_current;
         accumulator_ramo_current_hole += hole_current;
+        const auto [probe_electron_current, probe_hole_current] = compute_probe_ramo_current();
+        accumulator_probe_ramo_current_electron += probe_electron_current;
+        accumulator_probe_ramo_current_hole += probe_hole_current;
 
         const bool should_update_poisson =
             (m_state.m_iteration % common_options().m_poisson_frequency == 0) && (m_state.m_iteration != 0);
@@ -518,8 +556,13 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
             ramo_current_hole     = accumulator_ramo_current_hole / sim_poisson_frequency;
             ramo_current          = ramo_current_electron + ramo_current_hole;
             ramo_current -= common_options().m_background_ramo_current_A;
+            probe_ramo_current_electron = accumulator_probe_ramo_current_electron / sim_poisson_frequency;
+            probe_ramo_current_hole     = accumulator_probe_ramo_current_hole / sim_poisson_frequency;
+            probe_ramo_current          = probe_ramo_current_electron + probe_ramo_current_hole;
             accumulator_ramo_current_electron = 0.0;
             accumulator_ramo_current_hole     = 0.0;
+            accumulator_probe_ramo_current_electron = 0.0;
+            accumulator_probe_ramo_current_hole     = 0.0;
 
             if (m_simulation_options.m_scheduled_particle_injection.m_done) {
                 const double circuit_dt_s  = m_simulation_options.m_time_step * sim_poisson_frequency;
@@ -555,6 +598,9 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
                                                  ramo_current_electron,
                                                  ramo_current_hole,
                                                  ramo_current,
+                                                 probe_ramo_current_electron,
+                                                 probe_ramo_current_hole,
+                                                 probe_ramo_current,
                                                  max_electric_field_V_per_cm,
                                                  ramo_electrode_voltage_for_history(),
                                                  reference_electrode_voltage_for_history(),

@@ -34,6 +34,7 @@ class self_consistent_device_pbmc_simulation_3d : public self_consistent_device_
  private:
     options_self_consistent_device_pbmc_3d m_self_consistent_options;
     uepm::fem::poisson_solver_3d          m_poisson_solver;
+    uepm::fem::EigenVector                m_previous_poisson_solution;
 
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
@@ -44,6 +45,7 @@ class self_consistent_device_pbmc_simulation_3d : public self_consistent_device_
     void validate_self_consistent_options() const;
     void initialize_poisson_solver();
     void compute_unitary_potential();
+    void initialize_particles_for_self_consistent_run();
 
     void place_initial_charges_according_to_doping(double particle_weight = 1.0);
     void initialize_contact_elements();

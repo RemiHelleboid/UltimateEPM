@@ -39,14 +39,28 @@ contacts:
   apply_built_in_potential: true
   built_in_voltage_scale: 1.0
 
+poisson_mixing:
+  enabled: false
+  old_solution_fraction: 0.0
+
 particles:
   initialize_from_doping: true
   initial_weight: 2.0
+  initial_state_file: ""
   contact_injection_weight: 2.0
 
 geometry_2d:
   effective_depth_um: 1.0
   particle_z_period_um: 1.0
+
+current_probe:
+  enabled: false
+  x_min_um: 0.0
+  x_max_um: 0.0
+  y_min_um: 0.0
+  y_max_um: 0.0
+  z_min_um: 0.0
+  z_max_um: 0.0
 
 output:
   keep_particle_history: false
