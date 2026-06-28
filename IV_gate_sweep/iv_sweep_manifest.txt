@@ -1,0 +1,25 @@
+Device PBMC I/V sweep
+====================
+
+exe = /home/remi/UltimateEPM/build/apps/device_pbmc.epm
+config = /home/remi/UltimateEPM/examples/PBMC/nMOS/config_nmos.yaml
+outdir = /home/remi/UltimateEPM/IV_gate_sweep
+
+swept_contact = gate
+reference_contact = 
+sweep_voltage = swept
+voltage_axis = swept
+current_column = probe_ramo_current
+diode_voltage_convention = Vanode - Vcathode
+bias_voltage_convention = Vswept - Vreference
+vmin = 0.00000000e+00
+vmax = 1.00000000e+00
+vstep = 1.00000000e-01
+input_voltages = 0.00000000e+00 1.00000000e-01 2.00000000e-01 3.00000000e-01 4.00000000e-01 5.00000000e-01 6.00000000e-01 7.00000000e-01 8.00000000e-01 9.00000000e-01 1.00000000e+00
+swept_contact_voltages = 0.00000000e+00 1.00000000e-01 2.00000000e-01 3.00000000e-01 4.00000000e-01 5.00000000e-01 6.00000000e-01 7.00000000e-01 8.00000000e-01 9.00000000e-01 1.00000000e+00
+
+transient_fraction = 5.00000000e-01
+jobs = 1
+threads_per_run = None
+resume = False
+seed = None

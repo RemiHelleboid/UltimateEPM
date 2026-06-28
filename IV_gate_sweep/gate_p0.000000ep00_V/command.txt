@@ -1,0 +1,1 @@
+/home/remi/UltimateEPM/build/apps/device_pbmc.epm --config /home/remi/UltimateEPM/examples/PBMC/nMOS/config_nmos.yaml --set contacts.voltages_V.gate=0.0 --set run.output_directory=/home/remi/UltimateEPM/IV_gate_sweep/gate_p0.000000ep00_V
