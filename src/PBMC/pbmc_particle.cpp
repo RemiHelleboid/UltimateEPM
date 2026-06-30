@@ -80,7 +80,7 @@ void pbmc_particle::print_info() const {
     std::cout << "  Valley index: " << m_state.valley_index << "\n";
 }
 
-void pbmc_particle::set_data_from_device(int m_dimension) {
+void pbmc_particle::set_data_from_device(int m_dimension, bool update_impurity_concentration) {
     mesh::vector3 interp_position = m_state.position;
     if (m_dimension == 2) {
         interp_position.to_2d_inplace();
@@ -90,8 +90,13 @@ void pbmc_particle::set_data_from_device(int m_dimension) {
         m_state.electric_field         = containing_element.interpolate_electric_field_at_location(interp_position);
         m_state.doping_concentration_cm_3 =
             containing_element.interpolate_doping_at_location(interp_position);
-        m_state.impurity_concentration_cm_3 =
-            local_ionized_impurity_density_cm_3(containing_element, interp_position, m_state.doping_concentration_cm_3);
+        if (update_impurity_concentration) {
+            m_state.impurity_concentration_cm_3 = local_ionized_impurity_density_cm_3(containing_element,
+                                                                                      interp_position,
+                                                                                      m_state.doping_concentration_cm_3);
+        } else {
+            m_state.impurity_concentration_cm_3 = std::abs(m_state.doping_concentration_cm_3);
+        }
         m_state.lattice_temperature_K = containing_element.interpolate_temperature_at_location(interp_position);
     } else {
         std::cout << "Error no element at particle position." << std::endl;

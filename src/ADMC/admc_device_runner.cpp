@@ -208,7 +208,6 @@ void write_manifest(const std::filesystem::path&                     filename,
     stream << "current_probe_z_min_um = " << config.device_options.m_current_probe.m_box_um.get_z_min() << "\n";
     stream << "current_probe_z_max_um = " << config.device_options.m_current_probe.m_box_um.get_z_max() << "\n";
     stream << "effective_depth_um = " << config.self_consistent_options_2d.m_effective_depth_um << "\n";
-    stream << "particle_z_period_um = " << config.self_consistent_options_2d.m_particle_z_period_um << "\n";
     stream << "poisson_frequency = " << config.self_consistent_options_2d.m_common.m_poisson_frequency << "\n";
     stream << "\n[self_consistent]\n";
     stream << "ramo_electrode = " << config.self_consistent_options_2d.m_common.m_ramo_electrode << "\n";
@@ -347,7 +346,6 @@ void run_self_consistent_device_admc_simulation(const self_consistent_device_adm
         fmt::print("    z: [{:.6e}, {:.6e}] um\n", box.get_z_min(), box.get_z_max());
     }
     fmt::print("  effective depth: {:.6e} um\n", config.self_consistent_options_2d.m_effective_depth_um);
-    fmt::print("  particle z period: {:.6e} um\n", config.self_consistent_options_2d.m_particle_z_period_um);
     fmt::print("  initial electrons: {}\n", config.number_electrons_start);
     fmt::print("  initial holes: {}\n", config.number_holes_start);
     fmt::print("  initial position: ({:.6e}, {:.6e}, {:.6e})\n",

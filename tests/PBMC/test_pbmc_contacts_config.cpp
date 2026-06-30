@@ -24,7 +24,6 @@ input:
   device_mesh: nmos.msh
 geometry_2d:
   effective_depth_um: 0.25
-  particle_z_period_um: 0.25
 contacts:
   voltages_V:
     source: 0.0
@@ -46,7 +45,6 @@ quench_circuit:
     CHECK(contacts.at("drain") == doctest::Approx(0.25));
     CHECK(contacts.at("gate") == doctest::Approx(1.2));
     CHECK(config.self_consistent_options_2d.m_common.m_ramo_electrode == "drain");
-    CHECK(config.self_consistent_options_2d.m_particle_z_period_um == doctest::Approx(0.25));
     CHECK(config.collecting_contacts.size() == 2);
     CHECK(config.collecting_contacts[0] == "source");
     CHECK(config.collecting_contacts[1] == "drain");

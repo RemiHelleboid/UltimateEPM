@@ -51,7 +51,6 @@ particles:
 
 geometry_2d:
   effective_depth_um: 1.0
-  particle_z_period_um: 1.0
 
 current_probe:
   enabled: false

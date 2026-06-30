@@ -213,7 +213,7 @@ class pbmc_particle {
     void     add_scattering_event(scattering_event event) noexcept { m_history.add_event(event); }
     void     add_transition_event(std::string_view transition_name) { m_history.add_transition_event(transition_name); }
     void     reset_history() noexcept { m_history.clear(); }
-    void     set_data_from_device(int m_dimension);
+    void     set_data_from_device(int m_dimension, bool update_impurity_concentration = true);
     void     print_info() const;
     double   compute_raw_impact_ionization_coefficient() const;
     void export_trajectory_as_csv(const std::string& filename) const { m_history.export_trajectory_as_csv(filename); }

@@ -173,7 +173,6 @@ TEST_CASE("Testing PBMC Simulation 2d on a NMOS.") {
     fmt::print("  export time steps: {}\n", config.device_options.m_export_time_step ? "enabled" : "disabled");
     if (mesh_dimension == 2) {
         fmt::print("  effective depth: {:.6e} um\n", config.self_consistent_options_2d.m_effective_depth_um);
-        fmt::print("  particle z period: {:.6e} um\n", config.self_consistent_options_2d.m_particle_z_period_um);
     }
     fmt::print("  initial electrons: {}\n", config.number_electrons_start);
     fmt::print("  initial holes: {}\n", config.number_holes_start);

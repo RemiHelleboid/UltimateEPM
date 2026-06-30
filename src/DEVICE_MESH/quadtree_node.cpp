@@ -25,7 +25,7 @@
 
 namespace uepm::mesh {
 
-constexpr int    Max_Element_Per_Quadtree_Node = 8;
+constexpr int    Max_Element_Per_Quadtree_Node = 4;
 constexpr double Min_Box_Size                  = 1e-3;
 
 quadtree_node::quadtree_node(const std::vector<element *> &list_p_elements, const bbox &bounding_box)

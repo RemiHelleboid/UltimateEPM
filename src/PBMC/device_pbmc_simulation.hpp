@@ -134,6 +134,13 @@ struct vtk_time_series_record {
  *
  */
 class device_pbmc_simulation {
+    struct ramo_current_components {
+        double electron       = 0.0;
+        double hole           = 0.0;
+        double probe_electron = 0.0;
+        double probe_hole     = 0.0;
+    };
+
  protected:
     state_device_pbmc_simulation       m_state;
     device::device                     m_device;
@@ -160,7 +167,7 @@ class device_pbmc_simulation {
     pbmc_transport_kernel       &transport_for(particle_type type, std::size_t thread_index);
     void                         initialize_particle_transport_state(pbmc_particle &particle);
     std::string                  initialize_simulation_history_file();
-    virtual void                 apply_z_periodicity_to_particles();
+    void                         flatten_particle_positions_for_2d();
 
     // Export functions
 
@@ -176,6 +183,8 @@ class device_pbmc_simulation {
     void export_current_snapshot() const;
 
     vector3        get_RamoUnitaryElectricField_at_position(const mesh::vector3 &position) const;
+    vector3        get_RamoUnitaryElectricField_at_position(const mesh::vector3 &position,
+                                                            const mesh::element *containing_element) const;
     virtual double current_density_cell_volume_m3(const mesh::element &element) const;
 
  public:
@@ -219,6 +228,7 @@ class device_pbmc_simulation {
     void update_element_and_check_boundary();
 
     void                      remove_collected_particles();
+    ramo_current_components   compute_ramo_currents(bool include_full, bool include_probe) const;
     std::pair<double, double> compute_ramo_current() const;
     std::pair<double, double> compute_probe_ramo_current() const;
     double                    compute_ramo_current_for_particle(const pbmc_particle &particle) const;

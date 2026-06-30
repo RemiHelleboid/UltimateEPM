@@ -126,7 +126,6 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     }
     if (mesh_dimension == 2) {
         fmt::print("  effective depth: {:.6e} um\n", config.self_consistent_options_2d.m_effective_depth_um);
-        fmt::print("  particle z period: {:.6e} um\n", config.self_consistent_options_2d.m_particle_z_period_um);
     }
     fmt::print("  initial electrons: {}\n", config.number_electrons_start);
     fmt::print("  initial holes: {}\n", config.number_holes_start);
@@ -181,7 +180,6 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     manifest.add("current_probe", "z_max_um", device_options.m_current_probe.m_box_um.get_z_max());
     if (mesh_dimension == 2) {
         manifest.add("simulation", "effective_depth_um", self_consistent_options_2d.m_effective_depth_um);
-        manifest.add("simulation", "particle_z_period_um", self_consistent_options_2d.m_particle_z_period_um);
     }
 
     manifest.add("transport", "impact_ionization_enabled", device_options.m_activate_impact_ionization);

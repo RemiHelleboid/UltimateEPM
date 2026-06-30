@@ -78,7 +78,7 @@ void element2d::compute_precomputed_field_for_barycentric_coordinates() {
                                                       m_bary_coord_precomputed_v01 * m_bary_coord_precomputed_v01);
 }
 
-std::vector<double> element2d::compute_barycentric_coordinate(const vector3 &location) const {
+std::array<double, 3> element2d::compute_barycentric_coordinate_array(const vector3 &location) const {
     const vector3 v2       = location - *m_vertices[0];
     const double  value_20 = v2.dot(m_precomputed_v0);
     const double  value_21 = v2.dot(m_precomputed_v1);
@@ -92,11 +92,29 @@ std::vector<double> element2d::compute_barycentric_coordinate(const vector3 &loc
     return {lambda_1, lambda_2, lambda_3};
 }
 
+std::vector<double> element2d::compute_barycentric_coordinate(const vector3 &location) const {
+    const auto barycentric_coords = compute_barycentric_coordinate_array(location);
+    return {barycentric_coords[0], barycentric_coords[1], barycentric_coords[2]};
+}
+
 bool element2d::is_location_inside_element(const vector3 &location) const {
-    const std::vector<double> barycentric_coords = compute_barycentric_coordinate(location);
-    return std::none_of(barycentric_coords.begin(), barycentric_coords.end(), [](const double &value) {
-        return value < 0.0;
-    });
+    const vector3 v2       = location - *m_vertices[0];
+    const double  value_20 = v2.dot(m_precomputed_v0);
+    const double  value_21 = v2.dot(m_precomputed_v1);
+
+    const double lambda_2 = (m_bary_coord_precomputed_v11 * value_20 - m_bary_coord_precomputed_v01 * value_21) *
+                            m_inverse_bary_coord_precomputed_divisor;
+    if (lambda_2 < 0.0) {
+        return false;
+    }
+
+    const double lambda_3 = (m_bary_coord_precomputed_v00 * value_21 - m_bary_coord_precomputed_v01 * value_20) *
+                            m_inverse_bary_coord_precomputed_divisor;
+    if (lambda_3 < 0.0) {
+        return false;
+    }
+
+    return lambda_2 + lambda_3 <= 1.0;
 }
 
 vector3 element2d::compute_gradient(const std::string &scalar_field_name) const {

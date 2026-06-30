@@ -591,13 +591,83 @@ scattering_channel_list pbmc_transport_kernel::build_scattering_channels(const p
 }
 
 double pbmc_transport_kernel::total_scattering_rate(const pbmc_particle& p) const {
-    const auto channels = build_scattering_channels(p);
-
-    double total_rate = 0.0;
-    for (const auto& channel : channels) {
-        total_rate += channel.rate_s_1;
+    const auto current_band_index = p.state().valley_index;
+    if (current_band_index >= m_valleys.size()) {
+        throw std::out_of_range("invalid band/valley index in total_scattering_rate");
     }
 
+    const auto&  current_band = m_valleys[current_band_index];
+    const double energy_eV    = p.state().kinetic_energy;
+    const double temperature  = p.get_lattice_temperature();
+    double       total_rate   = 0.0;
+
+    if (p.type() == particle_type::hole) {
+        total_rate += acoustic_scattering_rate(current_band,
+                                               m_material_model.m_hole_acoustic,
+                                               energy_eV,
+                                               temperature);
+
+        for (const auto& transition : m_hole_optical_transitions) {
+            if (transition.initial_band != current_band_index) {
+                continue;
+            }
+
+            const auto& final_band = m_valleys[transition.final_band];
+            total_rate += optical_scattering_rate_holes(final_band,
+                                                        transition,
+                                                        m_material_model.m_hole_acoustic.mass_density_kg_per_m3,
+                                                        energy_eV,
+                                                        true,
+                                                        temperature);
+
+            if (energy_eV >= transition.phonon_energy_eV) {
+                total_rate += optical_scattering_rate_holes(final_band,
+                                                            transition,
+                                                            m_material_model.m_hole_acoustic.mass_density_kg_per_m3,
+                                                            energy_eV,
+                                                            false,
+                                                            temperature);
+            }
+        }
+
+        if (m_cfg.m_enable_impurity_scattering) {
+            total_rate += impurity_rate_for_particle(p, current_band, energy_eV);
+        }
+        if (m_cfg.m_enable_impact_ionization) {
+            total_rate += impact_ionization_rate(energy_eV);
+        }
+        return total_rate;
+    }
+
+    total_rate += acoustic_scattering_rate(current_band,
+                                           m_material_model.m_electron_acoustic,
+                                           energy_eV,
+                                           temperature);
+
+    for (const auto& branch : m_intervalley_branches) {
+        total_rate += intervalley_scattering_rate(current_band,
+                                                  branch,
+                                                  m_material_model.m_electron_acoustic.mass_density_kg_per_m3,
+                                                  energy_eV,
+                                                  true,
+                                                  temperature);
+
+        if (energy_eV >= branch.m_phonon_energy_eV) {
+            total_rate += intervalley_scattering_rate(current_band,
+                                                      branch,
+                                                      m_material_model.m_electron_acoustic.mass_density_kg_per_m3,
+                                                      energy_eV,
+                                                      false,
+                                                      temperature);
+        }
+    }
+
+    if (m_cfg.m_enable_impurity_scattering) {
+        total_rate += impurity_rate_for_particle(p, current_band, energy_eV);
+    }
+    if (m_cfg.m_enable_impact_ionization) {
+        total_rate += impact_ionization_rate(energy_eV);
+    }
     return total_rate;
 }
 
@@ -861,12 +931,7 @@ std::optional<scattering_event> pbmc_transport_kernel::scatter_particle(pbmc_par
         throw std::invalid_argument("scatter time step must be non-negative");
     }
 
-    const auto channels = build_scattering_channels(p);
-
-    double total_rate = 0.0;
-    for (const auto& channel : channels) {
-        total_rate += channel.rate_s_1;
-    }
+    const double total_rate = total_scattering_rate(p);
 
     if (total_rate <= 0.0) {
         return std::nullopt;
@@ -879,6 +944,7 @@ std::optional<scattering_event> pbmc_transport_kernel::scatter_particle(pbmc_par
         return std::nullopt;
     }
 
+    const auto   channels = build_scattering_channels(p);
     const double r_select = unif01(m_rng) * total_rate;
 
     double cumulative = 0.0;

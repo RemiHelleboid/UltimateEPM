@@ -41,8 +41,7 @@ struct options_self_consistent_device_ADMC_common {
 struct options_self_consistent_device_ADMC_2d {
     options_self_consistent_device_ADMC_common m_common{};
 
-    double m_effective_depth_um   = 1.0;
-    double m_particle_z_period_um = 1.0;
+    double m_effective_depth_um = 1.0;
 
     void validate() const;
 };
@@ -84,8 +83,6 @@ class self_consistent_device_admc_simulation_2d : public device_admc_simulation 
     void place_initial_charges_according_to_doping(double particle_weight);
     void add_charges_at_contacts(std::size_t poisson_frequency);
     void add_missing_contact_charge_to_poisson_reservoir(std::size_t accumulation_steps);
-    void apply_z_periodicity_to_particles();
-
     options_self_consistent_device_ADMC_2d m_self_consistent_options;
     fem::poisson_solver_2d                m_poisson_solver;
     fem::EigenVector                      m_previous_poisson_solution;

@@ -131,9 +131,6 @@ void options_self_consistent_device_ADMC_2d::validate() const {
     if (!std::isfinite(m_effective_depth_um) || m_effective_depth_um <= 0.0) {
         throw std::invalid_argument("ADMC effective depth must be positive and finite.");
     }
-    if (!std::isfinite(m_particle_z_period_um) || m_particle_z_period_um <= 0.0) {
-        throw std::invalid_argument("ADMC particle z period must be positive and finite.");
-    }
 }
 
 self_consistent_device_admc_simulation_2d::self_consistent_device_admc_simulation_2d(
@@ -314,7 +311,6 @@ void self_consistent_device_admc_simulation_2d::initialize_particles_for_self_co
     if (m_self_consistent_options.m_common.m_initialize_particles_from_doping) {
         place_initial_charges_according_to_doping(m_self_consistent_options.m_common.m_initial_particle_weight);
     }
-    apply_z_periodicity_to_particles();
     reset_element_charges();
     add_particle_charges_to_elements();
     recompute_vertex_space_charge_from_element_charges(1);
@@ -514,14 +510,6 @@ void self_consistent_device_admc_simulation_2d::recompute_vertex_space_charge_fr
     m_device.get_p_mesh()->convert_charge_on_element_into_charge_at_vtx(factor);
 }
 
-void self_consistent_device_admc_simulation_2d::apply_z_periodicity_to_particles() {
-    const double period_m = m_self_consistent_options.m_particle_z_period_um * uepm::units::micron_to_meter;
-    for (auto& particle : m_particles) {
-        auto& position = particle.particle.state().position_m;
-        position.set_z(std::remainder(position.z(), period_m));
-    }
-}
-
 void self_consistent_device_admc_simulation_2d::run_self_consistent_transport_simulation() {
     const std::size_t total_iterations =
         static_cast<std::size_t>(std::ceil(m_options.m_final_time_s / m_options.m_time_step_s));
@@ -560,7 +548,6 @@ void self_consistent_device_admc_simulation_2d::run_self_consistent_transport_si
         }
 
         advance_particles_one_time_step();
-        apply_z_periodicity_to_particles();
         add_particle_charges_to_elements();
 
         const auto [electron_current, hole_current] = last_ramo_current();

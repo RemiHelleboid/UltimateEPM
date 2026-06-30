@@ -67,8 +67,7 @@ YAML::Node make_default_config() {
     config["particles"]["initial_state_file"]       = "";
     config["particles"]["contact_injection_weight"] = 1.0;
 
-    config["geometry_2d"]["effective_depth_um"]   = 1.0;
-    config["geometry_2d"]["particle_z_period_um"] = 1.0e-3;
+    config["geometry_2d"]["effective_depth_um"] = 1.0;
 
     config["scheduled_injection"]["enabled"]          = false;
     config["scheduled_injection"]["time_s"]           = 0.0;
@@ -401,8 +400,6 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
     result.self_consistent_options_2d.m_common = common;
     result.self_consistent_options_2d.m_effective_depth_um =
         value_at<double>(config, "geometry_2d", "effective_depth_um");
-    result.self_consistent_options_2d.m_particle_z_period_um =
-        value_at<double>(config, "geometry_2d", "particle_z_period_um");
     result.self_consistent_options_3d.m_common = common;
 
     device.validate();

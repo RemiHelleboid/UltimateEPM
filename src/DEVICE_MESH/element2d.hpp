@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <array>
 #include <cmath>
 #include <optional>
 #include <vector>
@@ -34,6 +35,8 @@ class element2d : public element {
     double        m_bary_coord_precomputed_v01             = 0.0;
     double        m_bary_coord_precomputed_v11             = 0.0;
     double        m_inverse_bary_coord_precomputed_divisor = 0.0;
+
+    std::array<double, 3> compute_barycentric_coordinate_array(const vector3 &location) const;
 
  public:
     element2d() = default;

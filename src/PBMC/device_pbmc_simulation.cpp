@@ -123,13 +123,6 @@ void write_paraview_scene_script(const std::filesystem::path &base_directory) {
     stream << "mesh = OpenDataFile(mesh_file)\n";
     stream << "particles = OpenDataFile(particles_file)\n\n";
 
-    stream << "particles_transform = Transform(Input=particles)\n";
-    stream << "particles_transform.Transform.Translate = [0.0, 0.0, 1e-1]\n";
-    stream << "try:\n";
-    stream << "    particles_transform.ShowBox = 0\n";
-    stream << "except Exception:\n";
-    stream << "    pass\n\n";
-
     stream << "view = GetActiveViewOrCreate(\"RenderView\")\n";
     stream << "view.InteractionMode = \"2D\"\n";
     stream << "view.Background = [0.0, 0.0, 0.0]\n";
@@ -154,7 +147,7 @@ void write_paraview_scene_script(const std::filesystem::path &base_directory) {
     stream << "poisson_bar.LabelColor = [1.0, 1.0, 1.0]\n";
     stream << "mesh_display.SetScalarBarVisibility(view, True)\n\n";
 
-    stream << "particles_display = Show(particles_transform, view)\n";
+    stream << "particles_display = Show(particles, view)\n";
     stream << "particles_display.Representation = \"Point Gaussian\"\n";
     stream << "particles_display.GaussianRadius = 0.001\n";
     stream << "particles_display.Opacity = 1.0\n";
@@ -183,14 +176,14 @@ void write_paraview_scene_script(const std::filesystem::path &base_directory) {
 
     stream << "time_keeper = GetTimeKeeper()\n";
     stream << "AnnotateTimeFilter1 = AnnotateTimeFilter(Input=mesh)\n";
-    stream << "AnnotateTimeFilter1.Format = \"time: %.3e s\"\n";
+    stream << "AnnotateTimeFilter1.Format = \"time: {time:.3e} s\"\n";
     stream << "time_display = Show(AnnotateTimeFilter1, view)\n";
     stream << "time_display.FontSize = 18\n";
     stream << "time_display.Color = [1.0, 1.0, 1.0]\n";
     stream << "time_display.WindowLocation = \"Upper Center\"\n\n";
 
     stream << "mesh.UpdatePipeline()\n";
-    stream << "particles_transform.UpdatePipeline()\n\n";
+    stream << "particles.UpdatePipeline()\n\n";
 
     stream << "particles_display.Visibility = 0\n";
     stream << "ResetCamera(view)\n";
@@ -338,11 +331,20 @@ void options_device_PBMC::validate() const {
 }
 
 vector3 device_pbmc_simulation::get_RamoUnitaryElectricField_at_position(const mesh::vector3 &position) const {
+    return get_RamoUnitaryElectricField_at_position(position, nullptr);
+}
+
+vector3 device_pbmc_simulation::get_RamoUnitaryElectricField_at_position(
+    const mesh::vector3 &position,
+    const mesh::element *containing_element) const {
     if (m_state.m_use_constant_RamoUnitaryElectricField) {
         return m_state.m_RamoUnitaryElectricField_Vm_per_cm;
     }
-    vector3 ramo_unitary_electric_field =
-        m_device.interpolate_vector_at_location("RamoUnitaryPotential_gradient", position);
+    if (containing_element != nullptr) {
+        return containing_element->interpolate_vector_at_location("RamoUnitaryPotential_gradient", position);
+    }
+    vector3 ramo_unitary_electric_field = m_device.interpolate_vector_at_location("RamoUnitaryPotential_gradient",
+                                                                                  position);
     return ramo_unitary_electric_field;
 }
 
@@ -437,7 +439,7 @@ void device_pbmc_simulation::initialize_particle_transport_state(pbmc_particle &
 
     particle.state().valley_index = particle.index() % transport.valleys().size();
 
-    particle.set_data_from_device(m_dimension);
+    particle.set_data_from_device(m_dimension, m_simulation_options.m_enable_impurity_scattering);
     transport.initialize_particle_state(particle, particle.get_lattice_temperature());
 
     if (m_simulation_options.m_keep_particles_history) {
@@ -445,9 +447,14 @@ void device_pbmc_simulation::initialize_particle_transport_state(pbmc_particle &
     }
 }
 
-void device_pbmc_simulation::apply_z_periodicity_to_particles() {
-    // No-op by default.
-    // Only 2D self-consistent simulations override this.
+void device_pbmc_simulation::flatten_particle_positions_for_2d() {
+    if (m_dimension != 2) {
+        return;
+    }
+    for (auto &p_particle : m_list_particles) {
+        p_particle->state().position.set_z(0.0);
+        p_particle->state().previous_position.set_z(0.0);
+    }
 }
 
 void device_pbmc_simulation::initialize_scheduled_particle_injection() {
@@ -616,7 +623,11 @@ device_pbmc_simulation::device_pbmc_simulation(const device::device      &device
 
     //  Setup the initial position (unique), random number for RPLA and set containing elements for each particles.
     for (auto &p_particle : m_list_particles) {
-        p_particle->set_position(starting_position);
+        auto particle_position = starting_position;
+        if (m_dimension == 2) {
+            particle_position.set_z(0.0);
+        }
+        p_particle->set_position(particle_position);
         p_particle->set_weight(1.0);
         p_particle->set_containing_element(first_element);
 
@@ -629,11 +640,15 @@ device_pbmc_simulation::device_pbmc_simulation(const device::device      &device
 void device_pbmc_simulation::add_particle_at_position(const mesh::vector3 &location,
                                                       particle_type        type_of_particle,
                                                       double               weight) {
+    mesh::vector3 particle_location = location;
+    if (m_dimension == 2) {
+        particle_location.set_z(0.0);
+    }
     mesh::element *first_element{nullptr};
     if (m_dimension == 2) {
-        first_element = m_device.find_element_at_location(location.to_2d());
+        first_element = m_device.find_element_at_location(particle_location);
     } else {
-        first_element = m_device.find_element_at_location(location);
+        first_element = m_device.find_element_at_location(particle_location);
     }
     if (first_element == nullptr) {
         std::cout << "Error : particle can't find its first element. No particle created.    " << location << std::endl;
@@ -641,7 +656,8 @@ void device_pbmc_simulation::add_particle_at_position(const mesh::vector3 &locat
     }
     const std::size_t idx_particle = m_state.m_counter_particles_created++;
     particle_state    initial_state{};
-    initial_state.position = location;
+    initial_state.position          = particle_location;
+    initial_state.previous_position = particle_location;
     if (type_of_particle == particle_type::electron) {
         m_list_particles.push_back(
             std::make_unique<pbmc_particle>(idx_particle, particle_type::electron, initial_state, weight));
@@ -663,11 +679,15 @@ void device_pbmc_simulation::add_particles_at_positions(const std::vector<mesh::
     // Reserve memory for all particles upfront
     m_list_particles.reserve(m_list_particles.size() + positions.size());
     for (const auto &location : positions) {
+        mesh::vector3 particle_location = location;
+        if (m_dimension == 2) {
+            particle_location.set_z(0.0);
+        }
         mesh::element *first_element{nullptr};
         if (m_dimension == 2) {
-            first_element = m_device.find_element_at_location(location.to_2d());
+            first_element = m_device.find_element_at_location(particle_location);
         } else {
-            first_element = m_device.find_element_at_location(location);
+            first_element = m_device.find_element_at_location(particle_location);
         }
 
         if (first_element == nullptr) {
@@ -678,7 +698,8 @@ void device_pbmc_simulation::add_particles_at_positions(const std::vector<mesh::
 
         const std::size_t idx_particle = m_state.m_counter_particles_created++;
         particle_state    initial_state{};
-        initial_state.position = location;
+        initial_state.position          = particle_location;
+        initial_state.previous_position = particle_location;
         if (type_of_particle == particle_type::electron) {
             m_list_particles.push_back(
                 std::make_unique<pbmc_particle>(idx_particle, particle_type::electron, initial_state, weight));
@@ -739,6 +760,10 @@ std::size_t device_pbmc_simulation::load_particles_from_state_csv(const std::str
         state.kinetic_energy = required_csv_double(fields, indices, "energy_eV", line_number);
         state.gamma = optional_csv_double(fields, indices, "gamma_eV", state.kinetic_energy);
         state.valley_index = required_csv_size(fields, indices, "valley_index", line_number);
+        if (m_dimension == 2) {
+            state.position.set_z(0.0);
+            state.previous_position.set_z(0.0);
+        }
 
         const auto type = parse_particle_type_field(required_csv_field(fields, indices, "type", line_number));
         const double weight = required_csv_double(fields, indices, "weight", line_number);
@@ -763,7 +788,7 @@ std::size_t device_pbmc_simulation::load_particles_from_state_csv(const std::str
 
         auto particle = std::make_unique<pbmc_particle>(particle_index, type, state, weight);
         particle->set_containing_element(element);
-        particle->set_data_from_device(m_dimension);
+        particle->set_data_from_device(m_dimension, m_simulation_options.m_enable_impurity_scattering);
         if (m_simulation_options.m_keep_particles_history) {
             particle->record_state();
         }
@@ -807,17 +832,24 @@ double device_pbmc_simulation::compute_ramo_current_for_particle(const pbmc_part
     if (m_dimension == 2) {
         position.to_2d_inplace();
     }
-    const auto weighting_field_m    = get_RamoUnitaryElectricField_at_position(position);
+    const auto weighting_field_m    = get_RamoUnitaryElectricField_at_position(position,
+                                                                               particle.get_containing_element());
     double     current_contribution = scale_factor * particle.weight() * particle.get_signed_charge() *
                                       particle.state().velocity.dot(weighting_field_m);
     return current_contribution;
 }
 
 std::pair<double, double> device_pbmc_simulation::compute_ramo_current() const {
-    double total_electron_current = 0.0;
-    double total_hole_current     = 0.0;
+    const auto currents = compute_ramo_currents(true, false);
+    return std::make_pair(currents.electron, currents.hole);
+}
 
-    const double scale_factor = ramo_current_scale_factor();
+device_pbmc_simulation::ramo_current_components device_pbmc_simulation::compute_ramo_currents(bool include_full,
+                                                                                              bool include_probe) const {
+    ramo_current_components currents{};
+    const double scale_factor           = ramo_current_scale_factor();
+    const bool   current_probe_enabled  = m_simulation_options.m_current_probe.m_enabled;
+    const bool   include_probe_currents = include_probe && current_probe_enabled;
 
     for (const auto &particle : m_list_particles) {
         auto position = particle->state().position;
@@ -826,54 +858,48 @@ std::pair<double, double> device_pbmc_simulation::compute_ramo_current() const {
             position.to_2d_inplace();
         }
 
-        const auto weighting_field_m = get_RamoUnitaryElectricField_at_position(position);
+        const bool inside_probe = current_probe_enabled &&
+                                  ((m_dimension == 2)
+                                       ? m_simulation_options.m_current_probe.m_box_um.is_inside_2d(position)
+                                       : m_simulation_options.m_current_probe.m_box_um.is_inside(position));
+        if (current_probe_enabled && !inside_probe) {
+            continue;
+        }
+        if (!include_full && !include_probe_currents) {
+            continue;
+        }
+
+        const auto weighting_field_m = get_RamoUnitaryElectricField_at_position(position,
+                                                                                particle->get_containing_element());
+        const auto current = scale_factor * particle->weight() * particle->get_signed_charge() *
+                             particle->state().velocity.dot(weighting_field_m);
 
         if (particle->type() == particle_type::electron) {
-            total_electron_current += scale_factor * particle->weight() * particle->get_signed_charge() *
-                                      particle->state().velocity.dot(weighting_field_m);
+            if (include_full) {
+                currents.electron += current;
+            }
+            if (include_probe_currents) {
+                currents.probe_electron += current;
+            }
         } else {
-            total_hole_current += scale_factor * particle->weight() * particle->get_signed_charge() *
-                                  particle->state().velocity.dot(weighting_field_m);
+            if (include_full) {
+                currents.hole += current;
+            }
+            if (include_probe_currents) {
+                currents.probe_hole += current;
+            }
         }
     }
 
-    return std::make_pair(total_electron_current, total_hole_current);
+    return currents;
 }
 
 std::pair<double, double> device_pbmc_simulation::compute_probe_ramo_current() const {
     if (!m_simulation_options.m_current_probe.m_enabled) {
         return {0.0, 0.0};
     }
-
-    double total_electron_current = 0.0;
-    double total_hole_current     = 0.0;
-
-    const double scale_factor = ramo_current_scale_factor();
-
-    for (const auto &particle : m_list_particles) {
-        auto position = particle->state().position;
-
-        if (m_dimension == 2) {
-            position.to_2d_inplace();
-            if (!m_simulation_options.m_current_probe.m_box_um.is_inside_2d(position)) {
-                continue;
-            }
-        } else if (!m_simulation_options.m_current_probe.m_box_um.is_inside(position)) {
-            continue;
-        }
-
-        const auto weighting_field_m = get_RamoUnitaryElectricField_at_position(position);
-        const auto current = scale_factor * particle->weight() * particle->get_signed_charge() *
-                             particle->state().velocity.dot(weighting_field_m);
-
-        if (particle->type() == particle_type::electron) {
-            total_electron_current += current;
-        } else {
-            total_hole_current += current;
-        }
-    }
-
-    return {total_electron_current, total_hole_current};
+    const auto currents = compute_ramo_currents(false, true);
+    return {currents.probe_electron, currents.probe_hole};
 }
 
 void device_pbmc_simulation::transport_particles_one_time_step() {
@@ -886,14 +912,14 @@ void device_pbmc_simulation::transport_particles_one_time_step() {
     for (std::int64_t particle_index = 0; particle_index < number_particles; ++particle_index) {
         auto &particle                     = *m_list_particles[static_cast<std::size_t>(particle_index)];
         particle.state().previous_position = particle.state().position;
-        particle.set_data_from_device(m_dimension);
+        particle.set_data_from_device(m_dimension, m_simulation_options.m_enable_impurity_scattering);
         const auto thread_index = static_cast<std::size_t>(omp_get_thread_num());
         auto      &transport    = transport_for(particle.type(), thread_index);
         // Electric field is in V/cm, but we need it in V/m for the transport kernel, so we convert it here.
         constexpr double cm_to_m = 1.0e2;
         transport.drift_particle(particle, particle.state().electric_field * cm_to_m, dt);
     }
-    apply_z_periodicity_to_particles();  // In 3D, this does nothing.
+    flatten_particle_positions_for_2d();
     update_element_and_check_boundary();
     remove_collected_particles();
 
@@ -903,7 +929,7 @@ void device_pbmc_simulation::transport_particles_one_time_step() {
 #pragma omp parallel for if (m_simulation_options.m_nb_threads > 1) num_threads(m_simulation_options.m_nb_threads)
     for (std::int64_t particle_index = 0; particle_index < scattering_particle_count; ++particle_index) {
         auto &particle = *m_list_particles[static_cast<std::size_t>(particle_index)];
-        particle.set_data_from_device(m_dimension);
+        particle.set_data_from_device(m_dimension, m_simulation_options.m_enable_impurity_scattering);
 
         // Scattering
         const auto thread_index = static_cast<std::size_t>(omp_get_thread_num());
@@ -940,7 +966,7 @@ void device_pbmc_simulation::transport_particles_one_time_step() {
     }
 
     if (!impact_pair_seeds.empty()) {
-        apply_z_periodicity_to_particles();
+        flatten_particle_positions_for_2d();
         update_element_and_check_boundary();
         remove_collected_particles();
     }
@@ -954,7 +980,7 @@ void device_pbmc_simulation::advance_particles_one_time_step() {
 
 void device_pbmc_simulation::set_particles_transport_data_from_device() {
     for (auto &p_particle : m_list_particles) {
-        p_particle->set_data_from_device(m_dimension);
+        p_particle->set_data_from_device(m_dimension, m_simulation_options.m_enable_impurity_scattering);
     }
 }
 

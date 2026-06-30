@@ -102,12 +102,6 @@ void write_paraview_scene_script(const std::filesystem::path& base_directory) {
     stream << "particles_file = os.path.join(scene_dir, \"particles\", \"particles.pvd\")\n\n";
     stream << "mesh = OpenDataFile(mesh_file)\n";
     stream << "particles = OpenDataFile(particles_file)\n\n";
-    stream << "particles_transform = Transform(Input=particles)\n";
-    stream << "particles_transform.Transform.Translate = [0.0, 0.0, 1e-1]\n";
-    stream << "try:\n";
-    stream << "    particles_transform.ShowBox = 0\n";
-    stream << "except Exception:\n";
-    stream << "    pass\n\n";
 
     stream << "view = GetActiveViewOrCreate(\"RenderView\")\n";
     stream << "view.InteractionMode = \"2D\"\n";
@@ -133,7 +127,7 @@ void write_paraview_scene_script(const std::filesystem::path& base_directory) {
     stream << "poisson_bar.LabelColor = [1.0, 1.0, 1.0]\n";
     stream << "mesh_display.SetScalarBarVisibility(view, True)\n\n";
 
-    stream << "particles_display = Show(particles_transform, view)\n";
+    stream << "particles_display = Show(particles, view)\n";
     stream << "particles_display.Representation = \"Point Gaussian\"\n";
     stream << "particles_display.GaussianRadius = 0.001\n";
     stream << "particles_display.Opacity = 1.0\n";
@@ -162,14 +156,14 @@ void write_paraview_scene_script(const std::filesystem::path& base_directory) {
 
     stream << "time_keeper = GetTimeKeeper()\n";
     stream << "AnnotateTimeFilter1 = AnnotateTimeFilter(Input=mesh)\n";
-    stream << "AnnotateTimeFilter1.Format = \"time: %.3e s\"\n";
+    stream << "AnnotateTimeFilter1.Format = \"time: {time:.3e} s\"\n";
     stream << "time_display = Show(AnnotateTimeFilter1, view)\n";
     stream << "time_display.FontSize = 18\n";
     stream << "time_display.Color = [1.0, 1.0, 1.0]\n";
     stream << "time_display.WindowLocation = \"Upper Center\"\n\n";
 
     stream << "mesh.UpdatePipeline()\n";
-    stream << "particles_transform.UpdatePipeline()\n\n";
+    stream << "particles.UpdatePipeline()\n\n";
 
     stream << "particles_display.Visibility = 0\n";
     stream << "ResetCamera(view)\n";
@@ -511,9 +505,13 @@ void device_admc_simulation::advance_particles_one_time_step() {
     const auto [electron_current_A, hole_current_A] = compute_ramo_current();
     m_state.m_last_ramo_current_electron_A          = electron_current_A;
     m_state.m_last_ramo_current_hole_A              = hole_current_A;
-    const auto [probe_electron_current_A, probe_hole_current_A] = compute_probe_ramo_current();
-    m_state.m_last_probe_ramo_current_electron_A = probe_electron_current_A;
-    m_state.m_last_probe_ramo_current_hole_A     = probe_hole_current_A;
+    if (m_options.m_current_probe.m_enabled) {
+        m_state.m_last_probe_ramo_current_electron_A = electron_current_A;
+        m_state.m_last_probe_ramo_current_hole_A     = hole_current_A;
+    } else {
+        m_state.m_last_probe_ramo_current_electron_A = 0.0;
+        m_state.m_last_probe_ramo_current_hole_A     = 0.0;
+    }
     record_history(electron_current_A, hole_current_A);
 }
 
@@ -600,7 +598,18 @@ std::pair<double, double> device_admc_simulation::compute_ramo_current() const {
     double hole_current_A     = 0.0;
 
     for (const auto& particle : m_particles) {
-        const mesh::vector3 position_um     = to_mesh_position_um(particle.particle.state().position_m);
+        mesh::vector3 position_um = to_mesh_position_um(particle.particle.state().position_m);
+        if (m_dimension == 2) {
+            position_um.to_2d_inplace();
+        }
+        if (m_options.m_current_probe.m_enabled) {
+            const bool inside_probe = (m_dimension == 2)
+                                          ? m_options.m_current_probe.m_box_um.is_inside_2d(position_um)
+                                          : m_options.m_current_probe.m_box_um.is_inside(position_um);
+            if (!inside_probe) {
+                continue;
+            }
+        }
         const vector3       weighting_field = get_RamoUnitaryElectricField_at_position(position_um);
         const double        current_A       = particle.weight * carrier_charge_sign(particle.particle.type()) *
                                  uepm::constants::q_e *
@@ -618,33 +627,7 @@ std::pair<double, double> device_admc_simulation::compute_probe_ramo_current() c
     if (!m_options.m_current_probe.m_enabled) {
         return {0.0, 0.0};
     }
-
-    double electron_current_A = 0.0;
-    double hole_current_A     = 0.0;
-
-    for (const auto& particle : m_particles) {
-        mesh::vector3 position_um = to_mesh_position_um(particle.particle.state().position_m);
-        if (m_dimension == 2) {
-            position_um.to_2d_inplace();
-            if (!m_options.m_current_probe.m_box_um.is_inside_2d(position_um)) {
-                continue;
-            }
-        } else if (!m_options.m_current_probe.m_box_um.is_inside(position_um)) {
-            continue;
-        }
-
-        const vector3 weighting_field = get_RamoUnitaryElectricField_at_position(position_um);
-        const double  current_A       = particle.weight * carrier_charge_sign(particle.particle.type()) *
-                                 uepm::constants::q_e *
-                                 particle.particle.state().total_velocity_m_per_s.dot(weighting_field);
-        if (particle.particle.type() == carrier_type::electron) {
-            electron_current_A += current_A;
-        } else {
-            hole_current_A += current_A;
-        }
-    }
-
-    return {electron_current_A, hole_current_A};
+    return compute_ramo_current();
 }
 
 double device_admc_simulation::max_particle_electric_field_V_per_m() const {

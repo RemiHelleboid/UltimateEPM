@@ -29,8 +29,7 @@ namespace uepm::PBMC {
 struct options_self_consistent_device_pbmc_2d {
     options_self_consistent_device_pbmc_common m_common{};
 
-    double m_effective_depth_um   = 1.0;
-    double m_particle_z_period_um = 1.0;
+    double m_effective_depth_um = 1.0;
 
     void validate() const;
 };
@@ -61,7 +60,6 @@ class self_consistent_device_pbmc_simulation_2d : public self_consistent_device_
     // 2D-specific methods
     double scale_integrated_2d_doping_to_carriers(double integrated_doping) const;
     double charge_deposition_factor(std::size_t accumulation_steps) const;
-    void   apply_z_periodicity_to_particles() override;
     double ramo_current_scale_factor() const override;
     double current_density_cell_volume_m3(const mesh::element& element) const override;
 

@@ -490,12 +490,11 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
         transport_particles_one_time_step();
         add_particle_charges_to_elements();
 
-        const auto [electron_current, hole_current] = compute_ramo_current();
-        accumulator_ramo_current_electron += electron_current;
-        accumulator_ramo_current_hole += hole_current;
-        const auto [probe_electron_current, probe_hole_current] = compute_probe_ramo_current();
-        accumulator_probe_ramo_current_electron += probe_electron_current;
-        accumulator_probe_ramo_current_hole += probe_hole_current;
+        const auto currents = compute_ramo_currents(true, true);
+        accumulator_ramo_current_electron += currents.electron;
+        accumulator_ramo_current_hole += currents.hole;
+        accumulator_probe_ramo_current_electron += currents.probe_electron;
+        accumulator_probe_ramo_current_hole += currents.probe_hole;
 
         const bool should_update_poisson =
             (m_state.m_iteration % poisson_frequency() == 0) && (m_state.m_iteration != 0);
