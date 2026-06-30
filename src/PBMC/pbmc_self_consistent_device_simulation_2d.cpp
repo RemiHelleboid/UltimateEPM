@@ -163,12 +163,13 @@ void self_consistent_device_pbmc_simulation_2d::place_initial_charges_according_
     if (number_holes > 0 && max_acceptor_concentration <= 0.0) {
         throw std::runtime_error("Acceptor concentration maximum is non-positive.");
     }
-
     const mesh::bbox active_region_bbox = mesh->get_p_region("Silicon_1")->compute_bounding_box();
+    const std::size_t max_trial = 100 * number_electrons;
+    std::size_t count_trial = 0;
 
     while (electron_positions.size() < number_electrons) {
         const mesh::vector3 position = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
-
+        count_trial++;
         const double donor_density    = mesh->interpolate_scalar_at_location(donor_field_name, position);
         const double acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
         if (acceptor_density > donor_density) {
@@ -180,13 +181,20 @@ void self_consistent_device_pbmc_simulation_2d::place_initial_charges_according_
         if (probability > min_probability && uniform01(m_contact_rng) < probability) {
             electron_positions.push_back(position);
         }
+        if (count_trial > max_trial) {
+            fmt::print("Error\n");
+        }
     }
+    fmt::print("Initial electrons placed according to doping.\n");
+
+    const std::size_t max_trial_holes = 100 * number_holes;
+    count_trial = 0;
 
     while (hole_positions.size() < number_holes) {
         const mesh::vector3 position         = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
         const double        acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
         const double        donor_density    = mesh->interpolate_scalar_at_location(donor_field_name, position);
-
+        count_trial++;
         if (donor_density > acceptor_density) {
             continue;
         }
@@ -195,7 +203,14 @@ void self_consistent_device_pbmc_simulation_2d::place_initial_charges_according_
         if (probability > min_probability && uniform01(m_contact_rng) < probability) {
             hole_positions.push_back(position);
         }
+        if (count_trial > max_trial_holes) {
+            fmt::print("Could not place all initial holes according to doping. Placed {} out of {}.\n",
+                       hole_positions.size(),
+                       number_holes);
+            break;
+        }
     }
+    fmt::print("Initial holes placed according to doping.\n");
 
     m_list_particles.clear();
     m_list_particles.reserve(electron_positions.size() + hole_positions.size());

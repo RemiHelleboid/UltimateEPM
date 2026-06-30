@@ -424,18 +424,20 @@ void device_admc_simulation::update_element_and_check_boundary(device_admc_parti
     }
 
     const mesh::vector3 current_position_um = to_mesh_position_um(particle.particle.state().position_m);
-    if (particle.containing_element->is_location_inside_element(current_position_um)) {
+    const mesh::vector3 previous_position_um = to_mesh_position_um(particle.particle.state().previous_position_m);
+    if (m_device.check_enters_contact(current_position_um) ||
+        m_device.check_crossing_contact(previous_position_um, current_position_um)) {
+        particle.crossed_contact = true;
         return;
     }
-    if (m_device.check_enters_contact(current_position_um)) {
-        particle.crossed_contact = true;
+
+    if (particle.containing_element->is_location_inside_element(current_position_um)) {
         return;
     }
 
     auto* new_element = m_device.find_element_at_location(current_position_um);
     if (new_element == nullptr || !is_transport_material_element(*new_element)) {
         auto&              state                = particle.particle.state();
-        const mesh::vector3 previous_position_um = to_mesh_position_um(state.previous_position_m);
         const auto          hit = mesh::find_boundary_exit_hit(*particle.containing_element,
                                                               previous_position_um,
                                                               current_position_um,
@@ -517,9 +519,6 @@ void device_admc_simulation::advance_particles_one_time_step() {
 
 void device_admc_simulation::run() {
     while (m_state.m_time_s < m_options.m_final_time_s) {
-        if (m_particles.empty() && !has_pending_scheduled_particle_injection()) {
-            break;
-        }
         if (m_options.m_stop_when_no_electrons && get_number_electrons() == 0 &&
             !has_pending_scheduled_particle_injection()) {
             break;
@@ -890,12 +889,15 @@ void device_admc_simulation::export_current_mesh_as_vtu(const std::string& direc
 
     if (export_x_cut_enabled) {
         const auto                  device_box = m_device.get_p_mesh()->get_bounding_box();
-        const auto                  y_middle   = 0.5 * (device_box.get_y_min() + device_box.get_y_max());
-        const auto                  z_middle   = 0.5 * (device_box.get_z_min() + device_box.get_z_max());
         const auto                  dx         = 1e-3;  // 1 nm
+        const auto                  y_extent   = device_box.get_y_max() - device_box.get_y_min();
+        const auto                  z_extent   = device_box.get_z_max() - device_box.get_z_min();
+        const auto                  n_y_samples = std::max<std::size_t>(1, static_cast<std::size_t>(y_extent / dx) + 1);
+        const auto                  n_z_samples =
+            m_dimension == 3 ? std::max<std::size_t>(1, static_cast<std::size_t>(z_extent / dx) + 1) : 1;
         const std::filesystem::path x_cut_path =
             output_directory / fmt::format("mesh_x_cut_{:012d}.csv", m_state.m_iteration);
-        m_device.get_p_mesh()->export_x_cut(x_cut_path.string(), y_middle, z_middle, dx);
+        m_device.get_p_mesh()->export_x_profile(x_cut_path.string(), dx, n_y_samples, n_z_samples);
     }
 }
 

@@ -15,8 +15,10 @@
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <utility>
 
@@ -40,6 +42,69 @@
 namespace uepm {
 
 namespace mesh {
+
+namespace {
+
+void write_scalar_and_vector_csv_header(std::ostream                   &output,
+                                        const std::vector<std::string> &scalar_function_names,
+                                        const std::vector<std::string> &vector_function_names) {
+    for (const auto &dataset_name : scalar_function_names) {
+        output << dataset_name << ",";
+    }
+    for (const auto &dataset_name : vector_function_names) {
+        output << dataset_name << "_x,";
+        output << dataset_name << "_y,";
+        output << dataset_name << "_z,";
+    }
+}
+
+void write_scalar_and_vector_csv_values(std::ostream                   &output,
+                                        const mesh                    &source_mesh,
+                                        const vector3                 &point,
+                                        const std::vector<std::string> &scalar_function_names,
+                                        const std::vector<std::string> &vector_function_names) {
+    for (const auto &field_name : scalar_function_names) {
+        output << source_mesh.interpolate_scalar_at_location(field_name, point) << ",";
+    }
+    for (const auto &field_name : vector_function_names) {
+        const auto field_value = source_mesh.interpolate_vector_at_location(field_name, point);
+        output << field_value.x() << ",";
+        output << field_value.y() << ",";
+        output << field_value.z() << ",";
+    }
+}
+
+double sample_axis_coordinate(double min_value, double max_value, std::size_t sample_count, std::size_t sample_index) {
+    if (sample_count <= 1 || min_value == max_value) {
+        return 0.5 * (min_value + max_value);
+    }
+    const double fraction = static_cast<double>(sample_index) / static_cast<double>(sample_count - 1);
+    return min_value + fraction * (max_value - min_value);
+}
+
+double sample_scalar_function(const mesh &source_mesh,
+                              element    &containing_element,
+                              const vector3 &point,
+                              const std::string &field_name) {
+    const auto scalar_function = source_mesh.get_sp_scalar_function(field_name);
+    if (scalar_function != nullptr && scalar_function->get_location_type() == DataLocationType::cell) {
+        return containing_element.get_scalar_data(field_name);
+    }
+    return containing_element.interpolate_scalar_at_location(field_name, point);
+}
+
+vector3 sample_vector_function(const mesh &source_mesh,
+                               element    &containing_element,
+                               const vector3 &point,
+                               const std::string &field_name) {
+    const auto vector_function = source_mesh.get_sp_vector_function(field_name);
+    if (vector_function != nullptr && vector_function->get_location_type() == DataLocationType::cell) {
+        return containing_element.get_vector_data(field_name);
+    }
+    return containing_element.interpolate_vector_at_location(field_name, point);
+}
+
+}  // namespace
 
 void mesh::reset_all() {
     m_dimension   = 0;
@@ -2194,18 +2259,15 @@ void mesh::export_on_grid(const std::string &filename, double dx, double dy, dou
 
     std::ofstream file_grid(filename);
     file_grid << "X,Y,Z,";
-    auto list_function = get_all_functions_names();
-    for (auto &&dataset_name : list_function) {
-        file_grid << dataset_name << ",";
-    }
+    const auto scalar_function_names = get_scalar_functions_name();
+    const auto vector_function_names = get_vector_functions_name();
+    write_scalar_and_vector_csv_header(file_grid, scalar_function_names, vector_function_names);
     file_grid << "BlankColumn" << std::endl;
     for (const auto &point : grid_mesh) {
         file_grid << point.x() << ',';
         file_grid << point.y() << ',';
         file_grid << point.z() << ',';
-        for (auto &&field_name : list_function) {
-            file_grid << interpolate_scalar_at_location(field_name, point) << ",";
-        }
+        write_scalar_and_vector_csv_values(file_grid, *this, point, scalar_function_names, vector_function_names);
         file_grid << "0\n";
     }
     file_grid.close();
@@ -2221,16 +2283,13 @@ void mesh::export_z_cut(const std::string &filename, double x_const, double y_co
     std::vector<vector3> z_line_grid = z_line_box.generate_mesh_grid_3d(1, 1, Nz);
     std::ofstream        file_export(filename);
     file_export << "Z,";
-    auto list_function = get_all_functions_names();
-    for (auto &&dataset_name : list_function) {
-        file_export << dataset_name << ",";
-    }
+    const auto scalar_function_names = get_scalar_functions_name();
+    const auto vector_function_names = get_vector_functions_name();
+    write_scalar_and_vector_csv_header(file_export, scalar_function_names, vector_function_names);
     file_export << "BlankColumn" << std::endl;
     for (const auto &point : z_line_grid) {
         file_export << point.z() << ',';
-        for (auto &&field_name : list_function) {
-            file_export << interpolate_scalar_at_location(field_name, point) << ",";
-        }
+        write_scalar_and_vector_csv_values(file_export, *this, point, scalar_function_names, vector_function_names);
         file_export << "0\n";
     }
     file_export.close();
@@ -2246,16 +2305,13 @@ void mesh::export_y_cut(const std::string &filename, double x_const, double z_co
     std::vector<vector3> y_line_grid = y_line_box.generate_mesh_grid_3d(1, Ny, 1);
     std::ofstream        file_export(filename);
     file_export << "Y,";
-    auto list_function = get_all_functions_names();
-    for (auto &&dataset_name : list_function) {
-        file_export << dataset_name << ",";
-    }
+    const auto scalar_function_names = get_scalar_functions_name();
+    const auto vector_function_names = get_vector_functions_name();
+    write_scalar_and_vector_csv_header(file_export, scalar_function_names, vector_function_names);
     file_export << "BlankColumn" << std::endl;
     for (const auto &point : y_line_grid) {
         file_export << point.y() << ',';
-        for (auto &&field_name : list_function) {
-            file_export << interpolate_scalar_at_location(field_name, point) << ",";
-        }
+        write_scalar_and_vector_csv_values(file_export, *this, point, scalar_function_names, vector_function_names);
         file_export << "0\n";
     }
     file_export.close();
@@ -2271,15 +2327,97 @@ void mesh::export_x_cut(const std::string &filename, double y_const, double z_co
     std::vector<vector3> x_line_grid = x_line_box.generate_mesh_grid_3d(Nx, 1, 1);
     std::ofstream        file_export(filename);
     file_export << "X,";
-    auto list_function = get_all_functions_names();
-    for (auto &&dataset_name : list_function) {
-        file_export << dataset_name << ",";
-    }
+    const auto scalar_function_names = get_scalar_functions_name();
+    const auto vector_function_names = get_vector_functions_name();
+    write_scalar_and_vector_csv_header(file_export, scalar_function_names, vector_function_names);
     file_export << "BlankColumn" << std::endl;
     for (const auto &point : x_line_grid) {
         file_export << point.x() << ',';
-        for (auto &&field_name : list_function) {
-            file_export << interpolate_scalar_at_location(field_name, point) << ",";
+        write_scalar_and_vector_csv_values(file_export, *this, point, scalar_function_names, vector_function_names);
+        file_export << "0\n";
+    }
+    file_export.close();
+}
+
+void mesh::export_x_profile(const std::string &filename,
+                            double             dx,
+                            std::size_t        n_y_samples,
+                            std::size_t        n_z_samples) const {
+    constexpr double epsilon = 1.0e-6;
+    const auto       box     = get_bounding_box();
+    const double     x_min   = box.get_x_min() + epsilon;
+    const double     x_max   = box.get_x_max() - epsilon;
+    const double     y_min   = box.get_y_min() + epsilon;
+    const double     y_max   = box.get_y_max() - epsilon;
+    const double     z_min   = box.get_z_min() + epsilon;
+    const double     z_max   = box.get_z_max() - epsilon;
+
+    const std::size_t Nx = static_cast<std::size_t>((x_max - x_min) / dx);
+    bbox              x_line_box(x_min, x_max, 0.5 * (y_min + y_max), 0.5 * (y_min + y_max), 0.5 * (z_min + z_max),
+                    0.5 * (z_min + z_max));
+    const auto        x_line_grid = x_line_box.generate_mesh_grid_3d(Nx, 1, 1);
+
+    n_y_samples = std::max<std::size_t>(1, n_y_samples);
+    n_z_samples = get_dimension() == 3 ? std::max<std::size_t>(1, n_z_samples) : 1;
+
+    const auto scalar_function_names = get_scalar_functions_name();
+    const auto vector_function_names = get_vector_functions_name();
+
+    std::ofstream file_export(filename);
+    file_export << "X,";
+    write_scalar_and_vector_csv_header(file_export, scalar_function_names, vector_function_names);
+    file_export << "BlankColumn" << std::endl;
+
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    for (const auto &x_point : x_line_grid) {
+        std::vector<double>      scalar_sums(scalar_function_names.size(), 0.0);
+        std::vector<std::size_t> scalar_counts(scalar_function_names.size(), 0);
+        std::vector<vector3>     vector_sums(vector_function_names.size(), vector3{0.0, 0.0, 0.0});
+        std::vector<std::size_t> vector_counts(vector_function_names.size(), 0);
+
+        for (std::size_t y_index = 0; y_index < n_y_samples; ++y_index) {
+            const double y = sample_axis_coordinate(y_min, y_max, n_y_samples, y_index);
+            for (std::size_t z_index = 0; z_index < n_z_samples; ++z_index) {
+                const double z     = sample_axis_coordinate(z_min, z_max, n_z_samples, z_index);
+                const vector3 point = get_dimension() == 3 ? vector3{x_point.x(), y, z} : vector3{x_point.x(), y, 0.0};
+                auto         *p_element = find_element_at_location(point);
+                if (p_element == nullptr) {
+                    continue;
+                }
+
+                for (std::size_t field_index = 0; field_index < scalar_function_names.size(); ++field_index) {
+                    const double value =
+                        sample_scalar_function(*this, *p_element, point, scalar_function_names[field_index]);
+                    if (std::isfinite(value)) {
+                        scalar_sums[field_index] += value;
+                        ++scalar_counts[field_index];
+                    }
+                }
+
+                for (std::size_t field_index = 0; field_index < vector_function_names.size(); ++field_index) {
+                    const auto value =
+                        sample_vector_function(*this, *p_element, point, vector_function_names[field_index]);
+                    if (std::isfinite(value.x()) && std::isfinite(value.y()) && std::isfinite(value.z())) {
+                        vector_sums[field_index] += value;
+                        ++vector_counts[field_index];
+                    }
+                }
+            }
+        }
+
+        file_export << x_point.x() << ',';
+        for (std::size_t field_index = 0; field_index < scalar_function_names.size(); ++field_index) {
+            const double value =
+                scalar_counts[field_index] > 0 ? scalar_sums[field_index] / scalar_counts[field_index] : nan;
+            file_export << value << ",";
+        }
+        for (std::size_t field_index = 0; field_index < vector_function_names.size(); ++field_index) {
+            const auto value =
+                vector_counts[field_index] > 0 ? vector_sums[field_index] / vector_counts[field_index]
+                                               : vector3{nan, nan, nan};
+            file_export << value.x() << ",";
+            file_export << value.y() << ",";
+            file_export << value.z() << ",";
         }
         file_export << "0\n";
     }

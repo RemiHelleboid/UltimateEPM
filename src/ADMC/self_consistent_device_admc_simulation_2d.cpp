@@ -372,7 +372,11 @@ void self_consistent_device_admc_simulation_2d::place_initial_charges_according_
         throw std::runtime_error("Acceptor concentration maximum is non-positive.");
     }
 
+    const std::size_t max_attempts_electrons = 1000 * number_electrons;
+    const std::size_t max_attempts_holes = 1000 * number_holes;
+    std::size_t attempts = 0;
     while (electron_positions.size() < number_electrons) {
+        attempts++;
         const mesh::vector3 position = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
         const double donor_density = mesh->interpolate_scalar_at_location(donor_field_name, position);
         const double acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
@@ -384,8 +388,19 @@ void self_consistent_device_admc_simulation_2d::place_initial_charges_according_
         if (probability > min_probability && uniform01(m_contact_rng) < probability) {
             electron_positions.push_back(position);
         }
+        if (attempts > max_attempts_electrons) {
+            fmt::print("WARNING: Reached maximum attempts ({}) to place electrons according to doping. "
+                       "Placed {} electrons out of {} requested.\n",
+                       max_attempts_electrons,
+                       electron_positions.size(),
+                       number_electrons);
+            break;
+        }
     }
+
+    std::size_t hole_attempts = 0;
     while (hole_positions.size() < number_holes) {
+        hole_attempts++;
         const mesh::vector3 position = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
         const double acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
         const double donor_density = mesh->interpolate_scalar_at_location(donor_field_name, position);
@@ -396,6 +411,14 @@ void self_consistent_device_admc_simulation_2d::place_initial_charges_according_
         const double probability = acceptor_density / max_acceptor_concentration;
         if (probability > min_probability && uniform01(m_contact_rng) < probability) {
             hole_positions.push_back(position);
+        }
+        if (hole_attempts > max_attempts_holes) {
+            fmt::print("WARNING: Reached maximum attempts ({}) to place holes according to doping. "
+                       "Placed {} holes out of {} requested.\n",
+                       max_attempts_holes,
+                       hole_positions.size(),
+                       number_holes);
+            break;
         }
     }
 
@@ -412,7 +435,15 @@ void self_consistent_device_admc_simulation_2d::place_initial_charges_according_
 }
 
 void self_consistent_device_admc_simulation_2d::add_charges_at_contacts(std::size_t poisson_frequency) {
+    if (poisson_frequency == 0) {
+        throw std::invalid_argument("ADMC Poisson frequency must be positive.");
+    }
+
     const double particle_weight = m_self_consistent_options.m_common.m_contact_injection_particle_weight;
+    if (particle_weight <= 0.0) {
+        throw std::invalid_argument("ADMC contact injection particle weight must be positive.");
+    }
+
     if (m_list_element_contact_ptr.empty()) {
         return;
     }
@@ -442,26 +473,43 @@ void self_consistent_device_admc_simulation_2d::add_charges_at_contacts(std::siz
     const std::size_t number_holes_to_place =
         static_cast<std::size_t>(std::floor(total_hole_charge_to_add / particle_weight));
 
+    std::vector<mesh::vector3> electron_positions;
+    std::vector<mesh::vector3> hole_positions;
+
+    electron_positions.reserve(number_electrons_to_place);
+    hole_positions.reserve(number_holes_to_place);
+
+    const auto has_capacity = [&]() {
+        return m_particles.size() + electron_positions.size() + hole_positions.size() <
+               m_options.m_max_number_particles;
+    };
+
     std::uniform_int_distribution<std::size_t> contact_index_distribution(0, m_list_element_contact_ptr.size() - 1);
-    for (std::size_t count = 0; count < number_electrons_to_place && !has_reached_particle_limit(); ++count) {
+
+    while (electron_positions.size() < number_electrons_to_place && has_capacity()) {
         const std::size_t i = contact_index_distribution(m_contact_rng);
         if (electron_charge_to_add[i] <= 0.0) {
             continue;
         }
-        add_particle_at_position(m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng),
-                                 carrier_type::electron,
-                                 particle_weight);
+        electron_positions.push_back(
+            m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
         electron_charge_to_add[i] -= particle_weight;
     }
-    for (std::size_t count = 0; count < number_holes_to_place && !has_reached_particle_limit(); ++count) {
+
+    while (hole_positions.size() < number_holes_to_place && has_capacity()) {
         const std::size_t i = contact_index_distribution(m_contact_rng);
         if (hole_charge_to_add[i] <= 0.0) {
             continue;
         }
-        add_particle_at_position(m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng),
-                                 carrier_type::hole,
-                                 particle_weight);
+        hole_positions.push_back(m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
         hole_charge_to_add[i] -= particle_weight;
+    }
+
+    for (const auto& position : electron_positions) {
+        add_particle_at_position(position, carrier_type::electron, particle_weight);
+    }
+    for (const auto& position : hole_positions) {
+        add_particle_at_position(position, carrier_type::hole, particle_weight);
     }
 }
 
@@ -533,10 +581,6 @@ void self_consistent_device_admc_simulation_2d::run_self_consistent_transport_si
 
     reset_element_charges();
     while (m_state.m_time_s < m_options.m_final_time_s) {
-        if (m_particles.empty() && !has_pending_scheduled_particle_injection()) {
-            fmt::print("Stop: no particles remaining in device.\n");
-            break;
-        }
         if (m_options.m_stop_when_no_electrons && get_number_electrons() == 0 &&
             !has_pending_scheduled_particle_injection()) {
             fmt::print("Stop: no electrons remaining in device.\n");

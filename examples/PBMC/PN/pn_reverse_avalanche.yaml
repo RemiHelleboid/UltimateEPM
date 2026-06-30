@@ -1,0 +1,89 @@
+# Complete PBMC device simulation configuration
+# Override settings with --set path.to.setting=value or --set path.to.setting value.
+# Relative input paths are resolved from this file's directory.
+input:
+  device_mesh: pn_2d.msh
+  material_root: ""
+  material: Si
+run:
+  name: self_consistent_PBMC
+  output_directory: pn_reverse_avalanche
+  threads: 1
+  seed: 0
+simulation:
+  final_time_s: 10e-12
+  time_step_s: 1e-16
+  temperature_K: 300
+  max_particles: 1000000000
+  poisson_frequency: 5
+  stop_when_no_electrons: true
+transport:
+  max_energy_eV: 0.5
+  gamma_safety_factor: 1.2
+  gamma_samples: 1000
+  impact_ionization: true
+  particle_creation: true
+  impurity_scattering: false
+  impurity_model: mobility
+  impurity_screening: debye
+  boundary_reflection: reverse
+contacts:
+  voltages_V:
+    anode: 0.0
+    cathode: 30
+  collecting:
+    anode: true
+    cathode: true
+  ramo_electrode: anode
+  apply_built_in_potential: true
+  built_in_voltage_scale: 1
+poisson_mixing:
+  enabled: false
+  old_solution_fraction: 0
+particles:
+  initial_electrons: 0
+  initial_holes: 0
+  initial_position:
+    x_um: 0
+    y_um: 0
+    z_um: 0
+  initialize_from_doping: true
+  initial_weight: 1
+  initial_state_file: ""
+  contact_injection_weight: 1
+geometry_2d:
+  effective_depth_um: 2.5
+scheduled_injection:
+  enabled: true
+  time_s: 2e-12
+  position:
+    x_um: 0.3
+    y_um: 0.125
+    z_um: 0
+  type: electron
+  weight: 1
+current_probe:
+  enabled: false
+  x_min_um: 0
+  x_max_um: 0
+  y_min_um: 0
+  y_max_um: 0
+  z_min_um: 0
+  z_max_um: 0
+output:
+  keep_particle_history: false
+  export_time_steps: true
+  export_frequency: 50
+quench_circuit:
+  enabled: false
+  resistance_ohm: 1
+  capacitance_F: 1
+  biased_contact: cathode
+  ramo_current_sign: -1
+  background_ramo_current_A: 0
+  auto_background_ramo_current: false
+avalanche_detection:
+  voltage_drop_V: 1
+quench_detection:
+  high_field_V_per_cm: 100000
+  quiet_time_s: 1e-11

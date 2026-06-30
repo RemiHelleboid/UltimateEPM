@@ -65,8 +65,8 @@ void validate_material_symbol(const std::string& material_symbol) {
 void add_collecting_contacts(uepm::device::device&           simulation_device,
                              uepm::mesh::mesh&               mesh,
                              const std::vector<std::string>& contact_names) {
-    constexpr double contact_collection_depth = 0.001;
-    constexpr double contact_margin           = 10.0;
+    constexpr double contact_collection_depth = 0.0025; 
+    constexpr double contact_margin           = 10.0;   
     constexpr double ohmic_resistance         = 0.0;
 
     const mesh::bbox device_bbox   = mesh.get_bounding_box();

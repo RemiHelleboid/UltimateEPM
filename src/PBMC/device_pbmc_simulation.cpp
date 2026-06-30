@@ -1620,12 +1620,15 @@ void device_pbmc_simulation::export_current_mesh_as_vtk(const std::string &direc
     const bool export_x_cut_enabled = true;
     if (export_x_cut_enabled) {
         const auto                  device_box = m_device.get_p_mesh()->get_bounding_box();
-        const auto                  y_middle   = 0.5 * (device_box.get_y_min() + device_box.get_y_max());
-        const auto                  z_middle   = 0.5 * (device_box.get_z_min() + device_box.get_z_max());
         const auto                  dx         = 1e-3;  // 1 nm
+        const auto                  y_extent   = device_box.get_y_max() - device_box.get_y_min();
+        const auto                  z_extent   = device_box.get_z_max() - device_box.get_z_min();
+        const auto                  n_y_samples = std::max<std::size_t>(1, static_cast<std::size_t>(y_extent / dx) + 1);
+        const auto                  n_z_samples =
+            m_dimension == 3 ? std::max<std::size_t>(1, static_cast<std::size_t>(z_extent / dx) + 1) : 1;
         const std::filesystem::path x_cut_path =
             output_directory / fmt::format("mesh_x_cut_{:012d}.csv", m_state.m_iteration);
-        m_device.get_p_mesh()->export_x_cut(x_cut_path.string(), y_middle, z_middle, dx);
+        m_device.get_p_mesh()->export_x_profile(x_cut_path.string(), dx, n_y_samples, n_z_samples);
     }
 }
 

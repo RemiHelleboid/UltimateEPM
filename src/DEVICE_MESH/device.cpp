@@ -12,12 +12,47 @@
 #include "device.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
+#include <limits>
 #include <regex>
 
 #include "contact.hpp"
 
 namespace uepm::device {
+namespace {
+
+bool segment_intersects_box(const mesh::bbox &box, const mesh::vector3 &start, const mesh::vector3 &end) {
+    if (box.is_inside(start) || box.is_inside(end)) {
+        return true;
+    }
+
+    double t_min = 0.0;
+    double t_max = 1.0;
+
+    const auto update_axis = [&](double start_value, double end_value, double min_value, double max_value) {
+        const double delta = end_value - start_value;
+        if (std::abs(delta) <= std::numeric_limits<double>::epsilon()) {
+            return start_value >= min_value && start_value <= max_value;
+        }
+
+        double t1 = (min_value - start_value) / delta;
+        double t2 = (max_value - start_value) / delta;
+        if (t1 > t2) {
+            std::swap(t1, t2);
+        }
+
+        t_min = std::max(t_min, t1);
+        t_max = std::min(t_max, t2);
+        return t_min <= t_max;
+    };
+
+    return update_axis(start.x(), end.x(), box.get_x_min(), box.get_x_max()) &&
+           update_axis(start.y(), end.y(), box.get_y_min(), box.get_y_max()) &&
+           update_axis(start.z(), end.z(), box.get_z_min(), box.get_z_max());
+}
+
+}  // namespace
 
 void device::add_contact(const std::string &contact_name, const mesh::bbox contact_box, const double ohmic_resistance) {
     double         null_ohmic_resistance{ohmic_resistance};
@@ -36,14 +71,11 @@ void device::add_contact(const std::string  &contact_name,
 
 bool device::check_crossing_contact(const mesh::vector3 &point_A, const mesh::vector3 &point_B) const {
     return std::any_of(m_list_contacts.begin(), m_list_contacts.end(), [&](const device_contact &device_contact) {
-        return device_contact.line_intersect_contact(point_A, point_B);
+        return segment_intersects_box(device_contact.get_contact_box(), point_A, point_B);
     });
 }
 
 bool device::check_enters_contact(const mesh::vector3 &point) {
-    // return std::any_of(m_list_contacts.begin(), m_list_contacts.end(),
-    //                    [&](const device_contact &device_contact) { return device_contact.point_in_contact_box(point);
-    //                    });
     for (auto &device_contact : m_list_contacts) {
         if (device_contact.point_in_contact_box(point)) {
             device_contact.add_contact_current(1.0);
