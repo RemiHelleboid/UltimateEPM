@@ -221,8 +221,12 @@ class Tetra {
         return m_gradient_energy_per_band[band_index];
     }
 
-    bool                 is_energy_inside_band(double energy, std::size_t index_band) const;
-    bool                 does_intersect_band_energy_range(double e_min, double e_max, std::size_t index_band) const;
+    bool is_energy_inside_band(double energy, std::size_t index_band) const {
+        return energy >= m_min_energy_per_band[index_band] && energy <= m_max_energy_per_band[index_band];
+    }
+    bool does_intersect_band_energy_range(double e_min, double e_max, std::size_t index_band) const {
+        return !(e_max < m_min_energy_per_band[index_band] || e_min > m_max_energy_per_band[index_band]);
+    }
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
     double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;
     double               compute_tetra_dos_energy_band(double energy, std::size_t band_index) const;

@@ -19,6 +19,8 @@
 #include "bz_states.hpp"
 #include "dielectric_mesh.hpp"
 #include "epm_material.hpp"
+#include "impact_ionization_state.hpp"
+#include "screened_coulomb_kernel.hpp"
 
 namespace uepm::mesh_bz {
 
@@ -73,6 +75,11 @@ class ImpactIonization {
     ImpactIonization(const uepm::pseudopotential::epm_material& material, const std::string& initial_mesh_path);
     void read_dielectric_file(const std::string& filename);
     void interp_test_dielectric_function(std::string filename);
+    std::size_t number_bz_state_tables() const noexcept { return m_list_BZ_states.size(); }
+    ImpactIonizationStateTable make_state_table(std::size_t bz_state_index = 0) const;
+    ScreenedCoulombKernel make_screened_coulomb_kernel(ScreenedCoulombKernelConfig config = {}) const {
+        return ScreenedCoulombKernel(m_dielectric_mesh, config);
+    }
 
     double get_max_radius_G0_BZ() const { return m_max_radius_G0_BZ; }
     void   set_max_radius_G0_BZ(double max_radius_G0_BZ) { m_max_radius_G0_BZ = max_radius_G0_BZ; }

@@ -188,8 +188,10 @@ RateKernel8 ElectronPhonon::compute_electron_phonon_transition_kernel_pair(std::
 
             const double Eph_eV      = hbar_eV * omega;
             const double N0          = bose_einstein_distribution(Eph_eV, m_temperature_K);
+            const double band_min_eV = tetra.get_min_energy_at_band(idx_n2);
+            const double band_max_eV = tetra.get_max_energy_at_band(idx_n2);
             const auto   add_process = [&](PhononEvent process, double final_energy, double bose_factor) {
-                if (!tetra.is_energy_inside_band(final_energy, idx_n2)) {
+                if (final_energy < band_min_eV || final_energy > band_max_eV) {
                     return;
                 }
                 const double dos_eV = tetra.compute_tetra_dos_energy_band(final_energy, idx_n2);
@@ -317,8 +319,10 @@ RateKernel8 ElectronPhonon::compute_hole_phonon_rate_kernel(std::size_t idx_n1, 
 
                     const double Eph_eV      = uepm::constants::h_bar_eV * omega;
                     const double N0          = bose_einstein_distribution(Eph_eV, m_temperature_K);
+                    const double band_min_eV = tetra.get_min_energy_at_band(idx_n2);
+                    const double band_max_eV = tetra.get_max_energy_at_band(idx_n2);
                     const auto   add_process = [&](PhononEvent process, double final_energy, double bose_factor) {
-                        if (!tetra.is_energy_inside_band(final_energy, idx_n2)) {
+                        if (final_energy < band_min_eV || final_energy > band_max_eV) {
                             return;
                         }
                         const double dos_eV = tetra.compute_tetra_dos_energy_band(final_energy, idx_n2);
@@ -609,10 +613,8 @@ SelectedFinalState ElectronPhonon::select_phonon_final_state(std::size_t     idx
         }
 
         const auto& tetra_energy_index = get_tetra_energy_index_at_band(idx_n2);
-        tetra_energy_index.for_each_candidate(Ef_min_win, Ef_max_win, [&](std::size_t idx_tetra) {
-            const auto& T = m_list_tetrahedra[idx_tetra];
-
-            const vector3 k2_representative = T.get_barycenter();
+        tetra_energy_index.for_each_candidate_data(Ef_min_win, Ef_max_win, [&](const TetraEnergyCandidate& candidate) {
+            const vector3 k2_representative = candidate.barycenter;
             for (std::size_t image_index = 0; image_index < positive_octant_images.size(); ++image_index) {
                 if (!stores_positive_octant() && image_index > 0) {
                     break;
@@ -630,10 +632,11 @@ SelectedFinalState ElectronPhonon::select_phonon_final_state(std::size_t     idx
 
                 const double Eph_eV = hbar_eV * omega;
                 const double Ef_eV  = Ei_eV + sign * Eph_eV;
-                if (!T.is_energy_inside_band(Ef_eV, idx_n2)) {
+                if (Ef_eV < candidate.minimum_energy || Ef_eV > candidate.maximum_energy) {
                     continue;
                 }
 
+                const auto&            T       = m_list_tetrahedra[candidate.tetra_index];
                 const IsoEnergyPolygon polygon = T.compute_band_iso_energy_polygon(Ef_eV, idx_n2);
                 const double dos_eV = T.compute_tetra_dos_energy_band(Ef_eV, idx_n2, polygon);
                 if (!(dos_eV > 0.0) || !std::isfinite(dos_eV)) {
@@ -658,7 +661,7 @@ SelectedFinalState ElectronPhonon::select_phonon_final_state(std::size_t     idx
                 const double P           = (pi / (m_rho_kg_m3 * omega)) * mode_factor * qe * qe * I2 * bose * dos_per_J;
 
                 if (P > 0.0 && std::isfinite(P)) {
-                    candidates.push_back(Candidate{idx_n2, idx_tetra, Ef_eV, P, signs});
+                    candidates.push_back(Candidate{idx_n2, candidate.tetra_index, Ef_eV, P, signs});
                 }
             }
         });

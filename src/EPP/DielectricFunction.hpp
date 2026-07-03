@@ -174,6 +174,14 @@ class DielectricFunction {
         return result;
     }
 
+    const std::vector<double> get_flat_dielectric_function_imaginary() const {
+        std::vector<double> result;
+        for (const auto& q : m_dielectric_function_imag) {
+            result.insert(result.end(), q.begin(), q.end());
+        }
+        return result;
+    }
+
     /**
      * @brief Merge the results of multiple instances of this class.
      * This is used to parallelize the computation of the dielectric function where
@@ -185,7 +193,8 @@ class DielectricFunction {
      */
     static DielectricFunction merge_results(
         DielectricFunction                                   RootDielectricFunction,
-        const std::vector<std::vector<std::vector<double>>>& dielectric_function_results,
+        const std::vector<std::vector<std::vector<double>>>& dielectric_function_real_results,
+        const std::vector<std::vector<std::vector<double>>>& dielectric_function_imag_results,
         std::vector<int>                                     nb_kpoints_per_instance);
 
     /**

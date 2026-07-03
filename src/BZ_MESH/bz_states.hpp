@@ -76,7 +76,18 @@ class BZ_States : public MeshBZ {
     const std::vector<double>& get_energies() const { return m_list_energies; }
     void                       set_energies(const std::vector<double>& energies) { m_list_energies = energies; }
 
+    bool has_eigenstates() const noexcept {
+        return m_eigenvalues_k.size() == m_list_vertices.size() && m_eigenvectors_k.size() == m_list_vertices.size();
+    }
+    const std::vector<Eigen::VectorXd>&  get_eigenvalues_by_k() const { return m_eigenvalues_k; }
     const std::vector<Eigen::MatrixXcd>& get_eigen_states() const { return m_eigenvectors_k; }
+    const Eigen::VectorXd&               get_eigenvalues_at_k(std::size_t idx_k) const { return m_eigenvalues_k.at(idx_k); }
+    const Eigen::MatrixXcd&              get_eigenvectors_at_k(std::size_t idx_k) const {
+        return m_eigenvectors_k.at(idx_k);
+    }
+    double get_eigenvalue_eV(std::size_t idx_k, std::size_t idx_band) const {
+        return m_eigenvalues_k.at(idx_k)[static_cast<Eigen::Index>(idx_band)];
+    }
 
     double compute_fermi_level(double doping_concentration, double temperature) const;
 

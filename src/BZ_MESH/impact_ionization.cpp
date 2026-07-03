@@ -80,6 +80,13 @@ void ImpactIonization::interp_test_dielectric_function(std::string filename) {
     file.close();
 }
 
+ImpactIonizationStateTable ImpactIonization::make_state_table(std::size_t bz_state_index) const {
+    if (bz_state_index >= m_list_BZ_states.size()) {
+        throw std::out_of_range("ImpactIonization::make_state_table: invalid BZ state index.");
+    }
+    return ImpactIonizationStateTable(*m_list_BZ_states[bz_state_index]);
+}
+
 void ImpactIonization::compute_eigenstates(int nb_threads) {
     int                      nb_bands_to_use = 16;
     uepm::mesh_bz::BZ_States my_bz_mesh(m_material);

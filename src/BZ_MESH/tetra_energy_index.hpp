@@ -14,15 +14,25 @@
 #include <algorithm>
 #include <cstddef>
 #include <span>
+#include <utility>
 #include <vector>
 
 #include "mesh_tetra.hpp"
 
 namespace uepm::mesh_bz {
 
+struct TetraEnergyCandidate {
+    std::size_t tetra_index;
+    double      minimum_energy;
+    double      maximum_energy;
+    vector3     barycenter;
+};
+
 struct BandTetraEnergyIndex {
     std::vector<std::size_t> ordered_tetra_indices;
     std::vector<double>      ordered_min_energies;
+    std::vector<double>      ordered_max_energies;
+    std::vector<vector3>     ordered_barycenters;
     std::vector<double>      maximum_energy_tree;
     double                   maximum_energy_spread = 0.0;
 
@@ -30,6 +40,13 @@ struct BandTetraEnergyIndex {
 
     template <typename Function>
     void for_each_candidate(double minimum_energy, double maximum_energy, Function&& function) const {
+        for_each_candidate_slot(minimum_energy, maximum_energy, [&](std::size_t ordered_index) {
+            function(ordered_tetra_indices[ordered_index]);
+        });
+    }
+
+    template <typename Function>
+    void for_each_candidate_slot(double minimum_energy, double maximum_energy, Function&& function) const {
         const auto upper =
             std::upper_bound(ordered_min_energies.begin(), ordered_min_energies.end(), maximum_energy);
         const std::size_t end_index = static_cast<std::size_t>(upper - ordered_min_energies.begin());
@@ -45,7 +62,7 @@ struct BandTetraEnergyIndex {
                 return;
             }
             if (end - begin == 1) {
-                function(ordered_tetra_indices[begin]);
+                function(begin);
                 return;
             }
             const std::size_t middle = begin + (end - begin) / 2;
@@ -53,6 +70,16 @@ struct BandTetraEnergyIndex {
             self(self, 2 * node + 2, middle, end);
         };
         visit(visit, 0, 0, ordered_tetra_indices.size());
+    }
+
+    template <typename Function>
+    void for_each_candidate_data(double minimum_energy, double maximum_energy, Function&& function) const {
+        for_each_candidate_slot(minimum_energy, maximum_energy, [&](std::size_t ordered_index) {
+            function(TetraEnergyCandidate{ordered_tetra_indices[ordered_index],
+                                          ordered_min_energies[ordered_index],
+                                          ordered_max_energies[ordered_index],
+                                          ordered_barycenters[ordered_index]});
+        });
     }
 };
 

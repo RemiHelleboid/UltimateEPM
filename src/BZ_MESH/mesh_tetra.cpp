@@ -794,14 +794,6 @@ vector3 Tetra::draw_random_uniform_point_at_energy(const IsoEnergyPolygon& polyg
     }
 }
 
-bool Tetra::is_energy_inside_band(double energy, std::size_t index_band) const {
-    return (energy >= m_min_energy_per_band[index_band] && energy <= m_max_energy_per_band[index_band]);
-}
-
-bool Tetra::does_intersect_band_energy_range(double e_min, double e_max, std::size_t index_band) const {
-    return !(e_max < m_min_energy_per_band[index_band] || e_min > m_max_energy_per_band[index_band]);
-}
-
 std::array<double, 8> Tetra::get_tetra_electron_phonon_rates(int band_index) const {
     std::array<double, 8> mean_rates;
     std::fill(mean_rates.begin(), mean_rates.end(), 0.0);

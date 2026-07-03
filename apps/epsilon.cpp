@@ -1,377 +1,612 @@
 /**
  * @file epsilon.cpp
- * @author remzerrr (remi.helleboid@gmail.com)
- * @brief
- * @version 0.1
- * @date 2022-11-26
- *
- * @copyright Copyright (c) 2022
- *
+ * @brief MPI dielectric-function validation and generation app.
  */
-
-#if SIZE_MAX == UCHAR_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED_CHAR
-#elif SIZE_MAX == USHRT_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED_SHORT
-#elif SIZE_MAX == UINT_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED
-#elif SIZE_MAX == ULONG_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED_LONG
-#elif SIZE_MAX == ULLONG_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED_LONG_LONG
-#else
-#error "what is happening here?"
-#endif
-
-#define MASTER 0
 
 #include <mpi.h>
 #include <tclap/CmdLine.h>
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
+#include <cstddef>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <thread>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "BandStructure.h"
 #include "DielectricFunction.hpp"
 #include "Options.h"
 
-std::vector<Vector3D<double>> read_qpoint_dat_file(const std::string& filename) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        throw std::runtime_error("Could not open file: " + filename);
+namespace {
+
+struct EpsilonAppConfig {
+    std::string material_name{"Si"};
+    std::string epm_parameter_set{"local-cohen"};
+    std::string output_prefix{"epsilon"};
+    std::string mode{"q-list"};
+    std::string q_file{};
+    std::string q_values{"1e-2,1e-3,1e-4"};
+    Vector3D<double> direction{1.0, 0.0, 0.0};
+
+    int nb_nearest_neighbors{10};
+    int nb_bands{16};
+    int nkx{40};
+    int nky{40};
+    int nkz{40};
+    int bz_sampling{1};
+    int q_count{40};
+
+    double min_energy_eV{0.0};
+    double max_energy_eV{20.0};
+    double energy_step_eV{0.01};
+    double eta_smearing_eV{0.05};
+    double q_min{1e-2};
+    double q_max{3.0};
+    double small_q_diagnostic_threshold{5e-2};
+
+    bool nonlocal_epm{false};
+    bool enable_soc{false};
+};
+
+template <typename T>
+void load_yaml_value(const YAML::Node& node, const char* key, T& value) {
+    if (node[key]) {
+        value = node[key].as<T>();
     }
-    std::vector<Vector3D<double>> kpoints;
-    std::string                   line;
-    while (std::getline(file, line)) {
-        if (line.empty()) {
+}
+
+void load_yaml_value_any_key(const YAML::Node& node, const std::vector<const char*>& keys, int& value) {
+    for (const char* key : keys) {
+        if (node[key]) {
+            value = node[key].as<int>();
+            return;
+        }
+    }
+}
+
+std::vector<double> parse_double_list(std::string text) {
+    std::replace(text.begin(), text.end(), ':', ',');
+    std::replace(text.begin(), text.end(), ';', ',');
+
+    std::vector<double> values;
+    std::stringstream   stream(text);
+    std::string         token;
+    while (std::getline(stream, token, ',')) {
+        if (token.empty()) {
             continue;
         }
-        std::stringstream   ss(line);
-        std::string         token;
-        std::vector<double> kpoint;
-        while (std::getline(ss, token, ' ')) {
-            kpoint.push_back(std::stod(token));
+        values.push_back(std::stod(token));
+    }
+    return values;
+}
+
+Vector3D<double> parse_vector3(std::string text) {
+    std::replace(text.begin(), text.end(), ';', ',');
+    std::replace(text.begin(), text.end(), ' ', ',');
+    const auto values = parse_double_list(text);
+    if (values.size() != 3) {
+        throw std::invalid_argument("Expected a vector with three components, e.g. 1,0,0.");
+    }
+    return Vector3D<double>(values[0], values[1], values[2]);
+}
+
+Vector3D<double> normalized_direction(Vector3D<double> direction) {
+    const double norm = direction.Length();
+    if (!(norm > 0.0)) {
+        throw std::invalid_argument("Direction vector must be non-zero.");
+    }
+    return direction / norm;
+}
+
+std::vector<double> make_energy_grid(double emin, double emax, double estep) {
+    if (!(estep > 0.0)) {
+        throw std::invalid_argument("Energy step must be positive.");
+    }
+    if (emax < emin) {
+        throw std::invalid_argument("Maximum energy must be larger than minimum energy.");
+    }
+
+    std::vector<double> energies;
+    for (double energy = emin; energy <= emax + 0.5 * estep; energy += estep) {
+        energies.push_back(energy);
+    }
+    return energies;
+}
+
+std::vector<Vector3D<double>> read_qpoint_file(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        throw std::runtime_error("Could not open q-point file: " + filename);
+    }
+
+    std::vector<Vector3D<double>> qpoints;
+    std::string                   line;
+    while (std::getline(file, line)) {
+        if (line.empty() || line[0] == '#') {
+            continue;
         }
-        kpoints.push_back(Vector3D<double>(kpoint[0], kpoint[1], kpoint[2]));
-    }
-    return kpoints;
-}
-
-typedef struct vector_k {
-    double m_kx;
-    double m_ky;
-    double m_kz;
-
-    vector_k() : m_kx(0), m_ky(0), m_kz(0) {}
-    vector_k(double kx, double ky, double kz) : m_kx(kx), m_ky(ky), m_kz(kz) {}
-    void set_k(double kx, double ky, double kz) {
-        m_kx = kx;
-        m_ky = ky;
-        m_kz = kz;
-    }
-    double           norm() const { return std::sqrt(m_kx * m_kx + m_ky * m_ky + m_kz * m_kz); }
-    Vector3D<double> to_Vector3D() const { return Vector3D<double>(m_kx, m_ky, m_kz); }
-} vector_k;
-
-void export_eps_result(const std::string&         filename,
-                       const std::vector<double>  energies,
-                       const std::vector<double>& eps,
-                       bool                       python_plot) {
-    std::ofstream file(filename);
-    file << "Energy,Epsilon" << std::endl;
-    for (std::size_t i = 0; i < energies.size(); ++i) {
-        file << energies[i] << "," << eps[i] << std::endl;
-    }
-    file.close();
-    const std::string python_plot_band_structure_script =
-        std::string(PROJECT_SRC_DIR) + "/python/plots/plot_eps_vs_energy.py";
-    std::string python_call = "python3 " + python_plot_band_structure_script + " --filename " + filename;
-    // bool              call_python_plot                  = false;
-    // bool call_python_plot = true;
-    if (python_plot) {
-        std::cout << "Executing: " << python_call << std::endl;
-        int succes_plot = system(python_call.c_str());
-        std::cout << "Succes plot: " << succes_plot << std::endl;
-    }
-}
-
-Vector3D<double> get_q(double qxyz, int crystalo_dir) {
-    if (crystalo_dir == 100) {
-        return Vector3D<double>(qxyz, 0.0, 0.0);
-    } else if (crystalo_dir == 110) {
-        return Vector3D<double>(qxyz, qxyz, 0.0);
-    } else if (crystalo_dir == 111) {
-        return Vector3D<double>(qxyz, qxyz, qxyz);
-    } else {
-        throw std::runtime_error("Invalid crystal direction: " + std::to_string(crystalo_dir));
-    }
-}
-
-int main(int argc, char** argv) {
-    int number_processes;
-    int process_rank;
-    MPI_Init(&argc, &argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &number_processes);
-    MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
-
-    // Get processor name
-    char processor_name[MPI_MAX_PROCESSOR_NAME];
-    int  name_len;
-    MPI_Get_processor_name(processor_name, &name_len);
-
-    if (process_rank == 0) {
-        std::cout << "EPSILON PROGRAM" << std::endl;
-        std::cout << "Number of processes: " << number_processes << std::endl;
-    }
-    std::cout << "Process " << process_rank << " of " << number_processes << " is on " << processor_name << std::endl;
-
-    TCLAP::CmdLine               cmd("Epsilon", ' ', "0.1");
-    TCLAP::ValueArg<std::string> arg_yaml_config("c", "config", "YAML config file", true, "", "string");
-    TCLAP::ValueArg<int> arg_crystal_dir("d", "dir", "Crystalographic direction (100, 110, 111)", false, 100, "int");
-
-    cmd.add(arg_yaml_config);
-    cmd.add(arg_crystal_dir);
-    cmd.parse(argc, argv);
-
-    const std::string file_yaml_config = arg_yaml_config.getValue();
-    const int         crystal_dir      = arg_crystal_dir.getValue();
-
-    YAML::Node config = YAML::LoadFile(file_yaml_config);
-
-    if (!config["material"]) {
-        std::cout << "No material section in the config file" << std::endl;
-        exit(0);
-    }
-    std::string outdir = config["outdir"].as<std::string>();
-
-    std::string material_name        = config["material"].as<std::string>();
-    int         nb_nearest_neighbors = config["nearest-neigbors"].as<int>();
-    int         nb_bands             = config["nb-bands"].as<int>();
-
-    double min_energy   = config["min-energy"].as<double>();
-    double max_energy   = config["max-energy"].as<double>();
-    double energy_step  = config["step-energy"].as<double>();
-    double eta_smearing = config["eta-smearing"].as<double>();
-
-    int Nkx = config["Nkx"].as<int>();
-    int Nky = config["Nky"].as<int>();
-    int Nkz = config["Nkz"].as<int>();
-
-    bool nonlocal_epm = false;
-    bool enable_soc   = false;
-    if (config["nonlocal"]) {
-        nonlocal_epm = config["nonlocal"].as<bool>();
-    }
-
-    if (process_rank == 0) {
-        std::cout << "epm_material: " << material_name << std::endl;
-        std::cout << "Number of nearest neighbors: " << nb_nearest_neighbors << std::endl;
-        std::cout << "Number of bands: " << nb_bands << std::endl;
-        std::cout << "Nonlocal corrections: " << nonlocal_epm << std::endl;
-        std::cout << "Min energy: " << min_energy << std::endl;
-        std::cout << "Max energy: " << max_energy << std::endl;
-        std::cout << "Energy step: " << energy_step << std::endl;
-        std::cout << "Eta smearing: " << eta_smearing << std::endl;
-        std::cout << "Nkx: " << Nkx << std::endl;
-        std::cout << "Nky: " << Nky << std::endl;
-        std::cout << "Nkz: " << Nkz << std::endl;
-    }
-
-    int bz_sampling = config["bz-sampling"].as<int>();
-
-    bool use_irreducible_wedge = (bz_sampling == 48) ? true : false;
-
-    uepm::pseudopotential::Materials         materials;
-    const uepm::physics::material_repository material_repository;
-    const std::string                        epm_parameter_set = nonlocal_epm ? "potz-vogl" : "chel";
-    materials.load_material(material_repository, material_name, epm_parameter_set);
-    uepm::pseudopotential::epm_material  current_material = materials.materials.at(material_name);
-    uepm::pseudopotential::BandStructure band_structure{};
-
-    band_structure.Initialize(current_material, nb_bands, {}, nb_nearest_neighbors, nonlocal_epm, enable_soc);
-    uepm::pseudopotential::DielectricFunction MyDielectricFunc(current_material,
-                                                               band_structure.get_basis_vectors(),
-                                                               nb_bands);
-
-    double shift = 0.0;
-    MyDielectricFunc.generate_k_points_grid(Nkx, Nky, Nkz, shift, use_irreducible_wedge);
-    std::size_t nb_k_points = MyDielectricFunc.get_kpoints().size();
-    if (process_rank == 0) {
-        MyDielectricFunc.export_kpoints(outdir + "/kpoints.csv");
-        std::cout << "Number of k-points: " << nb_k_points << std::endl;
-    }
-
-    std::vector<double> list_energy;
-    for (double energy = min_energy; energy <= max_energy + energy_step; energy += energy_step) {
-        list_energy.push_back(energy);
-    }
-
-    // Create a new MPI type for the struct k_vector.
-    MPI_Datatype k_vector_type;
-    const int    number_item_k_vector = 3;
-    MPI_Datatype type[3]              = {MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE};
-    int          block_lengths[3]     = {1, 1, 1};
-    MPI_Aint     offsets[3];
-    offsets[0] = offsetof(vector_k, m_kx);
-    offsets[1] = offsetof(vector_k, m_ky);
-    offsets[2] = offsetof(vector_k, m_kz);
-    MPI_Type_create_struct(number_item_k_vector, block_lengths, offsets, type, &k_vector_type);
-    MPI_Type_commit(&k_vector_type);
-    // END Creating a new MPI type for the struct k_vector.
-
-    std::size_t                   nb_qpoints;
-    std::vector<Vector3D<double>> list_q;
-    if (config["file-list-q"]) {
-        std::string file_list_q = config["file-list-q"].as<std::string>();
-        std::cout << "File list q: " << file_list_q << std::endl;
-        list_q = read_qpoint_dat_file(file_list_q);
-    } else {
-        double           min_q      = 5.0e-13;
-        double           max_q_norm = 4.0;
-        double           step_q     = 0.1e4;
-        double           qx         = min_q;
-        Vector3D<double> q          = get_q(qx, crystal_dir);
-        while (q.Length() <= max_q_norm + step_q) {
-            list_q.push_back(q);
-            qx += step_q;
-            q = get_q(qx, crystal_dir);
+        std::replace(line.begin(), line.end(), ',', ' ');
+        std::stringstream stream(line);
+        double            qx = 0.0;
+        double            qy = 0.0;
+        double            qz = 0.0;
+        if (stream >> qx >> qy >> qz) {
+            qpoints.emplace_back(qx, qy, qz);
         }
     }
-    nb_qpoints = list_q.size();
-    if (process_rank == 0) {
-        std::cout << "Number of energies: " << list_energy.size() << std::endl;
-        std::cout << "Number of energies: " << list_energy.size() << std::endl;
-        std::cout << "Crystalo dir: " << arg_crystal_dir.getValue() << std::endl;
-        std::cout << "Number of q points: " << nb_qpoints << std::endl;
+    return qpoints;
+}
+
+std::vector<Vector3D<double>> make_qpoints(const EpsilonAppConfig& config) {
+    if (!config.q_file.empty()) {
+        auto qpoints = read_qpoint_file(config.q_file);
+        if (qpoints.empty()) {
+            throw std::runtime_error("The q-point file did not contain any valid q vectors.");
+        }
+        return qpoints;
     }
 
-    // Define the number of k-points each process will be responsible for.
-    std::vector<int> counts_kpoints_per_process(number_processes, 0);
-    std::vector<int> displacements_kpoints_per_process(number_processes, 0);
-    int              nb_points = nb_k_points;
-    const int        Ntot      = static_cast<int>(nb_k_points);
-    const int        base      = Ntot / number_processes;
-    const int        rem       = Ntot % number_processes;
-
-    for (int p = 0; p < number_processes; ++p) {
-        counts_kpoints_per_process[p] = base + (p < rem ? 1 : 0);
-        displacements_kpoints_per_process[p] =
-            (p == 0) ? 0 : displacements_kpoints_per_process[p - 1] + counts_kpoints_per_process[p - 1];
+    const Vector3D<double> direction = normalized_direction(config.direction);
+    std::vector<double>    q_norms;
+    if (config.mode == "q-list") {
+        q_norms = parse_double_list(config.q_values);
+    } else if (config.mode == "q-line") {
+        if (config.q_count < 2) {
+            throw std::invalid_argument("q-line mode requires --q-count >= 2.");
+        }
+        if (config.q_max < config.q_min) {
+            throw std::invalid_argument("q-line mode requires --q-max >= --q-min.");
+        }
+        const double step = (config.q_max - config.q_min) / static_cast<double>(config.q_count - 1);
+        for (int i = 0; i < config.q_count; ++i) {
+            q_norms.push_back(config.q_min + static_cast<double>(i) * step);
+        }
+    } else if (config.mode == "q-file") {
+        throw std::invalid_argument("q-file mode requires --q-file or YAML file-list-q.");
+    } else {
+        throw std::invalid_argument("Unknown epsilon mode '" + config.mode + "'. Use q-list, q-line, or q-file.");
     }
 
-    std::cout << "Process " << process_rank << " will handle " << counts_kpoints_per_process[process_rank]
-              << " k-points" << std::endl;
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    MyDielectricFunc.set_export_prefix(outdir + "/" + current_material.get_name() + "_");
-    MyDielectricFunc.set_qpoints(list_q);
-    MyDielectricFunc.set_energies(list_energy);
-    MyDielectricFunc.set_offset_k_index(displacements_kpoints_per_process[process_rank]);
-    MyDielectricFunc.set_nb_kpoints(counts_kpoints_per_process[process_rank]);
-    MyDielectricFunc.set_non_local_epm(nonlocal_epm);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    double start = MPI_Wtime();
-    MyDielectricFunc.compute_dielectric_function(eta_smearing, process_rank);
-    MyDielectricFunc.clear_eigen_states();
-
-    MPI_Barrier(MPI_COMM_WORLD); /* IMPORTANT */
-    double end = MPI_Wtime();
-    if (process_rank == 0) {
-        std::cout << "Total computational time: " << end - start << std::endl;
+    if (q_norms.empty()) {
+        throw std::invalid_argument("No q values were provided.");
     }
 
-    // Gather the results from all the processes.
-    // --- Gather results robustly (works for equal or variable payload sizes) ---
-    const std::size_t Q  = nb_qpoints;
-    const std::size_t E  = list_energy.size();
-    const std::size_t QE = Q * E;
+    std::vector<Vector3D<double>> qpoints;
+    qpoints.reserve(q_norms.size());
+    for (double q_norm : q_norms) {
+        qpoints.push_back(direction * q_norm);
+    }
+    return qpoints;
+}
 
-    std::vector<double> flat_local = MyDielectricFunc.get_flat_dielectric_function();
-    const int           local_n    = static_cast<int>(flat_local.size());
+void load_config_file(const std::string& filename, EpsilonAppConfig& config) {
+    if (filename.empty()) {
+        return;
+    }
 
-    // 1) Gather per-rank sizes to rank 0
-    std::vector<int> recvcounts, displs;
+    const YAML::Node yaml = YAML::LoadFile(filename);
+    load_yaml_value(yaml, "material", config.material_name);
+    load_yaml_value(yaml, "epm-set", config.epm_parameter_set);
+    load_yaml_value(yaml, "parameter-set", config.epm_parameter_set);
+    load_yaml_value(yaml, "nb-bands", config.nb_bands);
+    load_yaml_value_any_key(yaml, {"nearest-neighbors", "nearest-neigbors"}, config.nb_nearest_neighbors);
+    load_yaml_value(yaml, "nonlocal", config.nonlocal_epm);
+    load_yaml_value(yaml, "min-energy", config.min_energy_eV);
+    load_yaml_value(yaml, "max-energy", config.max_energy_eV);
+    load_yaml_value(yaml, "step-energy", config.energy_step_eV);
+    load_yaml_value(yaml, "eta-smearing", config.eta_smearing_eV);
+    load_yaml_value(yaml, "Nkx", config.nkx);
+    load_yaml_value(yaml, "Nky", config.nky);
+    load_yaml_value(yaml, "Nkz", config.nkz);
+    load_yaml_value(yaml, "bz-sampling", config.bz_sampling);
+    load_yaml_value(yaml, "file-list-q", config.q_file);
+    if (yaml["outdir"]) {
+        config.output_prefix = yaml["outdir"].as<std::string>() + "/" + config.material_name;
+    }
+}
+
+void create_output_parent(const std::string& output_prefix) {
+    const std::filesystem::path prefix_path(output_prefix);
+    const auto                  parent = prefix_path.parent_path();
+    if (!parent.empty()) {
+        std::filesystem::create_directories(parent);
+    }
+}
+
+bool has_nonempty_env(const char* name) {
+    const char* value = std::getenv(name);
+    return value != nullptr && value[0] != '\0';
+}
+
+bool launched_under_mpi() {
+    return has_nonempty_env("OMPI_COMM_WORLD_SIZE") || has_nonempty_env("PMI_SIZE") ||
+           has_nonempty_env("PMIX_RANK") || has_nonempty_env("MPI_LOCALNRANKS");
+}
+
+void normalize_mode(EpsilonAppConfig& config) {
+    if (config.mode == "optical") {
+        std::cout << "Warning: --mode optical is deprecated; use --mode q-list for explicit q values.\n";
+        config.mode = "q-list";
+    }
+}
+
+void print_config(const EpsilonAppConfig& config,
+                  const std::vector<double>& energies,
+                  const std::vector<Vector3D<double>>& qpoints,
+                  int number_processes) {
+    std::cout << "EPSILON PROGRAM\n";
+    std::cout << "MPI processes: " << number_processes << '\n';
+    std::cout << "Material: " << config.material_name << '\n';
+    std::cout << "EPM set: " << config.epm_parameter_set << '\n';
+    std::cout << "Bands: " << config.nb_bands << '\n';
+    std::cout << "Nearest neighbors: " << config.nb_nearest_neighbors << '\n';
+    std::cout << "Nonlocal EPM: " << config.nonlocal_epm << '\n';
+    std::cout << "k-grid: " << config.nkx << " x " << config.nky << " x " << config.nkz << '\n';
+    std::cout << "BZ sampling factor: " << config.bz_sampling << '\n';
+    std::cout << "Energy grid: " << energies.front() << " -> " << energies.back() << " eV, N=" << energies.size()
+              << ", eta=" << config.eta_smearing_eV << " eV\n";
+    std::cout << "Mode: " << config.mode << '\n';
+    std::cout << "q-points: " << qpoints.size() << '\n';
+    if (!qpoints.empty()) {
+        auto [min_q, max_q] = std::minmax_element(qpoints.begin(), qpoints.end(), [](const auto& lhs, const auto& rhs) {
+            return lhs.Length() < rhs.Length();
+        });
+        std::cout << "q range: " << min_q->Length() << " -> " << max_q->Length() << '\n';
+        std::cout << "First q: " << qpoints.front() << '\n';
+        if (min_q->Length() < config.small_q_diagnostic_threshold) {
+            std::cout << "Warning: small-q run. The finite-q density matrix element should scale as q and cancel the "
+                         "Coulomb 1/q^2 factor. If epsilon diverges here, that is an implementation/gauge problem, "
+                         "not proof that q is physically too small.\n";
+        }
+    }
+    std::cout << "Output prefix: " << config.output_prefix << '\n';
+}
+
+std::vector<std::vector<std::vector<double>>> gather_dielectric_contributions(
+    const std::vector<double>& flat_local,
+    std::size_t                nb_qpoints,
+    std::size_t                nb_energies,
+    int                        number_processes,
+    int                        process_rank) {
+    const std::size_t qe      = nb_qpoints * nb_energies;
+    const int         local_n = static_cast<int>(flat_local.size());
+
+    std::vector<int> recvcounts;
     if (process_rank == 0) {
         recvcounts.resize(number_processes, 0);
     }
-
     MPI_Gather(&local_n, 1, MPI_INT, process_rank == 0 ? recvcounts.data() : nullptr, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    // 2) Allocate receive buffer on rank 0 and compute displacements
+    std::vector<int>    displacements;
     std::vector<double> all_flat;
     if (process_rank == 0) {
-        displs.resize(number_processes, 0);
+        displacements.resize(number_processes, 0);
         for (int p = 1; p < number_processes; ++p) {
-            displs[p] = displs[p - 1] + recvcounts[p - 1];
+            displacements[p] = displacements[p - 1] + recvcounts[p - 1];
         }
-        const int total = (number_processes > 0) ? (displs.back() + recvcounts.back()) : 0;
+        const int total = number_processes > 0 ? displacements.back() + recvcounts.back() : 0;
         all_flat.resize(static_cast<std::size_t>(total));
     }
 
-    // 3) Gatherv the payloads
     MPI_Gatherv(flat_local.data(),
                 local_n,
                 MPI_DOUBLE,
                 process_rank == 0 ? all_flat.data() : nullptr,
                 process_rank == 0 ? recvcounts.data() : nullptr,
-                process_rank == 0 ? displs.data() : nullptr,
+                process_rank == 0 ? displacements.data() : nullptr,
                 MPI_DOUBLE,
                 0,
                 MPI_COMM_WORLD);
 
-    // 4) Reconstruct a [process][q][e] cube on rank 0
-    if (process_rank == 0) {
-        std::vector<std::vector<std::vector<double>>> dielectric_function_results(
-            number_processes,
-            std::vector<std::vector<double>>(Q, std::vector<double>(E, 0.0)));
-
-        for (int p = 0; p < number_processes; ++p) {
-            const int         count = recvcounts[p];
-            const std::size_t base  = static_cast<std::size_t>(displs[p]);
-
-            if (count == static_cast<int>(QE)) {
-                // Case A: rank p already reduced over its local k's (exactly Q*E values)
-                for (std::size_t q = 0; q < Q; ++q) {
-                    const double* src = &all_flat[base + q * E];
-                    std::copy(src, src + E, dielectric_function_results[p][q].data());
-                }
-            } else if (count % static_cast<int>(QE) == 0) {
-                // Case B: rank p sent local_k blocks of size Q*E -> sum over k
-                const int k_loc = count / static_cast<int>(QE);
-                for (int k = 0; k < k_loc; ++k) {
-                    const std::size_t block = base + static_cast<std::size_t>(k) * QE;
-                    for (std::size_t q = 0; q < Q; ++q) {
-                        const double* src = &all_flat[block + q * E];
-                        double*       dst = dielectric_function_results[p][q].data();
-                        for (std::size_t e = 0; e < E; ++e) {
-                            dst[e] += src[e];
-                        }
-                    }
-                }
-                // If your per-k values are averages instead of sums, divide here by k_loc.
-                // for (std::size_t q = 0; q < Q; ++q)
-                //     for (std::size_t e = 0; e < E; ++e) dielectric_function_results[p][q][e] /= k_loc;
-            } else {
-                throw std::runtime_error("Unexpected payload size from rank " + std::to_string(p));
-            }
-        }
-
-        // 5) Merge and finish
-        uepm::pseudopotential::DielectricFunction dielectric_function =
-            uepm::pseudopotential::DielectricFunction::merge_results(MyDielectricFunc,
-                                                                     dielectric_function_results,
-                                                                     counts_kpoints_per_process);
-
-        dielectric_function.apply_kramers_kronig();
-        std::filesystem::create_directories(outdir);
-        dielectric_function.export_dielectric_function("", true);
-        std::cout << "END" << std::endl;
+    if (process_rank != 0) {
+        return {};
     }
 
-    MPI_Finalize();
+    std::vector<std::vector<std::vector<double>>> by_process(
+        number_processes,
+        std::vector<std::vector<double>>(nb_qpoints, std::vector<double>(nb_energies, 0.0)));
+
+    for (int p = 0; p < number_processes; ++p) {
+        const int         count = recvcounts[p];
+        const std::size_t base  = static_cast<std::size_t>(displacements[p]);
+        if (count == static_cast<int>(qe)) {
+            for (std::size_t q = 0; q < nb_qpoints; ++q) {
+                const double* src = &all_flat[base + q * nb_energies];
+                std::copy(src, src + nb_energies, by_process[p][q].data());
+            }
+        } else if (count % static_cast<int>(qe) == 0) {
+            const int local_k_blocks = count / static_cast<int>(qe);
+            for (int k = 0; k < local_k_blocks; ++k) {
+                const std::size_t block = base + static_cast<std::size_t>(k) * qe;
+                for (std::size_t q = 0; q < nb_qpoints; ++q) {
+                    const double* src = &all_flat[block + q * nb_energies];
+                    double*       dst = by_process[p][q].data();
+                    for (std::size_t e = 0; e < nb_energies; ++e) {
+                        dst[e] += src[e];
+                    }
+                }
+            }
+        } else {
+            throw std::runtime_error("Unexpected dielectric payload size from rank " + std::to_string(p));
+        }
+    }
+    return by_process;
+}
+
+std::vector<std::vector<std::vector<double>>> local_dielectric_contribution_as_single_process(
+    const std::vector<double>& flat_local,
+    std::size_t                nb_qpoints,
+    std::size_t                nb_energies) {
+    const std::size_t expected_size = nb_qpoints * nb_energies;
+    if (flat_local.size() != expected_size) {
+        throw std::runtime_error("Unexpected serial dielectric payload size.");
+    }
+
+    std::vector<std::vector<std::vector<double>>> result(
+        1, std::vector<std::vector<double>>(nb_qpoints, std::vector<double>(nb_energies, 0.0)));
+    for (std::size_t q = 0; q < nb_qpoints; ++q) {
+        const double* src = &flat_local[q * nb_energies];
+        std::copy(src, src + nb_energies, result[0][q].data());
+    }
+    return result;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    TCLAP::CmdLine cmd("Compute dynamic dielectric functions epsilon(q,E).", ' ', "0.2");
+    TCLAP::ValueArg<std::string> arg_config("c", "config", "Optional YAML config file.", false, "", "path");
+    TCLAP::ValueArg<std::string> arg_material("m", "material", "Material symbol.", false, "", "symbol");
+    TCLAP::ValueArg<std::string> arg_epm_set("", "epm-set", "Named EPM parameter set.", false, "", "name");
+    TCLAP::ValueArg<std::string> arg_mode("", "mode", "Mode: q-list, q-line, or q-file.", false, "", "mode");
+    TCLAP::ValueArg<std::string> arg_q_values("", "q-values", "Comma-separated q magnitudes in reduced units.", false, "", "list");
+    TCLAP::ValueArg<std::string> arg_direction("", "direction", "q direction, e.g. 1,0,0.", false, "", "vector");
+    TCLAP::ValueArg<std::string> arg_q_file("", "q-file", "File containing qx qy qz rows in reduced units.", false, "", "path");
+    TCLAP::ValueArg<std::string> arg_out("o", "out", "Output file prefix.", false, "", "prefix");
+    TCLAP::ValueArg<int>         arg_bands("b", "bands", "Number of EPM bands.", false, -1, "int");
+    TCLAP::ValueArg<int>         arg_neighbors("", "nearest-neighbors", "Number of reciprocal shells.", false, -1, "int");
+    TCLAP::ValueArg<int>         arg_nkx("", "Nkx", "k-grid count in x.", false, -1, "int");
+    TCLAP::ValueArg<int>         arg_nky("", "Nky", "k-grid count in y.", false, -1, "int");
+    TCLAP::ValueArg<int>         arg_nkz("", "Nkz", "k-grid count in z.", false, -1, "int");
+    TCLAP::ValueArg<int>         arg_bz_sampling("", "bz-sampling", "Use 48 for irreducible wedge, 1 for full BZ.", false, -1, "int");
+    TCLAP::ValueArg<int>         arg_q_count("", "q-count", "Number of q samples for q-line mode.", false, -1, "int");
+    TCLAP::ValueArg<double>      arg_emin("", "emin", "Minimum energy in eV.", false, std::nan(""), "eV");
+    TCLAP::ValueArg<double>      arg_emax("", "emax", "Maximum energy in eV.", false, std::nan(""), "eV");
+    TCLAP::ValueArg<double>      arg_estep("", "estep", "Energy step in eV.", false, std::nan(""), "eV");
+    TCLAP::ValueArg<double>      arg_eta("", "eta", "Smearing in eV.", false, std::nan(""), "eV");
+    TCLAP::ValueArg<double>      arg_q_min("", "q-min", "Minimum q magnitude for q-line mode.", false, std::nan(""), "q");
+    TCLAP::ValueArg<double>      arg_q_max("", "q-max", "Maximum q magnitude for q-line mode.", false, std::nan(""), "q");
+    TCLAP::SwitchArg             arg_nonlocal("", "nonlocal", "Use nonlocal EPM parameters.", false);
+
+    cmd.add(arg_config);
+    cmd.add(arg_material);
+    cmd.add(arg_epm_set);
+    cmd.add(arg_mode);
+    cmd.add(arg_q_values);
+    cmd.add(arg_direction);
+    cmd.add(arg_q_file);
+    cmd.add(arg_out);
+    cmd.add(arg_bands);
+    cmd.add(arg_neighbors);
+    cmd.add(arg_nkx);
+    cmd.add(arg_nky);
+    cmd.add(arg_nkz);
+    cmd.add(arg_bz_sampling);
+    cmd.add(arg_q_count);
+    cmd.add(arg_emin);
+    cmd.add(arg_emax);
+    cmd.add(arg_estep);
+    cmd.add(arg_eta);
+    cmd.add(arg_q_min);
+    cmd.add(arg_q_max);
+    cmd.add(arg_nonlocal);
+
+    if (argc == 1) {
+        std::cout << "Usage example:\n"
+                  << "  epsilon.epm --material Si --bands 16 --mode q-list --q-values 1e-2,5e-3,1e-3 "
+                     "--direction 1,0,0 --emin 0 --emax 20 --estep 0.05 --eta 0.05 "
+                     "--Nkx 20 --Nky 20 --Nkz 20 --out results/epsilon_si_q_list\n\n"
+                  << "Run epsilon.epm --help for all options.\n";
+        return 0;
+    }
+
+    cmd.parse(argc, argv);
+
+    EpsilonAppConfig config;
+    load_config_file(arg_config.getValue(), config);
+
+    if (arg_material.isSet()) {
+        config.material_name = arg_material.getValue();
+    }
+    if (arg_epm_set.isSet()) {
+        config.epm_parameter_set = arg_epm_set.getValue();
+    }
+    if (arg_mode.isSet()) {
+        config.mode = arg_mode.getValue();
+    }
+    if (arg_q_values.isSet()) {
+        config.q_values = arg_q_values.getValue();
+    }
+    if (arg_direction.isSet()) {
+        config.direction = parse_vector3(arg_direction.getValue());
+    }
+    if (arg_q_file.isSet()) {
+        config.q_file = arg_q_file.getValue();
+        config.mode   = "q-file";
+    }
+    if (arg_out.isSet()) {
+        config.output_prefix = arg_out.getValue();
+    }
+    if (arg_bands.isSet()) {
+        config.nb_bands = arg_bands.getValue();
+    }
+    if (arg_neighbors.isSet()) {
+        config.nb_nearest_neighbors = arg_neighbors.getValue();
+    }
+    if (arg_nkx.isSet()) {
+        config.nkx = arg_nkx.getValue();
+    }
+    if (arg_nky.isSet()) {
+        config.nky = arg_nky.getValue();
+    }
+    if (arg_nkz.isSet()) {
+        config.nkz = arg_nkz.getValue();
+    }
+    if (arg_bz_sampling.isSet()) {
+        config.bz_sampling = arg_bz_sampling.getValue();
+    }
+    if (arg_q_count.isSet()) {
+        config.q_count = arg_q_count.getValue();
+    }
+    if (arg_emin.isSet()) {
+        config.min_energy_eV = arg_emin.getValue();
+    }
+    if (arg_emax.isSet()) {
+        config.max_energy_eV = arg_emax.getValue();
+    }
+    if (arg_estep.isSet()) {
+        config.energy_step_eV = arg_estep.getValue();
+    }
+    if (arg_eta.isSet()) {
+        config.eta_smearing_eV = arg_eta.getValue();
+    }
+    if (arg_q_min.isSet()) {
+        config.q_min = arg_q_min.getValue();
+    }
+    if (arg_q_max.isSet()) {
+        config.q_max = arg_q_max.getValue();
+    }
+    if (arg_nonlocal.isSet()) {
+        config.nonlocal_epm = true;
+        if (!arg_epm_set.isSet()) {
+            config.epm_parameter_set = "potz-vogl";
+        }
+    }
+    if ((arg_mode.isSet() || arg_q_values.isSet()) && !arg_q_file.isSet() && config.mode != "q-file") {
+        config.q_file.clear();
+    }
+    normalize_mode(config);
+
+    const bool use_mpi = launched_under_mpi();
+    int number_processes = 1;
+    int process_rank     = 0;
+    if (use_mpi) {
+        MPI_Init(&argc, &argv);
+        MPI_Comm_size(MPI_COMM_WORLD, &number_processes);
+        MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
+
+        char processor_name[MPI_MAX_PROCESSOR_NAME];
+        int  processor_name_len = 0;
+        MPI_Get_processor_name(processor_name, &processor_name_len);
+        std::cout << "Rank " << process_rank << "/" << number_processes << " on " << processor_name << '\n';
+    } else {
+        std::cout << "Running in serial mode. Launch with mpirun to use MPI.\n";
+    }
+
+    const auto energies = make_energy_grid(config.min_energy_eV, config.max_energy_eV, config.energy_step_eV);
+    const auto qpoints  = make_qpoints(config);
+
+    if (process_rank == 0) {
+        create_output_parent(config.output_prefix);
+        print_config(config, energies, qpoints, number_processes);
+        if (config.bz_sampling == 48) {
+            std::cout << "Warning: irreducible-wedge k sampling is not generally valid for finite-q dielectric "
+                         "functions unless symmetry weights and q-star handling are implemented. Full-BZ sampling "
+                         "(--bz-sampling 1) is recommended.\n";
+        }
+    }
+
+    uepm::pseudopotential::Materials         materials;
+    const uepm::physics::material_repository material_repository;
+    materials.load_material(material_repository, config.material_name, config.epm_parameter_set);
+    uepm::pseudopotential::epm_material current_material = materials.materials.at(config.material_name);
+
+    uepm::pseudopotential::BandStructure band_structure{};
+    band_structure.Initialize(current_material,
+                              config.nb_bands,
+                              {},
+                              config.nb_nearest_neighbors,
+                              config.nonlocal_epm,
+                              config.enable_soc);
+
+    uepm::pseudopotential::DielectricFunction dielectric(current_material,
+                                                         band_structure.get_basis_vectors(),
+                                                         config.nb_bands);
+
+    const bool use_irreducible_wedge = config.bz_sampling == 48;
+    dielectric.generate_k_points_grid(config.nkx, config.nky, config.nkz, 0.0, use_irreducible_wedge);
+    const std::size_t nb_kpoints = dielectric.get_kpoints().size();
+
+    if (process_rank == 0) {
+        dielectric.export_kpoints(config.output_prefix + "_kpoints.csv");
+        std::cout << "Generated k-points: " << nb_kpoints << '\n';
+    }
+
+    const int total_kpoints = static_cast<int>(nb_kpoints);
+    const int base          = total_kpoints / number_processes;
+    const int remainder     = total_kpoints % number_processes;
+
+    std::vector<int> counts_kpoints_per_process(number_processes, 0);
+    std::vector<int> displacements_kpoints_per_process(number_processes, 0);
+    for (int p = 0; p < number_processes; ++p) {
+        counts_kpoints_per_process[p] = base + (p < remainder ? 1 : 0);
+        if (p > 0) {
+            displacements_kpoints_per_process[p] =
+                displacements_kpoints_per_process[p - 1] + counts_kpoints_per_process[p - 1];
+        }
+    }
+
+    std::cout << "Rank " << process_rank << " handles " << counts_kpoints_per_process[process_rank] << " k-points\n";
+
+    dielectric.set_export_prefix(config.output_prefix);
+    dielectric.set_qpoints(qpoints);
+    dielectric.set_energies(energies);
+    dielectric.set_offset_k_index(static_cast<std::size_t>(displacements_kpoints_per_process[process_rank]));
+    dielectric.set_nb_kpoints(static_cast<std::size_t>(counts_kpoints_per_process[process_rank]));
+    dielectric.set_non_local_epm(config.nonlocal_epm);
+
+    if (use_mpi) {
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    const auto start = std::chrono::high_resolution_clock::now();
+    dielectric.compute_dielectric_function(config.eta_smearing_eV, process_rank);
+    dielectric.clear_eigen_states();
+    if (use_mpi) {
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    const auto end = std::chrono::high_resolution_clock::now();
+    if (process_rank == 0) {
+        std::chrono::duration<double> elapsed = end - start;
+        std::cout << "Total computational time: " << elapsed.count() << " s\n";
+    }
+
+    const auto local_flat_real = dielectric.get_flat_dielectric_function();
+    const auto local_flat_imag = dielectric.get_flat_dielectric_function_imaginary();
+    auto dielectric_real_by_process =
+        use_mpi ? gather_dielectric_contributions(local_flat_real, qpoints.size(), energies.size(), number_processes, process_rank)
+                : local_dielectric_contribution_as_single_process(local_flat_real, qpoints.size(), energies.size());
+    auto dielectric_imag_by_process =
+        use_mpi ? gather_dielectric_contributions(local_flat_imag, qpoints.size(), energies.size(), number_processes, process_rank)
+                : local_dielectric_contribution_as_single_process(local_flat_imag, qpoints.size(), energies.size());
+
+    if (process_rank == 0) {
+        auto merged = uepm::pseudopotential::DielectricFunction::merge_results(dielectric,
+                                                                               dielectric_real_by_process,
+                                                                               dielectric_imag_by_process,
+                                                                               counts_kpoints_per_process);
+        merged.export_dielectric_function("", true);
+        std::cout << "Wrote epsilon spectra with prefix '" << config.output_prefix << "'.\n";
+    }
+
+    if (use_mpi) {
+        MPI_Finalize();
+    }
     return 0;
 }
