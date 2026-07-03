@@ -5,7 +5,7 @@ parameter_set: local-fit-working
 pseudo-potential-parameters:
   V3S: -0.2260713357552029
   V8S: 0.055863566178972306
-  V11S: 0.07279338528868708
+  V11S: 0.17279338528868708
   V3A: 0.0
   V4A: 0.0
   V11A: 0.0

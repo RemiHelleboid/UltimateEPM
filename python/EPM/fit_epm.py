@@ -4,6 +4,7 @@
 The script edits a generated EPM YAML parameter set, runs:
   - epm_band_edges for gap and valley-position targets
   - epm_valley_fit for effective masses and Kane non-parabolicity
+  - optionally epsilon.epm for the optical dielectric function
 
 Then it minimizes a weighted normalized least-squares score.
 """
@@ -13,6 +14,7 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+import shlex
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -23,6 +25,7 @@ import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_EPSILON_REFERENCE = REPO_ROOT / "examples" / "references" / "DielectricFunction_Si_300K.csv"
 
 
 @dataclass(frozen=True)
@@ -47,12 +50,18 @@ DEFAULT_TARGETS: dict[str, Target] = {
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--material", default="Si")
-    parser.add_argument("--base-set", default="local-remi")
+    parser.add_argument("--base-set", default="local-remi-2026")
     parser.add_argument("--work-set", default="local-fit-working")
     parser.add_argument("--build-dir", default=str(REPO_ROOT / "build"))
     parser.add_argument("--output-dir", default=str(REPO_ROOT / "fit_epm_output"))
     parser.add_argument("--maxiter", type=int, default=60)
     parser.add_argument("--method", choices=["auto", "powell", "nelder-mead", "coordinate"], default="auto")
+    parser.add_argument(
+        "--metrics",
+        choices=["bands", "epsilon", "both"],
+        default="bands",
+        help="Which objective terms to activate.",
+    )
     parser.add_argument("--nthreads", type=int, default=2)
     parser.add_argument("--nearest-neighbors", type=int, default=10)
     parser.add_argument("--delta-samples", type=int, default=401)
@@ -63,10 +72,57 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--alpha-radius", type=float, default=0.05)
     parser.add_argument("--alpha-shells", type=int, default=30)
     parser.add_argument("--alpha-max-energy", type=float, default=1.0e-2)
+    parser.add_argument("--epsilon-reference", default=str(DEFAULT_EPSILON_REFERENCE))
+    parser.add_argument(
+        "--epsilon-component",
+        choices=["real", "imag", "both"],
+        default="both",
+        help="Use epsilon1, epsilon2, or both in the dielectric loss.",
+    )
+    parser.add_argument("--epsilon-weight", type=float, default=1.0)
+    parser.add_argument("--epsilon-real-weight", type=float, default=1.0)
+    parser.add_argument("--epsilon-imag-weight", type=float, default=1.0)
+    parser.add_argument("--epsilon-real-scale", type=float, default=10.0, help="Normalization scale for epsilon1 residuals.")
+    parser.add_argument("--epsilon-imag-scale", type=float, default=10.0, help="Normalization scale for epsilon2 residuals.")
+    parser.add_argument("--epsilon-bands", type=int, default=16)
+    parser.add_argument("--epsilon-nkx", type=int, default=8)
+    parser.add_argument("--epsilon-nky", type=int, default=8)
+    parser.add_argument("--epsilon-nkz", type=int, default=8)
+    parser.add_argument("--epsilon-q", default="1e-3")
+    parser.add_argument("--epsilon-direction", default="1,0,0")
+    parser.add_argument("--epsilon-emin", type=float, default=1.5)
+    parser.add_argument("--epsilon-emax", type=float, default=6.0)
+    parser.add_argument("--epsilon-estep", type=float, default=0.1)
+    parser.add_argument("--epsilon-eta", type=float, default=0.15)
+    parser.add_argument("--epsilon-nearest-neighbors", type=int, default=10)
+    parser.add_argument(
+        "--epsilon-mpi-ranks",
+        type=int,
+        default=1,
+        help="Number of MPI ranks for epsilon.epm. Use 1 for serial.",
+    )
+    parser.add_argument(
+        "--epsilon-mpi-runner",
+        default="auto",
+        help="MPI launcher for epsilon.epm. 'auto' prefers /usr/bin/mpirun when available.",
+    )
+    parser.add_argument(
+        "--epsilon-mpi-extra-args",
+        default="",
+        help="Extra MPI launcher arguments, parsed like a shell string.",
+    )
     parser.add_argument("--initial-step", type=float, default=0.01, help="Initial coordinate-search step in Rydberg.")
     parser.add_argument("--min-step", type=float, default=2.0e-4, help="Minimum coordinate-search step in Rydberg.")
     parser.add_argument("--dry-run", action="store_true", help="Evaluate the initial parameter set once and exit.")
     return parser.parse_args()
+
+
+def uses_band_metric(args: argparse.Namespace) -> bool:
+    return args.metrics in ("bands", "both")
+
+
+def uses_epsilon_metric(args: argparse.Namespace) -> bool:
+    return args.metrics in ("epsilon", "both")
 
 
 def parameter_file(material: str, parameter_set: str) -> Path:
@@ -106,15 +162,162 @@ def read_quantity_csv(path: Path) -> dict[str, str]:
     return values
 
 
+def read_epsilon_csv(path: Path, energy_key: str, real_key: str, imag_key: str) -> tuple[list[float], list[float], list[float]]:
+    energies: list[float] = []
+    real: list[float] = []
+    imag: list[float] = []
+    with path.open("r", encoding="utf-8") as stream:
+        reader = csv.DictReader(stream)
+        for row in reader:
+            energies.append(float(row[energy_key]))
+            real.append(float(row[real_key]))
+            imag.append(float(row[imag_key]))
+    if len(energies) < 2:
+        raise RuntimeError(f"{path} does not contain enough dielectric samples")
+    return energies, real, imag
+
+
+def interpolate_linear(xs: list[float], ys: list[float], x: float) -> float:
+    if x < xs[0] or x > xs[-1]:
+        raise ValueError(f"{x} outside interpolation range [{xs[0]}, {xs[-1]}]")
+    lo = 0
+    hi = len(xs) - 1
+    while hi - lo > 1:
+        mid = (lo + hi) // 2
+        if xs[mid] <= x:
+            lo = mid
+        else:
+            hi = mid
+    if xs[lo] == x or hi == lo:
+        return ys[lo]
+    dx = xs[hi] - xs[lo]
+    if dx <= 0.0:
+        raise RuntimeError("dielectric energy grid must be strictly increasing")
+    t = (x - xs[lo]) / dx
+    return (1.0 - t) * ys[lo] + t * ys[hi]
+
+
+def mean_square(values: list[float]) -> float:
+    if not values:
+        return math.nan
+    return sum(value * value for value in values) / float(len(values))
+
+
+def score_epsilon_against_reference(
+    args: argparse.Namespace,
+    model_csv: Path,
+) -> dict[str, float]:
+    reference_csv = Path(args.epsilon_reference)
+    ref_energy, ref_real, ref_imag = read_epsilon_csv(reference_csv, "E_eV", "epsilon1", "epsilon2")
+    model_energy, model_real, model_imag = read_epsilon_csv(
+        model_csv,
+        "Energy (eV)",
+        "EpsilonReal",
+        "EpsilonImaginary",
+    )
+
+    real_errors: list[float] = []
+    imag_errors: list[float] = []
+    real_normalized: list[float] = []
+    imag_normalized: list[float] = []
+    for energy, eps1_ref, eps2_ref in zip(ref_energy, ref_real, ref_imag):
+        if energy < model_energy[0] or energy > model_energy[-1]:
+            continue
+        eps1 = interpolate_linear(model_energy, model_real, energy)
+        eps2 = interpolate_linear(model_energy, model_imag, energy)
+        real_error = eps1 - eps1_ref
+        imag_error = eps2 - eps2_ref
+        real_errors.append(real_error)
+        imag_errors.append(imag_error)
+        real_normalized.append(real_error / args.epsilon_real_scale)
+        imag_normalized.append(imag_error / args.epsilon_imag_scale)
+
+    if len(real_errors) < 2:
+        raise RuntimeError(
+            f"not enough overlap between {model_csv} and {reference_csv}; "
+            f"model range is {model_energy[0]} to {model_energy[-1]} eV"
+        )
+
+    score = 0.0
+    if args.epsilon_component in ("real", "both"):
+        score += args.epsilon_real_weight * mean_square(real_normalized)
+    if args.epsilon_component in ("imag", "both"):
+        score += args.epsilon_imag_weight * mean_square(imag_normalized)
+    score *= args.epsilon_weight
+
+    return {
+        "epsilon_score": score,
+        "epsilon_real_rms": math.sqrt(mean_square(real_errors)),
+        "epsilon_imag_rms": math.sqrt(mean_square(imag_errors)),
+        "epsilon_points": float(len(real_errors)),
+    }
+
+
 def as_float(values: dict[str, str], key: str) -> float:
     return float(values[key])
 
 
 def run_command(cmd: list[str], cwd: Path) -> None:
-    subprocess.run(cmd, cwd=cwd, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    result = subprocess.run(cmd, cwd=cwd, check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    if result.returncode != 0:
+        command = " ".join(cmd)
+        raise RuntimeError(f"command failed with exit code {result.returncode}: {command}\n{result.stdout}")
 
 
-def measure(
+def resolve_mpi_runner(runner: str) -> str:
+    if runner != "auto":
+        return runner
+    system_mpirun = Path("/usr/bin/mpirun")
+    if system_mpirun.exists():
+        return str(system_mpirun)
+    return "mpirun"
+
+
+def epsilon_command(args: argparse.Namespace, work_set: str, epsilon_prefix: Path) -> list[str]:
+    build_apps = Path(args.build_dir) / "apps"
+    command = [
+        str(build_apps / "epsilon.epm"),
+        "--material",
+        args.material,
+        "--epm-set",
+        work_set,
+        "--bands",
+        str(args.epsilon_bands),
+        "--nearest-neighbors",
+        str(args.epsilon_nearest_neighbors),
+        "--Nkx",
+        str(args.epsilon_nkx),
+        "--Nky",
+        str(args.epsilon_nky),
+        "--Nkz",
+        str(args.epsilon_nkz),
+        "--mode",
+        "q-list",
+        "--q-values",
+        args.epsilon_q,
+        "--direction",
+        args.epsilon_direction,
+        "--emin",
+        str(args.epsilon_emin),
+        "--emax",
+        str(args.epsilon_emax),
+        "--estep",
+        str(args.epsilon_estep),
+        "--eta",
+        str(args.epsilon_eta),
+        "--out",
+        str(epsilon_prefix),
+    ]
+    if args.epsilon_mpi_ranks <= 1:
+        return command
+
+    mpi_command = [resolve_mpi_runner(args.epsilon_mpi_runner), "-np", str(args.epsilon_mpi_ranks)]
+    if args.epsilon_mpi_extra_args:
+        mpi_command.extend(shlex.split(args.epsilon_mpi_extra_args))
+    return mpi_command + command
+
+
+def measure_bands(
     args: argparse.Namespace,
     work_set: str,
     output_dir: Path,
@@ -193,14 +396,60 @@ def measure(
     }
 
 
-def score_observables(observables: dict[str, float]) -> float:
+def measure_epsilon(
+    args: argparse.Namespace,
+    work_set: str,
+    output_dir: Path,
+    iteration: int,
+) -> dict[str, float]:
+    epsilon_prefix = output_dir / f"epsilon_{iteration:04d}"
+    run_command(epsilon_command(args, work_set, epsilon_prefix), REPO_ROOT)
+
+    spectra = sorted(
+        path
+        for path in output_dir.glob(f"epsilon_{iteration:04d}_*.csv")
+        if not path.name.endswith("_kpoints.csv")
+    )
+    if not spectra:
+        raise RuntimeError(f"epsilon.epm did not write a spectrum for prefix {epsilon_prefix}")
+    return score_epsilon_against_reference(args, spectra[0])
+
+
+def measure(
+    args: argparse.Namespace,
+    work_set: str,
+    output_dir: Path,
+    iteration: int,
+) -> dict[str, float]:
+    observables: dict[str, float] = {}
+    if uses_band_metric(args):
+        observables.update(measure_bands(args, work_set, output_dir, iteration))
+    if uses_epsilon_metric(args):
+        observables.update(measure_epsilon(args, work_set, output_dir, iteration))
+    return observables
+
+
+def score_observables(args: argparse.Namespace, observables: dict[str, float]) -> float:
     score = 0.0
-    for key, target in DEFAULT_TARGETS.items():
-        residual = (observables[key] - target.value) / target.scale
-        score += target.weight * residual * residual
-    if observables["alpha_rms_error_meV"] > 5.0:
-        score += ((observables["alpha_rms_error_meV"] - 5.0) / 5.0) ** 2
+    if uses_band_metric(args):
+        for key, target in DEFAULT_TARGETS.items():
+            residual = (observables[key] - target.value) / target.scale
+            score += target.weight * residual * residual
+        if observables["alpha_rms_error_meV"] > 5.0:
+            score += ((observables["alpha_rms_error_meV"] - 5.0) / 5.0) ** 2
+    if uses_epsilon_metric(args):
+        score += observables["epsilon_score"]
     return score
+
+
+def observable_columns(args: argparse.Namespace) -> list[str]:
+    columns: list[str] = []
+    if uses_band_metric(args):
+        columns.extend(DEFAULT_TARGETS.keys())
+        columns.extend(["mass_rms_error_meV", "alpha_rms_error_meV"])
+    if uses_epsilon_metric(args):
+        columns.extend(["epsilon_score", "epsilon_real_rms", "epsilon_imag_rms", "epsilon_points"])
+    return columns
 
 
 class Objective:
@@ -212,6 +461,7 @@ class Objective:
         self.best_score = math.inf
         self.best_params: list[float] | None = None
         self.log_path = output_dir / "iterations.csv"
+        self.observable_columns = observable_columns(args)
         with self.log_path.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream)
             writer.writerow(
@@ -221,9 +471,7 @@ class Objective:
                     "V3S",
                     "V8S",
                     "V11S",
-                    *DEFAULT_TARGETS.keys(),
-                    "mass_rms_error_meV",
-                    "alpha_rms_error_meV",
+                    *self.observable_columns,
                 ]
             )
 
@@ -234,13 +482,11 @@ class Objective:
         write_working_yaml(self.base_config, self.args.material, self.args.work_set, params)
         try:
             observables = measure(self.args, self.args.work_set, self.output_dir, iteration)
-            score = score_observables(observables)
+            score = score_observables(self.args, observables)
         except Exception as exc:
             print(f"iteration {iteration:04d} failed for {params}: {exc}", flush=True)
             score = 1.0e12
-            observables = {key: math.nan for key in DEFAULT_TARGETS}
-            observables["mass_rms_error_meV"] = math.nan
-            observables["alpha_rms_error_meV"] = math.nan
+            observables = {key: math.nan for key in self.observable_columns}
 
         with self.log_path.open("a", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream)
@@ -251,9 +497,7 @@ class Objective:
                     params[0],
                     params[1],
                     params[2],
-                    *(observables[key] for key in DEFAULT_TARGETS),
-                    observables["mass_rms_error_meV"],
-                    observables["alpha_rms_error_meV"],
+                    *(observables[key] for key in self.observable_columns),
                 ]
             )
 
@@ -319,6 +563,21 @@ def main() -> int:
     args = parse_args()
     if args.nthreads <= 0:
         raise SystemExit("--nthreads must be positive")
+    if uses_epsilon_metric(args):
+        if args.epsilon_bands <= 0:
+            raise SystemExit("--epsilon-bands must be positive")
+        if args.epsilon_mpi_ranks <= 0:
+            raise SystemExit("--epsilon-mpi-ranks must be positive")
+        if args.epsilon_nkx <= 0 or args.epsilon_nky <= 0 or args.epsilon_nkz <= 0:
+            raise SystemExit("--epsilon-nkx/--epsilon-nky/--epsilon-nkz must be positive")
+        if args.epsilon_estep <= 0.0:
+            raise SystemExit("--epsilon-estep must be positive")
+        if args.epsilon_eta <= 0.0:
+            raise SystemExit("--epsilon-eta must be positive")
+        if args.epsilon_real_scale <= 0.0 or args.epsilon_imag_scale <= 0.0:
+            raise SystemExit("--epsilon-real-scale/--epsilon-imag-scale must be positive")
+        if not Path(args.epsilon_reference).exists():
+            raise SystemExit(f"--epsilon-reference does not exist: {args.epsilon_reference}")
 
     base_path = parameter_file(args.material, args.base_set)
     base_config = load_yaml(base_path)
