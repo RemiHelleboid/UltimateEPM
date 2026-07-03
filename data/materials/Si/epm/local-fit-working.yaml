@@ -3,7 +3,7 @@ material: Si
 model: epm
 parameter_set: local-fit-working
 pseudo-potential-parameters:
-  V3S: -0.8441053094396946
+  V3S: -0.22607133459569456
   V8S: 0.05586356613933252
   V11S: 0.07279338611319648
   V3A: 0.0

@@ -12,6 +12,7 @@ Then it minimizes a weighted normalized least-squares score.
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import math
 import shlex
@@ -33,6 +34,25 @@ class Target:
     value: float
     scale: float
     weight: float = 1.0
+
+
+@dataclass(frozen=True)
+class FitParameter:
+    label: str
+    section: str
+    keys: tuple[str, ...]
+
+
+NONLOCAL_TIED_ALIASES: dict[str, tuple[str, str]] = {
+    "alpha_0": ("alpha_0_cation", "alpha_0_anion"),
+    "beta_0": ("beta_0_cation", "beta_0_anion"),
+    "A2": ("A2_cation", "A2_anion"),
+    "R0": ("R0_cation", "R0_anion"),
+    "R2": ("R2_cation", "R2_anion"),
+}
+NONLOCAL_TIED_ALIASES_LOWER: dict[str, tuple[str, str]] = {
+    key.lower(): value for key, value in NONLOCAL_TIED_ALIASES.items()
+}
 
 
 DEFAULT_TARGETS: dict[str, Target] = {
@@ -60,6 +80,20 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--maxiter", type=int, default=60)
     parser.add_argument("--method", choices=["auto", "powell", "nelder-mead", "coordinate"], default="auto")
+    parser.add_argument(
+        "--fit-params",
+        default="pseudo.V3S,pseudo.V8S,pseudo.V11S",
+        help=(
+            "Comma-separated fitted parameters. Examples: "
+            "pseudo.V3S,pseudo.V8S,pseudo.V11S,nonlocal.alpha_0,nonlocal.beta_0,nonlocal.R0"
+        ),
+    )
+    parser.add_argument(
+        "--nonlocal",
+        dest="enable_nonlocal",
+        action="store_true",
+        help="Enable nonlocal EPM corrections in epm_band_edges, epm_valley_fit, and epsilon.epm.",
+    )
     parser.add_argument(
         "--metrics",
         choices=["bands", "epsilon", "both"],
@@ -145,19 +179,89 @@ def load_yaml(path: Path) -> dict:
         return yaml.safe_load(stream)
 
 
-def write_working_yaml(base_config: dict, material: str, work_set: str, params: list[float]) -> Path:
-    config = dict(base_config)
+def parse_fit_parameter(token: str) -> FitParameter:
+    raw = token.strip()
+    if not raw:
+        raise ValueError("empty fit parameter")
+    if "." in raw:
+        namespace, key = raw.split(".", 1)
+    else:
+        namespace, key = "pseudo", raw
+    namespace = namespace.strip().lower()
+    key = key.strip()
+    if not key:
+        raise ValueError(f"invalid fit parameter '{token}'")
+
+    if namespace in ("pseudo", "pseudopotential", "local"):
+        return FitParameter(f"pseudo.{key}", "pseudo-potential-parameters", (key,))
+    if namespace in ("nonlocal", "non-local"):
+        keys = NONLOCAL_TIED_ALIASES.get(key, NONLOCAL_TIED_ALIASES_LOWER.get(key.lower(), (key,)))
+        return FitParameter(f"nonlocal.{key}", "non-local-parameters", tuple(keys))
+    if namespace in ("soc", "spinorbit", "spin-orbit"):
+        return FitParameter(f"spinorbit.{key}", "spin-orbit-parameters", (key,))
+    raise ValueError(f"unknown fit parameter namespace '{namespace}' in '{token}'")
+
+
+def parse_fit_parameters(value: str) -> list[FitParameter]:
+    params = [parse_fit_parameter(token) for token in value.split(",") if token.strip()]
+    if not params:
+        raise ValueError("--fit-params must contain at least one parameter")
+    labels = [param.label for param in params]
+    if len(labels) != len(set(labels)):
+        raise ValueError(f"--fit-params contains duplicate entries: {value}")
+    return params
+
+
+def get_config_section(config: dict, section: str) -> dict:
+    if section not in config or config[section] is None:
+        raise KeyError(f"parameter file does not define '{section}'")
+    return config[section]
+
+
+def initial_parameter_values(config: dict, fit_params: list[FitParameter]) -> list[float]:
+    values: list[float] = []
+    for param in fit_params:
+        section = get_config_section(config, param.section)
+        missing = [key for key in param.keys if key not in section]
+        if missing:
+            raise KeyError(f"{param.label} references missing YAML key(s): {', '.join(missing)}")
+        tied_values = [float(section[key]) for key in param.keys]
+        if max(tied_values) - min(tied_values) > 1.0e-12:
+            print(
+                f"warning: tied parameter {param.label} has unequal initial values {tied_values}; "
+                f"using {tied_values[0]} and tying them during the fit",
+                flush=True,
+            )
+        values.append(tied_values[0])
+    return values
+
+
+def write_working_yaml(
+    base_config: dict,
+    material: str,
+    work_set: str,
+    fit_params: list[FitParameter],
+    params: list[float],
+) -> Path:
+    if len(fit_params) != len(params):
+        raise ValueError(f"got {len(params)} values for {len(fit_params)} fit parameters")
+    config = copy.deepcopy(base_config)
     config["parameter_set"] = work_set
-    pseudo = dict(config["pseudo-potential-parameters"])
-    pseudo["V3S"] = float(params[0])
-    pseudo["V8S"] = float(params[1])
-    pseudo["V11S"] = float(params[2])
-    config["pseudo-potential-parameters"] = pseudo
+    for spec, value in zip(fit_params, params):
+        section = get_config_section(config, spec.section)
+        for key in spec.keys:
+            if key not in section:
+                raise KeyError(f"{spec.label} references missing YAML key '{key}'")
+            section[key] = float(value)
 
     path = parameter_file(material, work_set)
     with path.open("w", encoding="utf-8") as stream:
         yaml.safe_dump(config, stream, sort_keys=False)
     return path
+
+
+def format_params(fit_params: list[FitParameter], params: list[float]) -> str:
+    return " ".join(f"{spec.label}={value:.7g}" for spec, value in zip(fit_params, params))
 
 
 def read_quantity_csv(path: Path) -> dict[str, str]:
@@ -319,6 +423,8 @@ def epsilon_command(args: argparse.Namespace, work_set: str, epsilon_prefix: Pat
         "--out",
         str(epsilon_prefix),
     ]
+    if args.enable_nonlocal:
+        command.append("--nonlocal")
     if args.epsilon_mpi_ranks <= 1:
         return command
 
@@ -338,58 +444,58 @@ def measure_bands(
     valley_csv = output_dir / f"valley_{iteration:04d}.csv"
     build_apps = Path(args.build_dir) / "apps"
 
-    run_command(
-        [
-            str(build_apps / "epm_band_edges"),
-            "--material",
-            args.material,
-            "--epm-set",
-            work_set,
-            "--nthreads",
-            str(args.nthreads),
-            "--nearestNeighbors",
-            str(args.nearest_neighbors),
-            "--delta-samples",
-            str(args.delta_samples),
-            "--out",
-            str(edges_csv),
-        ],
-        REPO_ROOT,
-    )
+    edges_command = [
+        str(build_apps / "epm_band_edges"),
+        "--material",
+        args.material,
+        "--epm-set",
+        work_set,
+        "--nthreads",
+        str(args.nthreads),
+        "--nearestNeighbors",
+        str(args.nearest_neighbors),
+        "--delta-samples",
+        str(args.delta_samples),
+        "--out",
+        str(edges_csv),
+    ]
+    if args.enable_nonlocal:
+        edges_command.append("--nonlocal-correction")
+    run_command(edges_command, REPO_ROOT)
 
     edges = read_quantity_csv(edges_csv)
     k_delta = as_float(edges, "delta_cbm_kx_reduced")
 
-    run_command(
-        [
-            str(build_apps / "epm_valley_fit"),
-            "--material",
-            args.material,
-            "--epm-set",
-            work_set,
-            "--band",
-            str(args.band),
-            "--k0",
-            f"{k_delta},0,0",
-            "--mass-radius",
-            str(args.mass_radius),
-            "--mass-shells",
-            str(args.mass_shells),
-            "--radius",
-            str(args.alpha_radius),
-            "--shells",
-            str(args.alpha_shells),
-            "--alpha-max-energy",
-            str(args.alpha_max_energy),
-            "--nthreads",
-            str(args.nthreads),
-            "--nearestNeighbors",
-            str(args.nearest_neighbors),
-            "--out",
-            str(valley_csv),
-        ],
-        REPO_ROOT,
-    )
+    valley_command = [
+        str(build_apps / "epm_valley_fit"),
+        "--material",
+        args.material,
+        "--epm-set",
+        work_set,
+        "--band",
+        str(args.band),
+        "--k0",
+        f"{k_delta},0,0",
+        "--mass-radius",
+        str(args.mass_radius),
+        "--mass-shells",
+        str(args.mass_shells),
+        "--radius",
+        str(args.alpha_radius),
+        "--shells",
+        str(args.alpha_shells),
+        "--alpha-max-energy",
+        str(args.alpha_max_energy),
+        "--nthreads",
+        str(args.nthreads),
+        "--nearestNeighbors",
+        str(args.nearest_neighbors),
+        "--out",
+        str(valley_csv),
+    ]
+    if args.enable_nonlocal:
+        valley_command.append("--nonlocal-correction")
+    run_command(valley_command, REPO_ROOT)
 
     valley = read_quantity_csv(valley_csv)
     masses = sorted([as_float(valley, "m1_m0"), as_float(valley, "m2_m0"), as_float(valley, "m3_m0")])
@@ -464,10 +570,17 @@ def observable_columns(args: argparse.Namespace) -> list[str]:
 
 
 class Objective:
-    def __init__(self, args: argparse.Namespace, base_config: dict, output_dir: Path) -> None:
+    def __init__(
+        self,
+        args: argparse.Namespace,
+        base_config: dict,
+        output_dir: Path,
+        fit_params: list[FitParameter],
+    ) -> None:
         self.args = args
         self.base_config = base_config
         self.output_dir = output_dir
+        self.fit_params = fit_params
         self.iteration = 0
         self.best_score = math.inf
         self.best_params: list[float] | None = None
@@ -479,9 +592,7 @@ class Objective:
                 [
                     "iteration",
                     "score",
-                    "V3S",
-                    "V8S",
-                    "V11S",
+                    *(param.label for param in self.fit_params),
                     *self.observable_columns,
                 ]
             )
@@ -490,7 +601,7 @@ class Objective:
         params = [float(x) for x in params_like]
         iteration = self.iteration
         self.iteration += 1
-        write_working_yaml(self.base_config, self.args.material, self.args.work_set, params)
+        write_working_yaml(self.base_config, self.args.material, self.args.work_set, self.fit_params, params)
         try:
             observables = measure(self.args, self.args.work_set, self.output_dir, iteration)
             score = score_observables(self.args, observables)
@@ -505,9 +616,7 @@ class Objective:
                 [
                     iteration,
                     score,
-                    params[0],
-                    params[1],
-                    params[2],
+                    *params,
                     *(observables[key] for key in self.observable_columns),
                 ]
             )
@@ -518,8 +627,7 @@ class Objective:
             shutil.copy2(parameter_file(self.args.material, self.args.work_set), self.output_dir / "best.yaml")
 
         print(
-            f"iter {iteration:04d} score={score:.6g} "
-            f"V3S={params[0]:.7g} V8S={params[1]:.7g} V11S={params[2]:.7g}",
+            f"iter {iteration:04d} score={score:.6g} {format_params(self.fit_params, params)}",
             flush=True,
         )
         return score
@@ -593,14 +701,23 @@ def main() -> int:
 
     base_path = parameter_file(args.material, args.base_set)
     base_config = load_yaml(base_path)
-    pseudo = base_config["pseudo-potential-parameters"]
-    x0 = [float(pseudo["V3S"]), float(pseudo["V8S"]), float(pseudo["V11S"])]
+    try:
+        fit_params = parse_fit_parameters(args.fit_params)
+        if any(param.section == "non-local-parameters" for param in fit_params) and not args.enable_nonlocal:
+            raise ValueError("--fit-params includes nonlocal.* entries; add --nonlocal so they affect the Hamiltonian")
+        if args.enable_nonlocal:
+            get_config_section(base_config, "non-local-parameters")
+        x0 = initial_parameter_values(base_config, fit_params)
+    except (KeyError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
 
     output_dir = resolve_from_launch_dir(args.output_dir, launch_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"output dir: {output_dir}", flush=True)
+    print(f"fit params: {', '.join(param.label for param in fit_params)}", flush=True)
+    print(f"nonlocal corrections: {int(args.enable_nonlocal)}", flush=True)
 
-    objective = Objective(args, base_config, output_dir)
+    objective = Objective(args, base_config, output_dir, fit_params)
     if args.dry_run:
         objective(x0)
     elif args.method == "coordinate":
@@ -610,10 +727,7 @@ def main() -> int:
 
     if objective.best_params is not None:
         print(
-            f"best score={objective.best_score:.6g} "
-            f"V3S={objective.best_params[0]:.7g} "
-            f"V8S={objective.best_params[1]:.7g} "
-            f"V11S={objective.best_params[2]:.7g}",
+            f"best score={objective.best_score:.6g} {format_params(fit_params, objective.best_params)}",
             flush=True,
         )
         print(f"log: {objective.log_path}", flush=True)
