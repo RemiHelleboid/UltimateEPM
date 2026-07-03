@@ -53,7 +53,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--base-set", default="local-remi-2026")
     parser.add_argument("--work-set", default="local-fit-working")
     parser.add_argument("--build-dir", default=str(REPO_ROOT / "build"))
-    parser.add_argument("--output-dir", default=str(REPO_ROOT / "fit_epm_output"))
+    parser.add_argument(
+        "--output-dir",
+        default="fit_epm_output",
+        help="Directory for fit logs and spectra. Relative paths are resolved from the launch directory.",
+    )
     parser.add_argument("--maxiter", type=int, default=60)
     parser.add_argument("--method", choices=["auto", "powell", "nelder-mead", "coordinate"], default="auto")
     parser.add_argument(
@@ -127,6 +131,13 @@ def uses_epsilon_metric(args: argparse.Namespace) -> bool:
 
 def parameter_file(material: str, parameter_set: str) -> Path:
     return REPO_ROOT / "data" / "materials" / material / "epm" / f"{parameter_set}.yaml"
+
+
+def resolve_from_launch_dir(path_like: str, launch_dir: Path) -> Path:
+    path = Path(path_like).expanduser()
+    if path.is_absolute():
+        return path
+    return launch_dir / path
 
 
 def load_yaml(path: Path) -> dict:
@@ -560,6 +571,7 @@ def run_scipy(objective: Objective, x0: list[float], args: argparse.Namespace) -
 
 
 def main() -> int:
+    launch_dir = Path.cwd().resolve()
     args = parse_args()
     if args.nthreads <= 0:
         raise SystemExit("--nthreads must be positive")
@@ -584,8 +596,9 @@ def main() -> int:
     pseudo = base_config["pseudo-potential-parameters"]
     x0 = [float(pseudo["V3S"]), float(pseudo["V8S"]), float(pseudo["V11S"])]
 
-    output_dir = Path(args.output_dir)
+    output_dir = resolve_from_launch_dir(args.output_dir, launch_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    print(f"output dir: {output_dir}", flush=True)
 
     objective = Objective(args, base_config, output_dir)
     if args.dry_run:
