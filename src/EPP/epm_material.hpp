@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <filesystem>
 #include <map>
 #include <numbers>
 #include <string>
@@ -174,6 +175,9 @@ class Materials {
     void load_material(const uepm::physics::material_repository& repository,
                        const std::string&                        material_symbol,
                        const std::string&                        parameter_set);
+    void load_material_file(const uepm::physics::material_repository& repository,
+                            const std::string&                        material_symbol,
+                            const std::filesystem::path&              parameter_file);
     void load_parameter_set(const uepm::physics::material_repository& repository, const std::string& parameter_set);
 
     std::map<std::string, epm_material> materials;

@@ -70,7 +70,12 @@ DEFAULT_TARGETS: dict[str, Target] = {
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--material", default="Si")
-    parser.add_argument("--base-set", default="local-remi-2026")
+    parser.add_argument("--base-set", default="local-remi-2026", help="Named repository EPM parameter set.")
+    parser.add_argument(
+        "--base-file",
+        default="",
+        help="External EPM YAML file to use as the starting parameter set. Overrides --base-set.",
+    )
     parser.add_argument("--work-set", default="local-fit-working")
     parser.add_argument("--build-dir", default=str(REPO_ROOT / "build"))
     parser.add_argument(
@@ -177,6 +182,15 @@ def resolve_from_launch_dir(path_like: str, launch_dir: Path) -> Path:
 def load_yaml(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as stream:
         return yaml.safe_load(stream)
+
+
+def validate_epm_config(config: dict, path: Path, material: str) -> None:
+    if config.get("material") != material:
+        raise ValueError(f"{path} has material={config.get('material')!r}, expected {material!r}")
+    if config.get("model") != "epm":
+        raise ValueError(f"{path} has model={config.get('model')!r}, expected 'epm'")
+    if "pseudo-potential-parameters" not in config:
+        raise ValueError(f"{path} does not define pseudo-potential-parameters")
 
 
 def parse_fit_parameter(token: str) -> FitParameter:
@@ -699,8 +713,14 @@ def main() -> int:
         if not Path(args.epsilon_reference).exists():
             raise SystemExit(f"--epsilon-reference does not exist: {args.epsilon_reference}")
 
-    base_path = parameter_file(args.material, args.base_set)
+    base_path = resolve_from_launch_dir(args.base_file, launch_dir) if args.base_file else parameter_file(args.material, args.base_set)
+    if not base_path.exists():
+        raise SystemExit(f"base parameter file does not exist: {base_path}")
     base_config = load_yaml(base_path)
+    try:
+        validate_epm_config(base_config, base_path, args.material)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     try:
         fit_params = parse_fit_parameters(args.fit_params)
         if any(param.section == "non-local-parameters" for param in fit_params) and not args.enable_nonlocal:
@@ -714,6 +734,8 @@ def main() -> int:
     output_dir = resolve_from_launch_dir(args.output_dir, launch_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"output dir: {output_dir}", flush=True)
+    print(f"base file: {base_path}", flush=True)
+    print(f"working set: {args.work_set}", flush=True)
     print(f"fit params: {', '.join(param.label for param in fit_params)}", flush=True)
     print(f"nonlocal corrections: {int(args.enable_nonlocal)}", flush=True)
 

@@ -1,6 +1,8 @@
 #include "epm_material.hpp"
 
 #include <cmath>
+#include <filesystem>
+#include <optional>
 
 #include "bessel_func.hpp"
 #include "physical_constants.hpp"
@@ -27,18 +29,24 @@ epm_material::epm_material(const uepm::physics::material_info& material,
     }
 }
 
-void Materials::load_material(const uepm::physics::material_repository& repository,
-                              const std::string&                        material_symbol,
-                              const std::string&                        parameter_set) {
-    const auto common_material = repository.load_material(material_symbol);
-    const auto filename        = repository.parameter_file(material_symbol, "epm", parameter_set);
-    const auto config          = YAML::LoadFile(filename.string());
-
-    if (config["material"].as<std::string>() != material_symbol || config["model"].as<std::string>() != "epm" ||
-        config["parameter_set"].as<std::string>() != parameter_set) {
+namespace {
+void load_material_from_yaml(std::map<std::string, epm_material>&             materials,
+                             const uepm::physics::material_info&             common_material,
+                             const std::filesystem::path&                    filename,
+                             const YAML::Node&                               config,
+                             const std::optional<std::string>&               expected_parameter_set = std::nullopt) {
+    const auto material_node = config["material"];
+    const auto model_node    = config["model"];
+    if (!material_node || !model_node || material_node.as<std::string>() != common_material.symbol ||
+        model_node.as<std::string>() != "epm") {
         throw std::runtime_error("Invalid EPM parameter file '" + filename.string() + "'.");
     }
-
+    if (expected_parameter_set) {
+        const auto parameter_set_node = config["parameter_set"];
+        if (!parameter_set_node || parameter_set_node.as<std::string>() != *expected_parameter_set) {
+            throw std::runtime_error("Invalid EPM parameter set in file '" + filename.string() + "'.");
+        }
+    }
     const auto node_pseudopotential = config["pseudo-potential-parameters"];
     if (!node_pseudopotential) {
         throw std::runtime_error("EPM parameter file '" + filename.string() +
@@ -50,22 +58,41 @@ void Materials::load_material(const uepm::physics::material_repository& reposito
         return value ? uepm::constants::Ryd_to_eV * value.as<double>() : default_value;
     };
 
-    materials[material_symbol] = epm_material(common_material,
-                                              rydberg_value("V3S"),
-                                              rydberg_value("V4S"),
-                                              rydberg_value("V8S"),
-                                              rydberg_value("V11S"),
-                                              rydberg_value("V3A"),
-                                              rydberg_value("V4A"),
-                                              rydberg_value("V8A"),
-                                              rydberg_value("V11A"));
+    materials[common_material.symbol] = epm_material(common_material,
+                                                     rydberg_value("V3S"),
+                                                     rydberg_value("V4S"),
+                                                     rydberg_value("V8S"),
+                                                     rydberg_value("V11S"),
+                                                     rydberg_value("V3A"),
+                                                     rydberg_value("V4A"),
+                                                     rydberg_value("V8A"),
+                                                     rydberg_value("V11A"));
 
     if (const auto node = config["non-local-parameters"]) {
-        materials[material_symbol].populate_non_local_parameters(node);
+        materials[common_material.symbol].populate_non_local_parameters(node);
     }
     if (const auto node = config["spin-orbit-parameters"]) {
-        materials[material_symbol].populate_spin_orbit_parameters(node);
+        materials[common_material.symbol].populate_spin_orbit_parameters(node);
     }
+}
+}  // namespace
+
+void Materials::load_material(const uepm::physics::material_repository& repository,
+                              const std::string&                        material_symbol,
+                              const std::string&                        parameter_set) {
+    const auto common_material = repository.load_material(material_symbol);
+    const auto filename        = repository.parameter_file(material_symbol, "epm", parameter_set);
+    const auto config          = YAML::LoadFile(filename.string());
+    load_material_from_yaml(materials, common_material, filename, config, parameter_set);
+}
+
+void Materials::load_material_file(const uepm::physics::material_repository& repository,
+                                   const std::string&                        material_symbol,
+                                   const std::filesystem::path&              parameter_file) {
+    const auto common_material = repository.load_material(material_symbol);
+    const auto filename        = std::filesystem::absolute(parameter_file).lexically_normal();
+    const auto config          = YAML::LoadFile(filename.string());
+    load_material_from_yaml(materials, common_material, filename, config);
 }
 
 void Materials::load_parameter_set(const uepm::physics::material_repository& repository,

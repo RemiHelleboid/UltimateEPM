@@ -627,6 +627,7 @@ int main(int argc, char* argv[]) {
                                               "Si",
                                               "string");
     TCLAP::ValueArg<std::string> arg_epm_set("d", "epm-set", "Named EPM parameter set", false, "local-cohen", "string");
+    TCLAP::ValueArg<std::string> arg_epm_file("", "epm-file", "External EPM YAML parameter file", false, "", "path");
     TCLAP::ValueArg<std::string> arg_outfile("o", "outfile", "Name of the output file", false, "", "string");
     TCLAP::ValueArg<int> arg_nb_valence_bands("v", "nvbands", "Number of valence bands to export", false, 4, "int");
     TCLAP::ValueArg<int> arg_nb_conduction_bands("c",
@@ -719,6 +720,7 @@ int main(int argc, char* argv[]) {
     cmd.add(arg_enable_soc);
     cmd.add(arg_cond_band_zero);
     cmd.add(arg_epm_set);
+    cmd.add(arg_epm_file);
     cmd.add(arg_irr_wedge);
     cmd.add(arg_refinement_map);
     cmd.add(arg_adaptive_energy_target);
@@ -735,8 +737,13 @@ int main(int argc, char* argv[]) {
 
     uepm::pseudopotential::Materials         materials;
     const uepm::physics::material_repository material_repository;
-    materials.load_material(material_repository, arg_material.getValue(), arg_epm_set.getValue());
-    fmt::print("Loaded EPM parameter set '{}' for {}\n", arg_epm_set.getValue(), arg_material.getValue());
+    if (arg_epm_file.isSet()) {
+        materials.load_material_file(material_repository, arg_material.getValue(), arg_epm_file.getValue());
+        fmt::print("Loaded EPM parameter file '{}' for {}\n", arg_epm_file.getValue(), arg_material.getValue());
+    } else {
+        materials.load_material(material_repository, arg_material.getValue(), arg_epm_set.getValue());
+        fmt::print("Loaded EPM parameter set '{}' for {}\n", arg_epm_set.getValue(), arg_material.getValue());
+    }
     bool enable_nonlocal_correction = arg_enable_nonlocal_correction.isSet();
     bool enable_soc                 = arg_enable_soc.isSet();
 

@@ -220,6 +220,7 @@ int main(int argc, char* argv[]) {
     TCLAP::ValueArg<int>         arg_nb_threads("j", "nthreads", "number of threads to use.", false, 1, "int");
     TCLAP::ValueArg<std::string> arg_res_dir("r", "resultdir", "directory to store the results.", false, "./", "str");
     TCLAP::ValueArg<std::string> arg_epm_set("d", "epm-set", "Named EPM parameter set", false, "local-cohen", "string");
+    TCLAP::ValueArg<std::string> arg_epm_file("", "epm-file", "External EPM YAML parameter file", false, "", "path");
     TCLAP::SwitchArg             arg_enable_nonlocal_correction("C",
                                                     "nonlocal-correction",
                                                     "Enable the non-local-correction for the EPM model",
@@ -246,6 +247,7 @@ int main(int argc, char* argv[]) {
     cmd.add(all_path_mat);
     cmd.add(plot_with_python);
     cmd.add(arg_epm_set);
+    cmd.add(arg_epm_file);
 
     cmd.parse(argc, argv);
 
@@ -268,8 +270,16 @@ int main(int argc, char* argv[]) {
 
     uepm::pseudopotential::Materials         materials;
     const uepm::physics::material_repository material_repository;
-    materials.load_parameter_set(material_repository, arg_epm_set.getValue());
-    fmt::print("Loaded EPM parameter set '{}'\n", arg_epm_set.getValue());
+    if (arg_epm_file.isSet()) {
+        if (all_path_mat.getValue()) {
+            throw TCLAP::ArgException("--epm-file cannot be combined with --all", arg_epm_file.getName());
+        }
+        materials.load_material_file(material_repository, arg_material.getValue(), arg_epm_file.getValue());
+        fmt::print("Loaded EPM parameter file '{}' for {}\n", arg_epm_file.getValue(), arg_material.getValue());
+    } else {
+        materials.load_parameter_set(material_repository, arg_epm_set.getValue());
+        fmt::print("Loaded EPM parameter set '{}'\n", arg_epm_set.getValue());
+    }
     materials.print_material_parameters();
 
     print_arguments(path_list,
