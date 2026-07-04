@@ -128,6 +128,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--epsilon-real-scale", type=float, default=10.0, help="Normalization scale for epsilon1 residuals.")
     parser.add_argument("--epsilon-imag-scale", type=float, default=10.0, help="Normalization scale for epsilon2 residuals.")
     parser.add_argument("--epsilon-bands", type=int, default=16)
+    parser.add_argument(
+        "--epsilon-bz-sampling",
+        choices=["full", "q100-octant", "fcc-ibz", "1", "8", "48"],
+        default="full",
+        help="BZ sampling mode passed to epsilon.epm.",
+    )
     parser.add_argument("--epsilon-nkx", type=int, default=8)
     parser.add_argument("--epsilon-nky", type=int, default=8)
     parser.add_argument("--epsilon-nkz", type=int, default=8)
@@ -434,6 +440,8 @@ def epsilon_command(args: argparse.Namespace, work_set: str, epsilon_prefix: Pat
         str(args.epsilon_estep),
         "--eta",
         str(args.epsilon_eta),
+        "--bz-sampling",
+        args.epsilon_bz_sampling,
         "--out",
         str(epsilon_prefix),
     ]

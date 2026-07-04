@@ -33,11 +33,11 @@ bool is_in_irreducible_wedge(const Vector3D<double>& k) {
     return (k.Z >= 0.0) && (k.Y >= k.Z) && (k.X >= k.Y) && (k.X <= 1.0) && (k.X + k.Y + k.Z <= 3.0 / 2.0);
 }
 
-bool is_in_first_BZ(const Vector3D<double>& k, bool one_eighth = false) {
+bool is_in_first_BZ(const Vector3D<double>& k, bool positive_octant = false) {
     bool cond_1      = fabs(k.X) <= 1.0 && fabs(k.Y) <= 1.0 && fabs(k.Z) <= 1.0;
     bool cond_2      = fabs(k.X) + fabs(k.Y) + fabs(k.Z) <= 3.0 / 2.0;
-    bool cond_eighth = (k.X >= 0.0 && k.Y >= 0.0 && k.Z >= 0.0);
-    return cond_1 && cond_2 && (one_eighth ? cond_eighth : true);
+    bool cond_octant = (k.X >= 0.0 && k.Y >= 0.0 && k.Z >= 0.0);
+    return cond_1 && cond_2 && (positive_octant ? cond_octant : true);
 }
 
 DielectricFunction::DielectricFunction(const epm_material&               material,
@@ -63,11 +63,13 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx,
                                                 std::size_t Ny,
                                                 std::size_t Nz,
                                                 double      shift,
-                                                bool        irreducible_wedge) {
+                                                DielectricKPointSampling sampling) {
     if (Nx == 0 || Ny == 0 || Nz == 0) {
         throw std::invalid_argument("DielectricFunction::generate_k_points_grid requires non-zero grid dimensions.");
     }
     m_kpoints.clear();
+    const bool positive_octant  = sampling == DielectricKPointSampling::q100_octant;
+    const bool irreducible_wedge = sampling == DielectricKPointSampling::fcc_irreducible_wedge;
     constexpr double min = -1.0;
     constexpr double max = 1.0;
     for (std::size_t i = 0; i < Nx; ++i) {
@@ -79,12 +81,26 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx,
                                             shift,
                                         min + (max - min) * (static_cast<double>(k) + 0.5) / static_cast<double>(Nz) +
                                             shift);
-                if (is_in_first_BZ(k_vect) && (!irreducible_wedge || is_in_irreducible_wedge(k_vect))) {
+                if (is_in_first_BZ(k_vect, positive_octant) &&
+                    (!irreducible_wedge || is_in_irreducible_wedge(k_vect))) {
                     m_kpoints.push_back(k_vect);
                 }
             }
         }
     }
+}
+
+void DielectricFunction::generate_k_points_grid(std::size_t Nx,
+                                                std::size_t Ny,
+                                                std::size_t Nz,
+                                                double      shift,
+                                                bool        irreducible_wedge) {
+    generate_k_points_grid(Nx,
+                           Ny,
+                           Nz,
+                           shift,
+                           irreducible_wedge ? DielectricKPointSampling::fcc_irreducible_wedge
+                                             : DielectricKPointSampling::full_bz);
 }
 
 /**

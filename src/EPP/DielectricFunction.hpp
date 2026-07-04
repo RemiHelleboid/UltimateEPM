@@ -22,6 +22,12 @@
 
 namespace uepm::pseudopotential {
 
+enum class DielectricKPointSampling {
+    full_bz,
+    q100_octant,
+    fcc_irreducible_wedge,
+};
+
 class DielectricFunction {
  protected:
     std::vector<Vector3D<int>>    m_basisVectors;
@@ -97,6 +103,11 @@ class DielectricFunction {
      *
      * @param nb_points
      */
+    void generate_k_points_grid(std::size_t Nx,
+                                std::size_t Ny,
+                                std::size_t Nz,
+                                double      shift,
+                                DielectricKPointSampling sampling);
     void generate_k_points_grid(std::size_t Nx, std::size_t Ny, std::size_t Nz, double shift, bool irreducible_wedge);
 
     /** Get the list of k-points.

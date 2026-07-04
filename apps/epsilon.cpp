@@ -8,6 +8,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -40,7 +41,7 @@ struct EpsilonAppConfig {
     int nkx{40};
     int nky{40};
     int nkz{40};
-    int bz_sampling{1};
+    std::string bz_sampling{"full"};
     int q_count{40};
 
     double min_energy_eV{0.0};
@@ -69,6 +70,47 @@ void load_yaml_value_any_key(const YAML::Node& node, const std::vector<const cha
             return;
         }
     }
+}
+
+std::string lowercase_ascii(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return text;
+}
+
+std::string normalize_bz_sampling(std::string value) {
+    value = lowercase_ascii(value);
+    std::replace(value.begin(), value.end(), '_', '-');
+    if (value == "1" || value == "full" || value == "full-bz") {
+        return "full";
+    }
+    if (value == "8" || value == "q100-octant" || value == "100-octant" || value == "octant") {
+        return "q100-octant";
+    }
+    if (value == "48" || value == "fcc-ibz" || value == "ibz" || value == "irreducible-wedge") {
+        return "fcc-ibz";
+    }
+    throw std::invalid_argument(
+        "--bz-sampling must be one of full, q100-octant, fcc-ibz (legacy aliases: 1, 8, 48).");
+}
+
+uepm::pseudopotential::DielectricKPointSampling dielectric_sampling_mode(const std::string& value) {
+    const std::string mode = normalize_bz_sampling(value);
+    if (mode == "full") {
+        return uepm::pseudopotential::DielectricKPointSampling::full_bz;
+    }
+    if (mode == "q100-octant") {
+        return uepm::pseudopotential::DielectricKPointSampling::q100_octant;
+    }
+    return uepm::pseudopotential::DielectricKPointSampling::fcc_irreducible_wedge;
+}
+
+bool all_qpoints_along_100(const std::vector<Vector3D<double>>& qpoints) {
+    constexpr double tolerance = 1.0e-12;
+    return std::all_of(qpoints.begin(), qpoints.end(), [](const Vector3D<double>& q) {
+        return std::abs(q.X) > tolerance && std::abs(q.Y) <= tolerance && std::abs(q.Z) <= tolerance;
+    });
 }
 
 std::vector<double> parse_double_list(std::string text) {
@@ -249,7 +291,7 @@ void print_config(const EpsilonAppConfig& config,
     std::cout << "Nearest neighbors: " << config.nb_nearest_neighbors << '\n';
     std::cout << "Nonlocal EPM: " << config.nonlocal_epm << '\n';
     std::cout << "k-grid: " << config.nkx << " x " << config.nky << " x " << config.nkz << '\n';
-    std::cout << "BZ sampling factor: " << config.bz_sampling << '\n';
+    std::cout << "BZ sampling: " << normalize_bz_sampling(config.bz_sampling) << '\n';
     std::cout << "Energy grid: " << energies.front() << " -> " << energies.back() << " eV, N=" << energies.size()
               << ", eta=" << config.eta_smearing_eV << " eV\n";
     std::cout << "Mode: " << config.mode << '\n';
@@ -375,7 +417,12 @@ int main(int argc, char** argv) {
     TCLAP::ValueArg<int>         arg_nkx("", "Nkx", "k-grid count in x.", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nky("", "Nky", "k-grid count in y.", false, -1, "int");
     TCLAP::ValueArg<int>         arg_nkz("", "Nkz", "k-grid count in z.", false, -1, "int");
-    TCLAP::ValueArg<int>         arg_bz_sampling("", "bz-sampling", "Use 48 for irreducible wedge, 1 for full BZ.", false, -1, "int");
+    TCLAP::ValueArg<std::string> arg_bz_sampling("",
+                                                 "bz-sampling",
+                                                 "BZ sampling: full, q100-octant, or fcc-ibz. Legacy aliases: 1, 8, 48.",
+                                                 false,
+                                                 "",
+                                                 "mode");
     TCLAP::ValueArg<int>         arg_q_count("", "q-count", "Number of q samples for q-line mode.", false, -1, "int");
     TCLAP::ValueArg<double>      arg_emin("", "emin", "Minimum energy in eV.", false, std::nan(""), "eV");
     TCLAP::ValueArg<double>      arg_emax("", "emax", "Maximum energy in eV.", false, std::nan(""), "eV");
@@ -493,6 +540,7 @@ int main(int argc, char** argv) {
         config.q_file.clear();
     }
     normalize_mode(config);
+    config.bz_sampling = normalize_bz_sampling(config.bz_sampling);
 
     const bool use_mpi = launched_under_mpi();
     int number_processes = 1;
@@ -516,10 +564,14 @@ int main(int argc, char** argv) {
     if (process_rank == 0) {
         create_output_parent(config.output_prefix);
         print_config(config, energies, qpoints, number_processes);
-        if (config.bz_sampling == 48) {
+        if (config.bz_sampling == "fcc-ibz") {
             std::cout << "Warning: irreducible-wedge k sampling is not generally valid for finite-q dielectric "
                          "functions unless symmetry weights and q-star handling are implemented. Full-BZ sampling "
-                         "(--bz-sampling 1) is recommended.\n";
+                         "(--bz-sampling full) is recommended.\n";
+        }
+        if (config.bz_sampling == "q100-octant" && !all_qpoints_along_100(qpoints)) {
+            std::cout << "Warning: --bz-sampling q100-octant assumes q is parallel to the [100] direction. "
+                         "Use --bz-sampling full for arbitrary q directions.\n";
         }
     }
 
@@ -540,8 +592,11 @@ int main(int argc, char** argv) {
                                                          band_structure.get_basis_vectors(),
                                                          config.nb_bands);
 
-    const bool use_irreducible_wedge = config.bz_sampling == 48;
-    dielectric.generate_k_points_grid(config.nkx, config.nky, config.nkz, 0.0, use_irreducible_wedge);
+    dielectric.generate_k_points_grid(config.nkx,
+                                      config.nky,
+                                      config.nkz,
+                                      0.0,
+                                      dielectric_sampling_mode(config.bz_sampling));
     const std::size_t nb_kpoints = dielectric.get_kpoints().size();
 
     if (process_rank == 0) {
