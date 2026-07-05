@@ -66,6 +66,8 @@ DEFAULT_TARGETS: dict[str, Target] = {
     "alpha_eV_inv": Target(0.5, 0.08, 1.0),
 }
 
+PENALTY_SCORE = 1.0e12
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -94,6 +96,19 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--param-bounds",
+        default="",
+        help=(
+            "Comma-separated bound overrides as name:min:max, e.g. "
+            "pseudo.V3S:-0.5:0,nonlocal.alpha_0:0:2,nonlocal.beta_0:0:2"
+        ),
+    )
+    parser.add_argument(
+        "--no-default-bounds",
+        action="store_true",
+        help="Disable built-in parameter bounds. Explicit --param-bounds still apply.",
+    )
+    parser.add_argument(
         "--nonlocal",
         dest="enable_nonlocal",
         action="store_true",
@@ -115,18 +130,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--alpha-radius", type=float, default=0.05)
     parser.add_argument("--alpha-shells", type=int, default=30)
     parser.add_argument("--alpha-max-energy", type=float, default=1.0e-2)
-    parser.add_argument("--epsilon-reference", default=str(DEFAULT_EPSILON_REFERENCE))
+    parser.add_argument("--epsilon-reference", default=str(DEFAULT_EPSILON_REFERENCE), help=argparse.SUPPRESS)
     parser.add_argument(
         "--epsilon-component",
         choices=["real", "imag", "both"],
         default="both",
-        help="Use epsilon1, epsilon2, or both in the dielectric loss.",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument("--epsilon-weight", type=float, default=1.0)
-    parser.add_argument("--epsilon-real-weight", type=float, default=1.0)
-    parser.add_argument("--epsilon-imag-weight", type=float, default=1.0)
-    parser.add_argument("--epsilon-real-scale", type=float, default=10.0, help="Normalization scale for epsilon1 residuals.")
-    parser.add_argument("--epsilon-imag-scale", type=float, default=10.0, help="Normalization scale for epsilon2 residuals.")
+    parser.add_argument("--epsilon-static-target", type=float, default=11.7, help="Target epsilon1(E=0).")
+    parser.add_argument("--epsilon-argmax-target", type=float, default=3.3, help="Target energy in eV of max epsilon1.")
+    parser.add_argument("--epsilon-argmin-target", type=float, default=4.5, help="Target energy in eV of min epsilon1.")
+    parser.add_argument("--epsilon-static-scale", type=float, default=1.0, help="Normalization scale for epsilon1(E=0).")
+    parser.add_argument("--epsilon-extrema-scale", type=float, default=0.2, help="Normalization scale in eV for extrema positions.")
+    parser.add_argument("--epsilon-real-weight", type=float, default=1.0, help=argparse.SUPPRESS)
+    parser.add_argument("--epsilon-imag-weight", type=float, default=1.0, help=argparse.SUPPRESS)
+    parser.add_argument("--epsilon-real-scale", type=float, default=10.0, help=argparse.SUPPRESS)
+    parser.add_argument("--epsilon-imag-scale", type=float, default=10.0, help=argparse.SUPPRESS)
     parser.add_argument("--epsilon-bands", type=int, default=16)
     parser.add_argument(
         "--epsilon-bz-sampling",
@@ -139,7 +159,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--epsilon-nkz", type=int, default=8)
     parser.add_argument("--epsilon-q", default="1e-3")
     parser.add_argument("--epsilon-direction", default="1,0,0")
-    parser.add_argument("--epsilon-emin", type=float, default=1.5)
+    parser.add_argument("--epsilon-emin", type=float, default=0.0)
     parser.add_argument("--epsilon-emax", type=float, default=6.0)
     parser.add_argument("--epsilon-estep", type=float, default=0.1)
     parser.add_argument("--epsilon-eta", type=float, default=0.15)
@@ -256,6 +276,79 @@ def initial_parameter_values(config: dict, fit_params: list[FitParameter]) -> li
     return values
 
 
+def default_bound_for_param(param: FitParameter, initial_value: float) -> tuple[float, float]:
+    if param.section == "pseudo-potential-parameters":
+        return (-1.0, 1.0)
+    if param.section == "non-local-parameters":
+        key_lower = param.label.lower()
+        if ".r0" in key_lower or ".r2" in key_lower:
+            return (0.0, 5.0)
+        if ".alpha_0" in key_lower or ".beta_0" in key_lower:
+            return (0.0, 2.0)
+        if ".a2" in key_lower:
+            return (-2.0, 2.0)
+        return (-5.0, 5.0)
+    span = max(1.0, 5.0 * abs(initial_value))
+    return (initial_value - span, initial_value + span)
+
+
+def parse_bound_overrides(value: str) -> dict[str, tuple[float, float]]:
+    overrides: dict[str, tuple[float, float]] = {}
+    if not value.strip():
+        return overrides
+    for token in value.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        parts = token.split(":")
+        if len(parts) != 3:
+            raise ValueError(f"invalid bound override '{token}', expected name:min:max")
+        label = parse_fit_parameter(parts[0]).label
+        lower = float(parts[1])
+        upper = float(parts[2])
+        if not (math.isfinite(lower) and math.isfinite(upper) and lower < upper):
+            raise ValueError(f"invalid finite bounds for {label}: {lower}, {upper}")
+        overrides[label] = (lower, upper)
+    return overrides
+
+
+def parameter_bounds(args: argparse.Namespace, fit_params: list[FitParameter], x0: list[float]) -> list[tuple[float, float]]:
+    overrides = parse_bound_overrides(args.param_bounds)
+    known_labels = {param.label for param in fit_params}
+    unknown = sorted(set(overrides) - known_labels)
+    if unknown:
+        raise ValueError(f"--param-bounds references parameter(s) not in --fit-params: {', '.join(unknown)}")
+
+    bounds: list[tuple[float, float]] = []
+    for param, initial_value in zip(fit_params, x0):
+        lower, upper = (-math.inf, math.inf) if args.no_default_bounds else default_bound_for_param(param, initial_value)
+        if param.label in overrides:
+            lower, upper = overrides[param.label]
+        if not (lower <= initial_value <= upper):
+            raise ValueError(f"initial value {initial_value} for {param.label} is outside bounds [{lower}, {upper}]")
+        bounds.append((lower, upper))
+    return bounds
+
+
+def finite_params(params: list[float]) -> bool:
+    return all(math.isfinite(value) for value in params)
+
+
+def within_bounds(params: list[float], bounds: list[tuple[float, float]]) -> bool:
+    return all(lower <= value <= upper for value, (lower, upper) in zip(params, bounds))
+
+
+def clip_to_bounds(params: list[float], bounds: list[tuple[float, float]]) -> list[float]:
+    clipped: list[float] = []
+    for value, (lower, upper) in zip(params, bounds):
+        if math.isfinite(lower):
+            value = max(value, lower)
+        if math.isfinite(upper):
+            value = min(value, upper)
+        clipped.append(value)
+    return clipped
+
+
 def write_working_yaml(
     base_config: dict,
     material: str,
@@ -332,59 +425,60 @@ def interpolate_linear(xs: list[float], ys: list[float], x: float) -> float:
     return (1.0 - t) * ys[lo] + t * ys[hi]
 
 
-def mean_square(values: list[float]) -> float:
-    if not values:
-        return math.nan
-    return sum(value * value for value in values) / float(len(values))
+def extremum_energy(energies: list[float], values: list[float], find_max: bool) -> float:
+    if len(energies) != len(values) or len(energies) < 3:
+        raise RuntimeError("need at least three epsilon samples to locate an extremum")
+    index = max(range(len(values)), key=values.__getitem__) if find_max else min(range(len(values)), key=values.__getitem__)
+    if index == 0 or index == len(values) - 1:
+        return energies[index]
+
+    x0, x1, x2 = energies[index - 1], energies[index], energies[index + 1]
+    y0, y1, y2 = values[index - 1], values[index], values[index + 1]
+    if not (math.isfinite(x0) and math.isfinite(x1) and math.isfinite(x2)):
+        return energies[index]
+    if abs((x1 - x0) - (x2 - x1)) > 1.0e-8:
+        return energies[index]
+
+    denominator = y0 - 2.0 * y1 + y2
+    if abs(denominator) < 1.0e-14:
+        return energies[index]
+    step = x1 - x0
+    x_vertex = x1 + 0.5 * step * (y0 - y2) / denominator
+    if x0 <= x_vertex <= x2:
+        return x_vertex
+    return energies[index]
 
 
-def score_epsilon_against_reference(
+def score_epsilon_features(
     args: argparse.Namespace,
     model_csv: Path,
 ) -> dict[str, float]:
-    reference_csv = Path(args.epsilon_reference)
-    ref_energy, ref_real, ref_imag = read_epsilon_csv(reference_csv, "E_eV", "epsilon1", "epsilon2")
     model_energy, model_real, model_imag = read_epsilon_csv(
         model_csv,
         "Energy (eV)",
         "EpsilonReal",
         "EpsilonImaginary",
     )
+    del model_imag
+    if any(not math.isfinite(value) for value in model_energy + model_real):
+        raise RuntimeError(f"{model_csv} contains non-finite epsilon samples")
 
-    real_errors: list[float] = []
-    imag_errors: list[float] = []
-    real_normalized: list[float] = []
-    imag_normalized: list[float] = []
-    for energy, eps1_ref, eps2_ref in zip(ref_energy, ref_real, ref_imag):
-        if energy < model_energy[0] or energy > model_energy[-1]:
-            continue
-        eps1 = interpolate_linear(model_energy, model_real, energy)
-        eps2 = interpolate_linear(model_energy, model_imag, energy)
-        real_error = eps1 - eps1_ref
-        imag_error = eps2 - eps2_ref
-        real_errors.append(real_error)
-        imag_errors.append(imag_error)
-        real_normalized.append(real_error / args.epsilon_real_scale)
-        imag_normalized.append(imag_error / args.epsilon_imag_scale)
+    epsilon0 = interpolate_linear(model_energy, model_real, 0.0)
+    argmax_eV = extremum_energy(model_energy, model_real, find_max=True)
+    argmin_eV = extremum_energy(model_energy, model_real, find_max=False)
 
-    if len(real_errors) < 2:
-        raise RuntimeError(
-            f"not enough overlap between {model_csv} and {reference_csv}; "
-            f"model range is {model_energy[0]} to {model_energy[-1]} eV"
-        )
-
-    score = 0.0
-    if args.epsilon_component in ("real", "both"):
-        score += args.epsilon_real_weight * mean_square(real_normalized)
-    if args.epsilon_component in ("imag", "both"):
-        score += args.epsilon_imag_weight * mean_square(imag_normalized)
-    score *= args.epsilon_weight
+    static_residual = (epsilon0 - args.epsilon_static_target) / args.epsilon_static_scale
+    argmax_residual = (argmax_eV - args.epsilon_argmax_target) / args.epsilon_extrema_scale
+    argmin_residual = (argmin_eV - args.epsilon_argmin_target) / args.epsilon_extrema_scale
+    score = args.epsilon_weight * (static_residual * static_residual +
+                                   argmax_residual * argmax_residual +
+                                   argmin_residual * argmin_residual)
 
     return {
         "epsilon_score": score,
-        "epsilon_real_rms": math.sqrt(mean_square(real_errors)),
-        "epsilon_imag_rms": math.sqrt(mean_square(imag_errors)),
-        "epsilon_points": float(len(real_errors)),
+        "epsilon0": epsilon0,
+        "epsilon_argmax_eV": argmax_eV,
+        "epsilon_argmin_eV": argmin_eV,
     }
 
 
@@ -551,7 +645,7 @@ def measure_epsilon(
     )
     if not spectra:
         raise RuntimeError(f"epsilon.epm did not write a spectrum for prefix {epsilon_prefix}")
-    return score_epsilon_against_reference(args, spectra[0])
+    return score_epsilon_features(args, spectra[0])
 
 
 def measure(
@@ -587,7 +681,7 @@ def observable_columns(args: argparse.Namespace) -> list[str]:
         columns.extend(DEFAULT_TARGETS.keys())
         columns.extend(["mass_rms_error_meV", "alpha_rms_error_meV"])
     if uses_epsilon_metric(args):
-        columns.extend(["epsilon_score", "epsilon_real_rms", "epsilon_imag_rms", "epsilon_points"])
+        columns.extend(["epsilon_score", "epsilon0", "epsilon_argmax_eV", "epsilon_argmin_eV"])
     return columns
 
 
@@ -598,11 +692,13 @@ class Objective:
         base_config: dict,
         output_dir: Path,
         fit_params: list[FitParameter],
+        bounds: list[tuple[float, float]],
     ) -> None:
         self.args = args
         self.base_config = base_config
         self.output_dir = output_dir
         self.fit_params = fit_params
+        self.bounds = bounds
         self.iteration = 0
         self.best_score = math.inf
         self.best_params: list[float] | None = None
@@ -623,15 +719,47 @@ class Objective:
         params = [float(x) for x in params_like]
         iteration = self.iteration
         self.iteration += 1
+        if not finite_params(params):
+            print(f"iteration {iteration:04d} rejected non-finite params: {params}", flush=True)
+            observables = {key: math.nan for key in self.observable_columns}
+            self.write_log_row(iteration, PENALTY_SCORE, params, observables)
+            return PENALTY_SCORE
+        if not within_bounds(params, self.bounds):
+            print(f"iteration {iteration:04d} rejected out-of-bounds params: {format_params(self.fit_params, params)}", flush=True)
+            observables = {key: math.nan for key in self.observable_columns}
+            self.write_log_row(iteration, PENALTY_SCORE, params, observables)
+            return PENALTY_SCORE
         write_working_yaml(self.base_config, self.args.material, self.args.work_set, self.fit_params, params)
         try:
             observables = measure(self.args, self.args.work_set, self.output_dir, iteration)
             score = score_observables(self.args, observables)
+            if not math.isfinite(score):
+                raise RuntimeError(f"non-finite objective score: {score}")
         except Exception as exc:
             print(f"iteration {iteration:04d} failed for {params}: {exc}", flush=True)
-            score = 1.0e12
+            score = PENALTY_SCORE
             observables = {key: math.nan for key in self.observable_columns}
 
+        self.write_log_row(iteration, score, params, observables)
+
+        if score < self.best_score and score < PENALTY_SCORE:
+            self.best_score = score
+            self.best_params = params
+            shutil.copy2(parameter_file(self.args.material, self.args.work_set), self.output_dir / "best.yaml")
+
+        print(
+            f"iter {iteration:04d} score={score:.6g} {format_params(self.fit_params, params)}",
+            flush=True,
+        )
+        return score
+
+    def write_log_row(
+        self,
+        iteration: int,
+        score: float,
+        params: list[float],
+        observables: dict[str, float],
+    ) -> None:
         with self.log_path.open("a", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream)
             writer.writerow(
@@ -643,20 +771,16 @@ class Objective:
                 ]
             )
 
-        if score < self.best_score:
-            self.best_score = score
-            self.best_params = params
-            shutil.copy2(parameter_file(self.args.material, self.args.work_set), self.output_dir / "best.yaml")
 
-        print(
-            f"iter {iteration:04d} score={score:.6g} {format_params(self.fit_params, params)}",
-            flush=True,
-        )
-        return score
-
-
-def coordinate_search(objective: Callable[[list[float]], float], x0: list[float], maxiter: int, step0: float, min_step: float):
-    x = list(x0)
+def coordinate_search(
+    objective: Callable[[list[float]], float],
+    x0: list[float],
+    maxiter: int,
+    step0: float,
+    min_step: float,
+    bounds: list[tuple[float, float]],
+):
+    x = clip_to_bounds(list(x0), bounds)
     best = objective(x)
     step = step0
     iterations = 1
@@ -666,6 +790,7 @@ def coordinate_search(objective: Callable[[list[float]], float], x0: list[float]
             for direction in (1.0, -1.0):
                 trial = list(x)
                 trial[dim] += direction * step
+                trial = clip_to_bounds(trial, bounds)
                 value = objective(trial)
                 iterations += 1
                 if value < best:
@@ -683,10 +808,10 @@ def coordinate_search(objective: Callable[[list[float]], float], x0: list[float]
 
 def run_scipy(objective: Objective, x0: list[float], args: argparse.Namespace) -> None:
     try:
-        from scipy.optimize import minimize
+        from scipy.optimize import Bounds, minimize
     except ImportError:
         print("SciPy not found; falling back to coordinate search.", flush=True)
-        coordinate_search(objective, x0, args.maxiter, args.initial_step, args.min_step)
+        coordinate_search(objective, x0, args.maxiter, args.initial_step, args.min_step, objective.bounds)
         return
 
     method = "Powell" if args.method in ("auto", "powell") else "Nelder-Mead"
@@ -697,7 +822,9 @@ def run_scipy(objective: Objective, x0: list[float], args: argparse.Namespace) -
     else:
         options["xatol"] = args.min_step
         options["fatol"] = 1.0e-4
-    minimize(objective, x0, method=method, options=options)
+    lower = [bound[0] for bound in objective.bounds]
+    upper = [bound[1] for bound in objective.bounds]
+    minimize(objective, x0, method=method, bounds=Bounds(lower, upper), options=options)
 
 
 def main() -> int:
@@ -716,10 +843,11 @@ def main() -> int:
             raise SystemExit("--epsilon-estep must be positive")
         if args.epsilon_eta <= 0.0:
             raise SystemExit("--epsilon-eta must be positive")
-        if args.epsilon_real_scale <= 0.0 or args.epsilon_imag_scale <= 0.0:
-            raise SystemExit("--epsilon-real-scale/--epsilon-imag-scale must be positive")
-        if not Path(args.epsilon_reference).exists():
-            raise SystemExit(f"--epsilon-reference does not exist: {args.epsilon_reference}")
+        if args.epsilon_static_scale <= 0.0 or args.epsilon_extrema_scale <= 0.0:
+            raise SystemExit("--epsilon-static-scale/--epsilon-extrema-scale must be positive")
+        for name in ("epsilon_static_target", "epsilon_argmax_target", "epsilon_argmin_target"):
+            if not math.isfinite(getattr(args, name)):
+                raise SystemExit(f"--{name.replace('_', '-')} must be finite")
 
     base_path = resolve_from_launch_dir(args.base_file, launch_dir) if args.base_file else parameter_file(args.material, args.base_set)
     if not base_path.exists():
@@ -736,6 +864,7 @@ def main() -> int:
         if args.enable_nonlocal:
             get_config_section(base_config, "non-local-parameters")
         x0 = initial_parameter_values(base_config, fit_params)
+        bounds = parameter_bounds(args, fit_params, x0)
     except (KeyError, ValueError) as exc:
         raise SystemExit(str(exc)) from exc
 
@@ -745,13 +874,18 @@ def main() -> int:
     print(f"base file: {base_path}", flush=True)
     print(f"working set: {args.work_set}", flush=True)
     print(f"fit params: {', '.join(param.label for param in fit_params)}", flush=True)
+    print(
+        "bounds: "
+        + ", ".join(f"{param.label}=[{lower:g},{upper:g}]" for param, (lower, upper) in zip(fit_params, bounds)),
+        flush=True,
+    )
     print(f"nonlocal corrections: {int(args.enable_nonlocal)}", flush=True)
 
-    objective = Objective(args, base_config, output_dir, fit_params)
+    objective = Objective(args, base_config, output_dir, fit_params, bounds)
     if args.dry_run:
         objective(x0)
     elif args.method == "coordinate":
-        coordinate_search(objective, x0, args.maxiter, args.initial_step, args.min_step)
+        coordinate_search(objective, x0, args.maxiter, args.initial_step, args.min_step, bounds)
     else:
         run_scipy(objective, x0, args)
 
