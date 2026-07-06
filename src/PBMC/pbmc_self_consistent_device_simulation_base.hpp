@@ -28,12 +28,18 @@
 
 namespace uepm::PBMC {
 
+struct scheduled_contact_voltage_event {
+    double m_time_s = 0.0;
+    std::map<std::string, double> m_contact_voltages_V;
+};
+
 struct options_self_consistent_device_pbmc_common {
     bool        m_frozen_field_mode = false;
     std::size_t m_poisson_frequency = 10;
 
     std::map<std::string, double> m_contact_voltages_V;
     std::string                   m_ramo_electrode;
+    std::vector<scheduled_contact_voltage_event> m_contact_voltage_schedule;
 
     bool   m_enable_built_in_potential      = false;
     double m_built_in_contact_voltage_scale = 1.0;
@@ -70,6 +76,7 @@ class self_consistent_device_pbmc_simulation_base : public device_pbmc_simulatio
     passive_quench_circuit                    m_quench_circuit;
     voltage_drop_avalanche_detector           m_avalanche_detector;
     successful_quench_detector                m_successful_quench_detector;
+    std::size_t                               m_next_contact_voltage_event_index = 0;
 
     std::map<std::string, double> m_built_in_contact_voltage_offsets_V;
 
@@ -99,6 +106,7 @@ class self_consistent_device_pbmc_simulation_base : public device_pbmc_simulatio
     std::size_t poisson_frequency() const;
 
     double contact_voltage_for_poisson(const std::string& contact_name) const;
+    bool   apply_scheduled_contact_voltage_events(double time_s);
     double ramo_electrode_voltage_for_history() const;
     double reference_electrode_voltage_for_history() const;
     double device_bias_voltage_for_history() const;

@@ -20,7 +20,22 @@ TEST_CASE("empty PBMC device history exports a header-only CSV") {
 
     CHECK(contents ==
           "time,nb_electrons,nb_holes,nb_impact_ionization,ramo_current_electron,ramo_current_hole,ramo_current,"
+          "probe_ramo_current_electron,probe_ramo_current_hole,probe_ramo_current,"
           "max_electric_field,ramo_electrode_voltage_V,reference_electrode_voltage_V,quench_bias_voltage_V,"
           "quench_device_current_A,"
           "quench_resistor_current_A,quench_voltage_drop_V\n");
+}
+
+TEST_CASE("PBMC device history exports configured contact voltage columns") {
+    uepm::PBMC::history_device_PBMC history;
+    history.set_contact_voltage_names({"drain", "gate"});
+
+    const auto filename = std::filesystem::temp_directory_path() / "ultimate_epm_pbmc_contact_voltage_history.csv";
+    CHECK_NOTHROW(history.print_header_csv(filename.string()));
+
+    std::ifstream stream(filename);
+    REQUIRE(stream.is_open());
+    const std::string contents{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+
+    CHECK(contents.ends_with(",V_drain,V_gate\n"));
 }

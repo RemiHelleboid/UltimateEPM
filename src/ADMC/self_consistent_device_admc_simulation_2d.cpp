@@ -111,6 +111,28 @@ void options_self_consistent_device_ADMC_common::validate() const {
     if (m_ramo_electrode.empty() || !m_contact_voltages_V.contains(m_ramo_electrode)) {
         throw std::invalid_argument("ADMC Ramo electrode must name a configured contact.");
     }
+    double previous_event_time_s = -std::numeric_limits<double>::infinity();
+    for (const auto& event : m_contact_voltage_schedule) {
+        if (!std::isfinite(event.m_time_s) || event.m_time_s < 0.0) {
+            throw std::invalid_argument("ADMC scheduled contact-voltage event time must be finite and non-negative.");
+        }
+        if (event.m_time_s < previous_event_time_s) {
+            throw std::invalid_argument("ADMC scheduled contact-voltage events must be sorted by time.");
+        }
+        if (event.m_contact_voltages_V.empty()) {
+            throw std::invalid_argument("ADMC scheduled contact-voltage events must set at least one contact voltage.");
+        }
+        for (const auto& [contact_name, voltage_V] : event.m_contact_voltages_V) {
+            if (!m_contact_voltages_V.contains(contact_name)) {
+                throw std::invalid_argument("ADMC scheduled contact-voltage event references unknown contact '" +
+                                            contact_name + "'.");
+            }
+            if (!std::isfinite(voltage_V)) {
+                throw std::invalid_argument("ADMC scheduled contact-voltage event value must be finite.");
+            }
+        }
+        previous_event_time_s = event.m_time_s;
+    }
     if (!std::isfinite(m_built_in_contact_voltage_scale)) {
         throw std::invalid_argument("ADMC built-in contact voltage scale must be finite.");
     }
@@ -152,6 +174,14 @@ self_consistent_device_admc_simulation_2d::self_consistent_device_admc_simulatio
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(static_cast<unsigned long>(random_seed + 1)) {
     validate_self_consistent_options();
+    std::vector<std::string> contact_names;
+    contact_names.reserve(m_self_consistent_options.m_common.m_contact_voltages_V.size());
+    for (const auto& [contact_name, unused_voltage] : m_self_consistent_options.m_common.m_contact_voltages_V) {
+        static_cast<void>(unused_voltage);
+        contact_names.push_back(contact_name);
+    }
+    m_history.set_contact_voltage_names(contact_names);
+    apply_scheduled_contact_voltage_events(0.0);
     initialize_contact_elements();
     initialize_poisson_solver();
     initialize_particles_for_self_consistent_run();
@@ -176,6 +206,28 @@ double self_consistent_device_admc_simulation_2d::contact_voltage_for_poisson(co
     }
     const auto offset_it = m_built_in_contact_voltage_offsets_V.find(contact_name);
     return contact_it->second + (offset_it == m_built_in_contact_voltage_offsets_V.end() ? 0.0 : offset_it->second);
+}
+
+bool self_consistent_device_admc_simulation_2d::apply_scheduled_contact_voltage_events(double time_s) {
+    bool changed = false;
+    while (m_next_contact_voltage_event_index <
+           m_self_consistent_options.m_common.m_contact_voltage_schedule.size()) {
+        const auto& event =
+            m_self_consistent_options.m_common.m_contact_voltage_schedule[m_next_contact_voltage_event_index];
+        if (event.m_time_s > time_s) {
+            break;
+        }
+        for (const auto& [contact_name, voltage_V] : event.m_contact_voltages_V) {
+            m_self_consistent_options.m_common.m_contact_voltages_V[contact_name] = voltage_V;
+            fmt::print("\nADMC scheduled contact voltage at {:.6e} s: {} = {:.6e} V\n",
+                       event.m_time_s,
+                       contact_name,
+                       voltage_V);
+        }
+        ++m_next_contact_voltage_event_index;
+        changed = true;
+    }
+    return changed;
 }
 
 void self_consistent_device_admc_simulation_2d::update_built_in_contact_voltage_offset(
@@ -605,6 +657,9 @@ void self_consistent_device_admc_simulation_2d::run_self_consistent_transport_si
 
         const bool should_update_poisson = (m_state.m_iteration % poisson_frequency == 0) && m_state.m_iteration != 0;
         if (should_update_poisson) {
+            const double poisson_sample_time_s = m_state.m_time_s + m_options.m_time_step_s;
+            apply_scheduled_contact_voltage_events(poisson_sample_time_s);
+
             ramo_current_electron = accumulator_ramo_current_electron / static_cast<double>(poisson_frequency);
             ramo_current_hole     = accumulator_ramo_current_hole / static_cast<double>(poisson_frequency);
             ramo_current          = ramo_current_electron + ramo_current_hole;
@@ -619,6 +674,8 @@ void self_consistent_device_admc_simulation_2d::run_self_consistent_transport_si
             reset_element_charges();
 
         }
+        m_history.set_last_contact_voltages(m_history.contact_voltage_values_from_map(
+            m_self_consistent_options.m_common.m_contact_voltages_V));
 
         if (m_state.m_iteration == 1 ||
             m_state.m_iteration % static_cast<std::size_t>(m_options.m_frequency_export) == 0) {

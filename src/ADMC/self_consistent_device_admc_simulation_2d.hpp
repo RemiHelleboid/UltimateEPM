@@ -18,11 +18,17 @@
 
 namespace uepm::ADMC {
 
+struct scheduled_contact_voltage_event {
+    double m_time_s = 0.0;
+    std::map<std::string, double> m_contact_voltages_V;
+};
+
 struct options_self_consistent_device_ADMC_common {
     std::size_t m_poisson_frequency = 10;
 
     std::map<std::string, double> m_contact_voltages_V;
     std::string                   m_ramo_electrode = "anode";
+    std::vector<scheduled_contact_voltage_event> m_contact_voltage_schedule;
 
     bool   m_enable_built_in_potential      = false;
     double m_built_in_contact_voltage_scale = 1.0;
@@ -79,6 +85,7 @@ class self_consistent_device_admc_simulation_2d : public device_admc_simulation 
         const std::string& contact_name,
         const std::vector<std::shared_ptr<mesh::element>>& contact_elements);
     double contact_voltage_for_poisson(const std::string& contact_name) const;
+    bool   apply_scheduled_contact_voltage_events(double time_s);
 
     void place_initial_charges_according_to_doping(double particle_weight);
     void add_charges_at_contacts(std::size_t poisson_frequency);
@@ -91,6 +98,7 @@ class self_consistent_device_admc_simulation_2d : public device_admc_simulation 
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
     std::vector<double>                         m_list_element_contact_equilibrium_charge;
     std::map<std::string, double>               m_built_in_contact_voltage_offsets_V;
+    std::size_t                                 m_next_contact_voltage_event_index = 0;
 
     std::minstd_rand m_contact_rng;
 };

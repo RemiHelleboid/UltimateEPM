@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 
 #include "physical_constants.hpp"
@@ -42,6 +43,28 @@ void options_self_consistent_device_pbmc_common::validate() const {
     if (!m_contact_voltages_V.contains(m_ramo_electrode)) {
         throw std::invalid_argument("Ramo electrode '" + m_ramo_electrode +
                                     "' is not present in the contact voltage map.");
+    }
+    double previous_event_time_s = -std::numeric_limits<double>::infinity();
+    for (const auto& event : m_contact_voltage_schedule) {
+        if (!std::isfinite(event.m_time_s) || event.m_time_s < 0.0) {
+            throw std::invalid_argument("Scheduled contact-voltage event time must be finite and non-negative.");
+        }
+        if (event.m_time_s < previous_event_time_s) {
+            throw std::invalid_argument("Scheduled contact-voltage events must be sorted by time.");
+        }
+        if (event.m_contact_voltages_V.empty()) {
+            throw std::invalid_argument("Scheduled contact-voltage events must set at least one contact voltage.");
+        }
+        for (const auto& [contact_name, voltage_V] : event.m_contact_voltages_V) {
+            if (!m_contact_voltages_V.contains(contact_name)) {
+                throw std::invalid_argument("Scheduled contact-voltage event references unknown contact '" +
+                                            contact_name + "'.");
+            }
+            if (!std::isfinite(voltage_V)) {
+                throw std::invalid_argument("Scheduled contact-voltage event value must be finite.");
+            }
+        }
+        previous_event_time_s = event.m_time_s;
     }
     if (m_passive_quench_circuit.m_enabled && !m_contact_voltages_V.contains(m_quench_biased_contact)) {
         throw std::invalid_argument("Quench biased contact '" + m_quench_biased_contact +
@@ -85,6 +108,13 @@ self_consistent_device_pbmc_simulation_base::self_consistent_device_pbmc_simulat
       m_avalanche_detector(common_options.m_avalanche_voltage_drop_threshold_V),
       m_successful_quench_detector(common_options.m_quench_quiet_time_s) {
     validate_common_self_consistent_options();
+    std::vector<std::string> contact_names;
+    contact_names.reserve(m_common_options.m_contact_voltages_V.size());
+    for (const auto& [contact_name, unused_voltage] : m_common_options.m_contact_voltages_V) {
+        static_cast<void>(unused_voltage);
+        contact_names.push_back(contact_name);
+    }
+    m_simulation_history.set_contact_voltage_names(contact_names);
 }
 
 self_consistent_device_pbmc_simulation_base::self_consistent_device_pbmc_simulation_base(
@@ -106,6 +136,13 @@ self_consistent_device_pbmc_simulation_base::self_consistent_device_pbmc_simulat
       m_avalanche_detector(common_options.m_avalanche_voltage_drop_threshold_V),
       m_successful_quench_detector(common_options.m_quench_quiet_time_s) {
     validate_common_self_consistent_options();
+    std::vector<std::string> contact_names;
+    contact_names.reserve(m_common_options.m_contact_voltages_V.size());
+    for (const auto& [contact_name, unused_voltage] : m_common_options.m_contact_voltages_V) {
+        static_cast<void>(unused_voltage);
+        contact_names.push_back(contact_name);
+    }
+    m_simulation_history.set_contact_voltage_names(contact_names);
 }
 
 void self_consistent_device_pbmc_simulation_base::validate_common_self_consistent_options() const {
@@ -256,6 +293,26 @@ double self_consistent_device_pbmc_simulation_base::contact_voltage_for_poisson(
 
 
     return voltage_V + (offset_it == m_built_in_contact_voltage_offsets_V.end() ? 0.0 : offset_it->second);
+}
+
+bool self_consistent_device_pbmc_simulation_base::apply_scheduled_contact_voltage_events(double time_s) {
+    bool changed = false;
+    while (m_next_contact_voltage_event_index < m_common_options.m_contact_voltage_schedule.size()) {
+        const auto& event = m_common_options.m_contact_voltage_schedule[m_next_contact_voltage_event_index];
+        if (event.m_time_s > time_s) {
+            break;
+        }
+        for (const auto& [contact_name, voltage_V] : event.m_contact_voltages_V) {
+            m_common_options.m_contact_voltages_V[contact_name] = voltage_V;
+            fmt::print("\n Scheduled contact voltage at {:.6e} s: {} = {:.6e} V\n",
+                       event.m_time_s,
+                       contact_name,
+                       voltage_V);
+        }
+        ++m_next_contact_voltage_event_index;
+        changed = true;
+    }
+    return changed;
 }
 
 double self_consistent_device_pbmc_simulation_base::ramo_electrode_voltage_for_history() const {

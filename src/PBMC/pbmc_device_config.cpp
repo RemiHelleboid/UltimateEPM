@@ -8,9 +8,11 @@
 #include <fmt/format.h>
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
 #include <fstream>
 #include <stdexcept>
 #include <string_view>
+#include <utility>
 
 #include "pbmc_device_setup.hpp"
 
@@ -53,6 +55,9 @@ YAML::Node make_default_config() {
     config["contacts"]["ramo_electrode"]           = "anode";
     config["contacts"]["apply_built_in_potential"] = true;
     config["contacts"]["built_in_voltage_scale"]   = 1.0;
+
+    config["contact_voltage_schedule"]["enabled"] = false;
+    config["contact_voltage_schedule"]["events"]  = YAML::Node(YAML::NodeType::Sequence);
 
     config["poisson_mixing"]["enabled"]               = false;
     config["poisson_mixing"]["old_solution_fraction"] = 0.0;
@@ -116,6 +121,13 @@ void merge_config(YAML::Node target, const YAML::Node& source, const std::string
         if (path == "contacts.voltages_V" || path == "contacts.collecting") {
             if (!entry.second.IsScalar()) {
                 throw std::invalid_argument(fmt::format("Configuration value '{}' must be a scalar.", full_path));
+            }
+            target[key] = entry.second;
+            continue;
+        }
+        if (full_path == "contact_voltage_schedule.events") {
+            if (!entry.second.IsSequence()) {
+                throw std::invalid_argument("Configuration value 'contact_voltage_schedule.events' must be a sequence.");
             }
             target[key] = entry.second;
             continue;
@@ -230,6 +242,46 @@ std::string resolve_input_path(const std::filesystem::path& config_file, const s
     const std::filesystem::path path(value);
     return path.is_absolute() ? path.lexically_normal().string()
                               : (config_file.parent_path() / path).lexically_normal().string();
+}
+
+std::vector<scheduled_contact_voltage_event> parse_contact_voltage_schedule(const YAML::Node& config) {
+    if (!value_at<bool>(config, "contact_voltage_schedule", "enabled")) {
+        return {};
+    }
+    const YAML::Node events = config["contact_voltage_schedule"]["events"];
+    if (!events || !events.IsSequence()) {
+        throw std::invalid_argument("contact_voltage_schedule.events must be a sequence.");
+    }
+
+    std::vector<scheduled_contact_voltage_event> schedule;
+    schedule.reserve(events.size());
+    for (std::size_t event_index = 0; event_index < events.size(); ++event_index) {
+        const YAML::Node event_node = events[event_index];
+        if (!event_node.IsMap()) {
+            throw std::invalid_argument("Each contact_voltage_schedule event must be a mapping.");
+        }
+        if (!event_node["time_s"]) {
+            throw std::invalid_argument("Each contact_voltage_schedule event must define time_s.");
+        }
+        if (!event_node["voltages_V"] || !event_node["voltages_V"].IsMap()) {
+            throw std::invalid_argument("Each contact_voltage_schedule event must define a voltages_V mapping.");
+        }
+
+        scheduled_contact_voltage_event event;
+        event.m_time_s = event_node["time_s"].as<double>();
+        for (const auto& voltage_entry : event_node["voltages_V"]) {
+            event.m_contact_voltages_V.emplace(voltage_entry.first.as<std::string>(),
+                                               voltage_entry.second.as<double>());
+        }
+        schedule.push_back(std::move(event));
+    }
+
+    std::sort(schedule.begin(),
+              schedule.end(),
+              [](const scheduled_contact_voltage_event& lhs, const scheduled_contact_voltage_event& rhs) {
+                  return lhs.m_time_s < rhs.m_time_s;
+              });
+    return schedule;
 }
 
 }  // namespace
@@ -367,6 +419,7 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
     }
     common.m_enable_built_in_potential         = value_at<bool>(config, "contacts", "apply_built_in_potential");
     common.m_built_in_contact_voltage_scale    = value_at<double>(config, "contacts", "built_in_voltage_scale");
+    common.m_contact_voltage_schedule          = parse_contact_voltage_schedule(config);
     common.m_enable_poisson_mixing             = value_at<bool>(config, "poisson_mixing", "enabled");
     common.m_poisson_mixing_old_solution_fraction =
         value_at<double>(config, "poisson_mixing", "old_solution_fraction");

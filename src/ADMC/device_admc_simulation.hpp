@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <map>
 #include <random>
 #include <string>
 #include <utility>
@@ -86,6 +87,8 @@ struct history_device_ADMC {
     std::vector<double>      probe_ramo_current_hole_A;
     std::vector<double>      probe_ramo_current_A;
     std::vector<double>      max_electric_field_V_per_m;
+    std::vector<std::string> contact_voltage_names;
+    std::vector<std::vector<double>> contact_voltages_V;
 
     void add(double      time_s,
              std::size_t electrons,
@@ -96,7 +99,12 @@ struct history_device_ADMC {
              double      probe_electron_current_A,
              double      probe_hole_current_A,
              double      probe_total_current_A,
-             double      max_field_V_per_m);
+             double      max_field_V_per_m,
+             const std::vector<double>& active_contact_voltages_V = {});
+    void set_contact_voltage_names(const std::vector<std::string>& contact_names);
+    std::vector<double> contact_voltage_values_from_map(const std::map<std::string, double>& active_contact_voltages_V)
+        const;
+    void set_last_contact_voltages(const std::vector<double>& active_contact_voltages_V);
     void print_header_csv(const std::string& filename) const;
     void append_last_iter_to_csv(std::fstream& file) const;
     void export_to_csv(const std::string& filename) const;

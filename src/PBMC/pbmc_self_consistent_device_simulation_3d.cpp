@@ -354,6 +354,7 @@ self_consistent_device_pbmc_simulation_3d::self_consistent_device_pbmc_simulatio
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(seed_random_generator + 1) {
     validate_self_consistent_options();
+    apply_scheduled_contact_voltage_events(0.0);
     initialize_contact_elements();
     initialize_poisson_solver();
     initialize_particles_for_self_consistent_run();
@@ -379,6 +380,7 @@ self_consistent_device_pbmc_simulation_3d::self_consistent_device_pbmc_simulatio
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(seed_random_generator + 1) {
     validate_self_consistent_options();
+    apply_scheduled_contact_voltage_events(0.0);
     initialize_contact_elements();
     initialize_poisson_solver();
     initialize_particles_for_self_consistent_run();
@@ -500,6 +502,9 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
             (m_state.m_iteration % poisson_frequency() == 0) && (m_state.m_iteration != 0);
 
         if (should_update_poisson) {
+            const double poisson_sample_time_s = m_state.m_time_s + m_simulation_options.m_time_step;
+            apply_scheduled_contact_voltage_events(poisson_sample_time_s);
+
             ramo_current_electron = accumulator_ramo_current_electron / sim_poisson_frequency;
             ramo_current_hole     = accumulator_ramo_current_hole / sim_poisson_frequency;
             ramo_current          = ramo_current_electron + ramo_current_hole;
@@ -555,7 +560,9 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
                                                  quench_supply_voltage_for_history(),
                                                  quench_device_current_for_history(),
                                                  quench_resistor_current_for_history(),
-                                                 quench_voltage_drop_for_history());
+                                                 quench_voltage_drop_for_history(),
+                                                 m_simulation_history.contact_voltage_values_from_map(
+                                                     contact_voltages_V()));
 
         m_simulation_history.append_last_iter_to_csv(stream);
         if (m_state.m_iteration == 1 ||

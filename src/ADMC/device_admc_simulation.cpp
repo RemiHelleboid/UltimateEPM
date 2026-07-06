@@ -218,7 +218,8 @@ void history_device_ADMC::add(double      time_s,
                               double      probe_electron_current_A,
                               double      probe_hole_current_A,
                               double      probe_total_current_A,
-                              double      max_field_V_per_m) {
+                              double      max_field_V_per_m,
+                              const std::vector<double>& active_contact_voltages_V) {
     times_s.push_back(time_s);
     nb_electrons.push_back(electrons);
     nb_holes.push_back(holes);
@@ -229,6 +230,28 @@ void history_device_ADMC::add(double      time_s,
     probe_ramo_current_hole_A.push_back(probe_hole_current_A);
     probe_ramo_current_A.push_back(probe_total_current_A);
     max_electric_field_V_per_m.push_back(max_field_V_per_m);
+    contact_voltages_V.push_back(active_contact_voltages_V);
+}
+
+void history_device_ADMC::set_contact_voltage_names(const std::vector<std::string>& contact_names) {
+    contact_voltage_names = contact_names;
+}
+
+std::vector<double> history_device_ADMC::contact_voltage_values_from_map(
+    const std::map<std::string, double>& active_contact_voltages_V) const {
+    std::vector<double> values;
+    values.reserve(contact_voltage_names.size());
+    for (const auto& contact_name : contact_voltage_names) {
+        const auto voltage_it = active_contact_voltages_V.find(contact_name);
+        values.push_back(voltage_it == active_contact_voltages_V.end() ? 0.0 : voltage_it->second);
+    }
+    return values;
+}
+
+void history_device_ADMC::set_last_contact_voltages(const std::vector<double>& active_contact_voltages_V) {
+    if (!contact_voltages_V.empty()) {
+        contact_voltages_V.back() = active_contact_voltages_V;
+    }
 }
 
 void history_device_ADMC::print_header_csv(const std::string& filename) const {
@@ -240,7 +263,11 @@ void history_device_ADMC::print_header_csv(const std::string& filename) const {
               "probe_ramo_current_electron,probe_ramo_current_hole,probe_ramo_current,"
               "max_electric_field,ramo_electrode_voltage_V,reference_electrode_voltage_V,quench_bias_voltage_V,"
               "quench_device_current_A,"
-              "quench_resistor_current_A,quench_voltage_drop_V\n";
+              "quench_resistor_current_A,quench_voltage_drop_V";
+    for (const auto& contact_name : contact_voltage_names) {
+        stream << ",V_" << contact_name;
+    }
+    stream << '\n';
 }
 
 void history_device_ADMC::append_last_iter_to_csv(std::fstream& file) const {
@@ -253,7 +280,14 @@ void history_device_ADMC::append_last_iter_to_csv(std::fstream& file) const {
          << ramo_current_electron_A[i] << ',' << ramo_current_hole_A[i] << ',' << ramo_current_A[i] << ','
          << probe_ramo_current_electron_A[i] << ',' << probe_ramo_current_hole_A[i] << ','
          << probe_ramo_current_A[i] << ',' << max_electric_field_V_per_m[i] * electric_field_V_per_m_to_V_per_cm
-         << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << '\n';
+         << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0;
+    const auto& active_contact_voltages_V = i < contact_voltages_V.size() ? contact_voltages_V[i]
+                                                                          : std::vector<double>{};
+    for (std::size_t contact_index = 0; contact_index < contact_voltage_names.size(); ++contact_index) {
+        file << ',' << (contact_index < active_contact_voltages_V.size() ? active_contact_voltages_V[contact_index]
+                                                                         : 0.0);
+    }
+    file << '\n';
 }
 
 void history_device_ADMC::export_to_csv(const std::string& filename) const {
@@ -274,7 +308,15 @@ void history_device_ADMC::export_to_csv(const std::string& filename) const {
                << ramo_current_electron_A[i] << ',' << ramo_current_hole_A[i] << ',' << ramo_current_A[i] << ','
                << probe_ramo_current_electron_A[i] << ',' << probe_ramo_current_hole_A[i] << ','
                << probe_ramo_current_A[i] << ',' << max_electric_field_V_per_m[i] * electric_field_V_per_m_to_V_per_cm
-               << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << '\n';
+               << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0;
+        const auto& active_contact_voltages_V = i < contact_voltages_V.size() ? contact_voltages_V[i]
+                                                                              : std::vector<double>{};
+        for (std::size_t contact_index = 0; contact_index < contact_voltage_names.size(); ++contact_index) {
+            stream << ',' << (contact_index < active_contact_voltages_V.size()
+                                  ? active_contact_voltages_V[contact_index]
+                                  : 0.0);
+        }
+        stream << '\n';
     }
 }
 

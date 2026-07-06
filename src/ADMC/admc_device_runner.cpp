@@ -235,6 +235,18 @@ void write_manifest(const std::filesystem::path&                     filename,
     for (const auto& [contact_name, voltage_V] : config.self_consistent_options_2d.m_common.m_contact_voltages_V) {
         stream << contact_name << " = " << voltage_V << "\n";
     }
+    stream << "\n[contact_voltage_schedule]\n";
+    stream << "event_count = " << config.self_consistent_options_2d.m_common.m_contact_voltage_schedule.size() << "\n";
+    for (std::size_t event_index = 0;
+         event_index < config.self_consistent_options_2d.m_common.m_contact_voltage_schedule.size();
+         ++event_index) {
+        const auto& event = config.self_consistent_options_2d.m_common.m_contact_voltage_schedule[event_index];
+        stream << "\n[contact_voltage_schedule_" << event_index << "]\n";
+        stream << "time_s = " << event.m_time_s << "\n";
+        for (const auto& [contact_name, voltage_V] : event.m_contact_voltages_V) {
+            stream << contact_name << " = " << voltage_V << "\n";
+        }
+    }
     stream << "\n[collecting_contacts]\n";
     for (const auto& contact_name : config.collecting_contacts) {
         stream << contact_name << " = true\n";
@@ -317,6 +329,16 @@ void run_self_consistent_device_admc_simulation(const self_consistent_device_adm
     fmt::print("  contact voltages:\n");
     for (const auto& [contact_name, voltage_V] : config.self_consistent_options_2d.m_common.m_contact_voltages_V) {
         fmt::print("    {}: {:.6e} V\n", contact_name, voltage_V);
+    }
+    if (!config.self_consistent_options_2d.m_common.m_contact_voltage_schedule.empty()) {
+        fmt::print(" \n scheduled contact voltage events:\n");
+        for (const auto& event : config.self_consistent_options_2d.m_common.m_contact_voltage_schedule) {
+            fmt::print("    t={:.6e} s", event.m_time_s);
+            for (const auto& [contact_name, voltage_V] : event.m_contact_voltages_V) {
+                fmt::print(" {}={:.6e} V", contact_name, voltage_V);
+            }
+            fmt::print("\n");
+        }
     }
     fmt::print("  Ramo electrode: {}\n", config.self_consistent_options_2d.m_common.m_ramo_electrode);
     fmt::print("  collecting contacts:");

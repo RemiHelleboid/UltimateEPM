@@ -96,6 +96,16 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
          config.self_consistent_options_2d.m_common.m_contact_voltages_V) {
         fmt::print("    {}: {:.6e} V\n", contact_name, voltage_V);
     }
+    if (!common_options.m_contact_voltage_schedule.empty()) {
+        fmt::print("\n  scheduled contact voltage events:\n");
+        for (const auto& event : common_options.m_contact_voltage_schedule) {
+            fmt::print("    t={:.6e} s", event.m_time_s);
+            for (const auto& [contact_name, voltage_V] : event.m_contact_voltages_V) {
+                fmt::print(" {}={:.6e} V", contact_name, voltage_V);
+            }
+            fmt::print("\n");
+        }
+    }
     fmt::print("  Ramo electrode: {}\n", config.self_consistent_options_2d.m_common.m_ramo_electrode);
     fmt::print("  collecting contacts:");
     for (const auto& contact_name : config.collecting_contacts) {
@@ -205,6 +215,15 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     manifest.add("self_consistent", "ramo_electrode", common_options.m_ramo_electrode);
     for (const auto& [contact_name, voltage_V] : common_options.m_contact_voltages_V) {
         manifest.add("contact_voltages_V", contact_name, voltage_V);
+    }
+    manifest.add("contact_voltage_schedule", "event_count", common_options.m_contact_voltage_schedule.size());
+    for (std::size_t event_index = 0; event_index < common_options.m_contact_voltage_schedule.size(); ++event_index) {
+        const auto& event = common_options.m_contact_voltage_schedule[event_index];
+        const std::string section = fmt::format("contact_voltage_schedule_{}", event_index);
+        manifest.add(section, "time_s", event.m_time_s);
+        for (const auto& [contact_name, voltage_V] : event.m_contact_voltages_V) {
+            manifest.add(section, contact_name, voltage_V);
+        }
     }
     for (const auto& contact_name : config.collecting_contacts) {
         manifest.add("collecting_contacts", contact_name, true);

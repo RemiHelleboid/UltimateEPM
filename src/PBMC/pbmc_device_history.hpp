@@ -10,7 +10,9 @@
  */
 
 #pragma once
+#include <map>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "export_vector_to_csv.hpp"
@@ -42,6 +44,8 @@ struct history_device_PBMC {
     std::vector<double>        m_list_quench_device_current_A{};
     std::vector<double>        m_list_quench_resistor_current_A{};
     std::vector<double>        m_list_quench_voltage_drop_V{};
+    std::vector<std::string>   m_contact_voltage_names{};
+    std::vector<std::vector<double>> m_list_contact_voltages_V{};
     std::size_t                m_initial_seed_rng{0};
 
     history_device_PBMC() = default;
@@ -64,6 +68,21 @@ struct history_device_PBMC {
         m_list_quench_device_current_A.reserve(size);
         m_list_quench_resistor_current_A.reserve(size);
         m_list_quench_voltage_drop_V.reserve(size);
+        m_list_contact_voltages_V.reserve(size);
+    }
+
+    void set_contact_voltage_names(const std::vector<std::string>& contact_names) {
+        m_contact_voltage_names = contact_names;
+    }
+
+    std::vector<double> contact_voltage_values_from_map(const std::map<std::string, double>& contact_voltages_V) const {
+        std::vector<double> values;
+        values.reserve(m_contact_voltage_names.size());
+        for (const auto& contact_name : m_contact_voltage_names) {
+            const auto voltage_it = contact_voltages_V.find(contact_name);
+            values.push_back(voltage_it == contact_voltages_V.end() ? 0.0 : voltage_it->second);
+        }
+        return values;
     }
 
     void add_data_to_history(double      time,
@@ -82,7 +101,8 @@ struct history_device_PBMC {
                              double      quench_bias_voltage_V,
                              double      quench_device_current_A,
                              double      quench_resistor_current_A,
-                             double      quench_voltage_drop_V) {
+                             double      quench_voltage_drop_V,
+                             const std::vector<double>& contact_voltages_V = {}) {
         m_list_times.push_back(time);
         m_list_nb_electrons.push_back(nb_electrons);
         m_list_nb_holes.push_back(nb_holes);
@@ -100,6 +120,13 @@ struct history_device_PBMC {
         m_list_quench_device_current_A.push_back(quench_device_current_A);
         m_list_quench_resistor_current_A.push_back(quench_resistor_current_A);
         m_list_quench_voltage_drop_V.push_back(quench_voltage_drop_V);
+        m_list_contact_voltages_V.push_back(contact_voltages_V);
+    }
+
+    void set_last_contact_voltages(const std::vector<double>& contact_voltages_V) {
+        if (!m_list_contact_voltages_V.empty()) {
+            m_list_contact_voltages_V.back() = contact_voltages_V;
+        }
     }
 
     void print_header_csv(const std::string &filename) {
@@ -108,7 +135,11 @@ struct history_device_PBMC {
                 "probe_ramo_current_electron,probe_ramo_current_hole,probe_ramo_current,"
                 "max_electric_field,ramo_electrode_voltage_V,reference_electrode_voltage_V,quench_bias_voltage_V,"
                 "quench_device_current_A,"
-                "quench_resistor_current_A,quench_voltage_drop_V\n";
+                "quench_resistor_current_A,quench_voltage_drop_V";
+        for (const auto& contact_name : m_contact_voltage_names) {
+            file << ",V_" << contact_name;
+        }
+        file << '\n';
         file.close();
     }
 
@@ -121,7 +152,13 @@ struct history_device_PBMC {
              << m_max_electric_field.back() << ',' << m_list_ramo_electrode_voltage_V.back() << ','
              << m_list_reference_electrode_voltage_V.back() << ',' << m_list_quench_bias_voltage_V.back() << ','
              << m_list_quench_device_current_A.back() << ',' << m_list_quench_resistor_current_A.back() << ','
-             << m_list_quench_voltage_drop_V.back() << '\n';
+             << m_list_quench_voltage_drop_V.back();
+        const auto& contact_voltages_V = m_list_contact_voltages_V.empty() ? std::vector<double>{}
+                                                                           : m_list_contact_voltages_V.back();
+        for (std::size_t index = 0; index < m_contact_voltage_names.size(); ++index) {
+            file << ',' << (index < contact_voltages_V.size() ? contact_voltages_V[index] : 0.0);
+        }
+        file << '\n';
     }
 
     void export_to_csv(const std::string &filename, std::size_t frequency = 1) {
@@ -150,6 +187,7 @@ struct history_device_PBMC {
         std::vector<double> double_list_quench_device_current_A;
         std::vector<double> double_list_quench_resistor_current_A;
         std::vector<double> double_list_quench_voltage_drop_V;
+        std::vector<std::vector<double>> double_list_contact_voltages_V(m_contact_voltage_names.size());
 
         std::vector<double> double_list_max_electric_field;
         for (std::size_t iter_nb = 0; iter_nb < m_list_times.size() - 1; iter_nb += frequency) {
@@ -170,6 +208,11 @@ struct history_device_PBMC {
             double_list_quench_device_current_A.push_back(m_list_quench_device_current_A[iter_nb]);
             double_list_quench_resistor_current_A.push_back(m_list_quench_resistor_current_A[iter_nb]);
             double_list_quench_voltage_drop_V.push_back(m_list_quench_voltage_drop_V[iter_nb]);
+            for (std::size_t contact_index = 0; contact_index < m_contact_voltage_names.size(); ++contact_index) {
+                const auto& contact_voltages_V = m_list_contact_voltages_V[iter_nb];
+                double_list_contact_voltages_V[contact_index].push_back(
+                    contact_index < contact_voltages_V.size() ? contact_voltages_V[contact_index] : 0.0);
+            }
         }
         // Always add the last iteration
         double_list_time.push_back(m_list_times[m_list_nb_electrons.size() - 1]);
@@ -194,6 +237,11 @@ struct history_device_PBMC {
         double_list_quench_resistor_current_A.push_back(
             m_list_quench_resistor_current_A[m_list_nb_electrons.size() - 1]);
         double_list_quench_voltage_drop_V.push_back(m_list_quench_voltage_drop_V[m_list_nb_electrons.size() - 1]);
+        for (std::size_t contact_index = 0; contact_index < m_contact_voltage_names.size(); ++contact_index) {
+            const auto& contact_voltages_V = m_list_contact_voltages_V[m_list_nb_electrons.size() - 1];
+            double_list_contact_voltages_V[contact_index].push_back(
+                contact_index < contact_voltages_V.size() ? contact_voltages_V[contact_index] : 0.0);
+        }
 
         std::vector<std::string> header_csv = {"time",
                                                "nb_electrons",
@@ -212,25 +260,32 @@ struct history_device_PBMC {
                                                "quench_device_current_A",
                                                "quench_resistor_current_A",
                                                "quench_voltage_drop_V"};
+        for (const auto& contact_name : m_contact_voltage_names) {
+            header_csv.push_back("V_" + contact_name);
+        }
+        std::vector<std::vector<double>> columns = {double_list_time,
+                                                    double_list_nb_electrons,
+                                                    double_list_nb_hole,
+                                                    double_list_nb_impact_ionization,
+                                                    double_list_ramo_current_electron,
+                                                    double_list_ramo_current_hole,
+                                                    double_list_ramo_current,
+                                                    double_list_probe_ramo_current_electron,
+                                                    double_list_probe_ramo_current_hole,
+                                                    double_list_probe_ramo_current,
+                                                    double_list_max_electric_field,
+                                                    double_list_ramo_electrode_voltage_V,
+                                                    double_list_reference_electrode_voltage_V,
+                                                    double_list_quench_bias_voltage_V,
+                                                    double_list_quench_device_current_A,
+                                                    double_list_quench_resistor_current_A,
+                                                    double_list_quench_voltage_drop_V};
+        for (const auto& contact_column : double_list_contact_voltages_V) {
+            columns.push_back(contact_column);
+        }
         utils::export_multiple_vector_to_csv(filename,
                                              header_csv,
-                                             {double_list_time,
-                                              double_list_nb_electrons,
-                                              double_list_nb_hole,
-                                              double_list_nb_impact_ionization,
-                                              double_list_ramo_current_electron,
-                                              double_list_ramo_current_hole,
-                                              double_list_ramo_current,
-                                              double_list_probe_ramo_current_electron,
-                                              double_list_probe_ramo_current_hole,
-                                              double_list_probe_ramo_current,
-                                              double_list_max_electric_field,
-                                              double_list_ramo_electrode_voltage_V,
-                                              double_list_reference_electrode_voltage_V,
-                                              double_list_quench_bias_voltage_V,
-                                              double_list_quench_device_current_A,
-                                              double_list_quench_resistor_current_A,
-                                              double_list_quench_voltage_drop_V});
+                                             columns);
     }
 
     std::vector<std::size_t> get_history_total_nb_particles() const {
