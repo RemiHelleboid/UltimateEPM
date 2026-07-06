@@ -157,7 +157,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--epsilon-nkx", type=int, default=8)
     parser.add_argument("--epsilon-nky", type=int, default=8)
     parser.add_argument("--epsilon-nkz", type=int, default=8)
-    parser.add_argument("--epsilon-q", default="1e-3")
+    parser.add_argument("--epsilon-q", default="1e-3", help=argparse.SUPPRESS)
     parser.add_argument("--epsilon-direction", default="1,0,0")
     parser.add_argument("--epsilon-emin", type=float, default=0.0)
     parser.add_argument("--epsilon-emax", type=float, default=6.0)
@@ -521,9 +521,7 @@ def epsilon_command(args: argparse.Namespace, work_set: str, epsilon_prefix: Pat
         "--Nkz",
         str(args.epsilon_nkz),
         "--mode",
-        "q-list",
-        "--q-values",
-        args.epsilon_q,
+        "optical",
         "--direction",
         args.epsilon_direction,
         "--emin",

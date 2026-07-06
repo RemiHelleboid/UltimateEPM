@@ -28,6 +28,11 @@ enum class DielectricKPointSampling {
     fcc_irreducible_wedge,
 };
 
+enum class DielectricResponseMode {
+    finite_q,
+    optical_limit,
+};
+
 class DielectricFunction {
  protected:
     std::vector<Vector3D<int>>    m_basisVectors;
@@ -38,6 +43,9 @@ class DielectricFunction {
 
     std::vector<Vector3D<double>> m_qpoints;
     std::vector<double>           m_energies;
+    DielectricResponseMode        m_response_mode = DielectricResponseMode::finite_q;
+    Vector3D<double>              m_optical_direction{1.0, 0.0, 0.0};
+    double                        m_optical_derivative_step = 1.0e-5;
 
     std::vector<Eigen::VectorXd>  m_eigenvalues_k;
     std::vector<Eigen::MatrixXcd> m_eigenvectors_k;
@@ -149,6 +157,12 @@ class DielectricFunction {
      * @param kpoints
      */
     void set_qpoints(const std::vector<Vector3D<double>>& qpoints) { m_qpoints = qpoints; }
+
+    void set_response_mode(DielectricResponseMode response_mode) { m_response_mode = response_mode; }
+
+    void set_optical_direction(const Vector3D<double>& direction);
+
+    void set_optical_derivative_step(double step);
 
     /**
      * @brief Set the list of energies for which the dielectric function will be computed.

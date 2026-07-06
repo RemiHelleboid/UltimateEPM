@@ -17,6 +17,7 @@ class Hamiltonian {
 
     const Eigen::VectorXd&  get_eigenvalues() const { return solver.eigenvalues(); }
     const Eigen::MatrixXcd& get_eigenvectors() const { return solver.eigenvectors(); }
+    const Eigen::MatrixXcd& get_matrix() const { return matrix; }
 
     const Eigen::VectorXd& eigenvalues() const { return solver.eigenvalues(); }
     bool                   check_matrix_is_symmetric() const { return matrix.isApprox(matrix.transpose()); }

@@ -106,11 +106,13 @@ uepm::pseudopotential::DielectricKPointSampling dielectric_sampling_mode(const s
     return uepm::pseudopotential::DielectricKPointSampling::fcc_irreducible_wedge;
 }
 
-bool all_qpoints_along_100(const std::vector<Vector3D<double>>& qpoints) {
+bool vector_along_100(const Vector3D<double>& vector) {
     constexpr double tolerance = 1.0e-12;
-    return std::all_of(qpoints.begin(), qpoints.end(), [](const Vector3D<double>& q) {
-        return std::abs(q.X) > tolerance && std::abs(q.Y) <= tolerance && std::abs(q.Z) <= tolerance;
-    });
+    return std::abs(vector.X) > tolerance && std::abs(vector.Y) <= tolerance && std::abs(vector.Z) <= tolerance;
+}
+
+bool all_qpoints_along_100(const std::vector<Vector3D<double>>& qpoints) {
+    return std::all_of(qpoints.begin(), qpoints.end(), vector_along_100);
 }
 
 std::vector<double> parse_double_list(std::string text) {
@@ -187,6 +189,10 @@ std::vector<Vector3D<double>> read_qpoint_file(const std::string& filename) {
 }
 
 std::vector<Vector3D<double>> make_qpoints(const EpsilonAppConfig& config) {
+    if (config.mode == "optical") {
+        return {Vector3D<double>(0.0, 0.0, 0.0)};
+    }
+
     if (!config.q_file.empty()) {
         auto qpoints = read_qpoint_file(config.q_file);
         if (qpoints.empty()) {
@@ -213,7 +219,7 @@ std::vector<Vector3D<double>> make_qpoints(const EpsilonAppConfig& config) {
     } else if (config.mode == "q-file") {
         throw std::invalid_argument("q-file mode requires --q-file or YAML file-list-q.");
     } else {
-        throw std::invalid_argument("Unknown epsilon mode '" + config.mode + "'. Use q-list, q-line, or q-file.");
+        throw std::invalid_argument("Unknown epsilon mode '" + config.mode + "'. Use optical, q-list, q-line, or q-file.");
     }
 
     if (q_norms.empty()) {
@@ -273,10 +279,8 @@ bool launched_under_mpi() {
 }
 
 void normalize_mode(EpsilonAppConfig& config) {
-    if (config.mode == "optical") {
-        std::cout << "Warning: --mode optical is deprecated; use --mode q-list for explicit q values.\n";
-        config.mode = "q-list";
-    }
+    config.mode = lowercase_ascii(config.mode);
+    std::replace(config.mode.begin(), config.mode.end(), '_', '-');
 }
 
 void print_config(const EpsilonAppConfig& config,
@@ -295,8 +299,11 @@ void print_config(const EpsilonAppConfig& config,
     std::cout << "Energy grid: " << energies.front() << " -> " << energies.back() << " eV, N=" << energies.size()
               << ", eta=" << config.eta_smearing_eV << " eV\n";
     std::cout << "Mode: " << config.mode << '\n';
+    if (config.mode == "optical") {
+        std::cout << "Optical polarization direction: " << normalized_direction(config.direction) << '\n';
+    }
     std::cout << "q-points: " << qpoints.size() << '\n';
-    if (!qpoints.empty()) {
+    if (!qpoints.empty() && config.mode != "optical") {
         auto [min_q, max_q] = std::minmax_element(qpoints.begin(), qpoints.end(), [](const auto& lhs, const auto& rhs) {
             return lhs.Length() < rhs.Length();
         });
@@ -407,7 +414,7 @@ int main(int argc, char** argv) {
     TCLAP::ValueArg<std::string> arg_config("c", "config", "Optional YAML config file.", false, "", "path");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Material symbol.", false, "", "symbol");
     TCLAP::ValueArg<std::string> arg_epm_set("", "epm-set", "Named EPM parameter set.", false, "", "name");
-    TCLAP::ValueArg<std::string> arg_mode("", "mode", "Mode: q-list, q-line, or q-file.", false, "", "mode");
+    TCLAP::ValueArg<std::string> arg_mode("", "mode", "Mode: optical, q-list, q-line, or q-file.", false, "", "mode");
     TCLAP::ValueArg<std::string> arg_q_values("", "q-values", "Comma-separated q magnitudes in reduced units.", false, "", "list");
     TCLAP::ValueArg<std::string> arg_direction("", "direction", "q direction, e.g. 1,0,0.", false, "", "vector");
     TCLAP::ValueArg<std::string> arg_q_file("", "q-file", "File containing qx qy qz rows in reduced units.", false, "", "path");
@@ -457,9 +464,9 @@ int main(int argc, char** argv) {
 
     if (argc == 1) {
         std::cout << "Usage example:\n"
-                  << "  epsilon.epm --material Si --bands 16 --mode q-list --q-values 1e-2,5e-3,1e-3 "
+                  << "  epsilon.epm --material Si --bands 16 --mode optical "
                      "--direction 1,0,0 --emin 0 --emax 20 --estep 0.05 --eta 0.05 "
-                     "--Nkx 20 --Nky 20 --Nkz 20 --out results/epsilon_si_q_list\n\n"
+                     "--Nkx 20 --Nky 20 --Nkz 20 --out results/epsilon_si_optical\n\n"
                   << "Run epsilon.epm --help for all options.\n";
         return 0;
     }
@@ -540,6 +547,9 @@ int main(int argc, char** argv) {
         config.q_file.clear();
     }
     normalize_mode(config);
+    if (config.mode != "optical" && config.mode != "q-list" && config.mode != "q-line" && config.mode != "q-file") {
+        throw std::invalid_argument("Unknown epsilon mode '" + config.mode + "'. Use optical, q-list, q-line, or q-file.");
+    }
     config.bz_sampling = normalize_bz_sampling(config.bz_sampling);
 
     const bool use_mpi = launched_under_mpi();
@@ -565,11 +575,13 @@ int main(int argc, char** argv) {
         create_output_parent(config.output_prefix);
         print_config(config, energies, qpoints, number_processes);
         if (config.bz_sampling == "fcc-ibz") {
-            std::cout << "Warning: irreducible-wedge k sampling is not generally valid for finite-q dielectric "
-                         "functions unless symmetry weights and q-star handling are implemented. Full-BZ sampling "
-                         "(--bz-sampling full) is recommended.\n";
+            std::cout << "Warning: fcc-ibz sampling is not generally valid for finite-q or direction-resolved optical "
+                         "dielectric functions unless symmetry weights and q/polarization-star handling are implemented. "
+                         "Full-BZ sampling (--bz-sampling full) is recommended.\n";
         }
-        if (config.bz_sampling == "q100-octant" && !all_qpoints_along_100(qpoints)) {
+        const bool q100_direction_ok =
+            config.mode == "optical" ? vector_along_100(config.direction) : all_qpoints_along_100(qpoints);
+        if (config.bz_sampling == "q100-octant" && !q100_direction_ok) {
             std::cout << "Warning: --bz-sampling q100-octant assumes q is parallel to the [100] direction. "
                          "Use --bz-sampling full for arbitrary q directions.\n";
         }
@@ -622,6 +634,10 @@ int main(int argc, char** argv) {
 
     dielectric.set_export_prefix(config.output_prefix);
     dielectric.set_qpoints(qpoints);
+    if (config.mode == "optical") {
+        dielectric.set_response_mode(uepm::pseudopotential::DielectricResponseMode::optical_limit);
+        dielectric.set_optical_direction(config.direction);
+    }
     dielectric.set_energies(energies);
     dielectric.set_offset_k_index(static_cast<std::size_t>(displacements_kpoints_per_process[process_rank]));
     dielectric.set_nb_kpoints(static_cast<std::size_t>(counts_kpoints_per_process[process_rank]));
