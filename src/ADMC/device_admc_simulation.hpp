@@ -164,6 +164,7 @@ class device_admc_simulation {
     std::string               initialize_simulation_history_file();
     std::pair<double, double> last_ramo_current() const;
     std::pair<double, double> last_probe_ramo_current() const;
+    std::pair<double, double> compute_ramo_current(bool restrict_to_probe) const;
     vector3                   get_RamoUnitaryElectricField_at_position(const mesh::vector3& position) const;
     void                      export_current_particles_as_vtp(const std::string& directory) const;
     void export_current_mesh_as_vtu(const std::string& directory, bool export_x_cut_enabled = false) const;

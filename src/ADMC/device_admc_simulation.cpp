@@ -549,13 +549,9 @@ void device_admc_simulation::advance_particles_one_time_step() {
     const auto [electron_current_A, hole_current_A] = compute_ramo_current();
     m_state.m_last_ramo_current_electron_A          = electron_current_A;
     m_state.m_last_ramo_current_hole_A              = hole_current_A;
-    if (m_options.m_current_probe.m_enabled) {
-        m_state.m_last_probe_ramo_current_electron_A = electron_current_A;
-        m_state.m_last_probe_ramo_current_hole_A     = hole_current_A;
-    } else {
-        m_state.m_last_probe_ramo_current_electron_A = 0.0;
-        m_state.m_last_probe_ramo_current_hole_A     = 0.0;
-    }
+    const auto [probe_electron_current_A, probe_hole_current_A] = compute_probe_ramo_current();
+    m_state.m_last_probe_ramo_current_electron_A                = probe_electron_current_A;
+    m_state.m_last_probe_ramo_current_hole_A                    = probe_hole_current_A;
     record_history(electron_current_A, hole_current_A);
 }
 
@@ -635,15 +631,23 @@ double device_admc_simulation::get_total_hole_weight() const {
 }
 
 std::pair<double, double> device_admc_simulation::compute_ramo_current() const {
+    return compute_ramo_current(false);
+}
+
+std::pair<double, double> device_admc_simulation::compute_ramo_current(bool restrict_to_probe) const {
     double electron_current_A = 0.0;
     double hole_current_A     = 0.0;
+
+    if (restrict_to_probe && !m_options.m_current_probe.m_enabled) {
+        return {0.0, 0.0};
+    }
 
     for (const auto& particle : m_particles) {
         mesh::vector3 position_um = to_mesh_position_um(particle.particle.state().position_m);
         if (m_dimension == 2) {
             position_um.to_2d_inplace();
         }
-        if (m_options.m_current_probe.m_enabled) {
+        if (restrict_to_probe) {
             const bool inside_probe = (m_dimension == 2)
                                           ? m_options.m_current_probe.m_box_um.is_inside_2d(position_um)
                                           : m_options.m_current_probe.m_box_um.is_inside(position_um);
@@ -665,10 +669,7 @@ std::pair<double, double> device_admc_simulation::compute_ramo_current() const {
 }
 
 std::pair<double, double> device_admc_simulation::compute_probe_ramo_current() const {
-    if (!m_options.m_current_probe.m_enabled) {
-        return {0.0, 0.0};
-    }
-    return compute_ramo_current();
+    return compute_ramo_current(true);
 }
 
 double device_admc_simulation::max_particle_electric_field_V_per_m() const {

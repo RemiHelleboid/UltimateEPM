@@ -862,10 +862,7 @@ device_pbmc_simulation::ramo_current_components device_pbmc_simulation::compute_
                                   ((m_dimension == 2)
                                        ? m_simulation_options.m_current_probe.m_box_um.is_inside_2d(position)
                                        : m_simulation_options.m_current_probe.m_box_um.is_inside(position));
-        if (current_probe_enabled && !inside_probe) {
-            continue;
-        }
-        if (!include_full && !include_probe_currents) {
+        if (!include_full && !(include_probe_currents && inside_probe)) {
             continue;
         }
 
@@ -878,14 +875,14 @@ device_pbmc_simulation::ramo_current_components device_pbmc_simulation::compute_
             if (include_full) {
                 currents.electron += current;
             }
-            if (include_probe_currents) {
+            if (include_probe_currents && inside_probe) {
                 currents.probe_electron += current;
             }
         } else {
             if (include_full) {
                 currents.hole += current;
             }
-            if (include_probe_currents) {
+            if (include_probe_currents && inside_probe) {
                 currents.probe_hole += current;
             }
         }
