@@ -12,6 +12,7 @@ set(HEADER_FILES_LIBBZMESH
     bz_states.hpp
     electron_phonon.hpp
     impact_ionization.hpp
+    impact_ionization_matrix_element.hpp
     impact_ionization_state.hpp
     dielectric_mesh.hpp
     screened_coulomb_kernel.hpp
@@ -34,6 +35,7 @@ set(SOURCE_FILES_LIBBZMESH
     bz_states.cpp
     electron_phonon.cpp
     impact_ionization.cpp
+    impact_ionization_matrix_element.cpp
     impact_ionization_state.cpp
     fermi_level.cpp
     dielectric_mesh.cpp

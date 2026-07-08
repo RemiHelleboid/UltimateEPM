@@ -1,6 +1,4 @@
 # 2D self-consistent PBMC example for an nMOS device.
-# Add a device.msh file in this directory with contact regions named
-# "source", "drain", "body", and "gate".
 
 input:
   device_mesh: nmos.msh

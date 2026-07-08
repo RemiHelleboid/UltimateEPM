@@ -21,6 +21,7 @@
 #include "bz_mesh.hpp"
 #include "bz_states.hpp"
 #include "epm_material.hpp"
+#include "impact_ionization_matrix_element.hpp"
 #include "omp.h"
 #include "physical_constants.hpp"
 
@@ -133,6 +134,59 @@ void ImpactIonization::compute_eigenstates(int nb_threads) {
         }
     }
     std::cout << "Number of BZ states: " << m_list_BZ_states.size() << std::endl;
+}
+
+std::array<complex_d, 2> ImpactIonization::compute_direct_indirect_impact_ionization_matrix_element(
+    int idx_n1,
+    int idx_n1_prime,
+    int idx_n2,
+    int idx_n2_prime,
+    int idx_k1,
+    int idx_k1_prime,
+    int idx_k2,
+    int idx_k2_prime) const {
+    if (m_list_BZ_states.empty()) {
+        throw std::logic_error("ImpactIonization matrix element requires computed eigenstates.");
+    }
+    if (idx_n1 < 0 || idx_n1_prime < 0 || idx_n2 < 0 || idx_n2_prime < 0 || idx_k1 < 0 || idx_k1_prime < 0 ||
+        idx_k2 < 0 || idx_k2_prime < 0) {
+        throw std::invalid_argument("ImpactIonization matrix element indices must be non-negative.");
+    }
+
+    const auto state_table = make_state_table(0);
+    const auto make_state = [&state_table](int idx_k, int idx_band) {
+        const auto metadata = state_table.state(static_cast<std::size_t>(idx_k), static_cast<std::size_t>(idx_band));
+        return ImpactIonizationPlaneWaveState{.k_SI         = metadata.k_SI,
+                                              .energy_eV    = metadata.energy_eV,
+                                              .coefficients = state_table.coefficients(metadata.k_index,
+                                                                                      metadata.band_index)};
+    };
+
+    std::vector<vector3> basis_vectors_SI;
+    const double         reciprocal_factor = m_material.get_fourier_factor();
+    basis_vectors_SI.reserve(m_list_BZ_states[0]->get_basis_vectors().size());
+    for (const auto& basis_vector : m_list_BZ_states[0]->get_basis_vectors()) {
+        basis_vectors_SI.emplace_back(static_cast<double>(basis_vector.X) * reciprocal_factor,
+                                      static_cast<double>(basis_vector.Y) * reciprocal_factor,
+                                      static_cast<double>(basis_vector.Z) * reciprocal_factor);
+    }
+
+    const auto screened_coulomb = make_screened_coulomb_kernel();
+    const auto interaction = [&screened_coulomb](const vector3& q_SI, double energy_transfer_eV) {
+        return screened_coulomb.interaction_eV_m3(q_SI, energy_transfer_eV);
+    };
+    const ImpactIonizationMatrixElementConfig config{
+        .momentum_tolerance_SI  = 1.0e6,
+        .normalization_volume_m3 = m_material.get_atomic_volume(),
+    };
+
+    return compute_direct_exchange_impact_ionization_matrix_element(make_state(idx_k1, idx_n1),
+                                                                    make_state(idx_k2, idx_n2),
+                                                                    make_state(idx_k1_prime, idx_n1_prime),
+                                                                    make_state(idx_k2_prime, idx_n2_prime),
+                                                                    basis_vectors_SI,
+                                                                    interaction,
+                                                                    config);
 }
 
 double ImpactIonization::compute_impact_ionization_rate(int idx_n1, std::size_t idx_k1) {

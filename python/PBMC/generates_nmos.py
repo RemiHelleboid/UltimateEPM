@@ -105,7 +105,34 @@ def add_node_view(model_name, mesh_file, view_name, node_tags, values):
     gmsh.view.write(view_tag, str(mesh_file), True)
 
 
-def create_geometry(length, silicon_thickness, oxide_thickness, source_length, drain_length):
+def create_rounded_oxide(gate_start, gate_end, silicon_thickness, oxide_thickness, gate_edge_radius):
+    oxide_top = silicon_thickness + oxide_thickness
+    radius = gate_edge_radius
+
+    left_bottom = gmsh.model.occ.addPoint(gate_start, silicon_thickness, 0.0)
+    left_vertical_bottom = gmsh.model.occ.addPoint(gate_start + radius, silicon_thickness + radius, 0.0)
+    left_top = gmsh.model.occ.addPoint(gate_start + radius, oxide_top, 0.0)
+    right_top = gmsh.model.occ.addPoint(gate_end - radius, oxide_top, 0.0)
+    right_vertical_bottom = gmsh.model.occ.addPoint(gate_end - radius, silicon_thickness + radius, 0.0)
+    right_bottom = gmsh.model.occ.addPoint(gate_end, silicon_thickness, 0.0)
+
+    right_arc_center = gmsh.model.occ.addPoint(gate_end, silicon_thickness + radius, 0.0)
+    left_arc_center = gmsh.model.occ.addPoint(gate_start, silicon_thickness + radius, 0.0)
+
+    curves = [
+        gmsh.model.occ.addLine(left_vertical_bottom, left_top),
+        gmsh.model.occ.addLine(left_top, right_top),
+        gmsh.model.occ.addLine(right_top, right_vertical_bottom),
+        gmsh.model.occ.addCircleArc(right_vertical_bottom, right_arc_center, right_bottom),
+        gmsh.model.occ.addLine(right_bottom, left_bottom),
+        gmsh.model.occ.addCircleArc(left_bottom, left_arc_center, left_vertical_bottom),
+    ]
+
+    curve_loop = gmsh.model.occ.addCurveLoop(curves)
+    return gmsh.model.occ.addPlaneSurface([curve_loop])
+
+
+def create_geometry(length, silicon_thickness, oxide_thickness, source_length, drain_length, gate_edge_radius):
     gate_start = source_length
     gate_end = length - drain_length
     gate_length = gate_end - gate_start
@@ -117,13 +144,22 @@ def create_geometry(length, silicon_thickness, oxide_thickness, source_length, d
         length,
         silicon_thickness,
     )
-    oxide = gmsh.model.occ.addRectangle(
-        gate_start,
-        silicon_thickness,
-        0.0,
-        gate_length,
-        oxide_thickness,
-    )
+    if gate_edge_radius > 0.0:
+        oxide = create_rounded_oxide(
+            gate_start,
+            gate_end,
+            silicon_thickness,
+            oxide_thickness,
+            gate_edge_radius,
+        )
+    else:
+        oxide = gmsh.model.occ.addRectangle(
+            gate_start,
+            silicon_thickness,
+            0.0,
+            gate_length,
+            oxide_thickness,
+        )
 
     gmsh.model.occ.fragment([(2, silicon)], [(2, oxide)])
     gmsh.model.occ.synchronize()
@@ -199,10 +235,13 @@ def set_mesh_fields(
     drain_length,
     h_min,
     h_max,
+    oxide_mesh_size,
     interface_refinement_length,
     junction_refinement_length,
     gate_edge_refinement_length,
     junction_depth,
+    lateral_smoothing_length,
+    vertical_smoothing_length,
 ):
     gate_start = source_length
     gate_end = length - drain_length
@@ -210,53 +249,91 @@ def set_mesh_fields(
 
     fields = []
 
-    def add_box(x_min, x_max, y_min, y_max):
+    def add_box(x_min, x_max, y_min, y_max, v_in=h_min, v_out=h_max):
         field = gmsh.model.mesh.field.add("Box")
-        gmsh.model.mesh.field.setNumber(field, "VIn", h_min)
-        gmsh.model.mesh.field.setNumber(field, "VOut", h_max)
+        gmsh.model.mesh.field.setNumber(field, "VIn", v_in)
+        gmsh.model.mesh.field.setNumber(field, "VOut", v_out)
         gmsh.model.mesh.field.setNumber(field, "XMin", max(0.0, x_min))
         gmsh.model.mesh.field.setNumber(field, "XMax", min(length, x_max))
         gmsh.model.mesh.field.setNumber(field, "YMin", max(0.0, y_min))
         gmsh.model.mesh.field.setNumber(field, "YMax", min(oxide_top, y_max))
         fields.append(field)
 
-    add_box(
-        0.0,
-        length,
-        silicon_thickness - interface_refinement_length,
-        oxide_top,
-    )
-
-    for x0 in (gate_start, gate_end):
+    if oxide_mesh_size is not None:
         add_box(
-            x0 - gate_edge_refinement_length,
-            x0 + gate_edge_refinement_length,
-            silicon_thickness - gate_edge_refinement_length,
+            gate_start,
+            gate_end,
+            silicon_thickness,
+            oxide_top,
+            v_in=oxide_mesh_size,
+            v_out=h_max,
+        )
+
+    def add_point_distance_field(points, distance_min, distance_max):
+        if not points:
+            return
+
+        point_tags = [
+            gmsh.model.occ.addPoint(
+                min(max(0.0, x), length),
+                min(max(0.0, y), oxide_top),
+                0.0,
+            )
+            for x, y in points
+        ]
+        gmsh.model.occ.synchronize()
+
+        distance_field = gmsh.model.mesh.field.add("Distance")
+        gmsh.model.mesh.field.setNumbers(distance_field, "PointsList", point_tags)
+
+        threshold_field = gmsh.model.mesh.field.add("Threshold")
+        gmsh.model.mesh.field.setNumber(threshold_field, "InField", distance_field)
+        gmsh.model.mesh.field.setNumber(threshold_field, "SizeMin", h_min)
+        gmsh.model.mesh.field.setNumber(threshold_field, "SizeMax", h_max)
+        gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", distance_min)
+        gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", distance_max)
+        fields.append(threshold_field)
+
+    if interface_refinement_length > h_min:
+        add_box(
+            0.0,
+            length,
+            silicon_thickness - interface_refinement_length,
             oxide_top,
         )
 
-    for x0 in (source_length, length - drain_length):
-        add_box(
-            x0 - junction_refinement_length,
-            x0 + junction_refinement_length,
-            silicon_thickness - junction_depth - junction_refinement_length,
-            silicon_thickness,
-        )
+    if gate_edge_refinement_length > h_min:
+        for x0 in (gate_start, gate_end):
+            add_box(
+                x0 - gate_edge_refinement_length,
+                x0 + gate_edge_refinement_length,
+                silicon_thickness - gate_edge_refinement_length,
+                oxide_top,
+            )
 
     implant_transition_y = silicon_thickness - junction_depth
-    implant_refinement_height = max(junction_refinement_length, 3.0 * h_min)
+    gradient_refinement_factor = 3.0
+    distance_min = max(junction_refinement_length, h_min)
 
-    add_box(
-        0.0,
-        source_length + junction_refinement_length,
-        implant_transition_y - implant_refinement_height,
-        silicon_thickness,
+    vertical_junction_points = []
+    for x0 in (source_length, length - drain_length):
+        for y in np.linspace(implant_transition_y, silicon_thickness, 40):
+            vertical_junction_points.append((x0, y))
+    add_point_distance_field(
+        vertical_junction_points,
+        distance_min,
+        max(distance_min, gradient_refinement_factor * lateral_smoothing_length),
     )
-    add_box(
-        length - drain_length - junction_refinement_length,
-        length,
-        implant_transition_y - implant_refinement_height,
-        silicon_thickness,
+
+    horizontal_junction_points = []
+    for x in np.linspace(0.0, source_length, 60):
+        horizontal_junction_points.append((x, implant_transition_y))
+    for x in np.linspace(length - drain_length, length, 60):
+        horizontal_junction_points.append((x, implant_transition_y))
+    add_point_distance_field(
+        horizontal_junction_points,
+        distance_min,
+        max(distance_min, gradient_refinement_factor * vertical_smoothing_length),
     )
 
     minimum_field = gmsh.model.mesh.field.add("Min")
@@ -271,8 +348,10 @@ def generate_mesh(
     oxide_thickness,
     source_length,
     drain_length,
+    gate_edge_radius,
     h_min,
     h_max,
+    oxide_mesh_size,
     interface_refinement_length,
     junction_refinement_length,
     gate_edge_refinement_length,
@@ -295,7 +374,8 @@ def generate_mesh(
         gmsh.model.add(model_name)
 
         gmsh.option.setNumber("Mesh.Algorithm", 6)
-        gmsh.option.setNumber("Mesh.MeshSizeMin", h_min)
+        global_h_min = h_min if oxide_mesh_size is None else min(h_min, oxide_mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeMin", global_h_min)
         gmsh.option.setNumber("Mesh.MeshSizeMax", h_max)
 
         create_geometry(
@@ -304,6 +384,7 @@ def generate_mesh(
             oxide_thickness=oxide_thickness,
             source_length=source_length,
             drain_length=drain_length,
+            gate_edge_radius=gate_edge_radius,
         )
 
         set_mesh_fields(
@@ -314,10 +395,13 @@ def generate_mesh(
             drain_length=drain_length,
             h_min=h_min,
             h_max=h_max,
+            oxide_mesh_size=oxide_mesh_size,
             interface_refinement_length=interface_refinement_length,
             junction_refinement_length=junction_refinement_length,
             gate_edge_refinement_length=gate_edge_refinement_length,
             junction_depth=junction_depth,
+            lateral_smoothing_length=lateral_smoothing_length,
+            vertical_smoothing_length=vertical_smoothing_length,
         )
 
         gmsh.model.mesh.generate(2)
@@ -471,9 +555,21 @@ def parse_args():
     parser.add_argument("--oxide-thickness", type=float, default=0.01, help="Gate SiO2 thickness in µm.")
     parser.add_argument("--source-length", type=float, default=0.2, help="Source contact and implant length in µm.")
     parser.add_argument("--drain-length", type=float, default=0.2, help="Drain contact and implant length in µm.")
+    parser.add_argument(
+        "--gate-edge-radius",
+        type=float,
+        default=0.0,
+        help="Radius used to round the two lower gate-oxide corners in µm. Use 0 for sharp corners.",
+    )
 
     parser.add_argument("--hmin", type=float, default=0.002, help="Minimum mesh size in µm.")
     parser.add_argument("--hmax", type=float, default=0.02, help="Maximum mesh size in µm.")
+    parser.add_argument(
+        "--oxide-mesh-size",
+        type=float,
+        default=None,
+        help="Target mesh size inside the gate oxide in µm. Defaults to the regular mesh fields.",
+    )
     parser.add_argument(
         "--interface-refinement-length",
         type=float,
@@ -534,6 +630,8 @@ def validate_args(args):
         "--T-source": args.temperature_source,
         "--T-drain": args.temperature_drain,
     }
+    if args.oxide_mesh_size is not None:
+        positive_fields["--oxide-mesh-size"] = args.oxide_mesh_size
 
     for name, value in positive_fields.items():
         if value <= 0.0:
@@ -544,6 +642,15 @@ def validate_args(args):
 
     if args.source_length + args.drain_length >= args.length:
         raise ValueError("--source-length + --drain-length must be smaller than --length.")
+
+    if args.gate_edge_radius < 0.0:
+        raise ValueError("--gate-edge-radius cannot be negative.")
+
+    gate_length = args.length - args.source_length - args.drain_length
+    if args.gate_edge_radius >= args.oxide_thickness:
+        raise ValueError("--gate-edge-radius must be smaller than --oxide-thickness.")
+    if args.gate_edge_radius >= 0.5 * gate_length:
+        raise ValueError("--gate-edge-radius must be smaller than half the gate length.")
 
     if args.junction_depth >= args.silicon_thickness:
         raise ValueError("--junction-depth must be smaller than --silicon-thickness.")
@@ -587,8 +694,10 @@ def main():
         oxide_thickness=args.oxide_thickness,
         source_length=args.source_length,
         drain_length=args.drain_length,
+        gate_edge_radius=args.gate_edge_radius,
         h_min=args.hmin,
         h_max=args.hmax,
+        oxide_mesh_size=args.oxide_mesh_size,
         interface_refinement_length=args.interface_refinement_length,
         junction_refinement_length=args.junction_refinement_length,
         gate_edge_refinement_length=args.gate_edge_refinement_length,
