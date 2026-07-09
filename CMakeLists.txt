@@ -238,6 +238,7 @@ add_subdirectory(src/PBMC)
 add_subdirectory(src/ADMC)
 add_subdirectory(src/DEVICE_MESH)
 add_subdirectory(src/Poisson)
+add_subdirectory(src/MMMC)
 add_subdirectory(apps)
 
 # ---------------------------- Tests ----------------------------

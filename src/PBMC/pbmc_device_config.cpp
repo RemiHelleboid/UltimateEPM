@@ -106,6 +106,13 @@ YAML::Node make_default_config() {
     config["quench_detection"]["high_field_V_per_cm"] = 1.0e5;
     config["quench_detection"]["quiet_time_s"]        = 1.0e-11;
 
+    config["mmmc"]["pbmc_bbox_um"]["x_min"] = 0.0;
+    config["mmmc"]["pbmc_bbox_um"]["x_max"] = 1.0;
+    config["mmmc"]["pbmc_bbox_um"]["y_min"] = 0.0;
+    config["mmmc"]["pbmc_bbox_um"]["y_max"] = 1.0;
+    config["mmmc"]["pbmc_bbox_um"]["z_min"] = 0.0;
+    config["mmmc"]["pbmc_bbox_um"]["z_max"] = 0.0;
+
     return config;
 }
 

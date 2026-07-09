@@ -7,6 +7,7 @@ set(TEST_DIRS
   "${CMAKE_CURRENT_SOURCE_DIR}/poisson"
   "${CMAKE_CURRENT_SOURCE_DIR}/PBMC"
   "${CMAKE_CURRENT_SOURCE_DIR}/ADMC"
+  "${CMAKE_CURRENT_SOURCE_DIR}/MMMC"
   "${CMAKE_CURRENT_SOURCE_DIR}/physics"
 )
 
@@ -26,6 +27,9 @@ foreach(dir IN LISTS TEST_DIRS)
     endif()
     if(dir_name STREQUAL "ADMC")
       target_link_libraries(${exe} PRIVATE uepm::ADMC)
+    endif()
+    if(dir_name STREQUAL "MMMC")
+      target_link_libraries(${exe} PRIVATE uepm::MMMC)
     endif()
     if(dir_name STREQUAL "fbmc")
       target_link_libraries(${exe} PRIVATE uepm::fbmc)
