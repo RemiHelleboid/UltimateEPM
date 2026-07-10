@@ -257,7 +257,7 @@ void bulk_pbmc_simulation::run_self_scattering_emc() {
     thread_transports.reserve(number_threads);
 
     for (std::size_t i = 0; i < number_threads; ++i) {
-        auto                 transport_cfg = make_transport_config(m_cfg);
+        auto                  transport_cfg = make_transport_config(m_cfg);
         pbmc_transport_kernel transport(transport_cfg, static_cast<std::uint64_t>(1234 + 7919 * i));
         transport.initialize();
         thread_transports.push_back(std::move(transport));

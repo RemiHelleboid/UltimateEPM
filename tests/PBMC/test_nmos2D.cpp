@@ -150,7 +150,7 @@ TEST_CASE("Testing PBMC Simulation 2d on a NMOS.") {
 
     config.self_consistent_options_2d.m_common.m_initialize_particles_from_doping = true;
 
-        const std::string material_symbol = config.material_symbol;
+    const std::string material_symbol = config.material_symbol;
     fmt::print("Self-consistent PBMC {}D simulation\n", mesh_dimension);
     fmt::print("  mesh vertices: {}\n", mesh->get_nb_vertices());
     fmt::print("  output directory: {}\n", output_dir);
@@ -159,8 +159,7 @@ TEST_CASE("Testing PBMC Simulation 2d on a NMOS.") {
     fmt::print("  time step: {:.6e} s\n", config.device_options.m_time_step);
     fmt::print("  Poisson frequency: {}\n", config.self_consistent_options_2d.m_common.m_poisson_frequency);
     fmt::print("  contact voltages:\n");
-    for (const auto& [contact_name, voltage_V] :
-         config.self_consistent_options_2d.m_common.m_contact_voltages_V) {
+    for (const auto& [contact_name, voltage_V] : config.self_consistent_options_2d.m_common.m_contact_voltages_V) {
         fmt::print("    {}: {:.6e} V\n", contact_name, voltage_V);
     }
     fmt::print("  built-in potential: {}\n",

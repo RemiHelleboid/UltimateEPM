@@ -120,25 +120,23 @@ class MeshBZ {
     const vector3& get_center() const noexcept { return m_center; }
     void           shift_bz_center(const vector3& shift);
 
-    double get_bz_volume_correction() const noexcept { return m_bz_volume_correction; }
-    double get_spin_degeneracy() const noexcept { return m_spin_degeneracy; }
-    void   set_domain_mode(BZDomainMode mode) noexcept { m_domain_mode = mode; }
+    double       get_bz_volume_correction() const noexcept { return m_bz_volume_correction; }
+    double       get_spin_degeneracy() const noexcept { return m_spin_degeneracy; }
+    void         set_domain_mode(BZDomainMode mode) noexcept { m_domain_mode = mode; }
     BZDomainMode domain_mode() const noexcept { return m_domain_mode; }
-    bool stores_positive_octant() const noexcept { return m_domain_mode == BZDomainMode::positive_octant; }
-    double stored_domain_multiplicity() const noexcept { return stores_positive_octant() ? 8.0 : 1.0; }
-    CanonicalK canonicalize_physical_k(const vector3& physical_k) const noexcept {
+    bool         stores_positive_octant() const noexcept { return m_domain_mode == BZDomainMode::positive_octant; }
+    double       stored_domain_multiplicity() const noexcept { return stores_positive_octant() ? 8.0 : 1.0; }
+    CanonicalK   canonicalize_physical_k(const vector3& physical_k) const noexcept {
         return canonicalize_k(physical_k, m_domain_mode);
     }
-    vector3 representative_vector_to_physical(const vector3& representative,
+    vector3 representative_vector_to_physical(const vector3&            representative,
                                               const std::array<int, 3>& signs) const noexcept {
         return apply_sign_image(representative, signs);
     }
     const auto& physical_sign_images() const noexcept { return positive_octant_images; }
-    std::size_t source_vertex_index(std::size_t local_index) const {
-        return m_source_vertex_indices.at(local_index);
-    }
+    std::size_t source_vertex_index(std::size_t local_index) const { return m_source_vertex_indices.at(local_index); }
     std::size_t local_vertex_index_from_source(std::size_t source_index) const;
-    void   set_bz_volume_correction(double factor) noexcept { m_bz_volume_correction = factor; }
+    void        set_bz_volume_correction(double factor) noexcept { m_bz_volume_correction = factor; }
     // Compatibility aliases for existing callers.
     double  get_reduce_bz_factor() const noexcept { return get_bz_volume_correction(); }
     void    set_reduce_bz_factor(double factor) noexcept { set_bz_volume_correction(factor); }
@@ -228,8 +226,8 @@ class MeshBZ {
                                        int                nb_valence_bands           = -1,
                                        bool               auto_shift_conduction_band = false,
                                        bool               set_positive_valence_band  = false);
-    void append_band(MeshParticleType           type,
-                     const std::vector<double>& energies_at_vertices,
+    void append_band(MeshParticleType            type,
+                     const std::vector<double>&  energies_at_vertices,
                      const std::vector<vector3>& gradients_at_vertices);
     void add_new_band_energies_to_vertices(const std::vector<double>& energies_at_vertices);
     void add_new_gradient_band_energies_to_vertices(const std::vector<double>& gradients_at_vertices);

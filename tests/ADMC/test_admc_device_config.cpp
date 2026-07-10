@@ -62,7 +62,7 @@ contact_voltage_schedule:
         gate: 1.0
 )");
 
-    const auto config = uepm::ADMC::load_device_admc_config(config_file);
+    const auto  config   = uepm::ADMC::load_device_admc_config(config_file);
     const auto& schedule = config.self_consistent_options_2d.m_common.m_contact_voltage_schedule;
 
     REQUIRE(schedule.size() == 2);

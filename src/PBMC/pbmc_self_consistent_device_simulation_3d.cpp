@@ -67,8 +67,7 @@ void self_consistent_device_pbmc_simulation_3d::initialize_contact_elements() {
             contact_elements.push_back(element);
             m_list_element_contact.push_back(element_index);
             m_list_element_contact_ptr.push_back(element);
-            m_list_element_contact_equilibrium_charge.push_back(
-                element->integrate_scalar("DopingConcentration"));
+            m_list_element_contact_equilibrium_charge.push_back(element->integrate_scalar("DopingConcentration"));
         }
 
         if (!contact_elements.empty()) {
@@ -341,15 +340,15 @@ void self_consistent_device_pbmc_simulation_3d::initialize_poisson_solver() {
 }
 
 self_consistent_device_pbmc_simulation_3d::self_consistent_device_pbmc_simulation_3d(
-    const device::device&                        simulation_device,
+    const device::device&                         simulation_device,
     const options_device_PBMC&                    simulation_options,
     const options_self_consistent_device_pbmc_3d& self_consistent_options,
-    const physics::material_database&            material_database,
-    int                                          seed_random_generator)
+    const physics::material_database&             material_database,
+    int                                           seed_random_generator)
     : self_consistent_device_pbmc_simulation_base(simulation_device,
-                                                 simulation_options,
-                                                 self_consistent_options.m_common,
-                                                 seed_random_generator),
+                                                  simulation_options,
+                                                  self_consistent_options.m_common,
+                                                  seed_random_generator),
       m_self_consistent_options(self_consistent_options),
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(seed_random_generator + 1) {
@@ -361,21 +360,21 @@ self_consistent_device_pbmc_simulation_3d::self_consistent_device_pbmc_simulatio
 }
 
 self_consistent_device_pbmc_simulation_3d::self_consistent_device_pbmc_simulation_3d(
-    const device::device&                        simulation_device,
+    const device::device&                         simulation_device,
     const options_device_PBMC&                    simulation_options,
     const options_self_consistent_device_pbmc_3d& self_consistent_options,
-    const physics::material_database&            material_database,
-    const mesh::vector3&                         starting_position,
-    std::size_t                                  number_electrons_start,
-    std::size_t                                  number_holes_start,
-    int                                          seed_random_generator)
+    const physics::material_database&             material_database,
+    const mesh::vector3&                          starting_position,
+    std::size_t                                   number_electrons_start,
+    std::size_t                                   number_holes_start,
+    int                                           seed_random_generator)
     : self_consistent_device_pbmc_simulation_base(simulation_device,
-                                                 simulation_options,
-                                                 self_consistent_options.m_common,
-                                                 starting_position,
-                                                 number_electrons_start,
-                                                 number_holes_start,
-                                                 seed_random_generator),
+                                                  simulation_options,
+                                                  self_consistent_options.m_common,
+                                                  starting_position,
+                                                  number_electrons_start,
+                                                  number_holes_start,
+                                                  seed_random_generator),
       m_self_consistent_options(self_consistent_options),
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(seed_random_generator + 1) {
@@ -434,7 +433,7 @@ void self_consistent_device_pbmc_simulation_3d::update_self_consistent_potential
     for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
         static_cast<void>(unused_voltage);
         m_poisson_solver.apply_dirichlet_condition_second_member(contact_name,
-                                                                  contact_voltage_for_poisson(contact_name));
+                                                                 contact_voltage_for_poisson(contact_name));
     }
     m_poisson_solver.solve_system();
     if (common_options().m_enable_poisson_mixing) {
@@ -464,11 +463,11 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
     std::string  history_filename = initialize_simulation_history_file();
     std::fstream stream(history_filename, std::ios::app);
 
-    double accumulator_ramo_current_electron = 0.0;
-    double accumulator_ramo_current_hole     = 0.0;
-    double ramo_current_electron             = 0.0;
-    double ramo_current_hole                 = 0.0;
-    double ramo_current                      = 0.0;
+    double accumulator_ramo_current_electron       = 0.0;
+    double accumulator_ramo_current_hole           = 0.0;
+    double ramo_current_electron                   = 0.0;
+    double ramo_current_hole                       = 0.0;
+    double ramo_current                            = 0.0;
     double accumulator_probe_ramo_current_electron = 0.0;
     double accumulator_probe_ramo_current_hole     = 0.0;
     double probe_ramo_current_electron             = 0.0;
@@ -509,11 +508,11 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
             ramo_current_hole     = accumulator_ramo_current_hole / sim_poisson_frequency;
             ramo_current          = ramo_current_electron + ramo_current_hole;
             ramo_current -= common_options().m_background_ramo_current_A;
-            probe_ramo_current_electron = accumulator_probe_ramo_current_electron / sim_poisson_frequency;
-            probe_ramo_current_hole     = accumulator_probe_ramo_current_hole / sim_poisson_frequency;
-            probe_ramo_current          = probe_ramo_current_electron + probe_ramo_current_hole;
-            accumulator_ramo_current_electron = 0.0;
-            accumulator_ramo_current_hole     = 0.0;
+            probe_ramo_current_electron             = accumulator_probe_ramo_current_electron / sim_poisson_frequency;
+            probe_ramo_current_hole                 = accumulator_probe_ramo_current_hole / sim_poisson_frequency;
+            probe_ramo_current                      = probe_ramo_current_electron + probe_ramo_current_hole;
+            accumulator_ramo_current_electron       = 0.0;
+            accumulator_ramo_current_hole           = 0.0;
             accumulator_probe_ramo_current_electron = 0.0;
             accumulator_probe_ramo_current_hole     = 0.0;
 
@@ -544,25 +543,25 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
         update_successful_quench_detection(m_state.m_time_s, impact_events_before_step);
 
         const double max_electric_field_V_per_cm = max_particle_electric_field_V_per_cm();
-        m_simulation_history.add_data_to_history(m_state.m_time_s,
-                                                 get_number_electrons(),
-                                                 get_number_holes(),
-                                                 m_simulation_history.m_impact_ionization_positions.size(),
-                                                 ramo_current_electron,
-                                                 ramo_current_hole,
-                                                 ramo_current,
-                                                 probe_ramo_current_electron,
-                                                 probe_ramo_current_hole,
-                                                 probe_ramo_current,
-                                                 max_electric_field_V_per_cm,
-                                                 ramo_electrode_voltage_for_history(),
-                                                 reference_electrode_voltage_for_history(),
-                                                 quench_supply_voltage_for_history(),
-                                                 quench_device_current_for_history(),
-                                                 quench_resistor_current_for_history(),
-                                                 quench_voltage_drop_for_history(),
-                                                 m_simulation_history.contact_voltage_values_from_map(
-                                                     contact_voltages_V()));
+        m_simulation_history.add_data_to_history(
+            m_state.m_time_s,
+            get_number_electrons(),
+            get_number_holes(),
+            m_simulation_history.m_impact_ionization_positions.size(),
+            ramo_current_electron,
+            ramo_current_hole,
+            ramo_current,
+            probe_ramo_current_electron,
+            probe_ramo_current_hole,
+            probe_ramo_current,
+            max_electric_field_V_per_cm,
+            ramo_electrode_voltage_for_history(),
+            reference_electrode_voltage_for_history(),
+            quench_supply_voltage_for_history(),
+            quench_device_current_for_history(),
+            quench_resistor_current_for_history(),
+            quench_voltage_drop_for_history(),
+            m_simulation_history.contact_voltage_values_from_map(contact_voltages_V()));
 
         m_simulation_history.append_last_iter_to_csv(stream);
         if (m_state.m_iteration == 1 ||

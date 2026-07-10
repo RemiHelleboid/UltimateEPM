@@ -154,9 +154,7 @@ vector3 ReciprocalSpace::fold_bcc_fast_SI(const vector3& k_SI, double si_to_redu
     return {folded_reduced.x() / si_to_reduced, folded_reduced.y() / si_to_reduced, folded_reduced.z() / si_to_reduced};
 }
 
-vector3 ReciprocalSpace::fold_bcc_fast_SI(const vector3& k_SI) const {
-    return fold_bcc_fast_SI(k_SI, m_si_to_reduced);
-}
+vector3 ReciprocalSpace::fold_bcc_fast_SI(const vector3& k_SI) const { return fold_bcc_fast_SI(k_SI, m_si_to_reduced); }
 
 vector3 ReciprocalSpace::retrieve_bcc_image(const vector3& k_SI, double si_to_reduced) const {
     return fold_bcc_fast_SI(k_SI, si_to_reduced);

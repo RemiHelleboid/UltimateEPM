@@ -73,8 +73,8 @@ void options_self_consistent_device_pbmc_common::validate() const {
     if (!std::isfinite(m_built_in_contact_voltage_scale)) {
         throw std::invalid_argument("Built-in contact voltage scale must be finite.");
     }
-    if (!std::isfinite(m_poisson_mixing_old_solution_fraction) ||
-        m_poisson_mixing_old_solution_fraction < 0.0 || m_poisson_mixing_old_solution_fraction > 1.0) {
+    if (!std::isfinite(m_poisson_mixing_old_solution_fraction) || m_poisson_mixing_old_solution_fraction < 0.0 ||
+        m_poisson_mixing_old_solution_fraction > 1.0) {
         throw std::invalid_argument("Poisson mixing old solution fraction must be in [0, 1].");
     }
     if (!std::isfinite(m_contact_injection_particle_weight) || m_contact_injection_particle_weight <= 0.0) {
@@ -98,10 +98,10 @@ void options_self_consistent_device_pbmc_common::validate() const {
 }
 
 self_consistent_device_pbmc_simulation_base::self_consistent_device_pbmc_simulation_base(
-    const device::device&                            simulation_device,
+    const device::device&                             simulation_device,
     const options_device_PBMC&                        simulation_options,
     const options_self_consistent_device_pbmc_common& common_options,
-    int                                              seed_random_generator)
+    int                                               seed_random_generator)
     : device_pbmc_simulation(simulation_device, simulation_options, seed_random_generator),
       m_common_options(common_options),
       m_quench_circuit(common_options.m_passive_quench_circuit),
@@ -118,19 +118,19 @@ self_consistent_device_pbmc_simulation_base::self_consistent_device_pbmc_simulat
 }
 
 self_consistent_device_pbmc_simulation_base::self_consistent_device_pbmc_simulation_base(
-    const device::device&                            simulation_device,
+    const device::device&                             simulation_device,
     const options_device_PBMC&                        simulation_options,
     const options_self_consistent_device_pbmc_common& common_options,
-    const mesh::vector3&                             starting_position,
-    std::size_t                                      number_electrons_start,
-    std::size_t                                      number_holes_start,
-    int                                              seed_random_generator)
+    const mesh::vector3&                              starting_position,
+    std::size_t                                       number_electrons_start,
+    std::size_t                                       number_holes_start,
+    int                                               seed_random_generator)
     : device_pbmc_simulation(simulation_device,
-                            simulation_options,
-                            starting_position,
-                            number_electrons_start,
-                            number_holes_start,
-                            seed_random_generator),
+                             simulation_options,
+                             starting_position,
+                             number_electrons_start,
+                             number_holes_start,
+                             seed_random_generator),
       m_common_options(common_options),
       m_quench_circuit(common_options.m_passive_quench_circuit),
       m_avalanche_detector(common_options.m_avalanche_voltage_drop_threshold_V),
@@ -163,8 +163,7 @@ struct contact_doping_summary {
     double acceptor_cm_3 = 0.0;
 };
 
-contact_doping_summary summarize_contact_doping(
-    const std::vector<std::shared_ptr<mesh::element>>& contact_elements) {
+contact_doping_summary summarize_contact_doping(const std::vector<std::shared_ptr<mesh::element>>& contact_elements) {
     double donor_integral    = 0.0;
     double acceptor_integral = 0.0;
     double measure_integral  = 0.0;
@@ -190,11 +189,10 @@ contact_doping_summary summarize_contact_doping(
     return {.donor_cm_3 = donor_integral / measure_integral, .acceptor_cm_3 = acceptor_integral / measure_integral};
 }
 
-double contact_equilibrium_voltage_offset_V(const contact_doping_summary& summary,
-                                            double                         temperature_K) {
-    const double donor_excess    = summary.donor_cm_3 - summary.acceptor_cm_3;
-    const double acceptor_excess = summary.acceptor_cm_3 - summary.donor_cm_3;
-    const double thermal_voltage = uepm::constants::k_B * temperature_K / uepm::constants::q_e;
+double contact_equilibrium_voltage_offset_V(const contact_doping_summary& summary, double temperature_K) {
+    const double donor_excess                 = summary.donor_cm_3 - summary.acceptor_cm_3;
+    const double acceptor_excess              = summary.acceptor_cm_3 - summary.donor_cm_3;
+    const double thermal_voltage              = uepm::constants::k_B * temperature_K / uepm::constants::q_e;
     const double intrinsic_concentration_cm_3 = silicon_intrinsic_concentration_cm_3(temperature_K);
 
     if (donor_excess > 0.0) {
@@ -213,32 +211,31 @@ double silicon_intrinsic_concentration_cm_3(double temperature_K) {
         throw std::invalid_argument("Intrinsic concentration temperature must be positive and finite.");
     }
 
-    constexpr double reference_temperature_K       = 300.0;
-    constexpr double reference_concentration_cm_3  = 1.0e10;
-    const double     reference_band_gap_eV         = silicon_band_gap_varshni_eV(reference_temperature_K);
-    const double     band_gap_eV                   = silicon_band_gap_varshni_eV(temperature_K);
-    const double     effective_density_ratio       = std::pow(temperature_K / reference_temperature_K, 1.5);
-    const double     band_gap_boltzmann_correction = std::exp(
-        reference_band_gap_eV / (2.0 * uepm::constants::k_b_eV * reference_temperature_K) -
-        band_gap_eV / (2.0 * uepm::constants::k_b_eV * temperature_K));
+    constexpr double reference_temperature_K      = 300.0;
+    constexpr double reference_concentration_cm_3 = 1.0e10;
+    const double     reference_band_gap_eV        = silicon_band_gap_varshni_eV(reference_temperature_K);
+    const double     band_gap_eV                  = silicon_band_gap_varshni_eV(temperature_K);
+    const double     effective_density_ratio      = std::pow(temperature_K / reference_temperature_K, 1.5);
+    const double     band_gap_boltzmann_correction =
+        std::exp(reference_band_gap_eV / (2.0 * uepm::constants::k_b_eV * reference_temperature_K) -
+                 band_gap_eV / (2.0 * uepm::constants::k_b_eV * temperature_K));
 
     return reference_concentration_cm_3 * effective_density_ratio * band_gap_boltzmann_correction;
 }
 
 void self_consistent_device_pbmc_simulation_base::update_built_in_contact_voltage_offset(
-    const std::string&                                  contact_name,
+    const std::string&                                 contact_name,
     const std::vector<std::shared_ptr<mesh::element>>& contact_elements) {
     m_built_in_contact_voltage_offsets_V[contact_name] = 0.0;
     if (!m_common_options.m_enable_built_in_potential) {
         return;
     }
 
-    const auto doping = summarize_contact_doping(contact_elements);
+    const auto   doping = summarize_contact_doping(contact_elements);
     const double intrinsic_concentration_cm_3 =
         silicon_intrinsic_concentration_cm_3(m_simulation_options.m_lattice_temperature);
-    const double offset_V =
-        m_common_options.m_built_in_contact_voltage_scale *
-        contact_equilibrium_voltage_offset_V(doping, m_simulation_options.m_lattice_temperature);
+    const double offset_V = m_common_options.m_built_in_contact_voltage_scale *
+                            contact_equilibrium_voltage_offset_V(doping, m_simulation_options.m_lattice_temperature);
     m_built_in_contact_voltage_offsets_V[contact_name] = offset_V;
 
     fmt::print("Built-in contact '{}': Nd={:.6e} cm^-3, Na={:.6e} cm^-3, ni(T)={:.6e} cm^-3, offset={:.6e} V\n",
@@ -249,8 +246,7 @@ void self_consistent_device_pbmc_simulation_base::update_built_in_contact_voltag
                offset_V);
 }
 
-bool self_consistent_device_pbmc_simulation_base::is_transport_material_element(
-    mesh::element& element) {
+bool self_consistent_device_pbmc_simulation_base::is_transport_material_element(mesh::element& element) {
     const std::string material_name = m_device.get_material_name_at_element(&element);
 
     switch (m_simulation_options.m_material_model.m_id) {
@@ -277,8 +273,7 @@ std::size_t self_consistent_device_pbmc_simulation_base::poisson_frequency() con
     return m_common_options.m_poisson_frequency;
 }
 
-double self_consistent_device_pbmc_simulation_base::contact_voltage_for_poisson(
-    const std::string& contact_name) const {
+double self_consistent_device_pbmc_simulation_base::contact_voltage_for_poisson(const std::string& contact_name) const {
     const auto contact_it = m_common_options.m_contact_voltages_V.find(contact_name);
     if (contact_it == m_common_options.m_contact_voltages_V.end()) {
         throw std::invalid_argument("Unknown configured contact '" + contact_name + "'.");
@@ -289,8 +284,6 @@ double self_consistent_device_pbmc_simulation_base::contact_voltage_for_poisson(
         voltage_V = m_quench_circuit.device_voltage_V();
     }
     const auto offset_it = m_built_in_contact_voltage_offsets_V.find(contact_name);
-
-
 
     return voltage_V + (offset_it == m_built_in_contact_voltage_offsets_V.end() ? 0.0 : offset_it->second);
 }
@@ -334,8 +327,8 @@ double self_consistent_device_pbmc_simulation_base::device_bias_voltage_for_hist
 }
 
 void self_consistent_device_pbmc_simulation_base::advance_quench_circuit(double averaged_ramo_current_A,
-                                                                        double dt_s,
-                                                                        double sample_time_s) {
+                                                                         double dt_s,
+                                                                         double sample_time_s) {
     if (!m_quench_circuit.is_enabled()) {
         return;
     }

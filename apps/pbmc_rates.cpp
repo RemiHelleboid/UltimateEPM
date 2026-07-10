@@ -54,8 +54,8 @@ std::vector<double> make_energy_grid(double max_energy_eV, double energy_step_eV
 }
 
 void write_electron_rates(const uepm::PBMC::pbmc_material_model& material,
-                          std::size_t                           valley_index,
-                          double                                temperature_K,
+                          std::size_t                            valley_index,
+                          double                                 temperature_K,
                           const std::vector<double>&             energies_eV,
                           const std::filesystem::path&           output_file) {
     if (valley_index >= material.m_electron_valleys.size()) {
@@ -120,8 +120,8 @@ void write_electron_rates(const uepm::PBMC::pbmc_material_model& material,
 }
 
 void write_hole_rates(const uepm::PBMC::pbmc_material_model& material,
-                      std::size_t                           band_index,
-                      double                                temperature_K,
+                      std::size_t                            band_index,
+                      double                                 temperature_K,
                       const std::vector<double>&             energies_eV,
                       const std::filesystem::path&           output_file) {
     if (band_index >= material.m_hole_bands.size()) {
@@ -159,7 +159,7 @@ void write_hole_rates(const uepm::PBMC::pbmc_material_model& material,
         double optical_absorption = 0.0;
         double optical_emission   = 0.0;
         for (const auto& transition : transitions) {
-            const auto& final_band = material.m_hole_bands.at(transition.final_band);
+            const auto&  final_band = material.m_hole_bands.at(transition.final_band);
             const double absorption =
                 uepm::PBMC::optical_scattering_rate_holes(final_band,
                                                           transition,
@@ -201,21 +201,27 @@ int main(int argc, const char** argv) {
 
         TCLAP::ValueArg<std::string> arg_material("m", "material", "Material symbol.", false, "Si", "string");
         TCLAP::ValueArg<std::string> arg_pbmc_set("", "pbmc-set", "PBMC parameter set.", false, "default", "string");
-        TCLAP::ValueArg<std::string> arg_particle_type(
-            "p", "part-type", "Carrier type: electron or hole.", false, "electron", "string");
-        TCLAP::ValueArg<int> arg_valley_or_band(
-            "v", "valley", "Electron valley or hole band index.", false, 0, "int");
-        TCLAP::ValueArg<double> arg_temperature(
-            "T", "temperature", "Lattice temperature in kelvin.", false, 300.0, "double");
-        TCLAP::ValueArg<double> arg_max_energy(
-            "e", "max-energy", "Maximum carrier kinetic energy in eV.", false, 1.0, "double");
-        TCLAP::ValueArg<double> arg_energy_step("", "energy-step", "Energy grid step in eV.", false, 0.005, "double");
-        TCLAP::ValueArg<std::string> arg_output("o",
-                                                "out",
-                                                "Output CSV filename.",
+        TCLAP::ValueArg<std::string> arg_particle_type("p",
+                                                       "part-type",
+                                                       "Carrier type: electron or hole.",
+                                                       false,
+                                                       "electron",
+                                                       "string");
+        TCLAP::ValueArg<int> arg_valley_or_band("v", "valley", "Electron valley or hole band index.", false, 0, "int");
+        TCLAP::ValueArg<double> arg_temperature("T",
+                                                "temperature",
+                                                "Lattice temperature in kelvin.",
                                                 false,
-                                                "pbmc_rates.csv",
-                                                "string");
+                                                300.0,
+                                                "double");
+        TCLAP::ValueArg<double> arg_max_energy("e",
+                                               "max-energy",
+                                               "Maximum carrier kinetic energy in eV.",
+                                               false,
+                                               1.0,
+                                               "double");
+        TCLAP::ValueArg<double> arg_energy_step("", "energy-step", "Energy grid step in eV.", false, 0.005, "double");
+        TCLAP::ValueArg<std::string> arg_output("o", "out", "Output CSV filename.", false, "pbmc_rates.csv", "string");
 
         cmd.add(arg_material);
         cmd.add(arg_pbmc_set);
@@ -245,11 +251,7 @@ int main(int argc, const char** argv) {
                                  energies,
                                  output);
         } else {
-            write_hole_rates(material,
-                             static_cast<std::size_t>(index),
-                             arg_temperature.getValue(),
-                             energies,
-                             output);
+            write_hole_rates(material, static_cast<std::size_t>(index), arg_temperature.getValue(), energies, output);
         }
 
         fmt::print("Wrote PBMC rates to {}\n", output.string());

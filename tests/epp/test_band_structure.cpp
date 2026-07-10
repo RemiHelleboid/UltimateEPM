@@ -1,10 +1,10 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
+#include <doctest/doctest.h>
+
 #include <stdexcept>
 #include <string>
 #include <vector>
-
-#include <doctest/doctest.h>
 
 #include "BandStructure.h"
 #include "Vector3D.h"

@@ -30,11 +30,11 @@ epm_material::epm_material(const uepm::physics::material_info& material,
 }
 
 namespace {
-void load_material_from_yaml(std::map<std::string, epm_material>&             materials,
-                             const uepm::physics::material_info&             common_material,
-                             const std::filesystem::path&                    filename,
-                             const YAML::Node&                               config,
-                             const std::optional<std::string>&               expected_parameter_set = std::nullopt) {
+void load_material_from_yaml(std::map<std::string, epm_material>& materials,
+                             const uepm::physics::material_info&  common_material,
+                             const std::filesystem::path&         filename,
+                             const YAML::Node&                    config,
+                             const std::optional<std::string>&    expected_parameter_set = std::nullopt) {
     const auto material_node = config["material"];
     const auto model_node    = config["model"];
     if (!material_node || !model_node || material_node.as<std::string>() != common_material.symbol ||

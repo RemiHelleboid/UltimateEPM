@@ -65,8 +65,8 @@ void validate_material_symbol(const std::string& material_symbol) {
 void add_collecting_contacts(uepm::device::device&           simulation_device,
                              uepm::mesh::mesh&               mesh,
                              const std::vector<std::string>& contact_names) {
-    constexpr double contact_collection_depth = 0.0025; 
-    constexpr double contact_margin           = 10.0;   
+    constexpr double contact_collection_depth = 0.0025;
+    constexpr double contact_margin           = 10.0;
     constexpr double ohmic_resistance         = 0.0;
 
     const mesh::bbox device_bbox   = mesh.get_bounding_box();
@@ -296,7 +296,7 @@ void run_self_consistent_device_admc_simulation(const self_consistent_device_adm
     const std::string output_dir =
         config.output_dir.empty() ? make_default_output_directory(config.mesh_file) : config.output_dir;
     std::filesystem::create_directories(output_dir);
-    auto device_options = config.device_options;
+    auto device_options               = config.device_options;
     device_options.m_output_directory = output_dir;
 
     fmt::print("Loading mesh: {}\n", config.mesh_file);

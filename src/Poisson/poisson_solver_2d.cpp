@@ -39,8 +39,10 @@ void poisson_solver_2d::compute_stiffness_matrix() {
         }
         const double relative_permittivity = material.static_relative_permittivity;
         fmt::print("Computing stiffness matrix for bulk region '{}' with material '{}', relative permittivity: {}\n",
-                   bulk_region->get_name(), material_name, relative_permittivity);
-        auto         list_sp_elements      = bulk_region->get_list_elements();
+                   bulk_region->get_name(),
+                   material_name,
+                   relative_permittivity);
+        auto list_sp_elements = bulk_region->get_list_elements();
         for (auto &&sp_element : list_sp_elements) {
             m_list_bulk_elements.push_back(sp_element);
             std::vector<mesh::vertex *> p_vertices_list       = sp_element->get_vertices();

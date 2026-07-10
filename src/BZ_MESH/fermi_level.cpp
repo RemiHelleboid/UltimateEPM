@@ -171,13 +171,13 @@ Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
     const auto list_idx_val  = mesh.get_band_indices(MeshParticleType::valence);
     const auto list_idx_cond = mesh.get_band_indices(MeshParticleType::conduction);
     for (int b = 0; b < nb_bands; ++b) {
-        const auto       mini_max_energy = mesh.get_min_max_energy_at_band(b);
-        double           min_e           = mini_max_energy.first;
-        double           max_e           = mini_max_energy.second;
+        const auto mini_max_energy = mesh.get_min_max_energy_at_band(b);
+        double     min_e           = mini_max_energy.first;
+        double     max_e           = mini_max_energy.second;
         // Check minmax order...
         if (min_e > max_e) {
-            std::cerr << "Warning: min energy > max energy for band " << b << ": min = " << min_e
-                      << ", max = " << max_e << ". Swapping values.\n";
+            std::cerr << "Warning: min energy > max energy for band " << b << ": min = " << min_e << ", max = " << max_e
+                      << ". Swapping values.\n";
             std::swap(min_e, max_e);
         }
 
@@ -234,7 +234,7 @@ Result solve_fermi(const MeshBZ& mesh, const Options& opt, bool use_iw) {
     double                Fhi        = F(high);
     std::size_t           expand     = 0;
     constexpr std::size_t max_expand = 12;
-    const auto same_sign = [](double lhs, double rhs) { return std::signbit(lhs) == std::signbit(rhs); };
+    const auto            same_sign  = [](double lhs, double rhs) { return std::signbit(lhs) == std::signbit(rhs); };
     while (same_sign(Flo, Fhi) && expand < max_expand) {
         low -= 1.0;
         high += 1.0;

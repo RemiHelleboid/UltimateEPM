@@ -80,11 +80,11 @@ int main(int argc, char *argv[]) {
     my_options.materialName = arg_material.getValue();
     my_options.nrThreads    = arg_nb_threads.getValue();
     my_options.print_options();
-    int  nb_conduction_bands = arg_nb_conduction_bands.getValue();
-    int  nb_valence_bands    = arg_nb_valence_bands.getValue();
-    bool use_interp          = arg_test_interp.getValue();
-    bool use_iw              = arg_use_iw.getValue();
-    const uepm::mesh_bz::BZDomainMode domain_mode = [&]() {
+    int                               nb_conduction_bands = arg_nb_conduction_bands.getValue();
+    int                               nb_valence_bands    = arg_nb_valence_bands.getValue();
+    bool                              use_interp          = arg_test_interp.getValue();
+    bool                              use_iw              = arg_use_iw.getValue();
+    const uepm::mesh_bz::BZDomainMode domain_mode         = [&]() {
         if (arg_bz_domain.getValue() == "full") {
             return uepm::mesh_bz::BZDomainMode::full;
         }
@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
     if (domain_mode == uepm::mesh_bz::BZDomainMode::positive_octant && use_iw) {
         throw std::invalid_argument("--iw cannot be combined with --bz-domain octant");
     }
-    auto start               = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::high_resolution_clock::now();
 
     uepm::pseudopotential::epm_material current_material = materials.materials.at(arg_material.getValue());
 
@@ -114,8 +114,6 @@ int main(int argc, char *argv[]) {
                                              nb_valence_bands,
                                              shift_conduction_band,
                                              set_positive_valence_band);
-
-
 
     my_bz_mesh.apply_scissor(1.12);  // eV
 

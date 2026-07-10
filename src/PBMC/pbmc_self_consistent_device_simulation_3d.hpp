@@ -16,11 +16,11 @@
 #include <string>
 #include <vector>
 
-#include "pbmc_quench_circuit.hpp"
-#include "pbmc_self_consistent_device_simulation_base.hpp"
 #include "device.hpp"
 #include "device_pbmc_simulation.hpp"
 #include "materials.hpp"
+#include "pbmc_quench_circuit.hpp"
+#include "pbmc_self_consistent_device_simulation_base.hpp"
 #include "poisson_solver_3d.hpp"
 #include "vtkWriter.hpp"
 
@@ -33,8 +33,8 @@ struct options_self_consistent_device_pbmc_3d {
 class self_consistent_device_pbmc_simulation_3d : public self_consistent_device_pbmc_simulation_base {
  private:
     options_self_consistent_device_pbmc_3d m_self_consistent_options;
-    uepm::fem::poisson_solver_3d          m_poisson_solver;
-    uepm::fem::EigenVector                m_previous_poisson_solution;
+    uepm::fem::poisson_solver_3d           m_poisson_solver;
+    uepm::fem::EigenVector                 m_previous_poisson_solution;
 
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
@@ -54,20 +54,20 @@ class self_consistent_device_pbmc_simulation_3d : public self_consistent_device_
     void update_self_consistent_potential();
 
  public:
-    self_consistent_device_pbmc_simulation_3d(const device::device&                        simulation_device,
-                                             const options_device_PBMC&                    simulation_options,
-                                             const options_self_consistent_device_pbmc_3d& self_consistent_options,
-                                             const physics::material_database&            material_database,
-                                             int                                          seed_random_generator = 0);
+    self_consistent_device_pbmc_simulation_3d(const device::device&                         simulation_device,
+                                              const options_device_PBMC&                    simulation_options,
+                                              const options_self_consistent_device_pbmc_3d& self_consistent_options,
+                                              const physics::material_database&             material_database,
+                                              int                                           seed_random_generator = 0);
 
-    self_consistent_device_pbmc_simulation_3d(const device::device&                        simulation_device,
-                                             const options_device_PBMC&                    simulation_options,
-                                             const options_self_consistent_device_pbmc_3d& self_consistent_options,
-                                             const physics::material_database&            material_database,
-                                             const mesh::vector3&                         starting_position,
-                                             std::size_t                                  number_electrons_start,
-                                             std::size_t                                  number_holes_start,
-                                             int                                          seed_random_generator = 0);
+    self_consistent_device_pbmc_simulation_3d(const device::device&                         simulation_device,
+                                              const options_device_PBMC&                    simulation_options,
+                                              const options_self_consistent_device_pbmc_3d& self_consistent_options,
+                                              const physics::material_database&             material_database,
+                                              const mesh::vector3&                          starting_position,
+                                              std::size_t                                   number_electrons_start,
+                                              std::size_t                                   number_holes_start,
+                                              int                                           seed_random_generator = 0);
 
     void run_self_consistent_transport_simulation();
 

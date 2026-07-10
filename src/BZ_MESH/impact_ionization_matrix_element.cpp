@@ -20,9 +20,7 @@ struct MomentumKey {
     long long y = 0;
     long long z = 0;
 
-    bool operator==(const MomentumKey& other) const noexcept {
-        return x == other.x && y == other.y && z == other.z;
-    }
+    bool operator==(const MomentumKey& other) const noexcept { return x == other.x && y == other.y && z == other.z; }
 
     MomentumKey opposite() const noexcept { return MomentumKey{.x = -x, .y = -y, .z = -z}; }
 };
@@ -30,7 +28,7 @@ struct MomentumKey {
 struct MomentumKeyHash {
     std::size_t operator()(const MomentumKey& key) const noexcept {
         std::size_t seed = 0;
-        const auto mix = [&seed](long long value) {
+        const auto  mix  = [&seed](long long value) {
             const std::size_t hashed = std::hash<long long>{}(value);
             seed ^= hashed + 0x9e3779b97f4a7c15ULL + (seed << 6U) + (seed >> 2U);
         };
@@ -54,9 +52,7 @@ void require_finite_vector(const vector3& vector, const char* name) {
     }
 }
 
-void validate_state(const ImpactIonizationPlaneWaveState& state,
-                    std::size_t                          basis_size,
-                    const char*                          name) {
+void validate_state(const ImpactIonizationPlaneWaveState& state, std::size_t basis_size, const char* name) {
     require_finite_vector(state.k_SI, name);
     if (!std::isfinite(state.energy_eV)) {
         throw std::invalid_argument(std::string(name) + " energy must be finite.");
@@ -97,10 +93,10 @@ TransitionDensityMap build_transition_density(const ImpactIonizationPlaneWaveSta
                 continue;
             }
 
-            const vector3 q_SI = initial.k_SI + basis_vectors_SI[idx_initial_g] - final.k_SI -
-                                 basis_vectors_SI[idx_final_g];
-            const MomentumKey key = quantize_momentum(q_SI, momentum_tolerance_SI);
-            auto& entry = density[key];
+            const vector3 q_SI =
+                initial.k_SI + basis_vectors_SI[idx_initial_g] - final.k_SI - basis_vectors_SI[idx_final_g];
+            const MomentumKey key   = quantize_momentum(q_SI, momentum_tolerance_SI);
+            auto&             entry = density[key];
             if (entry.amplitude == complex_d{0.0, 0.0}) {
                 entry.q_SI = q_SI;
             }
@@ -122,14 +118,13 @@ void validate_config(const ImpactIonizationMatrixElementConfig& config) {
 
 }  // namespace
 
-complex_d compute_screened_two_body_matrix_element(
-    const ImpactIonizationPlaneWaveState& initial_a,
-    const ImpactIonizationPlaneWaveState& initial_b,
-    const ImpactIonizationPlaneWaveState& final_a,
-    const ImpactIonizationPlaneWaveState& final_b,
-    const std::vector<vector3>&           basis_vectors_SI,
-    const impact_screened_interaction&    screened_interaction,
-    const ImpactIonizationMatrixElementConfig& config) {
+complex_d compute_screened_two_body_matrix_element(const ImpactIonizationPlaneWaveState&      initial_a,
+                                                   const ImpactIonizationPlaneWaveState&      initial_b,
+                                                   const ImpactIonizationPlaneWaveState&      final_a,
+                                                   const ImpactIonizationPlaneWaveState&      final_b,
+                                                   const std::vector<vector3>&                basis_vectors_SI,
+                                                   const impact_screened_interaction&         screened_interaction,
+                                                   const ImpactIonizationMatrixElementConfig& config) {
     validate_config(config);
     if (!screened_interaction) {
         throw std::invalid_argument("Impact-ionization screened interaction callback is empty.");
@@ -168,27 +163,27 @@ complex_d compute_screened_two_body_matrix_element(
 }
 
 std::array<complex_d, 2> compute_direct_exchange_impact_ionization_matrix_element(
-    const ImpactIonizationPlaneWaveState& initial_hot_electron,
-    const ImpactIonizationPlaneWaveState& initial_valence_electron,
-    const ImpactIonizationPlaneWaveState& final_electron_1,
-    const ImpactIonizationPlaneWaveState& final_electron_2,
-    const std::vector<vector3>&           basis_vectors_SI,
-    const impact_screened_interaction&    screened_interaction,
+    const ImpactIonizationPlaneWaveState&      initial_hot_electron,
+    const ImpactIonizationPlaneWaveState&      initial_valence_electron,
+    const ImpactIonizationPlaneWaveState&      final_electron_1,
+    const ImpactIonizationPlaneWaveState&      final_electron_2,
+    const std::vector<vector3>&                basis_vectors_SI,
+    const impact_screened_interaction&         screened_interaction,
     const ImpactIonizationMatrixElementConfig& config) {
-    const complex_d direct = compute_screened_two_body_matrix_element(initial_hot_electron,
-                                                                     initial_valence_electron,
-                                                                     final_electron_1,
-                                                                     final_electron_2,
-                                                                     basis_vectors_SI,
-                                                                     screened_interaction,
-                                                                     config);
+    const complex_d direct   = compute_screened_two_body_matrix_element(initial_hot_electron,
+                                                                      initial_valence_electron,
+                                                                      final_electron_1,
+                                                                      final_electron_2,
+                                                                      basis_vectors_SI,
+                                                                      screened_interaction,
+                                                                      config);
     const complex_d exchange = compute_screened_two_body_matrix_element(initial_hot_electron,
-                                                                       initial_valence_electron,
-                                                                       final_electron_2,
-                                                                       final_electron_1,
-                                                                       basis_vectors_SI,
-                                                                       screened_interaction,
-                                                                       config);
+                                                                        initial_valence_electron,
+                                                                        final_electron_2,
+                                                                        final_electron_1,
+                                                                        basis_vectors_SI,
+                                                                        screened_interaction,
+                                                                        config);
     return {direct, exchange};
 }
 

@@ -133,8 +133,8 @@ pbmc_transport_kernel::pbmc_transport_kernel(const pbmc_transport_config& cfg, p
       m_rng(std::random_device{}()) {}
 
 pbmc_transport_kernel::pbmc_transport_kernel(const pbmc_transport_config& cfg,
-                                           pbmc_material_model          material,
-                                           std::uint64_t               seed)
+                                             pbmc_material_model          material,
+                                             std::uint64_t                seed)
     : m_cfg(cfg),
       m_material_model(std::move(material)),
       m_rng(seed) {}
@@ -234,7 +234,7 @@ void pbmc_transport_kernel::drift_particle(pbmc_particle& p, const mesh::vector3
 }
 
 void pbmc_transport_kernel::set_particle_velocity_direction_preserving_energy(
-    pbmc_particle&  p,
+    pbmc_particle& p,
     const vector3& desired_global_direction) const {
     const auto valley_index = p.state().valley_index;
     if (valley_index >= m_valleys.size()) {
@@ -249,7 +249,7 @@ void pbmc_transport_kernel::set_particle_velocity_direction_preserving_energy(
     const vector3 desired_direction_valley = valley.to_valley_frame(desired_global_direction);
     p.state().local_k =
         valley.k_valley_from_energy_velocity_direction(p.state().kinetic_energy, desired_direction_valley);
-    p.state().gamma = valley.gamma_from_k_valley(p.state().local_k);
+    p.state().gamma          = valley.gamma_from_k_valley(p.state().local_k);
     p.state().kinetic_energy = valley.kinetic_energy_from_gamma(p.state().gamma);
     p.state().velocity =
         valley.to_global_frame(valley.velocity_from_k_valley_and_energy(p.state().local_k, p.state().kinetic_energy));
@@ -333,7 +333,7 @@ scattering_channel pbmc_transport_kernel::select_scattering_channel(const pbmc_p
 }
 
 scattering_channel pbmc_transport_kernel::select_scattering_channel(const scattering_channel_list& channels,
-                                                                   double                         total_rate) {
+                                                                    double                         total_rate) {
     if (total_rate <= 0.0) {
         throw std::runtime_error("cannot select scattering channel with zero total rate");
     }
@@ -352,8 +352,8 @@ scattering_channel pbmc_transport_kernel::select_scattering_channel(const scatte
     throw std::runtime_error("failed to select a real scattering channel");
 }
 double pbmc_transport_kernel::impurity_rate_for_particle(const pbmc_particle& p,
-                                                        const valley_model& current_band,
-                                                        double              energy_eV) const {
+                                                         const valley_model&  current_band,
+                                                         double               energy_eV) const {
     const double impurity_density = impurity_density_cm_3(p, m_cfg);
     if (impurity_density <= 0.0) {
         return 0.0;
@@ -377,8 +377,8 @@ double pbmc_transport_kernel::impurity_rate_for_particle(const pbmc_particle& p,
 }
 
 double pbmc_transport_kernel::impurity_rate_for_energy(const valley_model& band_or_valley,
-                                                      double              energy_eV,
-                                                      double              temperature_K) const {
+                                                       double              energy_eV,
+                                                       double              temperature_K) const {
     const double impurity_density_cm_3 = m_cfg.m_background_impurity_density_cm_3;
     if (impurity_density_cm_3 <= 0.0) {
         return 0.0;
@@ -602,10 +602,7 @@ double pbmc_transport_kernel::total_scattering_rate(const pbmc_particle& p) cons
     double       total_rate   = 0.0;
 
     if (p.type() == particle_type::hole) {
-        total_rate += acoustic_scattering_rate(current_band,
-                                               m_material_model.m_hole_acoustic,
-                                               energy_eV,
-                                               temperature);
+        total_rate += acoustic_scattering_rate(current_band, m_material_model.m_hole_acoustic, energy_eV, temperature);
 
         for (const auto& transition : m_hole_optical_transitions) {
             if (transition.initial_band != current_band_index) {
@@ -639,10 +636,7 @@ double pbmc_transport_kernel::total_scattering_rate(const pbmc_particle& p) cons
         return total_rate;
     }
 
-    total_rate += acoustic_scattering_rate(current_band,
-                                           m_material_model.m_electron_acoustic,
-                                           energy_eV,
-                                           temperature);
+    total_rate += acoustic_scattering_rate(current_band, m_material_model.m_electron_acoustic, energy_eV, temperature);
 
     for (const auto& branch : m_intervalley_branches) {
         total_rate += intervalley_scattering_rate(current_band,
@@ -672,8 +666,8 @@ double pbmc_transport_kernel::total_scattering_rate(const pbmc_particle& p) cons
 }
 
 double pbmc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_or_valley_index,
-                                                              double      energy_eV,
-                                                              double      max_temperature_K) const {
+                                                               double      energy_eV,
+                                                               double      max_temperature_K) const {
     if (band_or_valley_index >= m_valleys.size()) {
         throw std::out_of_range("invalid band/valley index in total_scattering_rate_for_energy");
     }
@@ -778,8 +772,8 @@ void pbmc_transport_kernel::ensure_gamma_max_covers(std::size_t band_or_valley_i
 }
 
 double pbmc_transport_kernel::compute_max_self_scattering_rate(double      max_energy_eV,
-                                                              double      max_temperature_K,
-                                                              std::size_t n_samples) const {
+                                                               double      max_temperature_K,
+                                                               std::size_t n_samples) const {
     if (max_energy_eV <= 0.0) {
         throw std::invalid_argument("max energy must be > 0");
     }

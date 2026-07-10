@@ -41,15 +41,15 @@ std::vector<std::string> normalize_set_arguments(int argc, const char** argv) {
 
 int main(int argc, const char** argv) {
     try {
-        const std::string original_command_line = uepm::ADMC::admc_command_line_from_arguments(argc, argv);
-        std::vector<std::string> normalized_arguments = normalize_set_arguments(argc, argv);
+        const std::string        original_command_line = uepm::ADMC::admc_command_line_from_arguments(argc, argv);
+        std::vector<std::string> normalized_arguments  = normalize_set_arguments(argc, argv);
         std::vector<const char*> normalized_argv;
         normalized_argv.reserve(normalized_arguments.size());
         for (const auto& argument : normalized_arguments) {
             normalized_argv.push_back(argument.c_str());
         }
 
-        TCLAP::CmdLine cmd("Self-consistent ADMC device simulation.", ' ', "1.0");
+        TCLAP::CmdLine               cmd("Self-consistent ADMC device simulation.", ' ', "1.0");
         TCLAP::ValueArg<std::string> arg_config("c",
                                                 "config",
                                                 "YAML simulation configuration file.",
@@ -85,7 +85,7 @@ int main(int argc, const char** argv) {
             throw std::invalid_argument("--config is required unless --write-config is used.");
         }
 
-        auto run_config = uepm::ADMC::load_device_admc_config(arg_config.getValue(), arg_overrides.getValue());
+        auto run_config         = uepm::ADMC::load_device_admc_config(arg_config.getValue(), arg_overrides.getValue());
         run_config.command_line = original_command_line;
         uepm::ADMC::run_self_consistent_device_admc_simulation(run_config);
         return 0;

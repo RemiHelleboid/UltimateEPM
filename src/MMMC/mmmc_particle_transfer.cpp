@@ -57,13 +57,14 @@ ADMC::device_admc_particle convert_pbmc_to_admc(const PBMC::pbmc_particle& parti
     const auto& pbmc_state = particle.state();
 
     ADMC::device_admc_particle result{
-        .particle = ADMC::admc_particle(new_index, to_admc_carrier_type(particle.type()), to_meters(pbmc_state.position)),
+        .particle =
+            ADMC::admc_particle(new_index, to_admc_carrier_type(particle.type()), to_meters(pbmc_state.position)),
         .containing_element = pbmc_state.m_containing_element,
-        .weight = particle.weight(),
-        .crossed_contact = pbmc_state.m_crossed_contact,
+        .weight             = particle.weight(),
+        .crossed_contact    = pbmc_state.m_crossed_contact,
     };
 
-    auto& admc_state = result.particle.state();
+    auto& admc_state                     = result.particle.state();
     admc_state.time_s                    = pbmc_state.time;
     admc_state.previous_position_m       = to_meters(pbmc_state.previous_position);
     admc_state.electric_field_V_per_m    = pbmc_state.electric_field;
@@ -81,17 +82,17 @@ PBMC::pbmc_particle convert_admc_to_pbmc(const ADMC::device_admc_particle& parti
     const auto& admc_state = particle.particle.state();
 
     PBMC::particle_state pbmc_state{};
-    pbmc_state.time                         = admc_state.time_s;
-    pbmc_state.position                     = to_microns(admc_state.position_m);
-    pbmc_state.previous_position            = to_microns(admc_state.previous_position_m);
-    pbmc_state.velocity                     = handoff_velocity_direction(admc_state);
-    pbmc_state.electric_field               = admc_state.electric_field_V_per_m;
-    pbmc_state.doping_concentration_cm_3    = admc_state.doping_concentration_cm_3;
-    pbmc_state.impurity_concentration_cm_3  = std::abs(admc_state.doping_concentration_cm_3);
-    pbmc_state.lattice_temperature_K        = admc_state.lattice_temperature_K;
-    pbmc_state.m_containing_element         = particle.containing_element;
-    pbmc_state.m_crossed_contact            = particle.crossed_contact;
-    pbmc_state.valley_index                 = 0;
+    pbmc_state.time                        = admc_state.time_s;
+    pbmc_state.position                    = to_microns(admc_state.position_m);
+    pbmc_state.previous_position           = to_microns(admc_state.previous_position_m);
+    pbmc_state.velocity                    = handoff_velocity_direction(admc_state);
+    pbmc_state.electric_field              = admc_state.electric_field_V_per_m;
+    pbmc_state.doping_concentration_cm_3   = admc_state.doping_concentration_cm_3;
+    pbmc_state.impurity_concentration_cm_3 = std::abs(admc_state.doping_concentration_cm_3);
+    pbmc_state.lattice_temperature_K       = admc_state.lattice_temperature_K;
+    pbmc_state.m_containing_element        = particle.containing_element;
+    pbmc_state.m_crossed_contact           = particle.crossed_contact;
+    pbmc_state.valley_index                = 0;
 
     PBMC::pbmc_particle result(new_index, to_pbmc_particle_type(particle.particle.type()), pbmc_state, particle.weight);
     transport.initialize_particle_state(result, admc_state.lattice_temperature_K);

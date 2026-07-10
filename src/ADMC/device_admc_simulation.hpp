@@ -15,8 +15,8 @@
 #include <vector>
 
 #include "admc_transport.hpp"
-#include "boundary_reflection.hpp"
 #include "bbox.hpp"
+#include "boundary_reflection.hpp"
 #include "device.hpp"
 
 namespace uepm::ADMC {
@@ -30,17 +30,17 @@ struct options_device_ADMC {
     std::string m_simulation_name;
     std::string m_output_directory = "./";
 
-    double      m_lattice_temperature_K               = 300.0;
-    double      m_time_step_s                         = 1.0e-15;
-    double      m_final_time_s                        = 1.0e-12;
-    std::size_t m_max_number_particles                = 100000000;
-    bool        m_stop_when_no_electrons              = true;
-    bool        m_export_time_step                    = false;
-    int         m_frequency_export                    = 10;
-    bool        m_export_mesh_particle_local_averages = true;
-    std::string m_prefix_export_filename              = "trajectory";
-    mesh::boundary_reflection_model m_boundary_reflection_model = mesh::boundary_reflection_model::reverse;
-    current_probe_options m_current_probe{};
+    double                          m_lattice_temperature_K               = 300.0;
+    double                          m_time_step_s                         = 1.0e-15;
+    double                          m_final_time_s                        = 1.0e-12;
+    std::size_t                     m_max_number_particles                = 100000000;
+    bool                            m_stop_when_no_electrons              = true;
+    bool                            m_export_time_step                    = false;
+    int                             m_frequency_export                    = 10;
+    bool                            m_export_mesh_particle_local_averages = true;
+    std::string                     m_prefix_export_filename              = "trajectory";
+    mesh::boundary_reflection_model m_boundary_reflection_model           = mesh::boundary_reflection_model::reverse;
+    current_probe_options           m_current_probe{};
 
     bool          m_enable_scheduled_particle_injection = false;
     double        m_scheduled_injection_time_s          = 0.0;
@@ -65,8 +65,8 @@ struct state_device_ADMC {
     bool        m_scheduled_particle_injection_done     = true;
     bool        m_use_constant_RamoUnitaryElectricField = false;
     vector3     m_RamoUnitaryElectricField_Vm_per_cm{0.0, 0.0, 0.0};
-    double      m_last_ramo_current_electron_A = 0.0;
-    double      m_last_ramo_current_hole_A     = 0.0;
+    double      m_last_ramo_current_electron_A       = 0.0;
+    double      m_last_ramo_current_hole_A           = 0.0;
     double      m_last_probe_ramo_current_electron_A = 0.0;
     double      m_last_probe_ramo_current_hole_A     = 0.0;
 };
@@ -77,33 +77,33 @@ struct admc_vtk_time_series_record {
 };
 
 struct history_device_ADMC {
-    std::vector<double>      times_s;
-    std::vector<std::size_t> nb_electrons;
-    std::vector<std::size_t> nb_holes;
-    std::vector<double>      ramo_current_electron_A;
-    std::vector<double>      ramo_current_hole_A;
-    std::vector<double>      ramo_current_A;
-    std::vector<double>      probe_ramo_current_electron_A;
-    std::vector<double>      probe_ramo_current_hole_A;
-    std::vector<double>      probe_ramo_current_A;
-    std::vector<double>      max_electric_field_V_per_m;
-    std::vector<std::string> contact_voltage_names;
+    std::vector<double>              times_s;
+    std::vector<std::size_t>         nb_electrons;
+    std::vector<std::size_t>         nb_holes;
+    std::vector<double>              ramo_current_electron_A;
+    std::vector<double>              ramo_current_hole_A;
+    std::vector<double>              ramo_current_A;
+    std::vector<double>              probe_ramo_current_electron_A;
+    std::vector<double>              probe_ramo_current_hole_A;
+    std::vector<double>              probe_ramo_current_A;
+    std::vector<double>              max_electric_field_V_per_m;
+    std::vector<std::string>         contact_voltage_names;
     std::vector<std::vector<double>> contact_voltages_V;
 
-    void add(double      time_s,
-             std::size_t electrons,
-             std::size_t holes,
-             double      electron_current_A,
-             double      hole_current_A,
-             double      total_current_A,
-             double      probe_electron_current_A,
-             double      probe_hole_current_A,
-             double      probe_total_current_A,
-             double      max_field_V_per_m,
-             const std::vector<double>& active_contact_voltages_V = {});
-    void set_contact_voltage_names(const std::vector<std::string>& contact_names);
-    std::vector<double> contact_voltage_values_from_map(const std::map<std::string, double>& active_contact_voltages_V)
-        const;
+    void                add(double                     time_s,
+                            std::size_t                electrons,
+                            std::size_t                holes,
+                            double                     electron_current_A,
+                            double                     hole_current_A,
+                            double                     total_current_A,
+                            double                     probe_electron_current_A,
+                            double                     probe_hole_current_A,
+                            double                     probe_total_current_A,
+                            double                     max_field_V_per_m,
+                            const std::vector<double>& active_contact_voltages_V = {});
+    void                set_contact_voltage_names(const std::vector<std::string>& contact_names);
+    std::vector<double> contact_voltage_values_from_map(
+        const std::map<std::string, double>& active_contact_voltages_V) const;
     void set_last_contact_voltages(const std::vector<double>& active_contact_voltages_V);
     void print_header_csv(const std::string& filename) const;
     void append_last_iter_to_csv(std::fstream& file) const;

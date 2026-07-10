@@ -36,22 +36,20 @@ struct options_self_consistent_device_MMMC_2d {
 
 class self_consistent_device_mmmc_simulation_2d : public PBMC::self_consistent_device_pbmc_simulation_base {
  public:
-    self_consistent_device_mmmc_simulation_2d(
-        const device::device&                          simulation_device,
-        const options_device_MMMC&                     simulation_options,
-        const options_self_consistent_device_MMMC_2d&  self_consistent_options,
-        const physics::material_database&              material_database,
-        int                                            seed_random_generator = 0);
+    self_consistent_device_mmmc_simulation_2d(const device::device&                         simulation_device,
+                                              const options_device_MMMC&                    simulation_options,
+                                              const options_self_consistent_device_MMMC_2d& self_consistent_options,
+                                              const physics::material_database&             material_database,
+                                              int                                           seed_random_generator = 0);
 
-    self_consistent_device_mmmc_simulation_2d(
-        const device::device&                          simulation_device,
-        const options_device_MMMC&                     simulation_options,
-        const options_self_consistent_device_MMMC_2d&  self_consistent_options,
-        const physics::material_database&              material_database,
-        const mesh::vector3&                           starting_position,
-        std::size_t                                    number_electrons_start,
-        std::size_t                                    number_holes_start,
-        int                                            seed_random_generator = 0);
+    self_consistent_device_mmmc_simulation_2d(const device::device&                         simulation_device,
+                                              const options_device_MMMC&                    simulation_options,
+                                              const options_self_consistent_device_MMMC_2d& self_consistent_options,
+                                              const physics::material_database&             material_database,
+                                              const mesh::vector3&                          starting_position,
+                                              std::size_t                                   number_electrons_start,
+                                              std::size_t                                   number_holes_start,
+                                              int                                           seed_random_generator = 0);
 
     void run_self_consistent_transport_simulation();
 
@@ -75,22 +73,22 @@ class self_consistent_device_mmmc_simulation_2d : public PBMC::self_consistent_d
         std::size_t admc_to_pbmc = 0;
     };
 
-    options_device_MMMC                    m_mmmc_options{};
-    options_self_consistent_device_MMMC_2d m_self_consistent_options{};
-    ADMC::admc_transport_kernel            m_admc_transport{};
+    options_device_MMMC                     m_mmmc_options{};
+    options_self_consistent_device_MMMC_2d  m_self_consistent_options{};
+    ADMC::admc_transport_kernel             m_admc_transport{};
     std::vector<ADMC::device_admc_particle> m_admc_particles;
-    fem::poisson_solver_2d                 m_poisson_solver;
-    fem::EigenVector                       m_previous_poisson_solution;
+    fem::poisson_solver_2d                  m_poisson_solver;
+    fem::EigenVector                        m_previous_poisson_solution;
 
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
     std::vector<double>                         m_list_element_contact_equilibrium_charge;
 
-    std::minstd_rand           m_contact_rng;
-    std::mt19937_64            m_admc_rng;
+    std::minstd_rand                 m_contact_rng;
+    std::mt19937_64                  m_admc_rng;
     std::normal_distribution<double> m_standard_normal{0.0, 1.0};
-    transfer_counters          m_last_transfer_counters{};
-    transfer_counters          m_total_transfer_counters{};
+    transfer_counters                m_last_transfer_counters{};
+    transfer_counters                m_total_transfer_counters{};
 
     void validate_self_consistent_options() const;
     void initialize_contact_elements();
@@ -114,13 +112,12 @@ class self_consistent_device_mmmc_simulation_2d : public PBMC::self_consistent_d
     void remove_collected_admc_particles();
     void export_current_mmmc_particles_as_vtp(const std::string& directory) const;
 
-    [[nodiscard]] ADMC::admc_local_environment local_admc_environment(
-        const ADMC::device_admc_particle& particle) const;
-    [[nodiscard]] ADMC::vector3 draw_standard_normal();
-    [[nodiscard]] mesh::vector3 to_mesh_position_um(const ADMC::vector3& position_m) const;
-    [[nodiscard]] ADMC::vector3 to_admc_position_m(const mesh::vector3& position_um) const;
-    [[nodiscard]] ADMC::carrier_type to_admc_type(PBMC::particle_type type) const;
-    [[nodiscard]] PBMC::particle_type to_pbmc_type(ADMC::carrier_type type) const;
+    [[nodiscard]] ADMC::admc_local_environment local_admc_environment(const ADMC::device_admc_particle& particle) const;
+    [[nodiscard]] ADMC::vector3                draw_standard_normal();
+    [[nodiscard]] mesh::vector3                to_mesh_position_um(const ADMC::vector3& position_m) const;
+    [[nodiscard]] ADMC::vector3                to_admc_position_m(const mesh::vector3& position_um) const;
+    [[nodiscard]] ADMC::carrier_type           to_admc_type(PBMC::particle_type type) const;
+    [[nodiscard]] PBMC::particle_type          to_pbmc_type(ADMC::carrier_type type) const;
     [[nodiscard]] PBMC::pbmc_transport_kernel& pbmc_transport_for(ADMC::carrier_type type);
 
     [[nodiscard]] std::pair<double, double> compute_admc_ramo_current() const;

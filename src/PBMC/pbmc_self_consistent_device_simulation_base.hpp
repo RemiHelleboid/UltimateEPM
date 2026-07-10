@@ -17,19 +17,19 @@
 #include <string>
 #include <vector>
 
+#include "device.hpp"
+#include "device_pbmc_simulation.hpp"
 #include "element.hpp"
+#include "materials.hpp"
 #include "pbmc_avalanche_detector.hpp"
 #include "pbmc_quench_circuit.hpp"
 #include "pbmc_quench_detector.hpp"
-#include "device.hpp"
-#include "device_pbmc_simulation.hpp"
-#include "materials.hpp"
 #include "vtkWriter.hpp"
 
 namespace uepm::PBMC {
 
 struct scheduled_contact_voltage_event {
-    double m_time_s = 0.0;
+    double                        m_time_s = 0.0;
     std::map<std::string, double> m_contact_voltages_V;
 };
 
@@ -37,20 +37,20 @@ struct options_self_consistent_device_pbmc_common {
     bool        m_frozen_field_mode = false;
     std::size_t m_poisson_frequency = 10;
 
-    std::map<std::string, double> m_contact_voltages_V;
-    std::string                   m_ramo_electrode;
+    std::map<std::string, double>                m_contact_voltages_V;
+    std::string                                  m_ramo_electrode;
     std::vector<scheduled_contact_voltage_event> m_contact_voltage_schedule;
 
     bool   m_enable_built_in_potential      = false;
     double m_built_in_contact_voltage_scale = 1.0;
 
-    bool   m_enable_poisson_mixing                 = false;
-    double m_poisson_mixing_old_solution_fraction  = 0.0;
+    bool   m_enable_poisson_mixing                = false;
+    double m_poisson_mixing_old_solution_fraction = 0.0;
 
     double m_contact_injection_particle_weight = 2.0;
 
-    bool   m_initialize_particles_from_doping = true;
-    double m_initial_particle_weight          = 2.0;
+    bool        m_initialize_particles_from_doping = true;
+    double      m_initial_particle_weight          = 2.0;
     std::string m_initial_particle_state_file;
 
     passive_quench_circuit_options m_passive_quench_circuit{};
@@ -73,35 +73,34 @@ double silicon_intrinsic_concentration_cm_3(double temperature_K);
 class self_consistent_device_pbmc_simulation_base : public device_pbmc_simulation {
  protected:
     options_self_consistent_device_pbmc_common m_common_options;
-    passive_quench_circuit                    m_quench_circuit;
-    voltage_drop_avalanche_detector           m_avalanche_detector;
-    successful_quench_detector                m_successful_quench_detector;
-    std::size_t                               m_next_contact_voltage_event_index = 0;
+    passive_quench_circuit                     m_quench_circuit;
+    voltage_drop_avalanche_detector            m_avalanche_detector;
+    successful_quench_detector                 m_successful_quench_detector;
+    std::size_t                                m_next_contact_voltage_event_index = 0;
 
     std::map<std::string, double> m_built_in_contact_voltage_offsets_V;
 
-    self_consistent_device_pbmc_simulation_base(const device::device&                            simulation_device,
-                                               const options_device_PBMC&                        simulation_options,
-                                               const options_self_consistent_device_pbmc_common& common_options,
-                                               int seed_random_generator = 0);
+    self_consistent_device_pbmc_simulation_base(const device::device&                             simulation_device,
+                                                const options_device_PBMC&                        simulation_options,
+                                                const options_self_consistent_device_pbmc_common& common_options,
+                                                int seed_random_generator = 0);
 
-    self_consistent_device_pbmc_simulation_base(const device::device&                            simulation_device,
-                                               const options_device_PBMC&                        simulation_options,
-                                               const options_self_consistent_device_pbmc_common& common_options,
-                                               const mesh::vector3&                             starting_position,
-                                               std::size_t                                      number_electrons_start,
-                                               std::size_t                                      number_holes_start,
-                                               int seed_random_generator = 0);
+    self_consistent_device_pbmc_simulation_base(const device::device&                             simulation_device,
+                                                const options_device_PBMC&                        simulation_options,
+                                                const options_self_consistent_device_pbmc_common& common_options,
+                                                const mesh::vector3&                              starting_position,
+                                                std::size_t number_electrons_start,
+                                                std::size_t number_holes_start,
+                                                int         seed_random_generator = 0);
 
     void validate_common_self_consistent_options() const;
-    void update_built_in_contact_voltage_offset(
-        const std::string&                                  contact_name,
-        const std::vector<std::shared_ptr<mesh::element>>& contact_elements);
+    void update_built_in_contact_voltage_offset(const std::string&                                 contact_name,
+                                                const std::vector<std::shared_ptr<mesh::element>>& contact_elements);
     bool is_transport_material_element(mesh::element& element);
 
     const options_self_consistent_device_pbmc_common& common_options() const;
-    const std::map<std::string, double>&               contact_voltages_V() const;
-    const std::string&                                 ramo_electrode() const;
+    const std::map<std::string, double>&              contact_voltages_V() const;
+    const std::string&                                ramo_electrode() const;
 
     std::size_t poisson_frequency() const;
 

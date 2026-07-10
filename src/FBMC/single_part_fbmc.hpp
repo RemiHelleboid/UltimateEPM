@@ -96,7 +96,7 @@ class Single_particle_simulation {
 
     bulk_observables                         m_observables;
     impact_ionization_coefficient_statistics m_impact_ionization_statistics;
-    double                                   m_gamma_max_s_1 = 0.0;
+    double                                   m_gamma_max_s_1                      = 0.0;
     std::size_t                              m_discarded_carriers_over_max_energy = 0;
 
  public:
@@ -119,10 +119,8 @@ class Single_particle_simulation {
     const impact_ionization_coefficient_statistics& impact_ionization_statistics() const noexcept {
         return m_impact_ionization_statistics;
     }
-    std::size_t discarded_carriers_over_max_energy() const noexcept {
-        return m_discarded_carriers_over_max_energy;
-    }
-    double gamma_max() const noexcept { return m_gamma_max_s_1; }
+    std::size_t discarded_carriers_over_max_energy() const noexcept { return m_discarded_carriers_over_max_energy; }
+    double      gamma_max() const noexcept { return m_gamma_max_s_1; }
 };
 
 using bulk_fbmc_simulation = Single_particle_simulation;

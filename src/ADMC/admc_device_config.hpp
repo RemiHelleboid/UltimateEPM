@@ -13,7 +13,7 @@
 
 namespace uepm::ADMC {
 
-self_consistent_device_admc_run_config load_device_admc_config(const std::filesystem::path& config_file,
+self_consistent_device_admc_run_config load_device_admc_config(const std::filesystem::path&    config_file,
                                                                const std::vector<std::string>& overrides = {});
 
 void write_basic_device_admc_config(const std::filesystem::path& config_file);

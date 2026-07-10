@@ -155,8 +155,7 @@ void export_as_vtk(const mesh::mesh& mesh, const std::string& filename) {
     file.close();
 }
 
-void export_as_vtu(const mesh::mesh&               mesh,
-                   const std::string&              filename) {
+void export_as_vtu(const mesh::mesh& mesh, const std::string& filename) {
     std::ofstream file(filename);
 
     if (!file.is_open()) {

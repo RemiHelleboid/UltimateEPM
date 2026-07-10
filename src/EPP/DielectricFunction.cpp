@@ -75,28 +75,26 @@ void DielectricFunction::generate_k_points_random(std::size_t nb_points) {
     }
 }
 
-void DielectricFunction::generate_k_points_grid(std::size_t Nx,
-                                                std::size_t Ny,
-                                                std::size_t Nz,
-                                                double      shift,
+void DielectricFunction::generate_k_points_grid(std::size_t              Nx,
+                                                std::size_t              Ny,
+                                                std::size_t              Nz,
+                                                double                   shift,
                                                 DielectricKPointSampling sampling) {
     if (Nx == 0 || Ny == 0 || Nz == 0) {
         throw std::invalid_argument("DielectricFunction::generate_k_points_grid requires non-zero grid dimensions.");
     }
     m_kpoints.clear();
-    const bool positive_octant  = sampling == DielectricKPointSampling::q100_octant;
-    const bool irreducible_wedge = sampling == DielectricKPointSampling::fcc_irreducible_wedge;
-    constexpr double min = -1.0;
-    constexpr double max = 1.0;
+    const bool       positive_octant   = sampling == DielectricKPointSampling::q100_octant;
+    const bool       irreducible_wedge = sampling == DielectricKPointSampling::fcc_irreducible_wedge;
+    constexpr double min               = -1.0;
+    constexpr double max               = 1.0;
     for (std::size_t i = 0; i < Nx; ++i) {
         for (std::size_t j = 0; j < Ny; ++j) {
             for (std::size_t k = 0; k < Nz; ++k) {
-                Vector3D<double> k_vect(min + (max - min) * (static_cast<double>(i) + 0.5) / static_cast<double>(Nx) +
-                                            shift,
-                                        min + (max - min) * (static_cast<double>(j) + 0.5) / static_cast<double>(Ny) +
-                                            shift,
-                                        min + (max - min) * (static_cast<double>(k) + 0.5) / static_cast<double>(Nz) +
-                                            shift);
+                Vector3D<double> k_vect(
+                    min + (max - min) * (static_cast<double>(i) + 0.5) / static_cast<double>(Nx) + shift,
+                    min + (max - min) * (static_cast<double>(j) + 0.5) / static_cast<double>(Ny) + shift,
+                    min + (max - min) * (static_cast<double>(k) + 0.5) / static_cast<double>(Nz) + shift);
                 if (is_in_first_BZ(k_vect, positive_octant) &&
                     (!irreducible_wedge || is_in_irreducible_wedge(k_vect))) {
                     m_kpoints.push_back(k_vect);
@@ -111,12 +109,12 @@ void DielectricFunction::generate_k_points_grid(std::size_t Nx,
                                                 std::size_t Nz,
                                                 double      shift,
                                                 bool        irreducible_wedge) {
-    generate_k_points_grid(Nx,
-                           Ny,
-                           Nz,
-                           shift,
-                           irreducible_wedge ? DielectricKPointSampling::fcc_irreducible_wedge
-                                             : DielectricKPointSampling::full_bz);
+    generate_k_points_grid(
+        Nx,
+        Ny,
+        Nz,
+        shift,
+        irreducible_wedge ? DielectricKPointSampling::fcc_irreducible_wedge : DielectricKPointSampling::full_bz);
 }
 
 std::complex<double> local_optical_dH_element(const epm_material&               material,
@@ -126,7 +124,7 @@ std::complex<double> local_optical_dH_element(const epm_material&               
                                               const Eigen::MatrixXcd&           eigenvectors,
                                               int                               idx_conduction_band,
                                               int                               idx_valence_band) {
-    const Eigen::Index basis_size = static_cast<Eigen::Index>(basis_vectors.size());
+    const Eigen::Index basis_size    = static_cast<Eigen::Index>(basis_vectors.size());
     const double       two_pi_over_a = 2.0 * M_PI / material.get_lattice_constant_meter();
     constexpr double   kinetic_prefactor =
         (uepm::constants::h_bar * uepm::constants::h_bar) / (2.0 * uepm::constants::m_e * uepm::constants::q_e);
@@ -181,16 +179,16 @@ double optical_transition_strength(const epm_material&               material,
 
     std::complex<double> dH_element{0.0, 0.0};
     if (finite_difference_derivative != nullptr) {
-        dH_element = eigenvectors.col(idx_conduction_band).dot(
-            (*finite_difference_derivative) * eigenvectors.col(idx_valence_band));
+        dH_element = eigenvectors.col(idx_conduction_band)
+                         .dot((*finite_difference_derivative) * eigenvectors.col(idx_valence_band));
     } else {
         dH_element = local_optical_dH_element(material,
-                                             basis_vectors,
-                                             k,
-                                             direction,
-                                             eigenvectors,
-                                             idx_conduction_band,
-                                             idx_valence_band);
+                                              basis_vectors,
+                                              k,
+                                              direction,
+                                              eigenvectors,
+                                              idx_conduction_band,
+                                              idx_valence_band);
     }
     return std::norm(dH_element) / (delta_energy * delta_energy);
 }
@@ -225,12 +223,12 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing, int mp
     m_dielectric_function_imag.clear();
     m_eigenvalues_k.resize(nb_kpoints);
     m_eigenvectors_k.resize(nb_kpoints);
-    auto        start = std::chrono::high_resolution_clock::now();
-    const bool optical_limit = m_response_mode == DielectricResponseMode::optical_limit;
+    auto        start         = std::chrono::high_resolution_clock::now();
+    const bool  optical_limit = m_response_mode == DielectricResponseMode::optical_limit;
     Hamiltonian hamiltonian_k(m_material, m_basisVectors);
     Hamiltonian hamiltonian_k_plus_q(m_material, m_basisVectors);
     for (std::size_t index_q = 0; index_q < m_qpoints.size(); ++index_q) {
-        Vector3D<double> q_vect = m_qpoints[index_q];
+        Vector3D<double> q_vect            = m_qpoints[index_q];
         Vector3D<double> optical_direction = m_optical_direction;
         if (optical_limit && q_vect.Length() > 0.0) {
             optical_direction = q_vect / q_vect.Length();
@@ -287,17 +285,16 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing, int mp
                     if (optical_limit) {
                         delta_energy =
                             m_eigenvalues_k[index_k][idx_conduction_band] - m_eigenvalues_k[index_k][idx_valence_band];
-                        transition_strength = optical_transition_strength(m_material,
-                                                                          m_basisVectors,
-                                                                          k_vect,
-                                                                          optical_direction,
-                                                                          m_eigenvectors_k[index_k],
-                                                                          use_finite_difference_derivative
-                                                                              ? &finite_difference_derivative
-                                                                              : nullptr,
-                                                                          idx_conduction_band,
-                                                                          idx_valence_band,
-                                                                          delta_energy);
+                        transition_strength = optical_transition_strength(
+                            m_material,
+                            m_basisVectors,
+                            k_vect,
+                            optical_direction,
+                            m_eigenvectors_k[index_k],
+                            use_finite_difference_derivative ? &finite_difference_derivative : nullptr,
+                            idx_conduction_band,
+                            idx_valence_band,
+                            delta_energy);
                     } else {
                         transition_strength = std::norm(eigenvectors_k_plus_q.col(idx_conduction_band)
                                                             .dot(m_eigenvectors_k[index_k].col(idx_valence_band)));
@@ -337,8 +334,8 @@ void DielectricFunction::compute_dielectric_function(double eta_smearing, int mp
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0;
         if (mpi_rank == 0) {
             if (optical_limit) {
-                std::cout << "Computed optical-limit dielectric function for direction = " << optical_direction << " -> "
-                          << index_q + 1 << "/" << m_qpoints.size() << " in " << elapsed << " s" << std::endl;
+                std::cout << "Computed optical-limit dielectric function for direction = " << optical_direction
+                          << " -> " << index_q + 1 << "/" << m_qpoints.size() << " in " << elapsed << " s" << std::endl;
             } else {
                 std::cout << "Computed dielectric function for q = " << m_qpoints[index_q] << " -> " << index_q + 1
                           << "/" << m_qpoints.size() << " in " << elapsed << " s" << std::endl;
@@ -382,8 +379,7 @@ DielectricFunction DielectricFunction::merge_results(
                 if (index_instance == 0) {
                     total_component.push_back(component_results[index_instance][index_q]);
                 } else {
-                    for (std::size_t index_energy = 0;
-                         index_energy < component_results[index_instance][index_q].size();
+                    for (std::size_t index_energy = 0; index_energy < component_results[index_instance][index_q].size();
                          ++index_energy) {
                         total_component[index_q][index_energy] +=
                             component_results[index_instance][index_q][index_energy];
@@ -449,9 +445,9 @@ Eigen::MatrixXd create_kramers_matrix(const std::vector<double>& energies) {
             if (idx_line == idx_col) {
                 kramers_matrix(idx_line, idx_col) = 0.0;
             } else {
-                const double omega_j     = energies[idx_line];
-                const double omega_k     = energies[idx_col];
-                const double denominator = omega_j * omega_j - omega_k * omega_k;
+                const double omega_j              = energies[idx_line];
+                const double omega_k              = energies[idx_col];
+                const double denominator          = omega_j * omega_j - omega_k * omega_k;
                 kramers_matrix(idx_line, idx_col) = (2.0 * omega_j / M_PI) * d_energy / denominator;
             }
         }

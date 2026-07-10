@@ -72,16 +72,16 @@ std::string make_default_output_directory(const std::string& mesh_file) {
     return fmt::format("self_consistent_pbmc_{}", std::filesystem::path(mesh_file).stem().string());
 }
 
-void add_collecting_contacts(uepm::device::device&          simulation_device,
-                             uepm::mesh::mesh&              mesh,
+void add_collecting_contacts(uepm::device::device&           simulation_device,
+                             uepm::mesh::mesh&               mesh,
                              const std::vector<std::string>& contact_names) {
     constexpr double contact_collection_depth = 0.001;  // µm
     constexpr double contact_margin           = 10.0;   // µm
     constexpr double ohmic_resistance         = 0.0;
 
-    const mesh::bbox device_bbox = mesh.get_bounding_box();
-    const double tolerance = 1.0e-8 * std::max(device_bbox.get_diagonal_size(), 1.0);
-    const auto   bulk_elements = mesh.get_list_bulk_element();
+    const mesh::bbox device_bbox   = mesh.get_bounding_box();
+    const double     tolerance     = 1.0e-8 * std::max(device_bbox.get_diagonal_size(), 1.0);
+    const auto       bulk_elements = mesh.get_list_bulk_element();
 
     for (const auto& contact_name : contact_names) {
         const auto* region = mesh.get_p_region(contact_name);
@@ -92,14 +92,16 @@ void add_collecting_contacts(uepm::device::device&          simulation_device,
             throw std::runtime_error("Collecting contact '" + contact_name + "' is not a mesh contact region.");
         }
 
-        const mesh::bbox region_bbox = region->compute_bounding_box();
-        const std::array<double, 3> region_min{
-            region_bbox.get_x_min(), region_bbox.get_y_min(), region_bbox.get_z_min()};
-        const std::array<double, 3> region_max{
-            region_bbox.get_x_max(), region_bbox.get_y_max(), region_bbox.get_z_max()};
-        std::array<double, 3> box_min{};
-        std::array<double, 3> box_max{};
-        std::optional<std::size_t> normal_axis;
+        const mesh::bbox            region_bbox = region->compute_bounding_box();
+        const std::array<double, 3> region_min{region_bbox.get_x_min(),
+                                               region_bbox.get_y_min(),
+                                               region_bbox.get_z_min()};
+        const std::array<double, 3> region_max{region_bbox.get_x_max(),
+                                               region_bbox.get_y_max(),
+                                               region_bbox.get_z_max()};
+        std::array<double, 3>       box_min{};
+        std::array<double, 3>       box_max{};
+        std::optional<std::size_t>  normal_axis;
 
         for (std::size_t axis = 0; axis < 3; ++axis) {
             const double region_size = region_max[axis] - region_min[axis];
@@ -127,8 +129,7 @@ void add_collecting_contacts(uepm::device::device&          simulation_device,
 
         const auto adjacent_indices = mesh.get_idx_bulk_elements_adjacent_to_contact_region(contact_name);
         if (adjacent_indices.empty()) {
-            throw std::runtime_error("Collecting contact '" + contact_name +
-                                     "' has no adjacent bulk element.");
+            throw std::runtime_error("Collecting contact '" + contact_name + "' has no adjacent bulk element.");
         }
 
         double mean_adjacent_coordinate = 0.0;

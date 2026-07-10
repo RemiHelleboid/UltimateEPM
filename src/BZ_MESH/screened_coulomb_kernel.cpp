@@ -23,8 +23,7 @@ void require_finite_vector(const vector3& q_SI) {
 
 }  // namespace
 
-ScreenedCoulombKernel::ScreenedCoulombKernel(const DielectricMesh& dielectric_mesh,
-                                             ScreenedCoulombKernelConfig config)
+ScreenedCoulombKernel::ScreenedCoulombKernel(const DielectricMesh& dielectric_mesh, ScreenedCoulombKernelConfig config)
     : m_dielectric_mesh(&dielectric_mesh),
       m_config(config) {
     if (!(m_config.m_min_q_norm_SI >= 0.0) || !std::isfinite(m_config.m_min_q_norm_SI)) {

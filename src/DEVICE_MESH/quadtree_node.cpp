@@ -79,8 +79,8 @@ element *quadtree_node::find_element_at_location(const vector3 &position) const 
     if (!m_node_box.is_inside_2d(position)) {
         return nullptr;
     }
-    const bool is_right = position.x() > m_center_x;
-    const bool is_top   = position.y() > m_center_y;
+    const bool is_right       = position.x() > m_center_x;
+    const bool is_top         = position.y() > m_center_y;
     const uint index_sub_node = is_top ? (is_right ? 2 : 3) : (is_right ? 1 : 0);
     return m_sub_nodes[index_sub_node]->find_element_at_location(position);
 }

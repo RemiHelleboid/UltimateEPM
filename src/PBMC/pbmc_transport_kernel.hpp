@@ -16,10 +16,10 @@
 #include <random>
 #include <vector>
 
-#include "pbmc_material_model.hpp"
-#include "pbmc_scattering_model.hpp"
 #include "intervalley_phonon.hpp"
+#include "pbmc_material_model.hpp"
 #include "pbmc_particle.hpp"
+#include "pbmc_scattering_model.hpp"
 #include "scattering_channels.hpp"
 #include "valley_model.hpp"
 #include "vector.hpp"
@@ -69,29 +69,29 @@ class pbmc_transport_kernel {
     double impurity_rate_for_energy(const valley_model& band_or_valley, double energy_eV, double temperature_K) const;
 
     const std::vector<valley_model>& valleys() const noexcept { return m_valleys; }
-    const pbmc_material_model&        material_model() const noexcept { return m_material_model; }
+    const pbmc_material_model&       material_model() const noexcept { return m_material_model; }
     double                           gamma_max() const noexcept { return m_gamma_max_s_1; }
     double                           gamma_max(const pbmc_particle& p) const;
     void                             initialize_particle_state(pbmc_particle& p);
     void                             initialize_particle_state(pbmc_particle& p, double temperature_K);
     std::optional<scattering_event>  scatter_particle(pbmc_particle& p, double dt);
-    void                             drift_particle(pbmc_particle& p, const mesh::vector3& electric_field_Vm, double dt);
-    scattering_channel_list          build_scattering_channels(const pbmc_particle& p) const;
-    double                           total_scattering_rate(const pbmc_particle& p) const;
-    double                           total_scattering_rate_for_energy(std::size_t band_or_valley_index,
-                                                                      double      energy_eV,
-                                                                      double      max_temperature_K) const;
-    double                           compute_max_self_scattering_rate(double      max_energy_eV,
-                                                                      double      max_temperature_K,
-                                                                      std::size_t n_samples) const;
-    double                           sample_free_flight_time();
-    double                           sample_free_flight_time(const pbmc_particle& p);
-    scattering_channel               select_scattering_channel(const pbmc_particle& p);
-    scattering_channel select_scattering_channel(const scattering_channel_list& channels, double total_rate);
-    scattering_event   apply_scattering_channel(pbmc_particle& p, const scattering_channel& channel);
-    double             uniform01();
-    void               set_particle_velocity_direction_preserving_energy(pbmc_particle& p,
-                                                                         const vector3& desired_global_direction) const;
+    void                    drift_particle(pbmc_particle& p, const mesh::vector3& electric_field_Vm, double dt);
+    scattering_channel_list build_scattering_channels(const pbmc_particle& p) const;
+    double                  total_scattering_rate(const pbmc_particle& p) const;
+    double                  total_scattering_rate_for_energy(std::size_t band_or_valley_index,
+                                                             double      energy_eV,
+                                                             double      max_temperature_K) const;
+    double                  compute_max_self_scattering_rate(double      max_energy_eV,
+                                                             double      max_temperature_K,
+                                                             std::size_t n_samples) const;
+    double                  sample_free_flight_time();
+    double                  sample_free_flight_time(const pbmc_particle& p);
+    scattering_channel      select_scattering_channel(const pbmc_particle& p);
+    scattering_channel      select_scattering_channel(const scattering_channel_list& channels, double total_rate);
+    scattering_event        apply_scattering_channel(pbmc_particle& p, const scattering_channel& channel);
+    double                  uniform01();
+    void                    set_particle_velocity_direction_preserving_energy(pbmc_particle& p,
+                                                                              const vector3& desired_global_direction) const;
 
  private:
     pbmc_transport_config m_cfg;

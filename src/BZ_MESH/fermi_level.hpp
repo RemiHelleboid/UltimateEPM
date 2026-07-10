@@ -47,13 +47,13 @@ struct Options {
 };
 
 struct Result {
-    double EF_eV    = 0.0;
-    double n_m3     = 0.0;
-    double p_m3     = 0.0;
-    double Nd_plus  = 0.0;
-    double Na_minus = 0.0;
-    std::size_t iters = 0;
-    bool   success  = false;
+    double      EF_eV    = 0.0;
+    double      n_m3     = 0.0;
+    double      p_m3     = 0.0;
+    double      Nd_plus  = 0.0;
+    double      Na_minus = 0.0;
+    std::size_t iters    = 0;
+    bool        success  = false;
 
     /**
      * @brief Energy levels for each band (in eV).

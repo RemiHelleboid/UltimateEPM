@@ -19,8 +19,8 @@
 namespace {
 
 Vector3D<double> parse_kpoint(const std::string& value) {
-    std::stringstream stream(value);
-    std::string       token;
+    std::stringstream   stream(value);
+    std::string         token;
     std::vector<double> components;
     while (std::getline(stream, token, ',')) {
         components.push_back(std::stod(token));
@@ -85,8 +85,7 @@ std::vector<uepm::pseudopotential::valley_fit_sample> compute_samples(
     return samples;
 }
 
-void write_csv(const std::filesystem::path&                                      path,
-               const uepm::pseudopotential::effective_mass_fit_result& result) {
+void write_csv(const std::filesystem::path& path, const uepm::pseudopotential::effective_mass_fit_result& result) {
     std::ofstream file(path);
     if (!file) {
         throw std::runtime_error("cannot open output file '" + path.string() + "'");
@@ -145,21 +144,34 @@ int main(int argc, char* argv[]) {
     TCLAP::CmdLine cmd("Fit effective masses and Kane non-parabolicity from local EPM samples.", ' ', "1.0");
 
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Material symbol", false, "Si", "string", cmd);
-    TCLAP::ValueArg<std::string> arg_epm_set("d", "epm-set", "Named EPM parameter set", false, "local-cohen", "string", cmd);
-    TCLAP::ValueArg<int>         arg_band("b", "band", "Zero-based band index to fit", false, 4, "int", cmd);
+    TCLAP::ValueArg<std::string>
+                         arg_epm_set("d", "epm-set", "Named EPM parameter set", false, "local-cohen", "string", cmd);
+    TCLAP::ValueArg<int> arg_band("b", "band", "Zero-based band index to fit", false, 4, "int", cmd);
     TCLAP::ValueArg<std::string> arg_k0("", "k0", "Reduced valley center kx,ky,kz", false, "0.85,0,0", "string", cmd);
     TCLAP::ValueArg<std::string> arg_edge("e", "edge", "Band edge kind: min or max", false, "min", "string", cmd);
-    TCLAP::ValueArg<double>      arg_radius("", "radius", "Reduced-coordinate alpha sampling radius", false, 0.04, "float", cmd);
-    TCLAP::ValueArg<int>         arg_shells("", "shells", "Number of alpha stencil shells", false, 4, "int", cmd);
-    TCLAP::ValueArg<double>      arg_mass_radius("", "mass-radius", "Near-edge mass sampling radius", false, 0.01, "float", cmd);
-    TCLAP::ValueArg<int>         arg_mass_shells("", "mass-shells", "Number of mass stencil shells", false, 2, "int", cmd);
-    TCLAP::ValueArg<double>      arg_alpha_max_energy("", "alpha-max-energy", "Maximum kinetic energy used for alpha fit", false, 0.3, "float", cmd);
-    TCLAP::ValueArg<int>         arg_neighbors("n", "nearestNeighbors", "Number of EPM basis shells", false, 10, "int", cmd);
-    TCLAP::ValueArg<int>         arg_threads("j", "nthreads", "Number of threads", false, 1, "int", cmd);
+    TCLAP::ValueArg<double>
+        arg_radius("", "radius", "Reduced-coordinate alpha sampling radius", false, 0.04, "float", cmd);
+    TCLAP::ValueArg<int> arg_shells("", "shells", "Number of alpha stencil shells", false, 4, "int", cmd);
+    TCLAP::ValueArg<double>
+        arg_mass_radius("", "mass-radius", "Near-edge mass sampling radius", false, 0.01, "float", cmd);
+    TCLAP::ValueArg<int>    arg_mass_shells("", "mass-shells", "Number of mass stencil shells", false, 2, "int", cmd);
+    TCLAP::ValueArg<double> arg_alpha_max_energy("",
+                                                 "alpha-max-energy",
+                                                 "Maximum kinetic energy used for alpha fit",
+                                                 false,
+                                                 0.3,
+                                                 "float",
+                                                 cmd);
+    TCLAP::ValueArg<int>    arg_neighbors("n", "nearestNeighbors", "Number of EPM basis shells", false, 10, "int", cmd);
+    TCLAP::ValueArg<int>    arg_threads("j", "nthreads", "Number of threads", false, 1, "int", cmd);
     TCLAP::ValueArg<std::string> arg_out("o", "out", "Optional CSV output file", false, "", "path", cmd);
-    TCLAP::SwitchArg             arg_nonlocal("C", "nonlocal-correction", "Enable non-local EPM correction", cmd, false);
-    TCLAP::SwitchArg             arg_soc("S", "soc", "Enable spin-orbit coupling", cmd, false);
-    TCLAP::SwitchArg             arg_allow_negative_alpha("", "allow-negative-alpha", "Do not clamp negative alpha to zero", cmd, false);
+    TCLAP::SwitchArg arg_nonlocal("C", "nonlocal-correction", "Enable non-local EPM correction", cmd, false);
+    TCLAP::SwitchArg arg_soc("S", "soc", "Enable spin-orbit coupling", cmd, false);
+    TCLAP::SwitchArg arg_allow_negative_alpha("",
+                                              "allow-negative-alpha",
+                                              "Do not clamp negative alpha to zero",
+                                              cmd,
+                                              false);
 
     cmd.parse(argc, argv);
 
@@ -180,7 +192,7 @@ int main(int argc, char* argv[]) {
     materials.load_material(repository, arg_material.getValue(), arg_epm_set.getValue());
     const auto& material = materials.materials.at(arg_material.getValue());
 
-    const auto mass_samples = compute_samples(material,
+    const auto mass_samples  = compute_samples(material,
                                               mass_kpoints,
                                               arg_band.getValue(),
                                               arg_neighbors.getValue(),
@@ -196,15 +208,15 @@ int main(int argc, char* argv[]) {
                                                arg_threads.getValue());
 
     const double edge_energy_eV = mass_samples.front().energy_eV;
-    const auto   result         = uepm::pseudopotential::fit_effective_mass_then_nonparabolicity(
-        mass_samples,
-        alpha_samples,
-        k0,
-        edge_energy_eV,
-        material.get_lattice_constant_meter(),
-        edge_kind,
-        arg_alpha_max_energy.getValue(),
-        !arg_allow_negative_alpha.isSet());
+    const auto   result =
+        uepm::pseudopotential::fit_effective_mass_then_nonparabolicity(mass_samples,
+                                                                       alpha_samples,
+                                                                       k0,
+                                                                       edge_energy_eV,
+                                                                       material.get_lattice_constant_meter(),
+                                                                       edge_kind,
+                                                                       arg_alpha_max_energy.getValue(),
+                                                                       !arg_allow_negative_alpha.isSet());
 
     print_result(result);
     if (!arg_out.getValue().empty()) {

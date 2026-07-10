@@ -226,12 +226,11 @@ class valley_model {
             throw std::invalid_argument("velocity direction must be non-zero");
         }
 
-        const vector3 u           = velocity_direction / norm;
-        const double  gamma_eV    = gamma_from_kinetic_energy(energy);
-        const double  gamma_joule = gamma_eV * uepm::constants::eV_to_J;
-        const double mass_projected =
-            m_transverse_effective_mass * (u.x() * u.x() + u.y() * u.y()) +
-            m_longitudinal_effective_mass * u.z() * u.z();
+        const vector3 u              = velocity_direction / norm;
+        const double  gamma_eV       = gamma_from_kinetic_energy(energy);
+        const double  gamma_joule    = gamma_eV * uepm::constants::eV_to_J;
+        const double  mass_projected = m_transverse_effective_mass * (u.x() * u.x() + u.y() * u.y()) +
+                                      m_longitudinal_effective_mass * u.z() * u.z();
         if (mass_projected <= 0.0) {
             throw std::runtime_error("invalid effective mass projection");
         }

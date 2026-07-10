@@ -783,12 +783,7 @@ int main(int argc, char** argv) try {
     TCLAP::ValueArg<double> LTubesRminArg("", "L-tube-rmin", "L-star tube inner radius", false, 0.0, "float");
     TCLAP::ValueArg<double> LTubesRmaxArg("", "L-tube-rmax", "L-star tube outer radius", false, 0.0, "float");
 
-    TCLAP::ValueArg<std::string> outArg("o",
-                                        "outfile",
-                                        "Output BZ mesh filename (.msh)",
-                                        false,
-                                        "bz.msh",
-                                        "string");
+    TCLAP::ValueArg<std::string> outArg("o", "outfile", "Output BZ mesh filename (.msh)", false, "bz.msh", "string");
     TCLAP::ValueArg<std::string> domainArg("",
                                            "bz-domain",
                                            "Output BZ domain: full or octant",
@@ -919,12 +914,11 @@ int main(int argc, char** argv) try {
     std::cout << "IBZ nodes: " << ibz.nodes.size() << "\n";
     std::cout << "IBZ tetrahedra: " << ibz.tets.size() << "\n";
 
-    const std::vector<Mat3> ops = outputOctant ? permutation_matrices() : symmetry_ops_full();
+    const std::vector<Mat3> ops        = outputOctant ? permutation_matrices() : symmetry_ops_full();
     const ExpandedMesh      outputMesh = expand_mesh_by_symmetry(ibz, ops);
 
     std::cout << (outputOctant ? "Positive-octant" : "Full-BZ") << " nodes: " << outputMesh.nodes.size() << "\n";
-    std::cout << (outputOctant ? "Positive-octant" : "Full-BZ")
-              << " tetrahedra: " << outputMesh.tets.size() << "\n";
+    std::cout << (outputOctant ? "Positive-octant" : "Full-BZ") << " tetrahedra: " << outputMesh.tets.size() << "\n";
 
     const double volIBZ    = mesh_volume(ibz.nodes, ibz.tets);
     const double volOutput = mesh_volume(outputMesh.nodes, outputMesh.tets);
@@ -954,9 +948,7 @@ int main(int argc, char** argv) try {
     }
 
     const std::string outputModelName = outputOctant ? "Positive_Octant_BZ_Model" : "Full_BZ_Model";
-    write_discrete_mesh(outputMesh,
-                        outputModelName,
-                        outputOctant ? "Positive_Octant_BZ" : "Full_BZ");
+    write_discrete_mesh(outputMesh, outputModelName, outputOctant ? "Positive_Octant_BZ" : "Full_BZ");
 
     if (std::filesystem::exists(outMeshPath)) {
         std::filesystem::remove(outMeshPath);

@@ -14,12 +14,12 @@
 namespace uepm::MMMC {
 
 struct self_consistent_device_mmmc_run_config {
-    std::string mesh_file;
-    std::string material_root;
-    std::string material_symbol = "Si";
-    std::string output_dir;
-    std::string simulation_name = "self_consistent_MMMC";
-    std::string command_line;
+    std::string              mesh_file;
+    std::string              material_root;
+    std::string              material_symbol = "Si";
+    std::string              output_dir;
+    std::string              simulation_name = "self_consistent_MMMC";
+    std::string              command_line;
     std::vector<std::string> collecting_contacts;
 
     mesh::vector3 starting_position{0.0, 0.0, 0.0};

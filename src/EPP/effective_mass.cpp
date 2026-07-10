@@ -1,7 +1,6 @@
 #include "effective_mass.hpp"
 
 #include <Eigen/Dense>
-
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -14,13 +13,9 @@ namespace {
 
 constexpr double kinetic_tolerance_eV = 1.0e-12;
 
-double edge_sign(band_edge_kind edge_kind) {
-    return edge_kind == band_edge_kind::minimum ? 1.0 : -1.0;
-}
+double edge_sign(band_edge_kind edge_kind) { return edge_kind == band_edge_kind::minimum ? 1.0 : -1.0; }
 
-Eigen::Vector3d to_eigen(const Vector3D<double>& value) {
-    return Eigen::Vector3d{value.X, value.Y, value.Z};
-}
+Eigen::Vector3d to_eigen(const Vector3D<double>& value) { return Eigen::Vector3d{value.X, value.Y, value.Z}; }
 
 std::array<std::array<double, 3>, 3> to_array(const Eigen::Matrix3d& matrix) {
     std::array<std::array<double, 3>, 3> result{};
@@ -89,8 +84,8 @@ std::array<double, 3> masses_from_hessian(const Eigen::SelfAdjointEigenSolver<Ei
     for (Eigen::Index i = 0; i < 3; ++i) {
         const double curvature = solver.eigenvalues()(i);
         if (curvature > 0.0 && std::isfinite(curvature)) {
-            const double mass_kg = (uepm::constants::h_bar * uepm::constants::h_bar) /
-                                   (uepm::constants::eV_to_J * curvature);
+            const double mass_kg =
+                (uepm::constants::h_bar * uepm::constants::h_bar) / (uepm::constants::eV_to_J * curvature);
             masses[static_cast<std::size_t>(i)] = mass_kg / uepm::constants::m_e;
         } else {
             masses[static_cast<std::size_t>(i)] = std::numeric_limits<double>::quiet_NaN();
@@ -101,12 +96,11 @@ std::array<double, 3> masses_from_hessian(const Eigen::SelfAdjointEigenSolver<Ei
 
 }  // namespace
 
-effective_mass_fit_result fit_effective_mass_and_nonparabolicity(
-    const std::vector<valley_fit_sample>& samples,
-    const Vector3D<double>&               k0_reduced,
-    double                                edge_energy_eV,
-    double                                lattice_constant_m,
-    band_edge_kind                        edge_kind) {
+effective_mass_fit_result fit_effective_mass_and_nonparabolicity(const std::vector<valley_fit_sample>& samples,
+                                                                 const Vector3D<double>&               k0_reduced,
+                                                                 double                                edge_energy_eV,
+                                                                 double         lattice_constant_m,
+                                                                 band_edge_kind edge_kind) {
     if (samples.size() < 6) {
         throw std::invalid_argument("effective-mass fit needs at least six samples");
     }
@@ -114,17 +108,17 @@ effective_mass_fit_result fit_effective_mass_and_nonparabolicity(
         throw std::invalid_argument("lattice constant must be positive");
     }
 
-    const double         reduced_to_k_m   = 2.0 * uepm::constants::pi / lattice_constant_m;
-    const Eigen::Vector3d k0              = to_eigen(k0_reduced);
-    Eigen::MatrixXd      design           = build_quadratic_design(samples, k0_reduced, lattice_constant_m);
-    Eigen::VectorXd      kinetic          = kinetic_energies(samples, edge_energy_eV, edge_kind);
+    const double          reduced_to_k_m = 2.0 * uepm::constants::pi / lattice_constant_m;
+    const Eigen::Vector3d k0             = to_eigen(k0_reduced);
+    Eigen::MatrixXd       design         = build_quadratic_design(samples, k0_reduced, lattice_constant_m);
+    Eigen::VectorXd       kinetic        = kinetic_energies(samples, edge_energy_eV, edge_kind);
 
     double          alpha = 0.0;
     Eigen::Matrix3d hessian;
     for (int iteration = 0; iteration < 100; ++iteration) {
         Eigen::VectorXd gamma_target(samples.size());
         for (std::size_t i = 0; i < samples.size(); ++i) {
-            const double energy = kinetic(static_cast<Eigen::Index>(i));
+            const double energy                        = kinetic(static_cast<Eigen::Index>(i));
             gamma_target(static_cast<Eigen::Index>(i)) = energy * (1.0 + alpha * energy);
         }
 
@@ -169,19 +163,19 @@ effective_mass_fit_result fit_effective_mass_and_nonparabolicity(
     }
 
     effective_mass_fit_result result;
-    result.k0_reduced               = k0_reduced;
-    result.edge_energy_eV           = edge_energy_eV;
-    result.edge_kind                = edge_kind;
-    result.non_parabolicity_eV_inv  = alpha;
-    result.rms_error_meV            = 1000.0 * std::sqrt(residual2 / static_cast<double>(samples.size()));
-    result.mass_rms_error_meV       = result.rms_error_meV;
-    result.alpha_rms_error_meV      = result.rms_error_meV;
-    result.sample_count             = samples.size();
-    result.mass_sample_count        = samples.size();
-    result.alpha_sample_count       = samples.size();
-    result.hessian_eV_m2            = to_array(hessian);
-    result.principal_axes           = to_array(solver.eigenvectors());
-    result.principal_masses_m0      = masses;
+    result.k0_reduced              = k0_reduced;
+    result.edge_energy_eV          = edge_energy_eV;
+    result.edge_kind               = edge_kind;
+    result.non_parabolicity_eV_inv = alpha;
+    result.rms_error_meV           = 1000.0 * std::sqrt(residual2 / static_cast<double>(samples.size()));
+    result.mass_rms_error_meV      = result.rms_error_meV;
+    result.alpha_rms_error_meV     = result.rms_error_meV;
+    result.sample_count            = samples.size();
+    result.mass_sample_count       = samples.size();
+    result.alpha_sample_count      = samples.size();
+    result.hessian_eV_m2           = to_array(hessian);
+    result.principal_axes          = to_array(solver.eigenvectors());
+    result.principal_masses_m0     = masses;
     return result;
 }
 
@@ -228,12 +222,11 @@ effective_mass_fit_result fit_effective_mass_tensor(const std::vector<valley_fit
     return result;
 }
 
-effective_mass_fit_result fit_nonparabolicity_with_fixed_mass(
-    const std::vector<valley_fit_sample>& samples,
-    const effective_mass_fit_result&      mass_fit,
-    double                                lattice_constant_m,
-    double                                max_kinetic_energy_eV,
-    bool                                  clamp_nonnegative) {
+effective_mass_fit_result fit_nonparabolicity_with_fixed_mass(const std::vector<valley_fit_sample>& samples,
+                                                              const effective_mass_fit_result&      mass_fit,
+                                                              double                                lattice_constant_m,
+                                                              double max_kinetic_energy_eV,
+                                                              bool   clamp_nonnegative) {
     if (!(max_kinetic_energy_eV > 0.0) || !std::isfinite(max_kinetic_energy_eV)) {
         throw std::invalid_argument("maximum kinetic energy must be positive");
     }
@@ -281,33 +274,33 @@ effective_mass_fit_result fit_nonparabolicity_with_fixed_mass(
         residual2 += residual * residual;
     }
 
-    auto result                         = mass_fit;
-    result.non_parabolicity_eV_inv      = alpha;
-    result.rms_error_meV                = 1000.0 * std::sqrt(residual2 / static_cast<double>(used_samples));
-    result.alpha_rms_error_meV          = result.rms_error_meV;
-    result.sample_count                 = used_samples;
-    result.alpha_sample_count           = used_samples;
+    auto result                    = mass_fit;
+    result.non_parabolicity_eV_inv = alpha;
+    result.rms_error_meV           = 1000.0 * std::sqrt(residual2 / static_cast<double>(used_samples));
+    result.alpha_rms_error_meV     = result.rms_error_meV;
+    result.sample_count            = used_samples;
+    result.alpha_sample_count      = used_samples;
     return result;
 }
 
-effective_mass_fit_result fit_effective_mass_then_nonparabolicity(
-    const std::vector<valley_fit_sample>& mass_samples,
-    const std::vector<valley_fit_sample>& alpha_samples,
-    const Vector3D<double>&               k0_reduced,
-    double                                edge_energy_eV,
-    double                                lattice_constant_m,
-    band_edge_kind                        edge_kind,
-    double                                max_kinetic_energy_eV,
-    bool                                  clamp_nonnegative) {
+effective_mass_fit_result fit_effective_mass_then_nonparabolicity(const std::vector<valley_fit_sample>& mass_samples,
+                                                                  const std::vector<valley_fit_sample>& alpha_samples,
+                                                                  const Vector3D<double>&               k0_reduced,
+                                                                  double                                edge_energy_eV,
+                                                                  double         lattice_constant_m,
+                                                                  band_edge_kind edge_kind,
+                                                                  double         max_kinetic_energy_eV,
+                                                                  bool           clamp_nonnegative) {
     const auto mass_fit =
         fit_effective_mass_tensor(mass_samples, k0_reduced, edge_energy_eV, lattice_constant_m, edge_kind);
-    return fit_nonparabolicity_with_fixed_mass(
-        alpha_samples, mass_fit, lattice_constant_m, max_kinetic_energy_eV, clamp_nonnegative);
+    return fit_nonparabolicity_with_fixed_mass(alpha_samples,
+                                               mass_fit,
+                                               lattice_constant_m,
+                                               max_kinetic_energy_eV,
+                                               clamp_nonnegative);
 }
 
-std::string to_string(band_edge_kind edge_kind) {
-    return edge_kind == band_edge_kind::minimum ? "minimum" : "maximum";
-}
+std::string to_string(band_edge_kind edge_kind) { return edge_kind == band_edge_kind::minimum ? "minimum" : "maximum"; }
 
 band_edge_kind band_edge_kind_from_string(const std::string& value) {
     if (value == "min" || value == "minimum" || value == "electron") {

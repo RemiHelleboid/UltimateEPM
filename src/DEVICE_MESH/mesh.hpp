@@ -157,7 +157,7 @@ class mesh {
             bulk_region.for_each_element(function);
         }
     }
-    void                    transfer_element_to_other_region(sp_element p_element, region *new_region);
+    void        transfer_element_to_other_region(sp_element p_element, region *new_region);
     static void transfer_element_to_other_region(sp_element p_element, region *origin_region, region *new_region);
     static void transfer_elements_to_other_region(std::vector<std::size_t> list_element_indexes,
                                                   region                  *origin_region,
@@ -342,8 +342,10 @@ class mesh {
     void export_on_grid(const std::string &filename, double dx, double dy, double dz = 1.0) const;
 
     void export_x_cut(const std::string &filename, double y_const, double z_const, double dx) const;
-    void export_x_profile(const std::string &filename, double dx, std::size_t n_y_samples, std::size_t n_z_samples = 1)
-        const;
+    void export_x_profile(const std::string &filename,
+                          double             dx,
+                          std::size_t        n_y_samples,
+                          std::size_t        n_z_samples = 1) const;
     void export_y_cut(const std::string &filename, double x_const, double z_const, double dy) const;
     void export_z_cut(const std::string &filename, double x_const, double y_const, double dz) const;
 

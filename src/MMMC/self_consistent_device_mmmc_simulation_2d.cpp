@@ -24,9 +24,7 @@
 namespace uepm::MMMC {
 namespace {
 
-double finite_or_zero(double value) {
-    return std::isfinite(value) ? value : 0.0;
-}
+double finite_or_zero(double value) { return std::isfinite(value) ? value : 0.0; }
 
 double local_net_doping_cm_3(const mesh::element& element, const mesh::vector3& position_um) {
     return finite_or_zero(element.interpolate_doping_at_location(position_um));
@@ -39,19 +37,19 @@ double admc_signed_charge_C(const ADMC::device_admc_particle& particle) {
 }  // namespace
 
 void options_device_MMMC::synchronize_from_pbmc() {
-    m_admc.m_simulation_name                  = m_pbmc.m_simulation_name;
-    m_admc.m_output_directory                 = m_pbmc.m_output_directory;
-    m_admc.m_lattice_temperature_K            = m_pbmc.m_lattice_temperature;
-    m_admc.m_time_step_s                      = m_pbmc.m_time_step;
-    m_admc.m_final_time_s                     = m_pbmc.m_t_max;
-    m_admc.m_max_number_particles             = m_pbmc.m_max_number_particle;
-    m_admc.m_stop_when_no_electrons           = m_pbmc.m_stop_simu_when_no_electron_remaining;
-    m_admc.m_export_time_step                 = m_pbmc.m_export_time_step;
-    m_admc.m_frequency_export                 = m_pbmc.m_frequency_export_trajectory;
-    m_admc.m_prefix_export_filename           = m_pbmc.m_prefix_export_filename;
-    m_admc.m_boundary_reflection_model        = m_pbmc.m_boundary_reflection_model;
-    m_admc.m_current_probe.m_enabled          = m_pbmc.m_current_probe.m_enabled;
-    m_admc.m_current_probe.m_box_um           = m_pbmc.m_current_probe.m_box_um;
+    m_admc.m_simulation_name           = m_pbmc.m_simulation_name;
+    m_admc.m_output_directory          = m_pbmc.m_output_directory;
+    m_admc.m_lattice_temperature_K     = m_pbmc.m_lattice_temperature;
+    m_admc.m_time_step_s               = m_pbmc.m_time_step;
+    m_admc.m_final_time_s              = m_pbmc.m_t_max;
+    m_admc.m_max_number_particles      = m_pbmc.m_max_number_particle;
+    m_admc.m_stop_when_no_electrons    = m_pbmc.m_stop_simu_when_no_electron_remaining;
+    m_admc.m_export_time_step          = m_pbmc.m_export_time_step;
+    m_admc.m_frequency_export          = m_pbmc.m_frequency_export_trajectory;
+    m_admc.m_prefix_export_filename    = m_pbmc.m_prefix_export_filename;
+    m_admc.m_boundary_reflection_model = m_pbmc.m_boundary_reflection_model;
+    m_admc.m_current_probe.m_enabled   = m_pbmc.m_current_probe.m_enabled;
+    m_admc.m_current_probe.m_box_um    = m_pbmc.m_current_probe.m_box_um;
 }
 
 void options_device_MMMC::validate() const {
@@ -149,8 +147,7 @@ double self_consistent_device_mmmc_simulation_2d::ramo_current_scale_factor() co
     return 1.0 / m_self_consistent_options.m_effective_depth_um;
 }
 
-double self_consistent_device_mmmc_simulation_2d::current_density_cell_volume_m3(
-    const mesh::element& element) const {
+double self_consistent_device_mmmc_simulation_2d::current_density_cell_volume_m3(const mesh::element& element) const {
     const double area_um2             = std::abs(element.get_measure());
     const double effective_volume_um3 = area_um2 * m_self_consistent_options.m_effective_depth_um;
     return effective_volume_um3 * std::pow(units::micron_to_meter, 3);
@@ -250,10 +247,10 @@ void self_consistent_device_mmmc_simulation_2d::place_initial_charges_according_
         throw std::invalid_argument("MMMC particle weight must be positive.");
     }
 
-    const std::string donor_field_name    = "DonorConcentration";
-    const std::string acceptor_field_name = "AcceptorConcentration";
-    auto*             mesh                = m_device.get_p_mesh();
-    const auto integrate_carriers_over_2d_mesh = [&](const std::string& field_name) {
+    const std::string donor_field_name                = "DonorConcentration";
+    const std::string acceptor_field_name             = "AcceptorConcentration";
+    auto*             mesh                            = m_device.get_p_mesh();
+    const auto        integrate_carriers_over_2d_mesh = [&](const std::string& field_name) {
         double total_charge = 0.0;
         for (const auto& element : mesh->get_list_bulk_element()) {
             total_charge += scale_integrated_2d_doping_to_carriers(element->integrate_scalar(field_name));
@@ -266,10 +263,10 @@ void self_consistent_device_mmmc_simulation_2d::place_initial_charges_according_
     const std::size_t number_electrons = static_cast<std::size_t>(std::floor(total_donor_charge / particle_weight));
     const std::size_t number_holes     = static_cast<std::size_t>(std::floor(total_acceptor_charge / particle_weight));
 
-    constexpr double min_probability = 50e-2;
-    const double max_donor_concentration = mesh->get_argmax_max_of_function(donor_field_name).second;
-    const double max_acceptor_concentration = mesh->get_argmax_max_of_function(acceptor_field_name).second;
-    const mesh::bbox active_region_bbox = mesh->get_p_region("Silicon_1")->compute_bounding_box();
+    constexpr double min_probability            = 50e-2;
+    const double     max_donor_concentration    = mesh->get_argmax_max_of_function(donor_field_name).second;
+    const double     max_acceptor_concentration = mesh->get_argmax_max_of_function(acceptor_field_name).second;
+    const mesh::bbox active_region_bbox         = mesh->get_p_region("Silicon_1")->compute_bounding_box();
     std::uniform_real_distribution<double> uniform01(0.0, 1.0);
 
     std::vector<mesh::vector3> electron_positions;
@@ -280,9 +277,9 @@ void self_consistent_device_mmmc_simulation_2d::place_initial_charges_according_
     const std::size_t max_attempts_electrons = 1000 * std::max<std::size_t>(number_electrons, 1);
     for (std::size_t attempts = 0; electron_positions.size() < number_electrons && attempts < max_attempts_electrons;
          ++attempts) {
-        const mesh::vector3 position = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
-        const double donor_density = mesh->interpolate_scalar_at_location(donor_field_name, position);
-        const double acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
+        const mesh::vector3 position         = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
+        const double        donor_density    = mesh->interpolate_scalar_at_location(donor_field_name, position);
+        const double        acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
         if (acceptor_density > donor_density || max_donor_concentration <= 0.0) {
             continue;
         }
@@ -293,11 +290,10 @@ void self_consistent_device_mmmc_simulation_2d::place_initial_charges_according_
     }
 
     const std::size_t max_attempts_holes = 1000 * std::max<std::size_t>(number_holes, 1);
-    for (std::size_t attempts = 0; hole_positions.size() < number_holes && attempts < max_attempts_holes;
-         ++attempts) {
-        const mesh::vector3 position = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
-        const double acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
-        const double donor_density = mesh->interpolate_scalar_at_location(donor_field_name, position);
+    for (std::size_t attempts = 0; hole_positions.size() < number_holes && attempts < max_attempts_holes; ++attempts) {
+        const mesh::vector3 position         = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
+        const double        acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
+        const double        donor_density    = mesh->interpolate_scalar_at_location(donor_field_name, position);
         if (donor_density > acceptor_density || max_acceptor_concentration <= 0.0) {
             continue;
         }
@@ -386,15 +382,15 @@ void self_consistent_device_mmmc_simulation_2d::add_charges_at_contacts(std::siz
 
     std::vector<double> electron_charge_to_add(m_list_element_contact_ptr.size(), 0.0);
     std::vector<double> hole_charge_to_add(m_list_element_contact_ptr.size(), 0.0);
-    double total_electron_charge_to_add = 0.0;
-    double total_hole_charge_to_add = 0.0;
+    double              total_electron_charge_to_add = 0.0;
+    double              total_hole_charge_to_add     = 0.0;
 
     for (std::size_t i = 0; i < m_list_element_contact_ptr.size(); ++i) {
-        auto& element = m_list_element_contact_ptr[i];
-        const double element_charge = element->get_n_charge() - element->get_p_charge();
+        auto&        element                 = m_list_element_contact_ptr[i];
+        const double element_charge          = element->get_n_charge() - element->get_p_charge();
         const double averaged_element_charge = element_charge / static_cast<double>(poisson_frequency_value);
-        const double equilibrium_charge = m_list_element_contact_equilibrium_charge[i];
-        const double charge_to_add = equilibrium_charge - averaged_element_charge;
+        const double equilibrium_charge      = m_list_element_contact_equilibrium_charge[i];
+        const double charge_to_add           = equilibrium_charge - averaged_element_charge;
         if (equilibrium_charge > 0.0 && charge_to_add > 0.0) {
             electron_charge_to_add[i] = charge_to_add;
             total_electron_charge_to_add += charge_to_add;
@@ -415,10 +411,10 @@ void self_consistent_device_mmmc_simulation_2d::add_charges_at_contacts(std::siz
         if (electron_charge_to_add[contact_index] <= 0.0) {
             continue;
         }
-        add_particle_at_position(m_list_element_contact_ptr[contact_index]->draw_uniform_random_point_inside_element(
-                                     m_contact_rng),
-                                 PBMC::particle_type::electron,
-                                 particle_weight);
+        add_particle_at_position(
+            m_list_element_contact_ptr[contact_index]->draw_uniform_random_point_inside_element(m_contact_rng),
+            PBMC::particle_type::electron,
+            particle_weight);
         electron_charge_to_add[contact_index] -= particle_weight;
     }
     for (std::size_t i = 0; i < number_holes_to_place && !has_reached_particle_limit(); ++i) {
@@ -426,10 +422,10 @@ void self_consistent_device_mmmc_simulation_2d::add_charges_at_contacts(std::siz
         if (hole_charge_to_add[contact_index] <= 0.0) {
             continue;
         }
-        add_particle_at_position(m_list_element_contact_ptr[contact_index]->draw_uniform_random_point_inside_element(
-                                     m_contact_rng),
-                                 PBMC::particle_type::hole,
-                                 particle_weight);
+        add_particle_at_position(
+            m_list_element_contact_ptr[contact_index]->draw_uniform_random_point_inside_element(m_contact_rng),
+            PBMC::particle_type::hole,
+            particle_weight);
         hole_charge_to_add[contact_index] -= particle_weight;
     }
 
@@ -440,11 +436,11 @@ void self_consistent_device_mmmc_simulation_2d::add_missing_contact_charge_to_po
     std::size_t accumulation_steps) {
     const double accumulation_factor = static_cast<double>(accumulation_steps);
     for (std::size_t i = 0; i < m_list_element_contact_ptr.size(); ++i) {
-        auto& element = m_list_element_contact_ptr[i];
-        const double equilibrium_charge = m_list_element_contact_equilibrium_charge[i];
+        auto&        element                   = m_list_element_contact_ptr[i];
+        const double equilibrium_charge        = m_list_element_contact_equilibrium_charge[i];
         const double accumulated_mobile_charge = element->get_n_charge() - element->get_p_charge();
         const double target_accumulated_charge = equilibrium_charge * accumulation_factor;
-        const double correction = target_accumulated_charge - accumulated_mobile_charge;
+        const double correction                = target_accumulated_charge - accumulated_mobile_charge;
         if (correction > 0.0) {
             element->add_n_charge(correction);
         } else if (correction < 0.0) {
@@ -477,8 +473,7 @@ PBMC::particle_type self_consistent_device_mmmc_simulation_2d::to_pbmc_type(ADMC
     return to_pbmc_particle_type(type);
 }
 
-PBMC::pbmc_transport_kernel& self_consistent_device_mmmc_simulation_2d::pbmc_transport_for(
-    ADMC::carrier_type type) {
+PBMC::pbmc_transport_kernel& self_consistent_device_mmmc_simulation_2d::pbmc_transport_for(ADMC::carrier_type type) {
     return transport_for(to_pbmc_type(type));
 }
 
@@ -515,7 +510,7 @@ void self_consistent_device_mmmc_simulation_2d::update_admc_element_and_check_bo
         return;
     }
 
-    const mesh::vector3 current_position_um = to_mesh_position_um(particle.particle.state().position_m);
+    const mesh::vector3 current_position_um  = to_mesh_position_um(particle.particle.state().position_m);
     const mesh::vector3 previous_position_um = to_mesh_position_um(particle.particle.state().previous_position_m);
     if (m_device.check_enters_contact(current_position_um) ||
         m_device.check_crossing_contact(previous_position_um, current_position_um)) {
@@ -528,8 +523,8 @@ void self_consistent_device_mmmc_simulation_2d::update_admc_element_and_check_bo
 
     auto* new_element = m_device.find_element_at_location(current_position_um);
     if (new_element == nullptr || !is_transport_material_element(*new_element)) {
-        auto& state = particle.particle.state();
-        const auto hit = mesh::find_boundary_exit_hit(*particle.containing_element,
+        auto&      state = particle.particle.state();
+        const auto hit   = mesh::find_boundary_exit_hit(*particle.containing_element,
                                                       previous_position_um,
                                                       current_position_um,
                                                       m_dimension);
@@ -542,7 +537,7 @@ void self_consistent_device_mmmc_simulation_2d::update_admc_element_and_check_bo
         }
 
         const mesh::vector3 remaining_displacement_um = current_position_um - hit->position;
-        mesh::vector3 outgoing_displacement_um;
+        mesh::vector3       outgoing_displacement_um;
         if (m_mmmc_options.m_admc.m_boundary_reflection_model == mesh::boundary_reflection_model::specular) {
             state.total_velocity_m_per_s =
                 mesh::reflect_vector_specular(state.total_velocity_m_per_s, hit->inward_normal);
@@ -585,10 +580,10 @@ void self_consistent_device_mmmc_simulation_2d::apply_transport_policy() {
             transport_method::admc) {
             auto converted = convert_pbmc_to_admc(particle, particle.index());
             if (converted.containing_element != nullptr) {
-                const auto environment = local_admc_environment(converted);
-                converted.particle.state().electric_field_V_per_m = environment.electric_field_V_per_m;
+                const auto environment                               = local_admc_environment(converted);
+                converted.particle.state().electric_field_V_per_m    = environment.electric_field_V_per_m;
                 converted.particle.state().doping_concentration_cm_3 = environment.doping_concentration_cm_3;
-                converted.particle.state().lattice_temperature_K = environment.lattice_temperature_K;
+                converted.particle.state().lattice_temperature_K     = environment.lattice_temperature_K;
             }
             m_admc_particles.push_back(std::move(converted));
             m_list_particles[i] = std::move(m_list_particles.back());
@@ -601,10 +596,10 @@ void self_consistent_device_mmmc_simulation_2d::apply_transport_policy() {
 
     for (std::size_t i = 0; i < m_admc_particles.size();) {
         const auto& particle = m_admc_particles[i];
-        if (m_self_consistent_options.m_policy.method_for_position(to_mesh_position_um(
-                particle.particle.state().position_m)) == transport_method::pbmc) {
+        if (m_self_consistent_options.m_policy.method_for_position(
+                to_mesh_position_um(particle.particle.state().position_m)) == transport_method::pbmc) {
             auto& transport = pbmc_transport_for(particle.particle.type());
-            auto converted = convert_admc_to_pbmc(particle, particle.particle.index(), transport);
+            auto  converted = convert_admc_to_pbmc(particle, particle.particle.index(), transport);
             m_list_particles.push_back(std::make_unique<PBMC::pbmc_particle>(std::move(converted)));
             m_admc_particles[i] = std::move(m_admc_particles.back());
             m_admc_particles.pop_back();
@@ -627,7 +622,7 @@ void self_consistent_device_mmmc_simulation_2d::advance_mmmc_particles_one_time_
 
 std::pair<double, double> self_consistent_device_mmmc_simulation_2d::compute_admc_ramo_current() const {
     double electron_current = 0.0;
-    double hole_current = 0.0;
+    double hole_current     = 0.0;
     for (const auto& particle : m_admc_particles) {
         const double current = compute_admc_ramo_current_for_particle(particle);
         if (particle.particle.type() == ADMC::carrier_type::electron) {
@@ -643,8 +638,8 @@ double self_consistent_device_mmmc_simulation_2d::compute_admc_ramo_current_for_
     const ADMC::device_admc_particle& particle) const {
     const mesh::vector3 position_um = to_mesh_position_um(particle.particle.state().position_m);
     const mesh::vector3 ramo_field = get_RamoUnitaryElectricField_at_position(position_um, particle.containing_element);
-    const double signed_charge_C = particle.weight * ADMC::carrier_charge_sign(particle.particle.type()) *
-                                   constants::q_e;
+    const double        signed_charge_C =
+        particle.weight * ADMC::carrier_charge_sign(particle.particle.type()) * constants::q_e;
     return -signed_charge_C * particle.particle.state().total_velocity_m_per_s.dot(ramo_field) *
            ramo_current_scale_factor();
 }
@@ -652,8 +647,7 @@ double self_consistent_device_mmmc_simulation_2d::compute_admc_ramo_current_for_
 double self_consistent_device_mmmc_simulation_2d::max_admc_particle_electric_field_V_per_cm() const {
     double max_field = 0.0;
     for (const auto& particle : m_admc_particles) {
-        max_field = std::max(max_field,
-                             particle.particle.state().electric_field_V_per_m.norm() * 0.01);
+        max_field = std::max(max_field, particle.particle.state().electric_field_V_per_m.norm() * 0.01);
     }
     return max_field;
 }
@@ -715,40 +709,39 @@ void self_consistent_device_mmmc_simulation_2d::export_mmmc_particle_state_csv(c
               "electric_field_norm_V_per_cm,weight,signed_charge_C\n";
 
     for (const auto& p_particle : m_list_particles) {
-        const auto& particle = *p_particle;
-        const auto& state = particle.state();
-        const auto electric_field_V_per_m = state.electric_field * units::electric_field_V_per_cm_to_V_per_m;
+        const auto& particle               = *p_particle;
+        const auto& state                  = particle.state();
+        const auto  electric_field_V_per_m = state.electric_field * units::electric_field_V_per_cm_to_V_per_m;
         stream << particle.index() << ',' << static_cast<int>(particle.type()) << ','
                << PBMC::carrier_type_to_string(particle.type()) << ",0,PBMC,1,0," << state.time << ','
                << state.position.x() << ',' << state.position.y() << ',' << state.position.z() << ','
-               << state.velocity.x() << ',' << state.velocity.y() << ',' << state.velocity.z()
-               << ",0,0,0," << state.local_k.x() << ',' << state.local_k.y() << ',' << state.local_k.z() << ','
+               << state.velocity.x() << ',' << state.velocity.y() << ',' << state.velocity.z() << ",0,0,0,"
+               << state.local_k.x() << ',' << state.local_k.y() << ',' << state.local_k.z() << ','
                << state.kinetic_energy << ',' << state.gamma << ',' << static_cast<long long>(state.valley_index)
                << ",0,0," << state.doping_concentration_cm_3 << ',' << state.lattice_temperature_K << ','
-               << electric_field_V_per_m.x() << ',' << electric_field_V_per_m.y() << ','
-               << electric_field_V_per_m.z() << ',' << electric_field_V_per_m.norm() << ','
-               << state.electric_field.x() << ',' << state.electric_field.y() << ',' << state.electric_field.z()
-               << ',' << state.electric_field.norm() << ',' << particle.weight() << ','
-               << particle.get_signed_charge() << '\n';
+               << electric_field_V_per_m.x() << ',' << electric_field_V_per_m.y() << ',' << electric_field_V_per_m.z()
+               << ',' << electric_field_V_per_m.norm() << ',' << state.electric_field.x() << ','
+               << state.electric_field.y() << ',' << state.electric_field.z() << ',' << state.electric_field.norm()
+               << ',' << particle.weight() << ',' << particle.get_signed_charge() << '\n';
     }
 
     for (const auto& particle : m_admc_particles) {
-        const auto& state = particle.particle.state();
-        const auto position_um = to_mesh_position_um(state.position_m);
-        const auto electric_field_V_per_cm = state.electric_field_V_per_m * 0.01;
-        stream << particle.particle.index() << ',' << static_cast<int>(to_pbmc_type(particle.particle.type()))
-               << ',' << ADMC::carrier_type_name(particle.particle.type()) << ",1,ADMC,0,1," << state.time_s
-               << ',' << position_um.x() << ',' << position_um.y() << ',' << position_um.z() << ','
+        const auto& state                   = particle.particle.state();
+        const auto  position_um             = to_mesh_position_um(state.position_m);
+        const auto  electric_field_V_per_cm = state.electric_field_V_per_m * 0.01;
+        stream << particle.particle.index() << ',' << static_cast<int>(to_pbmc_type(particle.particle.type())) << ','
+               << ADMC::carrier_type_name(particle.particle.type()) << ",1,ADMC,0,1," << state.time_s << ','
+               << position_um.x() << ',' << position_um.y() << ',' << position_um.z() << ','
                << state.total_velocity_m_per_s.x() << ',' << state.total_velocity_m_per_s.y() << ','
                << state.total_velocity_m_per_s.z() << ',' << state.drift_velocity_m_per_s.x() << ','
-               << state.drift_velocity_m_per_s.y() << ',' << state.drift_velocity_m_per_s.z()
-               << ",0,0,0,0,0,-1," << state.mobility_m2_per_V_s << ',' << state.diffusion_m2_per_s << ','
-               << state.doping_concentration_cm_3 << ',' << state.lattice_temperature_K << ','
-               << state.electric_field_V_per_m.x() << ',' << state.electric_field_V_per_m.y() << ','
-               << state.electric_field_V_per_m.z() << ',' << state.electric_field_V_per_m.norm() << ','
-               << electric_field_V_per_cm.x() << ',' << electric_field_V_per_cm.y() << ','
-               << electric_field_V_per_cm.z() << ',' << electric_field_V_per_cm.norm() << ',' << particle.weight
-               << ',' << admc_signed_charge_C(particle) << '\n';
+               << state.drift_velocity_m_per_s.y() << ',' << state.drift_velocity_m_per_s.z() << ",0,0,0,0,0,-1,"
+               << state.mobility_m2_per_V_s << ',' << state.diffusion_m2_per_s << ',' << state.doping_concentration_cm_3
+               << ',' << state.lattice_temperature_K << ',' << state.electric_field_V_per_m.x() << ','
+               << state.electric_field_V_per_m.y() << ',' << state.electric_field_V_per_m.z() << ','
+               << state.electric_field_V_per_m.norm() << ',' << electric_field_V_per_cm.x() << ','
+               << electric_field_V_per_cm.y() << ',' << electric_field_V_per_cm.z() << ','
+               << electric_field_V_per_cm.norm() << ',' << particle.weight << ',' << admc_signed_charge_C(particle)
+               << '\n';
     }
 }
 
@@ -757,10 +750,10 @@ void self_consistent_device_mmmc_simulation_2d::export_current_mmmc_particles_as
     const std::filesystem::path output_directory(directory);
     std::filesystem::create_directories(output_directory);
 
-    const std::string filename = fmt::format("particles_{:012d}.vtp", m_state.m_iteration);
+    const std::string           filename = fmt::format("particles_{:012d}.vtp", m_state.m_iteration);
     const std::filesystem::path vtp_path = output_directory / filename;
     const std::filesystem::path pvd_path = output_directory / "particles.pvd";
-    std::ofstream stream(vtp_path);
+    std::ofstream               stream(vtp_path);
     if (!stream.is_open()) {
         throw std::runtime_error(fmt::format("Could not open MMMC particle VTP file '{}'", vtp_path.string()));
     }
@@ -946,8 +939,7 @@ void self_consistent_device_mmmc_simulation_2d::export_current_mmmc_particles_as
     stream << "        <DataArray type=\"Float64\" Name=\"electric_field_V_per_m\" NumberOfComponents=\"3\" "
               "format=\"ascii\">\n          ";
     for (const auto& p_particle : m_list_particles) {
-        const auto electric_field = p_particle->state().electric_field *
-                                    units::electric_field_V_per_cm_to_V_per_m;
+        const auto electric_field = p_particle->state().electric_field * units::electric_field_V_per_cm_to_V_per_m;
         stream << electric_field.x() << ' ' << electric_field.y() << ' ' << electric_field.z() << ' ';
     }
     for (const auto& particle : m_admc_particles) {
@@ -1013,10 +1005,10 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
     const std::size_t total_iterations =
         static_cast<std::size_t>(std::ceil(m_simulation_options.m_t_max / m_simulation_options.m_time_step));
     const std::size_t poisson_frequency_value = poisson_frequency();
-    const double      sim_poisson_frequency = static_cast<double>(poisson_frequency_value);
+    const double      sim_poisson_frequency   = static_cast<double>(poisson_frequency_value);
 
     const std::string history_filename = initialize_simulation_history_file();
-    std::fstream history_stream(history_filename, std::ios::app);
+    std::fstream      history_stream(history_filename, std::ios::app);
     history_stream << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (!history_stream.is_open()) {
         throw std::runtime_error("Could not open MMMC simulation history CSV file '" + history_filename + "'.");
@@ -1034,10 +1026,10 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
                m_self_consistent_options.m_policy.m_pbmc_region_um.get_z_max());
 
     double accumulator_ramo_current_electron = 0.0;
-    double accumulator_ramo_current_hole = 0.0;
-    double ramo_current_electron = 0.0;
-    double ramo_current_hole = 0.0;
-    double ramo_current = 0.0;
+    double accumulator_ramo_current_hole     = 0.0;
+    double ramo_current_electron             = 0.0;
+    double ramo_current_hole                 = 0.0;
+    double ramo_current                      = 0.0;
 
     reset_element_charges();
     while (m_state.m_time_s <= m_simulation_options.m_t_max) {
@@ -1067,10 +1059,10 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
             apply_scheduled_contact_voltage_events(poisson_sample_time_s);
 
             ramo_current_electron = accumulator_ramo_current_electron / sim_poisson_frequency;
-            ramo_current_hole = accumulator_ramo_current_hole / sim_poisson_frequency;
+            ramo_current_hole     = accumulator_ramo_current_hole / sim_poisson_frequency;
             ramo_current = ramo_current_electron + ramo_current_hole - common_options().m_background_ramo_current_A;
             accumulator_ramo_current_electron = 0.0;
-            accumulator_ramo_current_hole = 0.0;
+            accumulator_ramo_current_hole     = 0.0;
 
             add_charges_at_contacts(poisson_frequency_value);
             add_particle_charges_to_elements();
@@ -1086,25 +1078,25 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
 
         const double max_electric_field_V_per_cm =
             std::max(max_particle_electric_field_V_per_cm(), max_admc_particle_electric_field_V_per_cm());
-        m_simulation_history.add_data_to_history(m_state.m_time_s,
-                                                 get_total_number_electrons(),
-                                                 get_total_number_holes(),
-                                                 m_simulation_history.m_impact_ionization_positions.size(),
-                                                 ramo_current_electron,
-                                                 ramo_current_hole,
-                                                 ramo_current,
-                                                 0.0,
-                                                 0.0,
-                                                 0.0,
-                                                 max_electric_field_V_per_cm,
-                                                 ramo_electrode_voltage_for_history(),
-                                                 reference_electrode_voltage_for_history(),
-                                                 quench_supply_voltage_for_history(),
-                                                 quench_device_current_for_history(),
-                                                 quench_resistor_current_for_history(),
-                                                 quench_voltage_drop_for_history(),
-                                                 m_simulation_history.contact_voltage_values_from_map(
-                                                     contact_voltages_V()));
+        m_simulation_history.add_data_to_history(
+            m_state.m_time_s,
+            get_total_number_electrons(),
+            get_total_number_holes(),
+            m_simulation_history.m_impact_ionization_positions.size(),
+            ramo_current_electron,
+            ramo_current_hole,
+            ramo_current,
+            0.0,
+            0.0,
+            0.0,
+            max_electric_field_V_per_cm,
+            ramo_electrode_voltage_for_history(),
+            reference_electrode_voltage_for_history(),
+            quench_supply_voltage_for_history(),
+            quench_device_current_for_history(),
+            quench_resistor_current_for_history(),
+            quench_voltage_drop_for_history(),
+            m_simulation_history.contact_voltage_values_from_map(contact_voltages_V()));
 
         if (m_state.m_iteration == 1 || m_state.m_iteration % 10 == 0) {
             m_simulation_history.append_last_iter_to_csv(history_stream);

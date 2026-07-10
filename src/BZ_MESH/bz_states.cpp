@@ -107,10 +107,8 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
     if (!(m_q_shift.Length() > 0.0)) {
         throw std::invalid_argument("The dielectric function is singular at q = 0.");
     }
-    if (m_eigenvalues_k.size() != m_list_vertices.size() ||
-        m_eigenvalues_k_plus_q.size() != m_list_vertices.size() ||
-        m_eigenvectors_k.size() != m_list_vertices.size() ||
-        m_eigenvectors_k_plus_q.size() != m_list_vertices.size()) {
+    if (m_eigenvalues_k.size() != m_list_vertices.size() || m_eigenvalues_k_plus_q.size() != m_list_vertices.size() ||
+        m_eigenvectors_k.size() != m_list_vertices.size() || m_eigenvectors_k_plus_q.size() != m_list_vertices.size()) {
         throw std::logic_error("Eigenstates at k and k+q must be computed before the dielectric function.");
     }
     m_list_energies                         = list_energies;
@@ -127,8 +125,8 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
             std::cout << "\rComputing dielectric function for tetrahedron " << idx_tetra << "/" << nb_tetra
                       << std::flush;
         }
-        std::array<std::size_t, 4>    list_idx_vertices = m_list_tetrahedra[idx_tetra].get_list_indices_vertices();
-        double                        volume_tetra = std::fabs(m_list_tetrahedra[idx_tetra].compute_signed_volume());
+        std::array<std::size_t, 4> list_idx_vertices = m_list_tetrahedra[idx_tetra].get_list_indices_vertices();
+        double                     volume_tetra      = std::fabs(m_list_tetrahedra[idx_tetra].compute_signed_volume());
         total_volume += volume_tetra;
         // std::cout << "Volume tetra = " << volume_tetra << std::endl;
         std::vector<double> sum_dielectric_function_real_tetra_at_energies(list_energies.size(), 0.0);
@@ -168,7 +166,7 @@ void BZ_States::compute_dielectric_function(const std::vector<double>& list_ener
 
     const double a          = m_material.get_lattice_constant_meter();
     const double Omega_cell = a * a * a / 4.0;  // primitive-cell volume for the diamond/fcc lattice
-    double V_BZ       = std::pow(2.0 * M_PI, 3) / Omega_cell;
+    double       V_BZ       = std::pow(2.0 * M_PI, 3) / Omega_cell;
     std::cout << "Expected BZ volume: " << V_BZ << "\n";
     std::cout << "Integrated volume: " << total_volume << "\n";
     std::cout << "Ratio (integrated / expected): " << (total_volume / V_BZ) << "\n";

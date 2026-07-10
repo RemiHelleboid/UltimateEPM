@@ -73,11 +73,11 @@ class ImpactIonization {
 
  public:
     ImpactIonization(const uepm::pseudopotential::epm_material& material, const std::string& initial_mesh_path);
-    void read_dielectric_file(const std::string& filename);
-    void interp_test_dielectric_function(std::string filename);
-    std::size_t number_bz_state_tables() const noexcept { return m_list_BZ_states.size(); }
+    void                       read_dielectric_file(const std::string& filename);
+    void                       interp_test_dielectric_function(std::string filename);
+    std::size_t                number_bz_state_tables() const noexcept { return m_list_BZ_states.size(); }
     ImpactIonizationStateTable make_state_table(std::size_t bz_state_index = 0) const;
-    ScreenedCoulombKernel make_screened_coulomb_kernel(ScreenedCoulombKernelConfig config = {}) const {
+    ScreenedCoulombKernel      make_screened_coulomb_kernel(ScreenedCoulombKernelConfig config = {}) const {
         return ScreenedCoulombKernel(m_dielectric_mesh, config);
     }
 

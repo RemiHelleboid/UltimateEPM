@@ -28,21 +28,21 @@
 namespace {
 
 struct EpsilonAppConfig {
-    std::string material_name{"Si"};
-    std::string epm_parameter_set{"local-cohen"};
-    std::string output_prefix{"epsilon"};
-    std::string mode{"q-list"};
-    std::string q_file{};
-    std::string q_values{"1e-2,1e-3,1e-4"};
+    std::string      material_name{"Si"};
+    std::string      epm_parameter_set{"local-cohen"};
+    std::string      output_prefix{"epsilon"};
+    std::string      mode{"q-list"};
+    std::string      q_file{};
+    std::string      q_values{"1e-2,1e-3,1e-4"};
     Vector3D<double> direction{1.0, 0.0, 0.0};
 
-    int nb_nearest_neighbors{10};
-    int nb_bands{16};
-    int nkx{40};
-    int nky{40};
-    int nkz{40};
+    int         nb_nearest_neighbors{10};
+    int         nb_bands{16};
+    int         nkx{40};
+    int         nky{40};
+    int         nkz{40};
     std::string bz_sampling{"full"};
-    int q_count{40};
+    int         q_count{40};
 
     double min_energy_eV{0.0};
     double max_energy_eV{20.0};
@@ -91,8 +91,7 @@ std::string normalize_bz_sampling(std::string value) {
     if (value == "48" || value == "fcc-ibz" || value == "ibz" || value == "irreducible-wedge") {
         return "fcc-ibz";
     }
-    throw std::invalid_argument(
-        "--bz-sampling must be one of full, q100-octant, fcc-ibz (legacy aliases: 1, 8, 48).");
+    throw std::invalid_argument("--bz-sampling must be one of full, q100-octant, fcc-ibz (legacy aliases: 1, 8, 48).");
 }
 
 uepm::pseudopotential::DielectricKPointSampling dielectric_sampling_mode(const std::string& value) {
@@ -219,7 +218,8 @@ std::vector<Vector3D<double>> make_qpoints(const EpsilonAppConfig& config) {
     } else if (config.mode == "q-file") {
         throw std::invalid_argument("q-file mode requires --q-file or YAML file-list-q.");
     } else {
-        throw std::invalid_argument("Unknown epsilon mode '" + config.mode + "'. Use optical, q-list, q-line, or q-file.");
+        throw std::invalid_argument("Unknown epsilon mode '" + config.mode +
+                                    "'. Use optical, q-list, q-line, or q-file.");
     }
 
     if (q_norms.empty()) {
@@ -274,8 +274,8 @@ bool has_nonempty_env(const char* name) {
 }
 
 bool launched_under_mpi() {
-    return has_nonempty_env("OMPI_COMM_WORLD_SIZE") || has_nonempty_env("PMI_SIZE") ||
-           has_nonempty_env("PMIX_RANK") || has_nonempty_env("MPI_LOCALNRANKS");
+    return has_nonempty_env("OMPI_COMM_WORLD_SIZE") || has_nonempty_env("PMI_SIZE") || has_nonempty_env("PMIX_RANK") ||
+           has_nonempty_env("MPI_LOCALNRANKS");
 }
 
 void normalize_mode(EpsilonAppConfig& config) {
@@ -283,10 +283,10 @@ void normalize_mode(EpsilonAppConfig& config) {
     std::replace(config.mode.begin(), config.mode.end(), '_', '-');
 }
 
-void print_config(const EpsilonAppConfig& config,
-                  const std::vector<double>& energies,
+void print_config(const EpsilonAppConfig&              config,
+                  const std::vector<double>&           energies,
                   const std::vector<Vector3D<double>>& qpoints,
-                  int number_processes) {
+                  int                                  number_processes) {
     std::cout << "EPSILON PROGRAM\n";
     std::cout << "MPI processes: " << number_processes << '\n';
     std::cout << "Material: " << config.material_name << '\n';
@@ -318,12 +318,11 @@ void print_config(const EpsilonAppConfig& config,
     std::cout << "Output prefix: " << config.output_prefix << '\n';
 }
 
-std::vector<std::vector<std::vector<double>>> gather_dielectric_contributions(
-    const std::vector<double>& flat_local,
-    std::size_t                nb_qpoints,
-    std::size_t                nb_energies,
-    int                        number_processes,
-    int                        process_rank) {
+std::vector<std::vector<std::vector<double>>> gather_dielectric_contributions(const std::vector<double>& flat_local,
+                                                                              std::size_t                nb_qpoints,
+                                                                              std::size_t                nb_energies,
+                                                                              int number_processes,
+                                                                              int process_rank) {
     const std::size_t qe      = nb_qpoints * nb_energies;
     const int         local_n = static_cast<int>(flat_local.size());
 
@@ -399,7 +398,8 @@ std::vector<std::vector<std::vector<double>>> local_dielectric_contribution_as_s
     }
 
     std::vector<std::vector<std::vector<double>>> result(
-        1, std::vector<std::vector<double>>(nb_qpoints, std::vector<double>(nb_energies, 0.0)));
+        1,
+        std::vector<std::vector<double>>(nb_qpoints, std::vector<double>(nb_energies, 0.0)));
     for (std::size_t q = 0; q < nb_qpoints; ++q) {
         const double* src = &flat_local[q * nb_energies];
         std::copy(src, src + nb_energies, result[0][q].data());
@@ -410,34 +410,45 @@ std::vector<std::vector<std::vector<double>>> local_dielectric_contribution_as_s
 }  // namespace
 
 int main(int argc, char** argv) {
-    TCLAP::CmdLine cmd("Compute dynamic dielectric functions epsilon(q,E).", ' ', "0.2");
+    TCLAP::CmdLine               cmd("Compute dynamic dielectric functions epsilon(q,E).", ' ', "0.2");
     TCLAP::ValueArg<std::string> arg_config("c", "config", "Optional YAML config file.", false, "", "path");
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Material symbol.", false, "", "symbol");
     TCLAP::ValueArg<std::string> arg_epm_set("", "epm-set", "Named EPM parameter set.", false, "", "name");
     TCLAP::ValueArg<std::string> arg_mode("", "mode", "Mode: optical, q-list, q-line, or q-file.", false, "", "mode");
-    TCLAP::ValueArg<std::string> arg_q_values("", "q-values", "Comma-separated q magnitudes in reduced units.", false, "", "list");
+    TCLAP::ValueArg<std::string> arg_q_values("",
+                                              "q-values",
+                                              "Comma-separated q magnitudes in reduced units.",
+                                              false,
+                                              "",
+                                              "list");
     TCLAP::ValueArg<std::string> arg_direction("", "direction", "q direction, e.g. 1,0,0.", false, "", "vector");
-    TCLAP::ValueArg<std::string> arg_q_file("", "q-file", "File containing qx qy qz rows in reduced units.", false, "", "path");
+    TCLAP::ValueArg<std::string> arg_q_file("",
+                                            "q-file",
+                                            "File containing qx qy qz rows in reduced units.",
+                                            false,
+                                            "",
+                                            "path");
     TCLAP::ValueArg<std::string> arg_out("o", "out", "Output file prefix.", false, "", "prefix");
     TCLAP::ValueArg<int>         arg_bands("b", "bands", "Number of EPM bands.", false, -1, "int");
-    TCLAP::ValueArg<int>         arg_neighbors("", "nearest-neighbors", "Number of reciprocal shells.", false, -1, "int");
-    TCLAP::ValueArg<int>         arg_nkx("", "Nkx", "k-grid count in x.", false, -1, "int");
-    TCLAP::ValueArg<int>         arg_nky("", "Nky", "k-grid count in y.", false, -1, "int");
-    TCLAP::ValueArg<int>         arg_nkz("", "Nkz", "k-grid count in z.", false, -1, "int");
-    TCLAP::ValueArg<std::string> arg_bz_sampling("",
-                                                 "bz-sampling",
-                                                 "BZ sampling: full, q100-octant, or fcc-ibz. Legacy aliases: 1, 8, 48.",
-                                                 false,
-                                                 "",
-                                                 "mode");
-    TCLAP::ValueArg<int>         arg_q_count("", "q-count", "Number of q samples for q-line mode.", false, -1, "int");
-    TCLAP::ValueArg<double>      arg_emin("", "emin", "Minimum energy in eV.", false, std::nan(""), "eV");
-    TCLAP::ValueArg<double>      arg_emax("", "emax", "Maximum energy in eV.", false, std::nan(""), "eV");
-    TCLAP::ValueArg<double>      arg_estep("", "estep", "Energy step in eV.", false, std::nan(""), "eV");
-    TCLAP::ValueArg<double>      arg_eta("", "eta", "Smearing in eV.", false, std::nan(""), "eV");
-    TCLAP::ValueArg<double>      arg_q_min("", "q-min", "Minimum q magnitude for q-line mode.", false, std::nan(""), "q");
-    TCLAP::ValueArg<double>      arg_q_max("", "q-max", "Maximum q magnitude for q-line mode.", false, std::nan(""), "q");
-    TCLAP::SwitchArg             arg_nonlocal("", "nonlocal", "Use nonlocal EPM parameters.", false);
+    TCLAP::ValueArg<int> arg_neighbors("", "nearest-neighbors", "Number of reciprocal shells.", false, -1, "int");
+    TCLAP::ValueArg<int> arg_nkx("", "Nkx", "k-grid count in x.", false, -1, "int");
+    TCLAP::ValueArg<int> arg_nky("", "Nky", "k-grid count in y.", false, -1, "int");
+    TCLAP::ValueArg<int> arg_nkz("", "Nkz", "k-grid count in z.", false, -1, "int");
+    TCLAP::ValueArg<std::string> arg_bz_sampling(
+        "",
+        "bz-sampling",
+        "BZ sampling: full, q100-octant, or fcc-ibz. Legacy aliases: 1, 8, 48.",
+        false,
+        "",
+        "mode");
+    TCLAP::ValueArg<int>    arg_q_count("", "q-count", "Number of q samples for q-line mode.", false, -1, "int");
+    TCLAP::ValueArg<double> arg_emin("", "emin", "Minimum energy in eV.", false, std::nan(""), "eV");
+    TCLAP::ValueArg<double> arg_emax("", "emax", "Maximum energy in eV.", false, std::nan(""), "eV");
+    TCLAP::ValueArg<double> arg_estep("", "estep", "Energy step in eV.", false, std::nan(""), "eV");
+    TCLAP::ValueArg<double> arg_eta("", "eta", "Smearing in eV.", false, std::nan(""), "eV");
+    TCLAP::ValueArg<double> arg_q_min("", "q-min", "Minimum q magnitude for q-line mode.", false, std::nan(""), "q");
+    TCLAP::ValueArg<double> arg_q_max("", "q-max", "Maximum q magnitude for q-line mode.", false, std::nan(""), "q");
+    TCLAP::SwitchArg        arg_nonlocal("", "nonlocal", "Use nonlocal EPM parameters.", false);
 
     cmd.add(arg_config);
     cmd.add(arg_material);
@@ -548,13 +559,14 @@ int main(int argc, char** argv) {
     }
     normalize_mode(config);
     if (config.mode != "optical" && config.mode != "q-list" && config.mode != "q-line" && config.mode != "q-file") {
-        throw std::invalid_argument("Unknown epsilon mode '" + config.mode + "'. Use optical, q-list, q-line, or q-file.");
+        throw std::invalid_argument("Unknown epsilon mode '" + config.mode +
+                                    "'. Use optical, q-list, q-line, or q-file.");
     }
     config.bz_sampling = normalize_bz_sampling(config.bz_sampling);
 
-    const bool use_mpi = launched_under_mpi();
-    int number_processes = 1;
-    int process_rank     = 0;
+    const bool use_mpi          = launched_under_mpi();
+    int        number_processes = 1;
+    int        process_rank     = 0;
     if (use_mpi) {
         MPI_Init(&argc, &argv);
         MPI_Comm_size(MPI_COMM_WORLD, &number_processes);
@@ -575,9 +587,10 @@ int main(int argc, char** argv) {
         create_output_parent(config.output_prefix);
         print_config(config, energies, qpoints, number_processes);
         if (config.bz_sampling == "fcc-ibz") {
-            std::cout << "Warning: fcc-ibz sampling is not generally valid for finite-q or direction-resolved optical "
-                         "dielectric functions unless symmetry weights and q/polarization-star handling are implemented. "
-                         "Full-BZ sampling (--bz-sampling full) is recommended.\n";
+            std::cout
+                << "Warning: fcc-ibz sampling is not generally valid for finite-q or direction-resolved optical "
+                   "dielectric functions unless symmetry weights and q/polarization-star handling are implemented. "
+                   "Full-BZ sampling (--bz-sampling full) is recommended.\n";
         }
         const bool q100_direction_ok =
             config.mode == "optical" ? vector_along_100(config.direction) : all_qpoints_along_100(qpoints);
@@ -660,11 +673,19 @@ int main(int argc, char** argv) {
 
     const auto local_flat_real = dielectric.get_flat_dielectric_function();
     const auto local_flat_imag = dielectric.get_flat_dielectric_function_imaginary();
-    auto dielectric_real_by_process =
-        use_mpi ? gather_dielectric_contributions(local_flat_real, qpoints.size(), energies.size(), number_processes, process_rank)
-                : local_dielectric_contribution_as_single_process(local_flat_real, qpoints.size(), energies.size());
+    auto       dielectric_real_by_process =
+        use_mpi ? gather_dielectric_contributions(local_flat_real,
+                                                  qpoints.size(),
+                                                  energies.size(),
+                                                  number_processes,
+                                                  process_rank)
+                      : local_dielectric_contribution_as_single_process(local_flat_real, qpoints.size(), energies.size());
     auto dielectric_imag_by_process =
-        use_mpi ? gather_dielectric_contributions(local_flat_imag, qpoints.size(), energies.size(), number_processes, process_rank)
+        use_mpi ? gather_dielectric_contributions(local_flat_imag,
+                                                  qpoints.size(),
+                                                  energies.size(),
+                                                  number_processes,
+                                                  process_rank)
                 : local_dielectric_contribution_as_single_process(local_flat_imag, qpoints.size(), energies.size());
 
     if (process_rank == 0) {

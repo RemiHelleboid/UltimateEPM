@@ -69,12 +69,12 @@ inline vector3 reflect_vector_specular(const vector3& value, const vector3& unit
     return value - 2.0 * value.dot(unit_normal) * unit_normal;
 }
 
-inline vector3 place_reflected_position_inside(const element&            old_element,
-                                               const vector3&            previous_position,
-                                               const vector3&            trial_position,
-                                               const boundary_exit_hit&  hit,
-                                               const vector3&            outgoing_remaining_displacement,
-                                               int                       dimension) {
+inline vector3 place_reflected_position_inside(const element&           old_element,
+                                               const vector3&           previous_position,
+                                               const vector3&           trial_position,
+                                               const boundary_exit_hit& hit,
+                                               const vector3&           outgoing_remaining_displacement,
+                                               int                      dimension) {
     const double inward_epsilon = std::max(1.0e-9, 1.0e-9 * (trial_position - previous_position).norm());
 
     vector3 candidate = hit.position + outgoing_remaining_displacement + inward_epsilon * hit.inward_normal;
@@ -100,7 +100,6 @@ inline vector3 align_displacement_with_direction(const vector3& displacement, co
     }
     return displacement_norm * direction / direction_norm;
 }
-
 
 inline std::optional<boundary_exit_hit> find_boundary_exit_hit(const element& old_element,
                                                                const vector3& previous_position,

@@ -53,7 +53,7 @@ void add_unique_point(IsoEnergyPolygon& polygon, const vector3& point, double to
 
 IsoEnergyPolygon compute_band_iso_energy_polygon_impl(const std::array<Vertex*, 4>& vertices,
                                                       const bbox_mesh&              bounding_box,
-                                                      const std::array<double, 4>& energies,
+                                                      const std::array<double, 4>&  energies,
                                                       double                        iso_energy) {
     const auto   minmax           = std::minmax_element(energies.begin(), energies.end());
     const double energy_scale     = std::max({std::abs(*minmax.first), std::abs(*minmax.second), 1.0});
@@ -65,7 +65,7 @@ IsoEnergyPolygon compute_band_iso_energy_polygon_impl(const std::array<Vertex*, 
 
     constexpr std::array<std::array<std::size_t, 2>, 6> edge_vertices = {
         {{{0, 1}}, {{0, 2}}, {{0, 3}}, {{1, 2}}, {{1, 3}}, {{2, 3}}}};
-    const double point_tolerance = 1e-12 * std::max(bounding_box.get_diagonal_size(), 1.0);
+    const double     point_tolerance = 1e-12 * std::max(bounding_box.get_diagonal_size(), 1.0);
     IsoEnergyPolygon intersections;
 
     for (const auto& edge : edge_vertices) {
@@ -83,7 +83,7 @@ IsoEnergyPolygon compute_band_iso_energy_polygon_impl(const std::array<Vertex*, 
             add_unique_point(intersections, vertices[j]->get_position(), point_tolerance);
         }
         if (!i_on && !j_on && ((di < 0.0) != (dj < 0.0))) {
-            const double fraction = (iso_energy - energies[i]) / (energies[j] - energies[i]);
+            const double  fraction = (iso_energy - energies[i]) / (energies[j] - energies[i]);
             const vector3 point =
                 (1.0 - fraction) * vertices[i]->get_position() + fraction * vertices[j]->get_position();
             add_unique_point(intersections, point, point_tolerance);
@@ -118,8 +118,8 @@ double order_iso_polygon_and_compute_area(IsoEnergyPolygon& polygon) noexcept {
     for (const auto& order : orders) {
         vector3 area_vector{};
         for (std::size_t index = 0; index < order.size(); ++index) {
-            area_vector += cross_product(polygon.points[order[index]],
-                                         polygon.points[order[(index + 1) % order.size()]]);
+            area_vector +=
+                cross_product(polygon.points[order[index]], polygon.points[order[(index + 1) % order.size()]]);
         }
         const double area = 0.5 * area_vector.norm();
         if (area > maximum_area) {
@@ -215,7 +215,7 @@ vector3 Tetra::compute_gradient_at_tetra(const array4d& values_at_vertices) cons
     const double du2 = values_at_vertices[2] - values_at_vertices[0];
     const double du3 = values_at_vertices[3] - values_at_vertices[0];
 
-    const double     det = dot(a, cross_product(b, c));
+    const double     det                = dot(a, cross_product(b, c));
     constexpr double relative_tolerance = 1e-14;
     if (std::abs(det) <= relative_tolerance * geometry_scale(m_list_edges)) {
         throw std::domain_error("Cannot compute a gradient in a degenerate tetrahedron.");
@@ -231,7 +231,7 @@ void Tetra::compute_gradient_energy_at_bands() {
     m_gradient_norm_per_band.reserve(m_nb_bands);
     for (std::size_t band_index = 0; band_index < m_nb_bands; band_index++) {
         const std::array<double, 4> energies_at_vertices = get_band_energies_at_vertices(band_index);
-        const vector3 gradient = compute_gradient_at_tetra(energies_at_vertices);
+        const vector3               gradient             = compute_gradient_at_tetra(energies_at_vertices);
         m_gradient_energy_per_band.push_back(gradient);
         m_gradient_norm_per_band.push_back(gradient.norm());
     }
@@ -254,7 +254,7 @@ void Tetra::compute_min_max_energies_at_bands() {
             m_list_vertices[2]->get_energy_at_band(idx_band),
             m_list_vertices[3]->get_energy_at_band(idx_band),
         };
-        auto minmax   = std::minmax_element(energies.begin(), energies.end());
+        auto minmax = std::minmax_element(energies.begin(), energies.end());
         m_min_energy_per_band.push_back(*minmax.first);
         m_max_energy_per_band.push_back(*minmax.second);
     }
@@ -311,8 +311,8 @@ vector3 Tetra::compute_edge(std::size_t index_vtx_1, std::size_t index_vtx_2) co
  * @return std::array<double, 4>
  */
 std::array<double, 4> Tetra::compute_barycentric_coordinates(const vector3& location) const {
-    const vector3 v_loc1            = location - m_list_vertices[0]->get_position();
-    const double  tetra_determinant = 6.0 * m_signed_volume;
+    const vector3    v_loc1             = location - m_list_vertices[0]->get_position();
+    const double     tetra_determinant  = 6.0 * m_signed_volume;
     constexpr double relative_tolerance = 1e-14;
     if (std::abs(tetra_determinant) <= relative_tolerance * geometry_scale(m_list_edges)) {
         throw std::domain_error("Cannot compute barycentric coordinates in a degenerate tetrahedron.");
@@ -377,9 +377,9 @@ vector3 Tetra::interpolate_gradient_energy_at_band(const vector3& location, std:
  * @return false
  */
 bool Tetra::is_location_inside(const vector3& location) const {
-    const vector3    v_loc1            = location - m_list_vertices[0]->get_position();
-    const vector3    v_loc2            = location - m_list_vertices[1]->get_position();
-    const double     tetra_determinant = 6.0 * m_signed_volume;
+    const vector3    v_loc1             = location - m_list_vertices[0]->get_position();
+    const vector3    v_loc2             = location - m_list_vertices[1]->get_position();
+    const double     tetra_determinant  = 6.0 * m_signed_volume;
     constexpr double relative_tolerance = 1e-14;
     if (std::abs(tetra_determinant) <= relative_tolerance * geometry_scale(m_list_edges)) {
         return false;
@@ -484,9 +484,9 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
         throw std::out_of_range("Band index out of range in tetrahedron iso-surface computation.");
     }
 
-    const auto energies = get_band_energies_at_vertices(band_index);
-    const auto minmax   = std::minmax_element(energies.begin(), energies.end());
-    const double energy_scale = std::max({std::abs(*minmax.first), std::abs(*minmax.second), 1.0});
+    const auto   energies         = get_band_energies_at_vertices(band_index);
+    const auto   minmax           = std::minmax_element(energies.begin(), energies.end());
+    const double energy_scale     = std::max({std::abs(*minmax.first), std::abs(*minmax.second), 1.0});
     const double energy_tolerance = 1e-12 * energy_scale;
     if (iso_energy < *minmax.first - energy_tolerance || iso_energy > *minmax.second + energy_tolerance) {
         return {};
@@ -497,17 +497,17 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
 
     constexpr std::array<std::array<std::size_t, 2>, 6> edge_vertices = {
         {{{0, 1}}, {{0, 2}}, {{0, 3}}, {{1, 2}}, {{1, 3}}, {{2, 3}}}};
-    const double point_tolerance = 1e-12 * std::max(m_bbox.get_diagonal_size(), 1.0);
+    const double         point_tolerance = 1e-12 * std::max(m_bbox.get_diagonal_size(), 1.0);
     std::vector<vector3> intersections;
     intersections.reserve(4);
 
     for (const auto& edge : edge_vertices) {
-        const std::size_t i = edge[0];
-        const std::size_t j = edge[1];
-        const double di = energies[i] - iso_energy;
-        const double dj = energies[j] - iso_energy;
-        const bool i_on = std::abs(di) <= energy_tolerance;
-        const bool j_on = std::abs(dj) <= energy_tolerance;
+        const std::size_t i    = edge[0];
+        const std::size_t j    = edge[1];
+        const double      di   = energies[i] - iso_energy;
+        const double      dj   = energies[j] - iso_energy;
+        const bool        i_on = std::abs(di) <= energy_tolerance;
+        const bool        j_on = std::abs(dj) <= energy_tolerance;
 
         if (i_on) {
             add_unique_point(intersections, m_list_vertices[i]->get_position(), point_tolerance);
@@ -516,9 +516,9 @@ std::vector<vector3> Tetra::compute_band_iso_energy_surface(double iso_energy, s
             add_unique_point(intersections, m_list_vertices[j]->get_position(), point_tolerance);
         }
         if (!i_on && !j_on && ((di < 0.0) != (dj < 0.0))) {
-            const double fraction = (iso_energy - energies[i]) / (energies[j] - energies[i]);
-            const vector3 point = (1.0 - fraction) * m_list_vertices[i]->get_position() +
-                                  fraction * m_list_vertices[j]->get_position();
+            const double  fraction = (iso_energy - energies[i]) / (energies[j] - energies[i]);
+            const vector3 point =
+                (1.0 - fraction) * m_list_vertices[i]->get_position() + fraction * m_list_vertices[j]->get_position();
             add_unique_point(intersections, point, point_tolerance);
         }
     }
@@ -619,8 +619,8 @@ double Tetra::compute_tetra_dos_energy_band_reference(double energy_eV, std::siz
     }
 
     // Intersect isosurface E(k)=energy with tetra edges -> polygon vertices in k (m^-1)
-    const vector3 gradient = compute_gradient_at_tetra(get_band_energies_at_vertices(band_index));
-    const double gradient_norm = gradient.norm();
+    const vector3 gradient      = compute_gradient_at_tetra(get_band_energies_at_vertices(band_index));
+    const double  gradient_norm = gradient.norm();
     if (!(gradient_norm > 0.0) || !std::isfinite(gradient_norm)) {
         return 0.0;
     }
@@ -663,10 +663,9 @@ double Tetra::compute_tetra_dos_energy_band(double                  energy_eV,
     if (energy_eV < m_min_energy_per_band[band_index] || energy_eV > m_max_energy_per_band[band_index]) {
         return 0.0;
     }
-    const double gradient_norm =
-        band_index < m_gradient_norm_per_band.size()
-            ? m_gradient_norm_per_band[band_index]
-            : compute_gradient_at_tetra(get_band_energies_at_vertices(band_index)).norm();
+    const double gradient_norm = band_index < m_gradient_norm_per_band.size()
+                                     ? m_gradient_norm_per_band[band_index]
+                                     : compute_gradient_at_tetra(get_band_energies_at_vertices(band_index)).norm();
     if (!(gradient_norm > 0.0) || !std::isfinite(gradient_norm)) {
         return 0.0;
     }
@@ -682,9 +681,11 @@ IsoEnergyPolygon Tetra::compute_band_iso_energy_polygon(double iso_energy, std::
     if (band_index >= m_nb_bands) {
         throw std::out_of_range("Band index out of range in tetrahedron iso-energy computation.");
     }
-    IsoEnergyPolygon polygon = compute_band_iso_energy_polygon_impl(
-        m_list_vertices, m_bbox, get_band_energies_at_vertices(band_index), iso_energy);
-    polygon.area = order_iso_polygon_and_compute_area(polygon);
+    IsoEnergyPolygon polygon = compute_band_iso_energy_polygon_impl(m_list_vertices,
+                                                                    m_bbox,
+                                                                    get_band_energies_at_vertices(band_index),
+                                                                    iso_energy);
+    polygon.area             = order_iso_polygon_and_compute_area(polygon);
     return polygon;
 }
 
@@ -784,10 +785,10 @@ vector3 Tetra::draw_random_uniform_point_at_energy(const IsoEnergyPolygon& polyg
         if (polygon.size != 4) {
             throw std::runtime_error("A linear tetrahedron iso-energy surface must be a triangle or quadrilateral.");
         }
-        IsoTriangle triangle1(polygon.points[0], polygon.points[1], polygon.points[2], 0.0);
-        IsoTriangle triangle2(polygon.points[0], polygon.points[2], polygon.points[3], 0.0);
-        const double surface_triangle1 = triangle1.get_signed_surface();
-        const double surface_triangle2 = triangle2.get_signed_surface();
+        IsoTriangle                            triangle1(polygon.points[0], polygon.points[1], polygon.points[2], 0.0);
+        IsoTriangle                            triangle2(polygon.points[0], polygon.points[2], polygon.points[3], 0.0);
+        const double                           surface_triangle1 = triangle1.get_signed_surface();
+        const double                           surface_triangle2 = triangle2.get_signed_surface();
         std::uniform_real_distribution<double> dist(0.0, surface_triangle1 + surface_triangle2);
         return dist(rng) < surface_triangle1 ? triangle1.draw_random_uniform_point_in_triangle(rng)
                                              : triangle2.draw_random_uniform_point_in_triangle(rng);

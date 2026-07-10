@@ -15,6 +15,9 @@
 #include <cstdint>
 #include <vector>
 
+#include "physical_constants.hpp"
+#include "vector_bz.hpp"
+
 namespace uepm::mesh_bz {
 
 enum class PhononMode : uint8_t { acoustic = 0, optical = 1, none = 2 };

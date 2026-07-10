@@ -21,12 +21,12 @@
 #include <vector>
 
 #include "doctest/doctest.h"
-#include "physical_constants.hpp"
-#include "vector_bz.hpp"
 #include "elph_deformation_potential.hpp"
 #include "mesh_tetra.hpp"
 #include "mesh_vertex.hpp"
+#include "physical_constants.hpp"
 #include "tetra_energy_index.hpp"
+#include "vector_bz.hpp"
 
 using uepm::mesh_bz::Tetra;
 using uepm::mesh_bz::vector3;
@@ -35,20 +35,17 @@ using uepm::mesh_bz::Vertex;
 TEST_CASE("YAML deformation-potential model uses initial carrier energy and phonon mode") {
     const vector3 q(3.0, 4.0, 0.0);
 
-    const uepm::mesh_bz::DeformationPotential acoustic(
-        uepm::mesh_bz::PhononMode::acoustic, 4.0, 5.0, 2.0);
+    const uepm::mesh_bz::DeformationPotential acoustic(uepm::mesh_bz::PhononMode::acoustic, 4.0, 5.0, 2.0);
     CHECK(acoustic.get_deformation_potential(q, 1.0) == doctest::Approx(15.0));
     CHECK(acoustic.get_deformation_potential(q, 3.0) == doctest::Approx(5.0 * std::sqrt(14.0)));
 
-    const uepm::mesh_bz::DeformationPotential optical(
-        uepm::mesh_bz::PhononMode::optical, 9.0, 7.0, 0.0);
+    const uepm::mesh_bz::DeformationPotential optical(uepm::mesh_bz::PhononMode::optical, 9.0, 7.0, 0.0);
     CHECK(optical.get_deformation_potential(q, 4.0) == doctest::Approx(3.0));
 }
 
 TEST_CASE("deformation-potential model rejects invalid configured values") {
-    const vector3 q(1.0, 0.0, 0.0);
-    const uepm::mesh_bz::DeformationPotential invalid(
-        uepm::mesh_bz::PhononMode::optical, 1.0, -2.0, 1.0);
+    const vector3                             q(1.0, 0.0, 0.0);
+    const uepm::mesh_bz::DeformationPotential invalid(uepm::mesh_bz::PhononMode::optical, 1.0, -2.0, 1.0);
 
     CHECK_THROWS_AS(invalid.get_deformation_potential(q, 1.0), std::domain_error);
     CHECK_THROWS_AS(invalid.get_deformation_potential(q, std::numeric_limits<double>::infinity()),
@@ -129,13 +126,11 @@ TEST_CASE("tetra DOS matches an analytic linear band") {
     Tetra                  tetra(0, pointers);
     tetra.compute_min_max_energies_at_bands();
 
-    constexpr double energy = 0.25;
-    const double expected_area = 0.5 * (1.0 - energy) * (1.0 - energy);
-    const double expected_dos =
-        expected_area / (8.0 * std::numbers::pi * std::numbers::pi * std::numbers::pi);
+    constexpr double energy        = 0.25;
+    const double     expected_area = 0.5 * (1.0 - energy) * (1.0 - energy);
+    const double     expected_dos  = expected_area / (8.0 * std::numbers::pi * std::numbers::pi * std::numbers::pi);
 
-    CHECK(tetra.compute_tetra_dos_energy_band(energy, 0) ==
-          doctest::Approx(expected_dos).epsilon(1e-12).scale(1.0));
+    CHECK(tetra.compute_tetra_dos_energy_band(energy, 0) == doctest::Approx(expected_dos).epsilon(1e-12).scale(1.0));
 }
 
 TEST_CASE("reusing an iso-energy polygon preserves tetra DOS") {
@@ -194,8 +189,9 @@ TEST_CASE("tetra energy interval index exactly matches brute-force overlap") {
     for (const auto [minimum_energy, maximum_energy] :
          {std::pair{0.1, 0.3}, std::pair{0.55, 1.15}, std::pair{1.5, 2.6}, std::pair{3.1, 4.0}}) {
         std::vector<std::size_t> indexed;
-        index.at(0).for_each_candidate(
-            minimum_energy, maximum_energy, [&](std::size_t tetra_index) { indexed.push_back(tetra_index); });
+        index.at(0).for_each_candidate(minimum_energy, maximum_energy, [&](std::size_t tetra_index) {
+            indexed.push_back(tetra_index);
+        });
 
         std::vector<std::size_t> brute_force;
         for (std::size_t tetra_index = 0; tetra_index < tetrahedra.size(); ++tetra_index) {
@@ -234,15 +230,15 @@ TEST_CASE("equal vertex energies produce a finite quadrilateral iso-surface") {
 }
 
 TEST_CASE("allocation-free tetra DOS matches the reference geometry implementation") {
-    std::mt19937_64                    rng(0x5eed1234ULL);
+    std::mt19937_64                        rng(0x5eed1234ULL);
     std::uniform_real_distribution<double> coordinate(-2.0, 2.0);
     std::uniform_real_distribution<double> energy_distribution(-3.0, 3.0);
 
     constexpr std::size_t tetra_count       = 250;
     constexpr std::size_t samples_per_tetra = 41;
     for (std::size_t tetra_index = 0; tetra_index < tetra_count; ++tetra_index) {
-        std::array<vector3, 4> positions;
-        TetraWithVerts*        fixture = nullptr;
+        std::array<vector3, 4>          positions;
+        TetraWithVerts*                 fixture = nullptr;
         std::unique_ptr<TetraWithVerts> storage;
         do {
             positions = {
@@ -301,11 +297,10 @@ TEST_CASE("allocation-free tetra DOS preserves repeated-energy edge cases") {
         const auto minmax = std::minmax_element(energies.begin(), energies.end());
         for (std::size_t sample = 0; sample <= 20; ++sample) {
             const double fraction = static_cast<double>(sample) / 20.0;
-            const double energy = *minmax.first + fraction * (*minmax.second - *minmax.first);
-            CHECK(tetra.compute_tetra_dos_energy_band(energy, 0) ==
-                  doctest::Approx(tetra.compute_tetra_dos_energy_band_reference(energy, 0))
-                      .epsilon(2e-12)
-                      .scale(1e-30));
+            const double energy   = *minmax.first + fraction * (*minmax.second - *minmax.first);
+            CHECK(
+                tetra.compute_tetra_dos_energy_band(energy, 0) ==
+                doctest::Approx(tetra.compute_tetra_dos_energy_band_reference(energy, 0)).epsilon(2e-12).scale(1e-30));
         }
     }
 }

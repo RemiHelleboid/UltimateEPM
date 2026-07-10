@@ -130,12 +130,12 @@ class bbox_mesh {
         const double  hx     = 0.5 * factor * get_x_size();
         const double  hy     = 0.5 * factor * get_y_size();
         const double  hz     = 0.5 * factor * get_z_size();
-        m_x_min               = center.x() - hx;
-        m_x_max               = center.x() + hx;
-        m_y_min               = center.y() - hy;
-        m_y_max               = center.y() + hy;
-        m_z_min               = center.z() - hz;
-        m_z_max               = center.z() + hz;
+        m_x_min              = center.x() - hx;
+        m_x_max              = center.x() + hx;
+        m_y_min              = center.y() - hy;
+        m_y_max              = center.y() + hy;
+        m_z_min              = center.z() - hz;
+        m_z_max              = center.z() + hz;
     }
 
     void translate(const vector3& translation) {

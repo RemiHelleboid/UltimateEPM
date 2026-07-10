@@ -38,7 +38,7 @@ quench_circuit:
   enabled: false
 )");
 
-    const auto config = uepm::PBMC::load_device_pbmc_config(path, {"contacts.voltages_V.drain=0.25"});
+    const auto  config   = uepm::PBMC::load_device_pbmc_config(path, {"contacts.voltages_V.drain=0.25"});
     const auto& contacts = config.self_consistent_options_2d.m_common.m_contact_voltages_V;
 
     CHECK(contacts.size() == 4);
@@ -66,7 +66,7 @@ quench_circuit:
   enabled: false
 )");
 
-    const auto config = uepm::PBMC::load_device_pbmc_config(path);
+    const auto  config = uepm::PBMC::load_device_pbmc_config(path);
     const auto& common = config.self_consistent_options_2d.m_common;
 
     CHECK(common.m_contact_voltages_V.size() == 2);
@@ -103,7 +103,7 @@ contact_voltage_schedule:
         gate: 1.0
 )");
 
-    const auto config = uepm::PBMC::load_device_pbmc_config(path);
+    const auto  config   = uepm::PBMC::load_device_pbmc_config(path);
     const auto& schedule = config.self_consistent_options_2d.m_common.m_contact_voltage_schedule;
 
     REQUIRE(schedule.size() == 2);

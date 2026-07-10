@@ -128,7 +128,7 @@ TEST_CASE("Testing Poisson 2d linear patch test") {
 
     uepm::file::msh_file fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
-    uepm::mesh::mesh* p_mesh = fileMSH.get_p_mesh();
+    uepm::mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
     uepm::fem::FiniteElementP1System2d poisson(p_mesh, p_mesh->get_nb_vertices());
     poisson.compute_stiffness_matrix();
     auto zero_source = [](double, double) { return 0.0; };
@@ -142,7 +142,7 @@ TEST_CASE("Testing Poisson 2d linear patch test") {
     double max_error = 0.0;
 
     for (std::size_t i = 0; i < p_mesh->get_nb_vertices(); ++i) {
-        const auto *vertex = p_mesh->get_p_vertex(i);
+        const auto* vertex = p_mesh->get_p_vertex(i);
 
         const double x     = vertex->x();
         const double exact = 20.0 * x;

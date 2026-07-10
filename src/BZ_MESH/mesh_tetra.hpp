@@ -230,11 +230,9 @@ class Tetra {
     std::vector<vector3> compute_band_iso_energy_surface(double iso_energy, std::size_t band_index) const;
     double               compute_tetra_iso_surface_energy_band(double energy, std::size_t band_index) const;
     double               compute_tetra_dos_energy_band(double energy, std::size_t band_index) const;
-    double compute_tetra_dos_energy_band(double                  energy,
-                                         std::size_t             band_index,
-                                         const IsoEnergyPolygon& polygon) const;
-    double               compute_tetra_dos_energy_band_reference(double energy, std::size_t band_index) const;
-    IsoEnergyPolygon     compute_band_iso_energy_polygon(double iso_energy, std::size_t band_index) const;
+    double compute_tetra_dos_energy_band(double energy, std::size_t band_index, const IsoEnergyPolygon& polygon) const;
+    double compute_tetra_dos_energy_band_reference(double energy, std::size_t band_index) const;
+    IsoEnergyPolygon compute_band_iso_energy_polygon(double iso_energy, std::size_t band_index) const;
     vector3 draw_random_uniform_point_at_energy(double iso_energy, std::size_t band_index, std::mt19937& rng) const;
     vector3 draw_random_uniform_point_at_energy(const IsoEnergyPolygon& polygon, std::mt19937& rng) const;
 

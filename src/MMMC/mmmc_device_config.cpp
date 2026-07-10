@@ -31,7 +31,7 @@ void apply_scalar_override(YAML::Node& root, const std::string& assignment) {
     if (!path.starts_with("mmmc.pbmc_bbox_um.")) {
         return;
     }
-    const std::string key = path.substr(std::string("mmmc.pbmc_bbox_um.").size());
+    const std::string key             = path.substr(std::string("mmmc.pbmc_bbox_um.").size());
     root["mmmc"]["pbmc_bbox_um"][key] = value;
 }
 
@@ -69,20 +69,19 @@ self_consistent_device_mmmc_run_config load_device_mmmc_config(const std::filesy
     }
 
     self_consistent_device_mmmc_run_config result;
-    result.mesh_file                = pbmc_config.mesh_file;
-    result.material_root            = pbmc_config.material_root;
-    result.material_symbol          = pbmc_config.material_symbol;
-    result.output_dir               = pbmc_config.output_dir;
-    result.simulation_name          = pbmc_config.simulation_name == "self_consistent_PBMC"
-                                          ? "self_consistent_MMMC"
-                                          : pbmc_config.simulation_name;
-    result.command_line             = pbmc_config.command_line;
-    result.collecting_contacts      = pbmc_config.collecting_contacts;
-    result.starting_position        = pbmc_config.starting_position;
-    result.number_electrons_start   = pbmc_config.number_electrons_start;
-    result.number_holes_start       = pbmc_config.number_holes_start;
-    result.seed_random_generator    = pbmc_config.seed_random_generator;
-    result.device_options.m_pbmc    = pbmc_config.device_options;
+    result.mesh_file       = pbmc_config.mesh_file;
+    result.material_root   = pbmc_config.material_root;
+    result.material_symbol = pbmc_config.material_symbol;
+    result.output_dir      = pbmc_config.output_dir;
+    result.simulation_name =
+        pbmc_config.simulation_name == "self_consistent_PBMC" ? "self_consistent_MMMC" : pbmc_config.simulation_name;
+    result.command_line           = pbmc_config.command_line;
+    result.collecting_contacts    = pbmc_config.collecting_contacts;
+    result.starting_position      = pbmc_config.starting_position;
+    result.number_electrons_start = pbmc_config.number_electrons_start;
+    result.number_holes_start     = pbmc_config.number_holes_start;
+    result.seed_random_generator  = pbmc_config.seed_random_generator;
+    result.device_options.m_pbmc  = pbmc_config.device_options;
     result.device_options.synchronize_from_pbmc();
     result.self_consistent_options_2d.m_common = pbmc_config.self_consistent_options_2d.m_common;
     result.self_consistent_options_2d.m_effective_depth_um =

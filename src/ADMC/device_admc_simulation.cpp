@@ -209,16 +209,16 @@ void options_device_ADMC::validate() const {
     }
 }
 
-void history_device_ADMC::add(double      time_s,
-                              std::size_t electrons,
-                              std::size_t holes,
-                              double      electron_current_A,
-                              double      hole_current_A,
-                              double      total_current_A,
-                              double      probe_electron_current_A,
-                              double      probe_hole_current_A,
-                              double      probe_total_current_A,
-                              double      max_field_V_per_m,
+void history_device_ADMC::add(double                     time_s,
+                              std::size_t                electrons,
+                              std::size_t                holes,
+                              double                     electron_current_A,
+                              double                     hole_current_A,
+                              double                     total_current_A,
+                              double                     probe_electron_current_A,
+                              double                     probe_hole_current_A,
+                              double                     probe_total_current_A,
+                              double                     max_field_V_per_m,
                               const std::vector<double>& active_contact_voltages_V) {
     times_s.push_back(time_s);
     nb_electrons.push_back(electrons);
@@ -274,18 +274,18 @@ void history_device_ADMC::append_last_iter_to_csv(std::fstream& file) const {
     if (times_s.empty()) {
         return;
     }
-    const std::size_t i = times_s.size() - 1;
-    constexpr double electric_field_V_per_m_to_V_per_cm = 0.01;
-    file << times_s[i] << ',' << nb_electrons[i] << ',' << nb_holes[i] << ',' << 0 << ','
-         << ramo_current_electron_A[i] << ',' << ramo_current_hole_A[i] << ',' << ramo_current_A[i] << ','
-         << probe_ramo_current_electron_A[i] << ',' << probe_ramo_current_hole_A[i] << ','
-         << probe_ramo_current_A[i] << ',' << max_electric_field_V_per_m[i] * electric_field_V_per_m_to_V_per_cm
-         << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0;
-    const auto& active_contact_voltages_V = i < contact_voltages_V.size() ? contact_voltages_V[i]
-                                                                          : std::vector<double>{};
+    const std::size_t i                                  = times_s.size() - 1;
+    constexpr double  electric_field_V_per_m_to_V_per_cm = 0.01;
+    file << times_s[i] << ',' << nb_electrons[i] << ',' << nb_holes[i] << ',' << 0 << ',' << ramo_current_electron_A[i]
+         << ',' << ramo_current_hole_A[i] << ',' << ramo_current_A[i] << ',' << probe_ramo_current_electron_A[i] << ','
+         << probe_ramo_current_hole_A[i] << ',' << probe_ramo_current_A[i] << ','
+         << max_electric_field_V_per_m[i] * electric_field_V_per_m_to_V_per_cm << ',' << 0.0 << ',' << 0.0 << ',' << 0.0
+         << ',' << 0.0 << ',' << 0.0 << ',' << 0.0;
+    const auto& active_contact_voltages_V =
+        i < contact_voltages_V.size() ? contact_voltages_V[i] : std::vector<double>{};
     for (std::size_t contact_index = 0; contact_index < contact_voltage_names.size(); ++contact_index) {
-        file << ',' << (contact_index < active_contact_voltages_V.size() ? active_contact_voltages_V[contact_index]
-                                                                         : 0.0);
+        file << ','
+             << (contact_index < active_contact_voltages_V.size() ? active_contact_voltages_V[contact_index] : 0.0);
     }
     file << '\n';
 }
@@ -309,12 +309,12 @@ void history_device_ADMC::export_to_csv(const std::string& filename) const {
                << probe_ramo_current_electron_A[i] << ',' << probe_ramo_current_hole_A[i] << ','
                << probe_ramo_current_A[i] << ',' << max_electric_field_V_per_m[i] * electric_field_V_per_m_to_V_per_cm
                << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0 << ',' << 0.0;
-        const auto& active_contact_voltages_V = i < contact_voltages_V.size() ? contact_voltages_V[i]
-                                                                              : std::vector<double>{};
+        const auto& active_contact_voltages_V =
+            i < contact_voltages_V.size() ? contact_voltages_V[i] : std::vector<double>{};
         for (std::size_t contact_index = 0; contact_index < contact_voltage_names.size(); ++contact_index) {
-            stream << ',' << (contact_index < active_contact_voltages_V.size()
-                                  ? active_contact_voltages_V[contact_index]
-                                  : 0.0);
+            stream << ','
+                   << (contact_index < active_contact_voltages_V.size() ? active_contact_voltages_V[contact_index]
+                                                                        : 0.0);
         }
         stream << '\n';
     }
@@ -465,7 +465,7 @@ void device_admc_simulation::update_element_and_check_boundary(device_admc_parti
         return;
     }
 
-    const mesh::vector3 current_position_um = to_mesh_position_um(particle.particle.state().position_m);
+    const mesh::vector3 current_position_um  = to_mesh_position_um(particle.particle.state().position_m);
     const mesh::vector3 previous_position_um = to_mesh_position_um(particle.particle.state().previous_position_m);
     if (m_device.check_enters_contact(current_position_um) ||
         m_device.check_crossing_contact(previous_position_um, current_position_um)) {
@@ -479,11 +479,11 @@ void device_admc_simulation::update_element_and_check_boundary(device_admc_parti
 
     auto* new_element = m_device.find_element_at_location(current_position_um);
     if (new_element == nullptr || !is_transport_material_element(*new_element)) {
-        auto&              state                = particle.particle.state();
-        const auto          hit = mesh::find_boundary_exit_hit(*particle.containing_element,
-                                                              previous_position_um,
-                                                              current_position_um,
-                                                              m_dimension);
+        auto&      state = particle.particle.state();
+        const auto hit   = mesh::find_boundary_exit_hit(*particle.containing_element,
+                                                      previous_position_um,
+                                                      current_position_um,
+                                                      m_dimension);
         if (m_options.m_boundary_reflection_model == mesh::boundary_reflection_model::reverse || !hit.has_value()) {
             state.position_m = state.previous_position_m;
             state.total_velocity_m_per_s *= -1.0;
@@ -499,8 +499,7 @@ void device_admc_simulation::update_element_and_check_boundary(device_admc_parti
                 mesh::reflect_vector_specular(state.total_velocity_m_per_s, hit->inward_normal);
             state.drift_velocity_m_per_s =
                 mesh::reflect_vector_specular(state.drift_velocity_m_per_s, hit->inward_normal);
-            outgoing_displacement_um =
-                mesh::reflect_vector_specular(remaining_displacement_um, hit->inward_normal);
+            outgoing_displacement_um = mesh::reflect_vector_specular(remaining_displacement_um, hit->inward_normal);
         } else {
             state.total_velocity_m_per_s = mesh::draw_diffuse_reflection_vector(state.total_velocity_m_per_s,
                                                                                 hit->inward_normal,
@@ -546,9 +545,9 @@ void device_admc_simulation::advance_particles_one_time_step() {
     remove_collected_particles();
     m_state.m_time_s += dt_s;
     ++m_state.m_iteration;
-    const auto [electron_current_A, hole_current_A] = compute_ramo_current();
-    m_state.m_last_ramo_current_electron_A          = electron_current_A;
-    m_state.m_last_ramo_current_hole_A              = hole_current_A;
+    const auto [electron_current_A, hole_current_A]             = compute_ramo_current();
+    m_state.m_last_ramo_current_electron_A                      = electron_current_A;
+    m_state.m_last_ramo_current_hole_A                          = hole_current_A;
     const auto [probe_electron_current_A, probe_hole_current_A] = compute_probe_ramo_current();
     m_state.m_last_probe_ramo_current_electron_A                = probe_electron_current_A;
     m_state.m_last_probe_ramo_current_hole_A                    = probe_hole_current_A;
@@ -630,9 +629,7 @@ double device_admc_simulation::get_total_hole_weight() const {
     return total;
 }
 
-std::pair<double, double> device_admc_simulation::compute_ramo_current() const {
-    return compute_ramo_current(false);
-}
+std::pair<double, double> device_admc_simulation::compute_ramo_current() const { return compute_ramo_current(false); }
 
 std::pair<double, double> device_admc_simulation::compute_ramo_current(bool restrict_to_probe) const {
     double electron_current_A = 0.0;
@@ -648,15 +645,14 @@ std::pair<double, double> device_admc_simulation::compute_ramo_current(bool rest
             position_um.to_2d_inplace();
         }
         if (restrict_to_probe) {
-            const bool inside_probe = (m_dimension == 2)
-                                          ? m_options.m_current_probe.m_box_um.is_inside_2d(position_um)
-                                          : m_options.m_current_probe.m_box_um.is_inside(position_um);
+            const bool inside_probe = (m_dimension == 2) ? m_options.m_current_probe.m_box_um.is_inside_2d(position_um)
+                                                         : m_options.m_current_probe.m_box_um.is_inside(position_um);
             if (!inside_probe) {
                 continue;
             }
         }
-        const vector3       weighting_field = get_RamoUnitaryElectricField_at_position(position_um);
-        const double        current_A       = particle.weight * carrier_charge_sign(particle.particle.type()) *
+        const vector3 weighting_field = get_RamoUnitaryElectricField_at_position(position_um);
+        const double  current_A       = particle.weight * carrier_charge_sign(particle.particle.type()) *
                                  uepm::constants::q_e *
                                  particle.particle.state().total_velocity_m_per_s.dot(weighting_field);
         if (particle.particle.type() == carrier_type::electron) {
@@ -931,12 +927,12 @@ void device_admc_simulation::export_current_mesh_as_vtu(const std::string& direc
     write_mesh_vtu_time_collection(pvd_path.string());
 
     if (export_x_cut_enabled) {
-        const auto                  device_box = m_device.get_p_mesh()->get_bounding_box();
-        const auto                  dx         = 1e-3;  // 1 nm
-        const auto                  y_extent   = device_box.get_y_max() - device_box.get_y_min();
-        const auto                  z_extent   = device_box.get_z_max() - device_box.get_z_min();
-        const auto                  n_y_samples = std::max<std::size_t>(1, static_cast<std::size_t>(y_extent / dx) + 1);
-        const auto                  n_z_samples =
+        const auto device_box  = m_device.get_p_mesh()->get_bounding_box();
+        const auto dx          = 1e-3;  // 1 nm
+        const auto y_extent    = device_box.get_y_max() - device_box.get_y_min();
+        const auto z_extent    = device_box.get_z_max() - device_box.get_z_min();
+        const auto n_y_samples = std::max<std::size_t>(1, static_cast<std::size_t>(y_extent / dx) + 1);
+        const auto n_z_samples =
             m_dimension == 3 ? std::max<std::size_t>(1, static_cast<std::size_t>(z_extent / dx) + 1) : 1;
         const std::filesystem::path x_cut_path =
             output_directory / fmt::format("mesh_x_cut_{:012d}.csv", m_state.m_iteration);

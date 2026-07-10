@@ -27,8 +27,8 @@ class particle_pools {
  public:
     std::vector<std::unique_ptr<PBMC::pbmc_particle>> m_pbmc_particles;
     std::vector<ADMC::device_admc_particle>           m_admc_particles;
-    transfer_counters                                m_last_transfer_counters{};
-    transfer_counters                                m_total_transfer_counters{};
+    transfer_counters                                 m_last_transfer_counters{};
+    transfer_counters                                 m_total_transfer_counters{};
 
     [[nodiscard]] std::size_t size() const noexcept;
     [[nodiscard]] std::size_t pbmc_size() const noexcept;

@@ -1,12 +1,12 @@
 /**
  * @file bz_dos.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-06-18
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 
 #include "bz_dos.hpp"
@@ -120,7 +120,7 @@ vector3 BZStateSampler::draw_k_at_energy(const MeshBZ& mesh, double energy, std:
                                              maximum));
     }
     const std::size_t tetra_index = draw_tetrahedron_at_energy(mesh, energy, band_index, rng);
-    const vector3 representative =
+    const vector3     representative =
         mesh.get_list_tetrahedra().at(tetra_index).draw_random_uniform_point_at_energy(energy, band_index, rng);
     if (!mesh.stores_positive_octant()) {
         return representative;

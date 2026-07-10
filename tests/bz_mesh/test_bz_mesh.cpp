@@ -2,9 +2,9 @@
 
 #include <Eigen/LU>
 
-#include "bz_mesh.hpp"
 #include "band_catalog.hpp"
 #include "bz_domain.hpp"
+#include "bz_mesh.hpp"
 #include "doctest/doctest.h"
 #include "epm_material.hpp"
 #include "reciprocal_space.hpp"
@@ -52,8 +52,7 @@ TEST_CASE("band catalog rejects interleaved valence and conduction ranges") {
 
 TEST_CASE("positive-octant canonicalization preserves physical sign orientation") {
     const vector3 physical{-1.0, 2.0, -3.0};
-    const auto canonical =
-        uepm::mesh_bz::canonicalize_k(physical, uepm::mesh_bz::BZDomainMode::positive_octant);
+    const auto    canonical = uepm::mesh_bz::canonicalize_k(physical, uepm::mesh_bz::BZDomainMode::positive_octant);
 
     CHECK(canonical.representative.x() == doctest::Approx(1.0));
     CHECK(canonical.representative.y() == doctest::Approx(2.0));
@@ -67,8 +66,8 @@ TEST_CASE("positive-octant canonicalization preserves physical sign orientation"
 }
 
 TEST_CASE("positive-octant storage reports eight physical sign images") {
-    const auto   material = make_test_material();
-    MeshBZ       mesh(material);
+    const auto material = make_test_material();
+    MeshBZ     mesh(material);
     mesh.set_domain_mode(uepm::mesh_bz::BZDomainMode::positive_octant);
 
     CHECK(mesh.stores_positive_octant());
@@ -148,7 +147,7 @@ TEST_CASE("Wigner-Seitz folding preserves momentum modulo the reciprocal lattice
 }
 
 TEST_CASE("cached BCC folding scale preserves exact results") {
-    constexpr double scale = 0.75;
+    constexpr double               scale = 0.75;
     uepm::mesh_bz::ReciprocalSpace reciprocal_space;
     reciprocal_space.initialize_basis(Eigen::Vector3d{-1.0, 1.0, 1.0},
                                       Eigen::Vector3d{1.0, -1.0, 1.0},

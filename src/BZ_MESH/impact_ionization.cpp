@@ -154,12 +154,12 @@ std::array<complex_d, 2> ImpactIonization::compute_direct_indirect_impact_ioniza
     }
 
     const auto state_table = make_state_table(0);
-    const auto make_state = [&state_table](int idx_k, int idx_band) {
+    const auto make_state  = [&state_table](int idx_k, int idx_band) {
         const auto metadata = state_table.state(static_cast<std::size_t>(idx_k), static_cast<std::size_t>(idx_band));
-        return ImpactIonizationPlaneWaveState{.k_SI         = metadata.k_SI,
-                                              .energy_eV    = metadata.energy_eV,
-                                              .coefficients = state_table.coefficients(metadata.k_index,
-                                                                                      metadata.band_index)};
+        return ImpactIonizationPlaneWaveState{
+             .k_SI         = metadata.k_SI,
+             .energy_eV    = metadata.energy_eV,
+             .coefficients = state_table.coefficients(metadata.k_index, metadata.band_index)};
     };
 
     std::vector<vector3> basis_vectors_SI;
@@ -172,11 +172,11 @@ std::array<complex_d, 2> ImpactIonization::compute_direct_indirect_impact_ioniza
     }
 
     const auto screened_coulomb = make_screened_coulomb_kernel();
-    const auto interaction = [&screened_coulomb](const vector3& q_SI, double energy_transfer_eV) {
+    const auto interaction      = [&screened_coulomb](const vector3& q_SI, double energy_transfer_eV) {
         return screened_coulomb.interaction_eV_m3(q_SI, energy_transfer_eV);
     };
     const ImpactIonizationMatrixElementConfig config{
-        .momentum_tolerance_SI  = 1.0e6,
+        .momentum_tolerance_SI   = 1.0e6,
         .normalization_volume_m3 = m_material.get_atomic_volume(),
     };
 

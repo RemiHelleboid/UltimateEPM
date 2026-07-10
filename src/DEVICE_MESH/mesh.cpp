@@ -59,8 +59,8 @@ void write_scalar_and_vector_csv_header(std::ostream                   &output,
 }
 
 void write_scalar_and_vector_csv_values(std::ostream                   &output,
-                                        const mesh                    &source_mesh,
-                                        const vector3                 &point,
+                                        const mesh                     &source_mesh,
+                                        const vector3                  &point,
                                         const std::vector<std::string> &scalar_function_names,
                                         const std::vector<std::string> &vector_function_names) {
     for (const auto &field_name : scalar_function_names) {
@@ -82,9 +82,9 @@ double sample_axis_coordinate(double min_value, double max_value, std::size_t sa
     return min_value + fraction * (max_value - min_value);
 }
 
-double sample_scalar_function(const mesh &source_mesh,
-                              element    &containing_element,
-                              const vector3 &point,
+double sample_scalar_function(const mesh        &source_mesh,
+                              element           &containing_element,
+                              const vector3     &point,
                               const std::string &field_name) {
     const auto scalar_function = source_mesh.get_sp_scalar_function(field_name);
     if (scalar_function != nullptr && scalar_function->get_location_type() == DataLocationType::cell) {
@@ -93,9 +93,9 @@ double sample_scalar_function(const mesh &source_mesh,
     return containing_element.interpolate_scalar_at_location(field_name, point);
 }
 
-vector3 sample_vector_function(const mesh &source_mesh,
-                               element    &containing_element,
-                               const vector3 &point,
+vector3 sample_vector_function(const mesh        &source_mesh,
+                               element           &containing_element,
+                               const vector3     &point,
                                const std::string &field_name) {
     const auto vector_function = source_mesh.get_sp_vector_function(field_name);
     if (vector_function != nullptr && vector_function->get_location_type() == DataLocationType::cell) {
@@ -2353,7 +2353,11 @@ void mesh::export_x_profile(const std::string &filename,
     const double     z_max   = box.get_z_max() - epsilon;
 
     const std::size_t Nx = static_cast<std::size_t>((x_max - x_min) / dx);
-    bbox              x_line_box(x_min, x_max, 0.5 * (y_min + y_max), 0.5 * (y_min + y_max), 0.5 * (z_min + z_max),
+    bbox              x_line_box(x_min,
+                    x_max,
+                    0.5 * (y_min + y_max),
+                    0.5 * (y_min + y_max),
+                    0.5 * (z_min + z_max),
                     0.5 * (z_min + z_max));
     const auto        x_line_grid = x_line_box.generate_mesh_grid_3d(Nx, 1, 1);
 
@@ -2378,7 +2382,7 @@ void mesh::export_x_profile(const std::string &filename,
         for (std::size_t y_index = 0; y_index < n_y_samples; ++y_index) {
             const double y = sample_axis_coordinate(y_min, y_max, n_y_samples, y_index);
             for (std::size_t z_index = 0; z_index < n_z_samples; ++z_index) {
-                const double z     = sample_axis_coordinate(z_min, z_max, n_z_samples, z_index);
+                const double  z     = sample_axis_coordinate(z_min, z_max, n_z_samples, z_index);
                 const vector3 point = get_dimension() == 3 ? vector3{x_point.x(), y, z} : vector3{x_point.x(), y, 0.0};
                 auto         *p_element = find_element_at_location(point);
                 if (p_element == nullptr) {
@@ -2412,9 +2416,8 @@ void mesh::export_x_profile(const std::string &filename,
             file_export << value << ",";
         }
         for (std::size_t field_index = 0; field_index < vector_function_names.size(); ++field_index) {
-            const auto value =
-                vector_counts[field_index] > 0 ? vector_sums[field_index] / vector_counts[field_index]
-                                               : vector3{nan, nan, nan};
+            const auto value = vector_counts[field_index] > 0 ? vector_sums[field_index] / vector_counts[field_index]
+                                                              : vector3{nan, nan, nan};
             file_export << value.x() << ",";
             file_export << value.y() << ",";
             file_export << value.z() << ",";

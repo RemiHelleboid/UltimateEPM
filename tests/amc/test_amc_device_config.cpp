@@ -71,8 +71,7 @@ quench_circuit:
   enabled: false
 )");
 
-    const auto config =
-        uepm::PBMC::load_device_pbmc_config(config_file, {"contacts.voltages_V.drain=0.25"});
+    const auto  config = uepm::PBMC::load_device_pbmc_config(config_file, {"contacts.voltages_V.drain=0.25"});
     const auto& common = config.self_consistent_options_2d.m_common;
 
     CHECK(common.m_contact_voltages_V.size() == 4);

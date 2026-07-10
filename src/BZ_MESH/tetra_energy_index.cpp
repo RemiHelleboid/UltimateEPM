@@ -1,12 +1,12 @@
 /**
  * @file tetra_energy_index.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-06-18
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 
 #include "tetra_energy_index.hpp"
@@ -61,7 +61,7 @@ void TetraEnergyIndex::rebuild(const std::vector<Tetra>& tetrahedra,
         band.ordered_max_energies.resize(sorted_indices.size());
         band.ordered_barycenters.resize(sorted_indices.size());
         for (std::size_t index = 0; index < sorted_indices.size(); ++index) {
-            const std::size_t tetra_index   = sorted_indices[index];
+            const std::size_t tetra_index    = sorted_indices[index];
             band.ordered_min_energies[index] = minimum_energies[tetra_index];
             band.ordered_max_energies[index] = maximum_energies[tetra_index];
             band.ordered_barycenters[index]  = tetrahedra[tetra_index].get_barycenter();
@@ -89,17 +89,14 @@ void TetraEnergyIndex::rebuild(const std::vector<Tetra>& tetrahedra,
         }
 
         band.maximum_energy_tree.assign(4 * retained, -std::numeric_limits<double>::infinity());
-        const auto build_maximum_energy_tree = [&](auto&& self,
-                                                   std::size_t node,
-                                                   std::size_t begin,
-                                                   std::size_t end) -> double {
+        const auto build_maximum_energy_tree =
+            [&](auto&& self, std::size_t node, std::size_t begin, std::size_t end) -> double {
             if (end - begin == 1) {
                 return band.maximum_energy_tree[node] = band.ordered_max_energies[begin];
             }
             const std::size_t middle = begin + (end - begin) / 2;
             return band.maximum_energy_tree[node] =
-                       std::max(self(self, 2 * node + 1, begin, middle),
-                                self(self, 2 * node + 2, middle, end));
+                       std::max(self(self, 2 * node + 1, begin, middle), self(self, 2 * node + 2, middle, end));
         };
         build_maximum_energy_tree(build_maximum_energy_tree, 0, 0, retained);
 

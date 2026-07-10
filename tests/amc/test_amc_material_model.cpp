@@ -38,9 +38,9 @@ TEST_CASE("parameterized rates reproduce silicon reference values") {
     const auto material = uepm::PBMC::make_silicon_pbmc_material_model();
 
     const double electron_acoustic = uepm::PBMC::acoustic_scattering_rate(material.m_electron_valleys.front(),
-                                                                         material.m_electron_acoustic,
-                                                                         0.1,
-                                                                         300.0);
+                                                                          material.m_electron_acoustic,
+                                                                          0.1,
+                                                                          300.0);
     CHECK(electron_acoustic == doctest::Approx(3.694230372508554e12).epsilon(1.0e-12));
 
     const double hole_acoustic =
@@ -50,20 +50,20 @@ TEST_CASE("parameterized rates reproduce silicon reference values") {
     const auto&  g3_transition = material.m_electron_intervalley_transitions[2];
     const double g3_absorption =
         uepm::PBMC::intervalley_scattering_rate(material.m_electron_valleys.front(),
-                                               g3_transition,
-                                               material.m_electron_acoustic.mass_density_kg_per_m3,
-                                               0.1,
-                                               true,
-                                               300.0);
+                                                g3_transition,
+                                                material.m_electron_acoustic.mass_density_kg_per_m3,
+                                                0.1,
+                                                true,
+                                                300.0);
     CHECK(g3_absorption == doctest::Approx(1.500525823504873e11).epsilon(1.0e-12));
 
     const double screened_impurity =
         uepm::PBMC::screened_coulomb_impurity_momentum_relaxation_rate(material.m_electron_valleys.front(),
-                                                                      material.m_dielectric.epsilon_r,
-                                                                      0.1,
-                                                                      1.0e17,
-                                                                      1.0e17,
-                                                                      300.0);
+                                                                       material.m_dielectric.epsilon_r,
+                                                                       0.1,
+                                                                       1.0e17,
+                                                                       1.0e17,
+                                                                       300.0);
     CHECK(screened_impurity == doctest::Approx(8.669406979196892e11).epsilon(1.0e-12));
 }
 

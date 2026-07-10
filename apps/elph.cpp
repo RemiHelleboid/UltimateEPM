@@ -22,12 +22,12 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "yaml-cpp/yaml.h"
 #include "BandStructure.h"
 #include "Options.h"
 #include "electron_phonon.hpp"
 #include "epm_material.hpp"
 #include "fermi_level.hpp"
+#include "yaml-cpp/yaml.h"
 
 template <typename Derived>
 struct fmt::formatter<Eigen::DenseBase<Derived>> : fmt::ostream_formatter {};
@@ -83,23 +83,23 @@ void write_kernel_metadata(const std::filesystem::path& kernel_file,
                            const std::string&           bz_domain) {
     const YAML::Node profile = YAML::LoadFile(phonon_parameter_file.string());
     YAML::Node       metadata;
-    metadata["schema_version"]          = 1;
-    metadata["model"]                   = "electron_phonon_kernel";
-    metadata["material"]                = material;
-    metadata["carrier"]                 = carrier;
-    metadata["mesh_file"]               = std::filesystem::absolute(mesh_file).lexically_normal().string();
-    metadata["mesh_size_bytes"]         = std::filesystem::file_size(mesh_file);
-    metadata["phonon_parameter_file"]   = std::filesystem::absolute(phonon_parameter_file).lexically_normal().string();
-    metadata["parameter_set"]           = profile["parameter_set"];
-    metadata["n_conduction_bands"]      = nb_conduction_bands;
-    metadata["n_valence_bands"]         = nb_valence_bands;
-    metadata["temperature_K"]           = temperature_K;
-    metadata["energy_window_eV"]        = energy_window_eV;
-    metadata["bz_domain"]               = bz_domain;
-    metadata["Radius-WS"]               = profile["Radius-WS"];
-    metadata["dispersion"]              = profile["dispersion"];
+    metadata["schema_version"]        = 1;
+    metadata["model"]                 = "electron_phonon_kernel";
+    metadata["material"]              = material;
+    metadata["carrier"]               = carrier;
+    metadata["mesh_file"]             = std::filesystem::absolute(mesh_file).lexically_normal().string();
+    metadata["mesh_size_bytes"]       = std::filesystem::file_size(mesh_file);
+    metadata["phonon_parameter_file"] = std::filesystem::absolute(phonon_parameter_file).lexically_normal().string();
+    metadata["parameter_set"]         = profile["parameter_set"];
+    metadata["n_conduction_bands"]    = nb_conduction_bands;
+    metadata["n_valence_bands"]       = nb_valence_bands;
+    metadata["temperature_K"]         = temperature_K;
+    metadata["energy_window_eV"]      = energy_window_eV;
+    metadata["bz_domain"]             = bz_domain;
+    metadata["Radius-WS"]             = profile["Radius-WS"];
+    metadata["dispersion"]            = profile["dispersion"];
 
-    const auto metadata_file = std::filesystem::path(kernel_file.string() + ".meta.yaml");
+    const auto    metadata_file = std::filesystem::path(kernel_file.string() + ".meta.yaml");
     std::ofstream stream(metadata_file);
     if (!stream) {
         throw std::runtime_error("Could not write kernel metadata file " + metadata_file.string());
@@ -234,10 +234,7 @@ int main(int argc, char const* argv[]) {
                                     "rates-only",
                                     "Stop after exporting rates/kernels; skip diagnostics, mobility, and plotting.",
                                     false);
-    TCLAP::SwitchArg arg_skip_mesh_vtk("",
-                                       "skip-mesh-vtk",
-                                       "Do not export the static BZ mesh VTK file.",
-                                       false);
+    TCLAP::SwitchArg arg_skip_mesh_vtk("", "skip-mesh-vtk", "Do not export the static BZ mesh VTK file.", false);
     TCLAP::SwitchArg plot_with_python("p",
                                       "plot",
                                       "Call a python script after the computation to plot the band structure.",
@@ -290,16 +287,16 @@ int main(int argc, char const* argv[]) {
     my_options.materialName                     = arg_material.getValue();
     my_options.nrLevels                         = arg_nb_conduction_bands.getValue() + arg_nb_valence_bands.getValue();
     my_options.nrThreads                        = arg_nb_threads.getValue();
-    const int         number_energies           = arg_nb_energies.getValue();
-    const int         nb_conduction_bands       = arg_nb_conduction_bands.getValue();
-    const int         nb_valence_bands          = arg_nb_valence_bands.getValue();
-    const double      max_energy                = arg_energy_range.getValue();  // eV
-    const double      temperature               = arg_temperature.getValue();
-    bool              irreducible_wedge_only    = use_irr_wedge.getValue();
-    const std::string bz_domain_name            = arg_bz_domain.getValue();
-    const std::string mesh_band_input_file      = arg_mesh_file.getValue();
-    const std::string phonon_parameter_set      = arg_phonon_parameter_set.getValue();
-    const bool        phonon_parameter_file_set = arg_phonon_parameter_file.isSet();
+    const int                   number_energies = arg_nb_energies.getValue();
+    const int                   nb_conduction_bands       = arg_nb_conduction_bands.getValue();
+    const int                   nb_valence_bands          = arg_nb_valence_bands.getValue();
+    const double                max_energy                = arg_energy_range.getValue();  // eV
+    const double                temperature               = arg_temperature.getValue();
+    bool                        irreducible_wedge_only    = use_irr_wedge.getValue();
+    const std::string           bz_domain_name            = arg_bz_domain.getValue();
+    const std::string           mesh_band_input_file      = arg_mesh_file.getValue();
+    const std::string           phonon_parameter_set      = arg_phonon_parameter_set.getValue();
+    const bool                  phonon_parameter_file_set = arg_phonon_parameter_file.isSet();
     const std::filesystem::path phonon_parameter_file =
         phonon_parameter_file_set
             ? std::filesystem::path(arg_phonon_parameter_file.getValue())

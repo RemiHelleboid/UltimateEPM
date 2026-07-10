@@ -1,12 +1,12 @@
 /**
  * @file tetra_energy_index.hpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-06-18
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 
 #pragma once
@@ -47,17 +47,13 @@ struct BandTetraEnergyIndex {
 
     template <typename Function>
     void for_each_candidate_slot(double minimum_energy, double maximum_energy, Function&& function) const {
-        const auto upper =
-            std::upper_bound(ordered_min_energies.begin(), ordered_min_energies.end(), maximum_energy);
+        const auto upper = std::upper_bound(ordered_min_energies.begin(), ordered_min_energies.end(), maximum_energy);
         const std::size_t end_index = static_cast<std::size_t>(upper - ordered_min_energies.begin());
         if (end_index == 0 || maximum_energy_tree.empty()) {
             return;
         }
 
-        const auto visit = [&](auto&& self,
-                               std::size_t node,
-                               std::size_t begin,
-                               std::size_t end) -> void {
+        const auto visit = [&](auto&& self, std::size_t node, std::size_t begin, std::size_t end) -> void {
             if (begin >= end_index || maximum_energy_tree[node] < minimum_energy) {
                 return;
             }

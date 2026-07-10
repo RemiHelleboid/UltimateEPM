@@ -140,8 +140,8 @@ void particle::update_group_velocity() {
         throw std::runtime_error("particle::update_group_velocity: particle is not attached to a BZ tetrahedron");
     }
     const auto canonical = m_mesh_bz->canonicalize_physical_k(m_state.m_k_vector);
-    m_state.m_velocity = m_containing_bz_mesh_tetra->interpolate_gradient_energy_at_band(canonical.representative,
-                                                                                         m_state.m_band_index);
+    m_state.m_velocity =
+        m_containing_bz_mesh_tetra->interpolate_gradient_energy_at_band(canonical.representative, m_state.m_band_index);
     m_state.m_velocity = m_mesh_bz->representative_vector_to_physical(m_state.m_velocity, canonical.signs);
     m_state.m_velocity *= 1.0 / uepm::constants::h_bar_eV;
 }
@@ -215,7 +215,7 @@ void particle::select_final_state_after_impact_ionization(double energy_threshol
         throw std::runtime_error(
             "select_final_state_after_impact_ionization: selected final k-point is outside the BZ mesh");
     }
-    state.m_band_index             = idx_band_final;
+    state.m_band_index = idx_band_final;
     update_energy();
     update_group_velocity();
 }
@@ -301,10 +301,9 @@ void particle::print_history_summary() const {
     std::size_t            nb_events_type    = m_history.m_scattering_events.size();
     std::array<double, 10> event_fractions   = {0.0};
     for (std::size_t i = 0; i < nb_events_type; ++i) {
-        event_fractions[i] = (total_real_events > 0)
-                                 ? 100.0 * static_cast<double>(m_history.m_scattering_events[i]) /
-                                       static_cast<double>(total_real_events)
-                                 : 0.0;
+        event_fractions[i] = (total_real_events > 0) ? 100.0 * static_cast<double>(m_history.m_scattering_events[i]) /
+                                                           static_cast<double>(total_real_events)
+                                                     : 0.0;
     }
     fmt::print("Particle {} history summary:\n", m_index);
     fmt::print("  Total recorded events: {}\n", total_events);

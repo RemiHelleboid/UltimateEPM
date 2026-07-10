@@ -1,15 +1,14 @@
 /**
  * @author remzerrr (remi.helleboid@gmail.com)
  * @file admc_carrier.hpp
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-06-15
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 
- 
 #pragma once
 
 #include <cstddef>
@@ -73,8 +72,8 @@ class admc_particle {
     admc_particle_state&       state() noexcept { return m_state; }
 
  private:
-    std::size_t        m_index;
-    carrier_type       m_type;
+    std::size_t         m_index;
+    carrier_type        m_type;
     admc_particle_state m_state{};
 };
 

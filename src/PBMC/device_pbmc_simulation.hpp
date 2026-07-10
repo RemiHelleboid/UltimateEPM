@@ -15,8 +15,8 @@
 #include <random>
 #include <vector>
 
-#include "boundary_reflection.hpp"
 #include "bbox.hpp"
+#include "boundary_reflection.hpp"
 #include "device.hpp"
 #include "pbmc_device_history.hpp"
 #include "pbmc_particle.hpp"
@@ -67,11 +67,11 @@ struct options_device_PBMC {
     scheduled_particle_injection m_scheduled_particle_injection{};
     current_probe_options        m_current_probe{};
 
-    bool                      m_activate_impact_ionization = true;
-    bool                      m_enable_impurity_scattering = false;
-    impurity_scattering_model m_impurity_scattering_model  = impurity_scattering_model::mobility_empirical;
-    impurity_screening_model  m_impurity_screening_model   = impurity_screening_model::debye_analytic;
-    mesh::boundary_reflection_model m_boundary_reflection_model = mesh::boundary_reflection_model::reverse;
+    bool                            m_activate_impact_ionization = true;
+    bool                            m_enable_impurity_scattering = false;
+    impurity_scattering_model       m_impurity_scattering_model  = impurity_scattering_model::mobility_empirical;
+    impurity_screening_model        m_impurity_screening_model   = impurity_screening_model::debye_analytic;
+    mesh::boundary_reflection_model m_boundary_reflection_model  = mesh::boundary_reflection_model::reverse;
 
     options_device_PBMC() = default;
 

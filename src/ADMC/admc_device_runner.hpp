@@ -14,12 +14,12 @@
 namespace uepm::ADMC {
 
 struct self_consistent_device_admc_run_config {
-    std::string mesh_file;
-    std::string material_root;
-    std::string material_symbol = "Si";
-    std::string output_dir;
-    std::string simulation_name = "self_consistent_ADMC";
-    std::string command_line;
+    std::string              mesh_file;
+    std::string              material_root;
+    std::string              material_symbol = "Si";
+    std::string              output_dir;
+    std::string              simulation_name = "self_consistent_ADMC";
+    std::string              command_line;
     std::vector<std::string> collecting_contacts;
 
     mesh::vector3 starting_position_um{0.0, 0.0, 0.0};

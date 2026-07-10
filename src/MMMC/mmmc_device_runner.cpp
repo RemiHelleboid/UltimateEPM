@@ -75,16 +75,16 @@ void run_self_consistent_device_mmmc_simulation(const self_consistent_device_mmm
         throw std::runtime_error("MMMC self-consistent device mode currently supports 2D meshes.");
     }
 
-    const physics::material_repository material_repository =
-        config.material_root.empty() ? physics::material_repository{}
-                                     : physics::material_repository{config.material_root};
-    physics::material_database material_database = material_repository.load_all_materials();
-    const auto& common_material = material_database.require(config.material_symbol);
+    const physics::material_repository material_repository = config.material_root.empty()
+                                                                 ? physics::material_repository{}
+                                                                 : physics::material_repository{config.material_root};
+    physics::material_database         material_database   = material_repository.load_all_materials();
+    const auto&                        common_material     = material_database.require(config.material_symbol);
 
-    auto device_options = config.device_options;
-    device_options.m_pbmc.m_simulation_name = config.simulation_name;
+    auto device_options                      = config.device_options;
+    device_options.m_pbmc.m_simulation_name  = config.simulation_name;
     device_options.m_pbmc.m_output_directory = output_dir;
-    device_options.m_pbmc.m_material_model = PBMC::load_pbmc_material_model(material_repository, common_material);
+    device_options.m_pbmc.m_material_model   = PBMC::load_pbmc_material_model(material_repository, common_material);
     device_options.synchronize_from_pbmc();
     device_options.validate();
 
@@ -105,18 +105,18 @@ void run_self_consistent_device_mmmc_simulation(const self_consistent_device_mmm
                config.self_consistent_options_2d.m_policy.m_pbmc_region_um.get_z_min(),
                config.self_consistent_options_2d.m_policy.m_pbmc_region_um.get_z_max());
 
-    const auto start = std::chrono::high_resolution_clock::now();
+    const auto                                start = std::chrono::high_resolution_clock::now();
     self_consistent_device_mmmc_simulation_2d simulation(simulation_device,
-                                                        device_options,
-                                                        config.self_consistent_options_2d,
-                                                        material_database,
-                                                        config.starting_position,
-                                                        config.number_electrons_start,
-                                                        config.number_holes_start,
-                                                        config.seed_random_generator);
+                                                         device_options,
+                                                         config.self_consistent_options_2d,
+                                                         material_database,
+                                                         config.starting_position,
+                                                         config.number_electrons_start,
+                                                         config.number_holes_start,
+                                                         config.seed_random_generator);
     simulation.set_prefix_export_trajectory_filename(trajectory_dir);
     simulation.run_self_consistent_transport_simulation();
-    const auto stop = std::chrono::high_resolution_clock::now();
+    const auto                          stop    = std::chrono::high_resolution_clock::now();
     const std::chrono::duration<double> elapsed = stop - start;
 
     const std::string final_particle_state_file =

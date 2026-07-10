@@ -14,7 +14,7 @@
 
 namespace uepm::MMMC {
 
-[[nodiscard]] ADMC::carrier_type to_admc_carrier_type(PBMC::particle_type type);
+[[nodiscard]] ADMC::carrier_type  to_admc_carrier_type(PBMC::particle_type type);
 [[nodiscard]] PBMC::particle_type to_pbmc_particle_type(ADMC::carrier_type type);
 
 [[nodiscard]] ADMC::device_admc_particle convert_pbmc_to_admc(const PBMC::pbmc_particle& particle,

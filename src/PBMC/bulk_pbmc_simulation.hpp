@@ -13,11 +13,11 @@
 #include <random>
 #include <vector>
 
+#include "intervalley_phonon.hpp"
 #include "pbmc_material_model.hpp"
+#include "pbmc_particle.hpp"
 #include "pbmc_scattering_model.hpp"
 #include "pbmc_transport_kernel.hpp"
-#include "intervalley_phonon.hpp"
-#include "pbmc_particle.hpp"
 #include "scattering_channels.hpp"
 #include "valley_model.hpp"
 #include "vector.hpp"
@@ -25,7 +25,7 @@
 namespace uepm::PBMC {
 
 struct bulk_pbmc_simulation_config {
-    pbmc_material_model  m_material_model      = make_silicon_pbmc_material_model();
+    pbmc_material_model m_material_model      = make_silicon_pbmc_material_model();
     particle_type       m_carrier_type        = particle_type::electron;
     std::size_t         m_number_of_particles = 10000;
     uepm::mesh::vector3 m_electric_field      = {0.0, 0.0, 0.0};  // V/m
@@ -101,7 +101,7 @@ class bulk_pbmc_simulation {
     bulk_pbmc_simulation_config m_cfg;
     pbmc_transport_kernel       m_transport;
     std::vector<pbmc_particle>  m_particles;
-    bulk_observables           m_observables;
+    bulk_observables            m_observables;
 
     impact_ionization_coefficient_statistics m_impact_ionization_coefficient_statistics;
 

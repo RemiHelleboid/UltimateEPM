@@ -353,11 +353,7 @@ int main(int argc, const char** argv) try {
                                                    "Disable impact ionization scattering.",
                                                    cmd,
                                                    false);
-    TCLAP::SwitchArg arg_skip_mesh_vtk("",
-                                       "skip-mesh-vtk",
-                                       "Do not export the static BZ mesh VTK file.",
-                                       cmd,
-                                       false);
+    TCLAP::SwitchArg arg_skip_mesh_vtk("", "skip-mesh-vtk", "Do not export the static BZ mesh VTK file.", cmd, false);
 
     cmd.add(arg_mesh_file);
     cmd.add(arg_phonon_file);
@@ -433,8 +429,7 @@ int main(int argc, const char** argv) try {
         throw std::invalid_argument("--nvbands must be -1 or non-negative");
     }
     if (carrier_type == uepm::fbmc::particle_type::hole && enable_impact_ionization) {
-        throw std::invalid_argument(
-            "Impact ionization is not available for holes; pass --disable-impact-ionization");
+        throw std::invalid_argument("Impact ionization is not available for holes; pass --disable-impact-ionization");
     }
     require_positive(max_energy_eV, "--maxenergy");
     require_finite(gamma_safety, "--gamma-safety");

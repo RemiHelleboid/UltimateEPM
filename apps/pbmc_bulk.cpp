@@ -21,9 +21,9 @@
 #include <string>
 #include <thread>
 
+#include "bulk_pbmc_simulation.hpp"
 #include "pbmc_device_setup.hpp"
 #include "pbmc_run_manifest.hpp"
-#include "bulk_pbmc_simulation.hpp"
 
 namespace {
 
@@ -245,7 +245,7 @@ int main(int argc, const char** argv) {
         if (impurity_density_cm_3 < 0.0) {
             throw std::invalid_argument("impurity density must be non-negative");
         }
-        const std::string                    impurity_model = arg_impurity_model.getValue();
+        const std::string                     impurity_model = arg_impurity_model.getValue();
         uepm::PBMC::impurity_scattering_model parsed_impurity_model;
         if (impurity_model == "mobility") {
             parsed_impurity_model = uepm::PBMC::impurity_scattering_model::mobility_empirical;
@@ -268,9 +268,9 @@ int main(int argc, const char** argv) {
         constexpr double V_per_cm_to_V_per_m = 100.0;
 
         uepm::PBMC::bulk_pbmc_simulation_config config;
-        config.m_material_model = uepm::PBMC::load_pbmc_material_model(material_symbol);
-        config.m_carrier_type   = carrier_type;
-        config.m_record_history = arg_export_history.getValue();
+        config.m_material_model                = uepm::PBMC::load_pbmc_material_model(material_symbol);
+        config.m_carrier_type                  = carrier_type;
+        config.m_record_history                = arg_export_history.getValue();
         config.m_lattice_temperature           = temperature;
         config.m_final_time                    = final_time;
         config.m_time_step                     = time_step;
@@ -301,12 +301,13 @@ int main(int argc, const char** argv) {
                    config.m_electric_field.z());
         fmt::print("  impurity scattering: {}\n", config.m_enable_impurity_scattering ? "enabled" : "disabled");
         fmt::print("  impurity density: {:.6e} cm^-3\n", config.m_impurity_density_cm_3);
-        fmt::print("  impurity model: {}\n",
-                   config.m_enable_impurity_scattering
-                       ? (config.m_impurity_scattering_model == uepm::PBMC::impurity_scattering_model::mobility_empirical
-                              ? "mobility-empirical"
-                              : "screened-coulomb")
-                       : "N/A");
+        fmt::print(
+            "  impurity model: {}\n",
+            config.m_enable_impurity_scattering
+                ? (config.m_impurity_scattering_model == uepm::PBMC::impurity_scattering_model::mobility_empirical
+                       ? "mobility-empirical"
+                       : "screened-coulomb")
+                : "N/A");
         fmt::print("  impurity screening: {}\n",
                    config.m_enable_impurity_scattering &&
                            config.m_impurity_scattering_model == uepm::PBMC::impurity_scattering_model::screened_coulomb

@@ -110,7 +110,8 @@ void merge_config(YAML::Node target, const YAML::Node& source, const std::string
         }
         if (full_path == "contact_voltage_schedule.events") {
             if (!entry.second.IsSequence()) {
-                throw std::invalid_argument("Configuration value 'contact_voltage_schedule.events' must be a sequence.");
+                throw std::invalid_argument(
+                    "Configuration value 'contact_voltage_schedule.events' must be a sequence.");
             }
             target[key] = entry.second;
             continue;
@@ -137,8 +138,8 @@ void apply_override(YAML::Node config, const std::string& override_text) {
     if (equals == std::string::npos || equals == 0 || equals + 1 >= override_text.size()) {
         throw std::invalid_argument(fmt::format("Invalid override '{}'. Expected path.to.value=value.", override_text));
     }
-    const std::string          path       = override_text.substr(0, equals);
-    const std::string          value_text = override_text.substr(equals + 1);
+    const std::string          path                   = override_text.substr(0, equals);
+    const std::string          value_text             = override_text.substr(equals + 1);
     constexpr std::string_view contact_voltage_prefix = "contacts.voltages_V.";
     if (path.starts_with(contact_voltage_prefix)) {
         const std::string contact_name = path.substr(contact_voltage_prefix.size());
@@ -353,14 +354,13 @@ self_consistent_device_admc_run_config load_device_admc_config(const std::filesy
         throw std::invalid_argument("scheduled_injection.type must be electron/e or hole/h.");
     }
     device.m_scheduled_injection_weight = value_at<double>(config, "scheduled_injection", "weight");
-    device.m_current_probe.m_enabled     = value_at<bool>(config, "current_probe", "enabled");
-    device.m_current_probe.m_box_um =
-        mesh::bbox{value_at<double>(config, "current_probe", "x_min_um"),
-                   value_at<double>(config, "current_probe", "x_max_um"),
-                   value_at<double>(config, "current_probe", "y_min_um"),
-                   value_at<double>(config, "current_probe", "y_max_um"),
-                   value_at<double>(config, "current_probe", "z_min_um"),
-                   value_at<double>(config, "current_probe", "z_max_um")};
+    device.m_current_probe.m_enabled    = value_at<bool>(config, "current_probe", "enabled");
+    device.m_current_probe.m_box_um     = mesh::bbox{value_at<double>(config, "current_probe", "x_min_um"),
+                                                 value_at<double>(config, "current_probe", "x_max_um"),
+                                                 value_at<double>(config, "current_probe", "y_min_um"),
+                                                 value_at<double>(config, "current_probe", "y_max_um"),
+                                                 value_at<double>(config, "current_probe", "z_min_um"),
+                                                 value_at<double>(config, "current_probe", "z_max_um")};
 
     result.number_electrons_start = value_at<std::size_t>(config, "particles", "initial_electrons");
     result.number_holes_start     = value_at<std::size_t>(config, "particles", "initial_holes");
@@ -369,17 +369,16 @@ self_consistent_device_admc_run_config load_device_admc_config(const std::filesy
                       nested_value_at<double>(config, "particles", "initial_position", "y_um"),
                       nested_value_at<double>(config, "particles", "initial_position", "z_um")};
 
-    auto& common                               = result.self_consistent_options_2d.m_common;
-    common.m_poisson_frequency                 = value_at<std::size_t>(config, "simulation", "poisson_frequency");
-    common.m_ramo_electrode                    = value_at<std::string>(config, "contacts", "ramo_electrode");
-    common.m_enable_built_in_potential         = value_at<bool>(config, "contacts", "apply_built_in_potential");
-    common.m_built_in_contact_voltage_scale    = value_at<double>(config, "contacts", "built_in_voltage_scale");
-    common.m_contact_voltage_schedule          = parse_contact_voltage_schedule(config);
-    common.m_enable_poisson_mixing             = value_at<bool>(config, "poisson_mixing", "enabled");
-    common.m_poisson_mixing_old_solution_fraction =
-        value_at<double>(config, "poisson_mixing", "old_solution_fraction");
-    common.m_initialize_particles_from_doping  = value_at<bool>(config, "particles", "initialize_from_doping");
-    common.m_initial_particle_weight           = value_at<double>(config, "particles", "initial_weight");
+    auto& common                                  = result.self_consistent_options_2d.m_common;
+    common.m_poisson_frequency                    = value_at<std::size_t>(config, "simulation", "poisson_frequency");
+    common.m_ramo_electrode                       = value_at<std::string>(config, "contacts", "ramo_electrode");
+    common.m_enable_built_in_potential            = value_at<bool>(config, "contacts", "apply_built_in_potential");
+    common.m_built_in_contact_voltage_scale       = value_at<double>(config, "contacts", "built_in_voltage_scale");
+    common.m_contact_voltage_schedule             = parse_contact_voltage_schedule(config);
+    common.m_enable_poisson_mixing                = value_at<bool>(config, "poisson_mixing", "enabled");
+    common.m_poisson_mixing_old_solution_fraction = value_at<double>(config, "poisson_mixing", "old_solution_fraction");
+    common.m_initialize_particles_from_doping     = value_at<bool>(config, "particles", "initialize_from_doping");
+    common.m_initial_particle_weight              = value_at<double>(config, "particles", "initial_weight");
     common.m_initial_particle_state_file =
         resolve_input_path(config_file, value_at<std::string>(config, "particles", "initial_state_file"));
     if (!common.m_initial_particle_state_file.empty()) {

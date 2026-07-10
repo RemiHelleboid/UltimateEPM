@@ -27,8 +27,7 @@ namespace {
 double local_ionized_impurity_density_cm_3(const mesh::element& containing_element,
                                            const mesh::vector3& location,
                                            double               net_doping_cm_3) {
-    const double donor_density_cm_3 =
-        containing_element.interpolate_scalar_at_location("DonorConcentration", location);
+    const double donor_density_cm_3 = containing_element.interpolate_scalar_at_location("DonorConcentration", location);
     const double acceptor_density_cm_3 =
         containing_element.interpolate_scalar_at_location("AcceptorConcentration", location);
 
@@ -86,14 +85,14 @@ void pbmc_particle::set_data_from_device(int m_dimension, bool update_impurity_c
         interp_position.to_2d_inplace();
     }
     if (m_state.m_containing_element != nullptr) {
-        const auto& containing_element = *m_state.m_containing_element;
-        m_state.electric_field         = containing_element.interpolate_electric_field_at_location(interp_position);
-        m_state.doping_concentration_cm_3 =
-            containing_element.interpolate_doping_at_location(interp_position);
+        const auto& containing_element    = *m_state.m_containing_element;
+        m_state.electric_field            = containing_element.interpolate_electric_field_at_location(interp_position);
+        m_state.doping_concentration_cm_3 = containing_element.interpolate_doping_at_location(interp_position);
         if (update_impurity_concentration) {
-            m_state.impurity_concentration_cm_3 = local_ionized_impurity_density_cm_3(containing_element,
-                                                                                      interp_position,
-                                                                                      m_state.doping_concentration_cm_3);
+            m_state.impurity_concentration_cm_3 =
+                local_ionized_impurity_density_cm_3(containing_element,
+                                                    interp_position,
+                                                    m_state.doping_concentration_cm_3);
         } else {
             m_state.impurity_concentration_cm_3 = std::abs(m_state.doping_concentration_cm_3);
         }
@@ -127,9 +126,8 @@ void particle_history::export_trajectory_as_csv(const std::string& filename) con
     // Write data
     for (const auto& snapshot : m_snapshots) {
         file << snapshot.time << "," << snapshot.position.x() << "," << snapshot.position.y() << ","
-             << snapshot.position.z() << "," << snapshot.electric_field_norm << ","
-             << snapshot.lattice_temperature_K << "," << snapshot.kinetic_energy << "," << snapshot.gamma << ","
-             << snapshot.valley_index << "\n";
+             << snapshot.position.z() << "," << snapshot.electric_field_norm << "," << snapshot.lattice_temperature_K
+             << "," << snapshot.kinetic_energy << "," << snapshot.gamma << "," << snapshot.valley_index << "\n";
     }
 
     file.close();

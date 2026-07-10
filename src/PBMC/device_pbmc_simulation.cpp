@@ -228,38 +228,39 @@ std::unordered_map<std::string, std::size_t> csv_header_index(const std::string 
     return indices;
 }
 
-const std::string &required_csv_field(const std::vector<std::string>                    &fields,
+const std::string &required_csv_field(const std::vector<std::string>                     &fields,
                                       const std::unordered_map<std::string, std::size_t> &indices,
-                                      const std::string                                 &name,
-                                      std::size_t                                        line_number) {
+                                      const std::string                                  &name,
+                                      std::size_t                                         line_number) {
     const auto it = indices.find(name);
     if (it == indices.end()) {
         throw std::invalid_argument(fmt::format("Particle state CSV is missing required column '{}'.", name));
     }
     if (it->second >= fields.size()) {
-        throw std::invalid_argument(fmt::format("Particle state CSV line {} is missing value '{}'.", line_number, name));
+        throw std::invalid_argument(
+            fmt::format("Particle state CSV line {} is missing value '{}'.", line_number, name));
     }
     return fields[it->second];
 }
 
-double required_csv_double(const std::vector<std::string>                    &fields,
+double required_csv_double(const std::vector<std::string>                     &fields,
                            const std::unordered_map<std::string, std::size_t> &indices,
-                           const std::string                                 &name,
-                           std::size_t                                        line_number) {
+                           const std::string                                  &name,
+                           std::size_t                                         line_number) {
     return std::stod(required_csv_field(fields, indices, name, line_number));
 }
 
-std::size_t required_csv_size(const std::vector<std::string>                    &fields,
+std::size_t required_csv_size(const std::vector<std::string>                     &fields,
                               const std::unordered_map<std::string, std::size_t> &indices,
-                              const std::string                                 &name,
-                              std::size_t                                        line_number) {
+                              const std::string                                  &name,
+                              std::size_t                                         line_number) {
     return static_cast<std::size_t>(std::stoull(required_csv_field(fields, indices, name, line_number)));
 }
 
-double optional_csv_double(const std::vector<std::string>                    &fields,
+double optional_csv_double(const std::vector<std::string>                     &fields,
                            const std::unordered_map<std::string, std::size_t> &indices,
-                           const std::string                                 &name,
-                           double                                             fallback) {
+                           const std::string                                  &name,
+                           double                                              fallback) {
     const auto it = indices.find(name);
     if (it == indices.end() || it->second >= fields.size() || fields[it->second].empty()) {
         return fallback;
@@ -267,10 +268,10 @@ double optional_csv_double(const std::vector<std::string>                    &fi
     return std::stod(fields[it->second]);
 }
 
-std::size_t optional_csv_size(const std::vector<std::string>                    &fields,
+std::size_t optional_csv_size(const std::vector<std::string>                     &fields,
                               const std::unordered_map<std::string, std::size_t> &indices,
-                              const std::string                                 &name,
-                              std::size_t                                        fallback) {
+                              const std::string                                  &name,
+                              std::size_t                                         fallback) {
     const auto it = indices.find(name);
     if (it == indices.end() || it->second >= fields.size() || fields[it->second].empty()) {
         return fallback;
@@ -343,8 +344,8 @@ vector3 device_pbmc_simulation::get_RamoUnitaryElectricField_at_position(
     if (containing_element != nullptr) {
         return containing_element->interpolate_vector_at_location("RamoUnitaryPotential_gradient", position);
     }
-    vector3 ramo_unitary_electric_field = m_device.interpolate_vector_at_location("RamoUnitaryPotential_gradient",
-                                                                                  position);
+    vector3 ramo_unitary_electric_field =
+        m_device.interpolate_vector_at_location("RamoUnitaryPotential_gradient", position);
     return ramo_unitary_electric_field;
 }
 
@@ -732,9 +733,9 @@ std::size_t device_pbmc_simulation::load_particles_from_state_csv(const std::str
     m_state.m_counter_particles_created = 0;
 
     std::string line;
-    std::size_t line_number = 1;
-    std::size_t loaded_particles = 0;
-    std::size_t next_generated_index = 0;
+    std::size_t line_number               = 1;
+    std::size_t loaded_particles          = 0;
+    std::size_t next_generated_index      = 0;
     std::size_t max_loaded_index_plus_one = 0;
 
     while (std::getline(stream, line)) {
@@ -746,31 +747,30 @@ std::size_t device_pbmc_simulation::load_particles_from_state_csv(const std::str
         const auto fields = split_csv_line(line);
 
         particle_state state{};
-        state.time = 0.0;
-        state.position = mesh::vector3{required_csv_double(fields, indices, "x_um", line_number),
+        state.time              = 0.0;
+        state.position          = mesh::vector3{required_csv_double(fields, indices, "x_um", line_number),
                                        required_csv_double(fields, indices, "y_um", line_number),
                                        required_csv_double(fields, indices, "z_um", line_number)};
         state.previous_position = state.position;
-        state.local_k = mesh::vector3{required_csv_double(fields, indices, "local_kx_1_per_m", line_number),
+        state.local_k           = mesh::vector3{required_csv_double(fields, indices, "local_kx_1_per_m", line_number),
                                       required_csv_double(fields, indices, "local_ky_1_per_m", line_number),
                                       required_csv_double(fields, indices, "local_kz_1_per_m", line_number)};
-        state.velocity = mesh::vector3{required_csv_double(fields, indices, "vx_m_per_s", line_number),
+        state.velocity          = mesh::vector3{required_csv_double(fields, indices, "vx_m_per_s", line_number),
                                        required_csv_double(fields, indices, "vy_m_per_s", line_number),
                                        required_csv_double(fields, indices, "vz_m_per_s", line_number)};
-        state.kinetic_energy = required_csv_double(fields, indices, "energy_eV", line_number);
-        state.gamma = optional_csv_double(fields, indices, "gamma_eV", state.kinetic_energy);
-        state.valley_index = required_csv_size(fields, indices, "valley_index", line_number);
+        state.kinetic_energy    = required_csv_double(fields, indices, "energy_eV", line_number);
+        state.gamma             = optional_csv_double(fields, indices, "gamma_eV", state.kinetic_energy);
+        state.valley_index      = required_csv_size(fields, indices, "valley_index", line_number);
         if (m_dimension == 2) {
             state.position.set_z(0.0);
             state.previous_position.set_z(0.0);
         }
 
-        const auto type = parse_particle_type_field(required_csv_field(fields, indices, "type", line_number));
-        const double weight = required_csv_double(fields, indices, "weight", line_number);
-        const std::size_t particle_index =
-            optional_csv_size(fields, indices, "particle_index", next_generated_index);
-        next_generated_index = std::max(next_generated_index, particle_index + 1);
-        max_loaded_index_plus_one = std::max(max_loaded_index_plus_one, particle_index + 1);
+        const auto        type   = parse_particle_type_field(required_csv_field(fields, indices, "type", line_number));
+        const double      weight = required_csv_double(fields, indices, "weight", line_number);
+        const std::size_t particle_index = optional_csv_size(fields, indices, "particle_index", next_generated_index);
+        next_generated_index             = std::max(next_generated_index, particle_index + 1);
+        max_loaded_index_plus_one        = std::max(max_loaded_index_plus_one, particle_index + 1);
 
         mesh::vector3 lookup_position = state.position;
         if (m_dimension == 2) {
@@ -832,10 +832,10 @@ double device_pbmc_simulation::compute_ramo_current_for_particle(const pbmc_part
     if (m_dimension == 2) {
         position.to_2d_inplace();
     }
-    const auto weighting_field_m    = get_RamoUnitaryElectricField_at_position(position,
-                                                                               particle.get_containing_element());
-    double     current_contribution = scale_factor * particle.weight() * particle.get_signed_charge() *
-                                      particle.state().velocity.dot(weighting_field_m);
+    const auto weighting_field_m =
+        get_RamoUnitaryElectricField_at_position(position, particle.get_containing_element());
+    double current_contribution = scale_factor * particle.weight() * particle.get_signed_charge() *
+                                  particle.state().velocity.dot(weighting_field_m);
     return current_contribution;
 }
 
@@ -844,12 +844,13 @@ std::pair<double, double> device_pbmc_simulation::compute_ramo_current() const {
     return std::make_pair(currents.electron, currents.hole);
 }
 
-device_pbmc_simulation::ramo_current_components device_pbmc_simulation::compute_ramo_currents(bool include_full,
-                                                                                              bool include_probe) const {
+device_pbmc_simulation::ramo_current_components device_pbmc_simulation::compute_ramo_currents(
+    bool include_full,
+    bool include_probe) const {
     ramo_current_components currents{};
-    const double scale_factor           = ramo_current_scale_factor();
-    const bool   current_probe_enabled  = m_simulation_options.m_current_probe.m_enabled;
-    const bool   include_probe_currents = include_probe && current_probe_enabled;
+    const double            scale_factor           = ramo_current_scale_factor();
+    const bool              current_probe_enabled  = m_simulation_options.m_current_probe.m_enabled;
+    const bool              include_probe_currents = include_probe && current_probe_enabled;
 
     for (const auto &particle : m_list_particles) {
         auto position = particle->state().position;
@@ -858,16 +859,16 @@ device_pbmc_simulation::ramo_current_components device_pbmc_simulation::compute_
             position.to_2d_inplace();
         }
 
-        const bool inside_probe = current_probe_enabled &&
-                                  ((m_dimension == 2)
-                                       ? m_simulation_options.m_current_probe.m_box_um.is_inside_2d(position)
-                                       : m_simulation_options.m_current_probe.m_box_um.is_inside(position));
+        const bool inside_probe =
+            current_probe_enabled &&
+            ((m_dimension == 2) ? m_simulation_options.m_current_probe.m_box_um.is_inside_2d(position)
+                                : m_simulation_options.m_current_probe.m_box_um.is_inside(position));
         if (!include_full && !(include_probe_currents && inside_probe)) {
             continue;
         }
 
-        const auto weighting_field_m = get_RamoUnitaryElectricField_at_position(position,
-                                                                                particle->get_containing_element());
+        const auto weighting_field_m =
+            get_RamoUnitaryElectricField_at_position(position, particle->get_containing_element());
         const auto current = scale_factor * particle->weight() * particle->get_signed_charge() *
                              particle->state().velocity.dot(weighting_field_m);
 
@@ -994,7 +995,7 @@ void reflect_particle_to_previous_position(pbmc_particle                  &parti
                                            mesh::boundary_reflection_model reflection_model,
                                            const mesh::element            &old_element,
                                            int                             dimension,
-                                           const pbmc_transport_kernel     &transport,
+                                           const pbmc_transport_kernel    &transport,
                                            std::minstd_rand               &rng) {
     auto &state = particle.state();
 
@@ -1260,8 +1261,8 @@ void device_pbmc_simulation::export_particle_state_csv(const std::string &filena
                << ',' << local_k.z() << ',' << velocity.x() << ',' << velocity.y() << ',' << velocity.z() << ','
                << state.kinetic_energy << ',' << state.gamma << ',' << state.lattice_temperature_K << ','
                << electric_field.x() << ',' << electric_field.y() << ',' << electric_field.z() << ','
-               << electric_field.norm() << ','
-               << particle.weight() << ',' << state.valley_index << ',' << particle.get_signed_charge() << '\n';
+               << electric_field.norm() << ',' << particle.weight() << ',' << state.valley_index << ','
+               << particle.get_signed_charge() << '\n';
     }
 }
 void device_pbmc_simulation::export_all_trajectories_as_csv(const std::string &prefix_filename) const {
@@ -1616,12 +1617,12 @@ void device_pbmc_simulation::export_current_mesh_as_vtk(const std::string &direc
 
     const bool export_x_cut_enabled = true;
     if (export_x_cut_enabled) {
-        const auto                  device_box = m_device.get_p_mesh()->get_bounding_box();
-        const auto                  dx         = 1e-3;  // 1 nm
-        const auto                  y_extent   = device_box.get_y_max() - device_box.get_y_min();
-        const auto                  z_extent   = device_box.get_z_max() - device_box.get_z_min();
-        const auto                  n_y_samples = std::max<std::size_t>(1, static_cast<std::size_t>(y_extent / dx) + 1);
-        const auto                  n_z_samples =
+        const auto device_box  = m_device.get_p_mesh()->get_bounding_box();
+        const auto dx          = 1e-3;  // 1 nm
+        const auto y_extent    = device_box.get_y_max() - device_box.get_y_min();
+        const auto z_extent    = device_box.get_z_max() - device_box.get_z_min();
+        const auto n_y_samples = std::max<std::size_t>(1, static_cast<std::size_t>(y_extent / dx) + 1);
+        const auto n_z_samples =
             m_dimension == 3 ? std::max<std::size_t>(1, static_cast<std::size_t>(z_extent / dx) + 1) : 1;
         const std::filesystem::path x_cut_path =
             output_directory / fmt::format("mesh_x_cut_{:012d}.csv", m_state.m_iteration);

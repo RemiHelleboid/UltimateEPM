@@ -70,13 +70,13 @@ TEST_CASE("Testing Poisson 3d on a unit sphere.") {
 
 TEST_CASE("Testing Poisson 3d on a unit cube.") {
     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/tests/test_data/cube.msh");
-    uepm::file::msh_file           fileMSH(file_input_test_msh);
+    uepm::file::msh_file     fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
     uepm::mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
     uepm::fem::FiniteElementP1System3d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());
     MyPoissonTest.compute_stiffness_matrix();
 
-    auto func3d = [](double x, double y, double z) {return 6.0;};
+    auto func3d = [](double x, double y, double z) { return 6.0; };
     MyPoissonTest.compute_second_member(func3d);
     MyPoissonTest.apply_dirichlet_condition("x_min", 0.0);
     MyPoissonTest.apply_dirichlet_condition("x_max", 0.0);
@@ -105,7 +105,7 @@ TEST_CASE("Testing Poisson 3d on a unit cube.") {
 
 TEST_CASE("Testing Poisson 3d on a unit cube with Neuman BC.") {
     static const std::string file_input_test_msh = PROJECT_SRC_DIR + std::string("/tests/test_data/cube.msh");
-    uepm::file::msh_file           fileMSH(file_input_test_msh);
+    uepm::file::msh_file     fileMSH(file_input_test_msh);
     fileMSH.read_mesh();
     uepm::mesh::mesh*                  p_mesh = fileMSH.get_p_mesh();
     uepm::fem::FiniteElementP1System3d MyPoissonTest(p_mesh, p_mesh->get_nb_vertices());

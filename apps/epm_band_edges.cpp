@@ -67,20 +67,20 @@ std::size_t find_label(const std::vector<k_sample>& samples, const std::string& 
     throw std::runtime_error("internal error: missing sample label '" + label + "'");
 }
 
-band_edge make_edge(const std::vector<k_sample>&              samples,
+band_edge make_edge(const std::vector<k_sample>&            samples,
                     const std::vector<std::vector<double>>& energies,
-                    std::size_t                            sample_index,
-                    std::size_t                            band_index) {
+                    std::size_t                             sample_index,
+                    std::size_t                             band_index) {
     return band_edge{samples.at(sample_index).label,
                      samples.at(sample_index).k_reduced,
                      band_index,
                      energies.at(sample_index).at(band_index)};
 }
 
-edge_report analyze_edges(const std::vector<k_sample>&              samples,
+edge_report analyze_edges(const std::vector<k_sample>&            samples,
                           const std::vector<std::vector<double>>& energies,
-                          std::size_t                            valence_band,
-                          std::size_t                            conduction_band) {
+                          std::size_t                             valence_band,
+                          std::size_t                             conduction_band) {
     if (samples.empty() || energies.empty()) {
         throw std::runtime_error("no band samples available");
     }
@@ -89,8 +89,8 @@ edge_report analyze_edges(const std::vector<k_sample>&              samples,
     }
 
     edge_report report;
-    report.vbm.energy_eV = std::numeric_limits<double>::lowest();
-    report.cbm.energy_eV = std::numeric_limits<double>::infinity();
+    report.vbm.energy_eV       = std::numeric_limits<double>::lowest();
+    report.cbm.energy_eV       = std::numeric_limits<double>::infinity();
     report.delta_cbm.energy_eV = std::numeric_limits<double>::infinity();
 
     for (std::size_t i = 0; i < samples.size(); ++i) {
@@ -179,16 +179,17 @@ int main(int argc, char* argv[]) {
     TCLAP::CmdLine cmd("Report EPM band-edge and gap targets.", ' ', "1.0");
 
     TCLAP::ValueArg<std::string> arg_material("m", "material", "Material symbol", false, "Si", "string", cmd);
-    TCLAP::ValueArg<std::string> arg_epm_set("d", "epm-set", "Named EPM parameter set", false, "local-cohen", "string", cmd);
-    TCLAP::ValueArg<int>         arg_nbands("b", "nbands", "Number of bands to compute", false, 8, "int", cmd);
+    TCLAP::ValueArg<std::string>
+                         arg_epm_set("d", "epm-set", "Named EPM parameter set", false, "local-cohen", "string", cmd);
+    TCLAP::ValueArg<int> arg_nbands("b", "nbands", "Number of bands to compute", false, 8, "int", cmd);
     TCLAP::ValueArg<int> arg_vband("v", "valence-band", "Highest valence band index", false, 3, "int", cmd);
     TCLAP::ValueArg<int> arg_cband("c", "conduction-band", "Lowest conduction band index", false, 4, "int", cmd);
     TCLAP::ValueArg<int> arg_delta_samples("", "delta-samples", "Samples on Gamma-X line", false, 401, "int", cmd);
     TCLAP::ValueArg<int> arg_neighbors("n", "nearestNeighbors", "Number of EPM basis shells", false, 10, "int", cmd);
     TCLAP::ValueArg<int> arg_threads("j", "nthreads", "Number of threads", false, 1, "int", cmd);
     TCLAP::ValueArg<std::string> arg_out("o", "out", "Optional CSV output file", false, "", "path", cmd);
-    TCLAP::SwitchArg             arg_nonlocal("C", "nonlocal-correction", "Enable non-local EPM correction", cmd, false);
-    TCLAP::SwitchArg             arg_soc("S", "soc", "Enable spin-orbit coupling", cmd, false);
+    TCLAP::SwitchArg arg_nonlocal("C", "nonlocal-correction", "Enable non-local EPM correction", cmd, false);
+    TCLAP::SwitchArg arg_soc("S", "soc", "Enable spin-orbit coupling", cmd, false);
 
     cmd.parse(argc, argv);
 
@@ -196,7 +197,8 @@ int main(int argc, char* argv[]) {
         throw TCLAP::ArgException("--nbands must be greater than --conduction-band", arg_nbands.getName());
     }
     if (arg_vband.getValue() < 0 || arg_cband.getValue() <= arg_vband.getValue()) {
-        throw TCLAP::ArgException("--valence-band and --conduction-band must define a positive gap", arg_cband.getName());
+        throw TCLAP::ArgException("--valence-band and --conduction-band must define a positive gap",
+                                  arg_cband.getName());
     }
     if (arg_threads.getValue() <= 0) {
         throw TCLAP::ArgException("number of threads must be positive", arg_threads.getName());
@@ -207,7 +209,7 @@ int main(int argc, char* argv[]) {
     materials.load_material(repository, arg_material.getValue(), arg_epm_set.getValue());
     const auto& material = materials.materials.at(arg_material.getValue());
 
-    const auto samples = make_samples(static_cast<std::size_t>(arg_delta_samples.getValue()));
+    const auto                    samples = make_samples(static_cast<std::size_t>(arg_delta_samples.getValue()));
     std::vector<Vector3D<double>> kpoints;
     kpoints.reserve(samples.size());
     for (const auto& sample : samples) {

@@ -25,12 +25,11 @@ struct ScreenedCoulombKernelConfig {
  */
 class ScreenedCoulombKernel {
  private:
-    const DielectricMesh*        m_dielectric_mesh = nullptr;
-    ScreenedCoulombKernelConfig  m_config{};
+    const DielectricMesh*       m_dielectric_mesh = nullptr;
+    ScreenedCoulombKernelConfig m_config{};
 
  public:
-    explicit ScreenedCoulombKernel(const DielectricMesh& dielectric_mesh,
-                                   ScreenedCoulombKernelConfig config = {});
+    explicit ScreenedCoulombKernel(const DielectricMesh& dielectric_mesh, ScreenedCoulombKernelConfig config = {});
 
     const ScreenedCoulombKernelConfig& config() const noexcept { return m_config; }
 

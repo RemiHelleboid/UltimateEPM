@@ -14,7 +14,7 @@
 namespace uepm::PBMC {
 
 self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesystem::path&    config_file,
-                                                             const std::vector<std::string>& overrides = {});
+                                                               const std::vector<std::string>& overrides = {});
 
 void write_basic_device_pbmc_config(const std::filesystem::path& config_file);
 

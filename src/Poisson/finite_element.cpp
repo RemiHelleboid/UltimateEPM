@@ -128,7 +128,7 @@ void FiniteElementSystem::add_solution_to_mesh_functions(const std::string &func
 }
 
 void FiniteElementSystem::update_mesh_electric_field_from_solution() {
-    const mesh::vector3 null_vector{0.0, 0.0, 0.0};
+    const mesh::vector3        null_vector{0.0, 0.0, 0.0};
     std::vector<mesh::vector3> vector_values(m_p_mesh->get_nb_vertices(), null_vector);
     std::vector<double>        vector_average_renormalization(m_p_mesh->get_nb_vertices(), 0.0);
 
@@ -154,11 +154,9 @@ void FiniteElementSystem::update_mesh_electric_field_from_solution() {
         }
 
         const double grad_x =
-            (value_0 * y_1 - value_0 * y_2 - value_1 * y_0 + value_1 * y_2 + value_2 * y_0 - value_2 * y_1) /
-            surface;
+            (value_0 * y_1 - value_0 * y_2 - value_1 * y_0 + value_1 * y_2 + value_2 * y_0 - value_2 * y_1) / surface;
         const double grad_y =
-            (-value_0 * x_1 + value_0 * x_2 + value_1 * x_0 - value_1 * x_2 - value_2 * x_0 + value_2 * x_1) /
-            surface;
+            (-value_0 * x_1 + value_0 * x_2 + value_1 * x_0 - value_1 * x_2 - value_2 * x_0 + value_2 * x_1) / surface;
         mesh::vector3 gradient_at_element{grad_x, grad_y, 0.0};
         if (std::isnan(gradient_at_element.norm())) {
             gradient_at_element = null_vector;

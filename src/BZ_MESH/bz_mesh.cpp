@@ -285,8 +285,8 @@ void MeshBZ::compact_geometry_to_positive_octant() {
         bool       inside_octant  = true;
         for (std::size_t source_index : source_indices) {
             const vector3& position = m_list_vertices[source_index].get_position();
-            inside_octant = inside_octant && position.x() >= -tolerance && position.y() >= -tolerance &&
-                            position.z() >= -tolerance;
+            inside_octant =
+                inside_octant && position.x() >= -tolerance && position.y() >= -tolerance && position.z() >= -tolerance;
         }
         if (!inside_octant) {
             continue;
@@ -309,7 +309,7 @@ void MeshBZ::compact_geometry_to_positive_octant() {
         if (!source_vertex_is_used[source_index]) {
             continue;
         }
-        const std::size_t local_index = compact_vertices.size();
+        const std::size_t local_index   = compact_vertices.size();
         local_from_source[source_index] = local_index;
         compact_vertices.emplace_back(local_index, m_list_vertices[source_index].get_position());
         compact_node_tags.push_back(m_node_tags[source_index]);
@@ -339,11 +339,11 @@ void MeshBZ::compact_geometry_to_positive_octant() {
 
     m_list_tetrahedra.clear();
     m_list_vertices.clear();
-    m_list_vertices            = std::move(compact_vertices);
-    m_list_tetrahedra          = std::move(compact_tetrahedra);
-    m_vertex_to_tetrahedra     = std::move(compact_vertex_to_tetrahedra);
-    m_node_tags                = std::move(compact_node_tags);
-    m_source_vertex_indices    = std::move(compact_source_indices);
+    m_list_vertices                  = std::move(compact_vertices);
+    m_list_tetrahedra                = std::move(compact_tetrahedra);
+    m_vertex_to_tetrahedra           = std::move(compact_vertex_to_tetrahedra);
+    m_node_tags                      = std::move(compact_node_tags);
+    m_source_vertex_indices          = std::move(compact_source_indices);
     m_local_index_from_source_vertex = std::move(local_from_source);
 
     fmt::print("Compacted BZ storage to positive octant: {} vertices, {} tetrahedra\n",
@@ -357,7 +357,7 @@ void MeshBZ::build_positive_octant_kstar() {
     }
 
     constexpr double coordinate_tolerance_reduced = 1e-10;
-    const auto coordinate_key = [&](const vector3& position) {
+    const auto       coordinate_key               = [&](const vector3& position) {
         const vector3 reduced = si_to_reduced_k(position);
         return ReducedCoordinateKey{
             std::llround(reduced.x() / coordinate_tolerance_reduced),
@@ -369,7 +369,8 @@ void MeshBZ::build_positive_octant_kstar() {
     std::unordered_map<ReducedCoordinateKey, std::size_t, ReducedCoordinateKeyHash> vertex_by_position;
     vertex_by_position.reserve(m_list_vertices.size());
     for (const Vertex& vertex : m_list_vertices) {
-        const auto [it, inserted] = vertex_by_position.emplace(coordinate_key(vertex.get_position()), vertex.get_index());
+        const auto [it, inserted] =
+            vertex_by_position.emplace(coordinate_key(vertex.get_position()), vertex.get_index());
         if (!inserted) {
             throw std::runtime_error("Positive-octant mesh contains duplicate vertices within symmetry tolerance");
         }
@@ -1157,8 +1158,7 @@ std::size_t MeshBZ::get_index_irreducible_wedge(const vector3& k_SI) const {
 
 void MeshBZ::compute_band_structure_over_mesh(uepm::pseudopotential::BandStructure& band_structure, bool use_iwedge) {
     if (stores_positive_octant() && use_iwedge) {
-        throw std::invalid_argument(
-            "Cannot combine positive-octant storage with irreducible-wedge band computation");
+        throw std::invalid_argument("Cannot combine positive-octant storage with irreducible-wedge band computation");
     }
     const auto& full_list_vertices            = m_list_vertices;
     const auto& list_idx_irreducible_vertices = m_list_vtx_in_iwedge;

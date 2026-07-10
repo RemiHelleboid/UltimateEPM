@@ -122,7 +122,7 @@ void FiniteElementP1System2d::compute_second_member(std::function<double(double,
 }
 
 void FiniteElementP1System2d::apply_dirichlet_condition(const std::string& region_name, const double boundary_value) {
-    const mesh::region*      boundary_region              = m_p_mesh->get_p_region(region_name);
+    const mesh::region* boundary_region = m_p_mesh->get_p_region(region_name);
     if (boundary_region == nullptr) {
         throw std::runtime_error("Region '" + region_name + "' does not exist in the mesh.");
     }
@@ -135,7 +135,7 @@ void FiniteElementP1System2d::apply_dirichlet_condition(const std::string& regio
 
 void FiniteElementP1System2d::apply_dirichlet_condition_second_member(const std::string& region_name,
                                                                       const double       boundary_value) {
-    const mesh::region*      boundary_region              = m_p_mesh->get_p_region(region_name);
+    const mesh::region* boundary_region = m_p_mesh->get_p_region(region_name);
     if (boundary_region == nullptr) {
         throw std::runtime_error("Region '" + region_name + "' does not exist in the mesh.");
     }

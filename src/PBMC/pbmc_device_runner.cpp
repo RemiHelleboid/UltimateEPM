@@ -20,11 +20,11 @@
 #include <stdexcept>
 #include <thread>
 
-#include "pbmc_device_setup.hpp"
-#include "pbmc_run_manifest.hpp"
 #include "device.hpp"
 #include "materials.hpp"
 #include "msh_file.hpp"
+#include "pbmc_device_setup.hpp"
+#include "pbmc_run_manifest.hpp"
 
 namespace uepm::PBMC {
 
@@ -92,8 +92,7 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     fmt::print("  time step: {:.6e} s\n", config.device_options.m_time_step);
     fmt::print("  Poisson frequency: {}\n", config.self_consistent_options_2d.m_common.m_poisson_frequency);
     fmt::print("  contact voltages:\n");
-    for (const auto& [contact_name, voltage_V] :
-         config.self_consistent_options_2d.m_common.m_contact_voltages_V) {
+    for (const auto& [contact_name, voltage_V] : config.self_consistent_options_2d.m_common.m_contact_voltages_V) {
         fmt::print("    {}: {:.6e} V\n", contact_name, voltage_V);
     }
     if (!common_options.m_contact_voltage_schedule.empty()) {
@@ -218,7 +217,7 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     }
     manifest.add("contact_voltage_schedule", "event_count", common_options.m_contact_voltage_schedule.size());
     for (std::size_t event_index = 0; event_index < common_options.m_contact_voltage_schedule.size(); ++event_index) {
-        const auto& event = common_options.m_contact_voltage_schedule[event_index];
+        const auto&       event   = common_options.m_contact_voltage_schedule[event_index];
         const std::string section = fmt::format("contact_voltage_schedule_{}", event_index);
         manifest.add(section, "time_s", event.m_time_s);
         for (const auto& [contact_name, voltage_V] : event.m_contact_voltages_V) {
@@ -229,15 +228,11 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
         manifest.add("collecting_contacts", contact_name, true);
     }
     manifest.add("self_consistent", "built_in_potential_enabled", common_options.m_enable_built_in_potential);
-    manifest.add("self_consistent",
-                 "intrinsic_concentration_model",
-                 "silicon_varshni_normalized_1e10_cm-3_at_300K");
+    manifest.add("self_consistent", "intrinsic_concentration_model", "silicon_varshni_normalized_1e10_cm-3_at_300K");
     manifest.add("self_consistent",
                  "intrinsic_concentration_cm_3",
                  silicon_intrinsic_concentration_cm_3(device_options.m_lattice_temperature));
-    manifest.add("self_consistent",
-                 "built_in_contact_voltage_scale",
-                 common_options.m_built_in_contact_voltage_scale);
+    manifest.add("self_consistent", "built_in_contact_voltage_scale", common_options.m_built_in_contact_voltage_scale);
     manifest.add("self_consistent", "poisson_mixing_enabled", common_options.m_enable_poisson_mixing);
     manifest.add("self_consistent",
                  "poisson_mixing_old_solution_fraction",
@@ -251,15 +246,11 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
                  "contact_injection_particle_weight",
                  common_options.m_contact_injection_particle_weight);
     manifest.add("self_consistent", "background_ramo_current_A", common_options.m_background_ramo_current_A);
-    manifest.add("self_consistent",
-                 "auto_background_ramo_current",
-                 common_options.m_auto_background_ramo_current);
+    manifest.add("self_consistent", "auto_background_ramo_current", common_options.m_auto_background_ramo_current);
 
     const auto& quench_options = common_options.m_passive_quench_circuit;
     manifest.add("quench_circuit", "enabled", quench_options.m_enabled);
-    manifest.add("quench_circuit",
-                 "biased_contact",
-                 common_options.m_quench_biased_contact);
+    manifest.add("quench_circuit", "biased_contact", common_options.m_quench_biased_contact);
     manifest.add("quench_circuit", "bias_voltage_V", quench_options.m_bias_voltage_V);
     manifest.add("quench_circuit", "initial_device_voltage_V", quench_options.m_initial_device_voltage_V);
     manifest.add("quench_circuit", "resistance_ohm", quench_options.m_resistance_ohm);
@@ -286,31 +277,31 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
                  injection.m_particle_type == particle_type::electron ? "electron" : "hole");
     manifest.add("scheduled_injection", "weight", injection.m_weight);
 
-    std::size_t remaining_electrons        = 0;
-    std::size_t remaining_holes            = 0;
-    std::size_t impact_events              = 0;
-    double      final_time_s               = 0.0;
-    double      total_electron_weight      = 0.0;
-    double      total_hole_weight          = 0.0;
-    double      final_ramo_current_A       = 0.0;
-    bool        avalanche_detected         = false;
-    double      avalanche_time_s           = 0.0;
-    double      avalanche_voltage_drop_V   = 0.0;
-    bool        successful_quench_detected = false;
-    double      successful_quench_time_s   = 0.0;
-    const std::string final_particle_state_file = fmt::format("{}/final_particle_state.csv", output_dir);
+    std::size_t       remaining_electrons        = 0;
+    std::size_t       remaining_holes            = 0;
+    std::size_t       impact_events              = 0;
+    double            final_time_s               = 0.0;
+    double            total_electron_weight      = 0.0;
+    double            total_hole_weight          = 0.0;
+    double            final_ramo_current_A       = 0.0;
+    bool              avalanche_detected         = false;
+    double            avalanche_time_s           = 0.0;
+    double            avalanche_voltage_drop_V   = 0.0;
+    bool              successful_quench_detected = false;
+    double            successful_quench_time_s   = 0.0;
+    const std::string final_particle_state_file  = fmt::format("{}/final_particle_state.csv", output_dir);
 
     const auto start = std::chrono::high_resolution_clock::now();
 
     if (mesh_dimension == 2) {
         self_consistent_device_pbmc_simulation_2d simulation(simulation_device,
-                                                            device_options,
-                                                            config.self_consistent_options_2d,
-                                                            material_database,
-                                                            config.starting_position,
-                                                            config.number_electrons_start,
-                                                            config.number_holes_start,
-                                                            config.seed_random_generator);
+                                                             device_options,
+                                                             config.self_consistent_options_2d,
+                                                             material_database,
+                                                             config.starting_position,
+                                                             config.number_electrons_start,
+                                                             config.number_holes_start,
+                                                             config.seed_random_generator);
 
         simulation.set_prefix_export_trajectory_filename(trajectory_dir);
         simulation.run_self_consistent_transport_simulation();
@@ -352,13 +343,13 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
         }
     } else {
         self_consistent_device_pbmc_simulation_3d simulation(simulation_device,
-                                                            device_options,
-                                                            self_consistent_options_3d,
-                                                            material_database,
-                                                            config.starting_position,
-                                                            config.number_electrons_start,
-                                                            config.number_holes_start,
-                                                            config.seed_random_generator);
+                                                             device_options,
+                                                             self_consistent_options_3d,
+                                                             material_database,
+                                                             config.starting_position,
+                                                             config.number_electrons_start,
+                                                             config.number_holes_start,
+                                                             config.seed_random_generator);
 
         simulation.set_prefix_export_trajectory_filename(fmt::format("{}/time_step", trajectory_dir));
         simulation.run_self_consistent_transport_simulation();

@@ -355,7 +355,8 @@ void BandStructure::export_result_in_file(const std::string& filename) const {
 
 void BandStructure::export_result_in_file_with_kpoints(const std::string& filename) const {
     if (m_energies.empty() || m_energies.front().empty()) {
-        throw std::runtime_error("BandStructure::export_result_in_file_with_kpoints: no band energies have been computed");
+        throw std::runtime_error(
+            "BandStructure::export_result_in_file_with_kpoints: no band energies have been computed");
     }
     std::cout << "Exporting band structure to file:     " << filename << std::endl;
     std::ofstream file(filename);

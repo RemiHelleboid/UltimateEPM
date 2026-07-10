@@ -18,7 +18,7 @@ mesh::vector3 admc_position_um(const ADMC::device_admc_particle& particle) {
             position_m.z() * units::meter_to_micron};
 }
 
-PBMC::pbmc_transport_kernel& pbmc_transport_for(ADMC::carrier_type          type,
+PBMC::pbmc_transport_kernel& pbmc_transport_for(ADMC::carrier_type           type,
                                                 PBMC::pbmc_transport_kernel& electron_transport,
                                                 PBMC::pbmc_transport_kernel& hole_transport) {
     return type == ADMC::carrier_type::electron ? electron_transport : hole_transport;
@@ -31,17 +31,11 @@ void transfer_counters::reset() noexcept {
     m_admc_to_pbmc = 0;
 }
 
-std::size_t particle_pools::size() const noexcept {
-    return pbmc_size() + admc_size();
-}
+std::size_t particle_pools::size() const noexcept { return pbmc_size() + admc_size(); }
 
-std::size_t particle_pools::pbmc_size() const noexcept {
-    return m_pbmc_particles.size();
-}
+std::size_t particle_pools::pbmc_size() const noexcept { return m_pbmc_particles.size(); }
 
-std::size_t particle_pools::admc_size() const noexcept {
-    return m_admc_particles.size();
-}
+std::size_t particle_pools::admc_size() const noexcept { return m_admc_particles.size(); }
 
 void particle_pools::apply_policy(const bbox_transport_policy& policy,
                                   PBMC::pbmc_transport_kernel& electron_transport,

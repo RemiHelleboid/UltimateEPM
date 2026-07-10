@@ -32,8 +32,7 @@ struct contact_doping_summary {
     double acceptor_cm_3 = 0.0;
 };
 
-contact_doping_summary summarize_contact_doping(
-    const std::vector<std::shared_ptr<mesh::element>>& contact_elements) {
+contact_doping_summary summarize_contact_doping(const std::vector<std::shared_ptr<mesh::element>>& contact_elements) {
     double donor_integral    = 0.0;
     double acceptor_integral = 0.0;
     double measure_integral  = 0.0;
@@ -60,9 +59,9 @@ contact_doping_summary summarize_contact_doping(
 }
 
 double contact_equilibrium_voltage_offset_V(const contact_doping_summary& summary, double temperature_K) {
-    const double donor_excess    = summary.donor_cm_3 - summary.acceptor_cm_3;
-    const double acceptor_excess = summary.acceptor_cm_3 - summary.donor_cm_3;
-    const double thermal_voltage = uepm::constants::k_B * temperature_K / uepm::constants::q_e;
+    const double donor_excess                 = summary.donor_cm_3 - summary.acceptor_cm_3;
+    const double acceptor_excess              = summary.acceptor_cm_3 - summary.donor_cm_3;
+    const double thermal_voltage              = uepm::constants::k_B * temperature_K / uepm::constants::q_e;
     const double intrinsic_concentration_cm_3 = silicon_intrinsic_concentration_admc_cm_3(temperature_K);
 
     if (donor_excess > 0.0) {
@@ -136,8 +135,8 @@ void options_self_consistent_device_ADMC_common::validate() const {
     if (!std::isfinite(m_built_in_contact_voltage_scale)) {
         throw std::invalid_argument("ADMC built-in contact voltage scale must be finite.");
     }
-    if (!std::isfinite(m_poisson_mixing_old_solution_fraction) ||
-        m_poisson_mixing_old_solution_fraction < 0.0 || m_poisson_mixing_old_solution_fraction > 1.0) {
+    if (!std::isfinite(m_poisson_mixing_old_solution_fraction) || m_poisson_mixing_old_solution_fraction < 0.0 ||
+        m_poisson_mixing_old_solution_fraction > 1.0) {
         throw std::invalid_argument("ADMC Poisson mixing old solution fraction must be in [0, 1].");
     }
     if (!std::isfinite(m_initial_particle_weight) || m_initial_particle_weight <= 0.0) {
@@ -156,14 +155,14 @@ void options_self_consistent_device_ADMC_2d::validate() const {
 }
 
 self_consistent_device_admc_simulation_2d::self_consistent_device_admc_simulation_2d(
-    const device::device& simulation_device,
-    const options_device_ADMC& simulation_options,
+    const device::device&                         simulation_device,
+    const options_device_ADMC&                    simulation_options,
     const options_self_consistent_device_ADMC_2d& self_consistent_options,
-    const physics::material_database& material_database,
-    const mesh::vector3& starting_position_um,
-    std::size_t number_electrons_start,
-    std::size_t number_holes_start,
-    std::uint64_t random_seed)
+    const physics::material_database&             material_database,
+    const mesh::vector3&                          starting_position_um,
+    std::size_t                                   number_electrons_start,
+    std::size_t                                   number_holes_start,
+    std::uint64_t                                 random_seed)
     : device_admc_simulation(simulation_device,
                              simulation_options,
                              starting_position_um,
@@ -210,8 +209,7 @@ double self_consistent_device_admc_simulation_2d::contact_voltage_for_poisson(co
 
 bool self_consistent_device_admc_simulation_2d::apply_scheduled_contact_voltage_events(double time_s) {
     bool changed = false;
-    while (m_next_contact_voltage_event_index <
-           m_self_consistent_options.m_common.m_contact_voltage_schedule.size()) {
+    while (m_next_contact_voltage_event_index < m_self_consistent_options.m_common.m_contact_voltage_schedule.size()) {
         const auto& event =
             m_self_consistent_options.m_common.m_contact_voltage_schedule[m_next_contact_voltage_event_index];
         if (event.m_time_s > time_s) {
@@ -231,7 +229,7 @@ bool self_consistent_device_admc_simulation_2d::apply_scheduled_contact_voltage_
 }
 
 void self_consistent_device_admc_simulation_2d::update_built_in_contact_voltage_offset(
-    const std::string& contact_name,
+    const std::string&                                 contact_name,
     const std::vector<std::shared_ptr<mesh::element>>& contact_elements) {
     m_built_in_contact_voltage_offsets_V[contact_name] = 0.0;
     if (!m_self_consistent_options.m_common.m_enable_built_in_potential) {
@@ -292,7 +290,8 @@ void self_consistent_device_admc_simulation_2d::compute_unitary_potential() {
     for (const auto& [contact_name, unused_voltage] : m_self_consistent_options.m_common.m_contact_voltages_V) {
         static_cast<void>(unused_voltage);
         m_poisson_solver.apply_dirichlet_condition(
-            contact_name, contact_name == m_self_consistent_options.m_common.m_ramo_electrode ? 1.0 : 0.0);
+            contact_name,
+            contact_name == m_self_consistent_options.m_common.m_ramo_electrode ? 1.0 : 0.0);
     }
     m_poisson_solver.decompose_matrix();
     m_poisson_solver.solve_system();
@@ -375,7 +374,7 @@ void self_consistent_device_admc_simulation_2d::place_initial_charges_according_
         throw std::invalid_argument("ADMC particle weight must be positive.");
     }
 
-    auto* mesh = m_device.get_p_mesh();
+    auto*      mesh                            = m_device.get_p_mesh();
     const auto integrate_carriers_over_2d_mesh = [&](const std::string& field_name) {
         double total_charge = 0.0;
         for (const auto& element : mesh->get_list_bulk_element()) {
@@ -384,9 +383,9 @@ void self_consistent_device_admc_simulation_2d::place_initial_charges_according_
         return total_charge;
     };
 
-    const std::string donor_field_name    = "DonorConcentration";
-    const std::string acceptor_field_name = "AcceptorConcentration";
-    const double      total_donor_charge = integrate_carriers_over_2d_mesh(donor_field_name);
+    const std::string donor_field_name      = "DonorConcentration";
+    const std::string acceptor_field_name   = "AcceptorConcentration";
+    const double      total_donor_charge    = integrate_carriers_over_2d_mesh(donor_field_name);
     const double      total_acceptor_charge = integrate_carriers_over_2d_mesh(acceptor_field_name);
     const std::size_t number_electrons = static_cast<std::size_t>(std::floor(total_donor_charge / particle_weight));
     const std::size_t number_holes     = static_cast<std::size_t>(std::floor(total_acceptor_charge / particle_weight));
@@ -412,9 +411,9 @@ void self_consistent_device_admc_simulation_2d::place_initial_charges_according_
     hole_positions.reserve(number_holes);
 
     std::uniform_real_distribution<double> uniform01(0.0, 1.0);
-    const double max_donor_concentration = mesh->get_argmax_max_of_function(donor_field_name).second;
-    const double max_acceptor_concentration = mesh->get_argmax_max_of_function(acceptor_field_name).second;
-    const mesh::bbox active_region_bbox = mesh->get_p_region("Silicon_1")->compute_bounding_box();
+    const double     max_donor_concentration    = mesh->get_argmax_max_of_function(donor_field_name).second;
+    const double     max_acceptor_concentration = mesh->get_argmax_max_of_function(acceptor_field_name).second;
+    const mesh::bbox active_region_bbox         = mesh->get_p_region("Silicon_1")->compute_bounding_box();
 
     if (number_electrons > 0 && max_donor_concentration <= 0.0) {
         throw std::runtime_error("Donor concentration maximum is non-positive.");
@@ -425,13 +424,13 @@ void self_consistent_device_admc_simulation_2d::place_initial_charges_according_
     }
 
     const std::size_t max_attempts_electrons = 1000 * number_electrons;
-    const std::size_t max_attempts_holes = 1000 * number_holes;
-    std::size_t attempts = 0;
+    const std::size_t max_attempts_holes     = 1000 * number_holes;
+    std::size_t       attempts               = 0;
     while (electron_positions.size() < number_electrons) {
         attempts++;
-        const mesh::vector3 position = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
-        const double donor_density = mesh->interpolate_scalar_at_location(donor_field_name, position);
-        const double acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
+        const mesh::vector3 position         = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
+        const double        donor_density    = mesh->interpolate_scalar_at_location(donor_field_name, position);
+        const double        acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
         if (acceptor_density > donor_density) {
             continue;
         }
@@ -453,9 +452,9 @@ void self_consistent_device_admc_simulation_2d::place_initial_charges_according_
     std::size_t hole_attempts = 0;
     while (hole_positions.size() < number_holes) {
         hole_attempts++;
-        const mesh::vector3 position = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
-        const double acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
-        const double donor_density = mesh->interpolate_scalar_at_location(donor_field_name, position);
+        const mesh::vector3 position         = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
+        const double        acceptor_density = mesh->interpolate_scalar_at_location(acceptor_field_name, position);
+        const double        donor_density    = mesh->interpolate_scalar_at_location(donor_field_name, position);
         if (donor_density > acceptor_density) {
             continue;
         }
@@ -502,15 +501,15 @@ void self_consistent_device_admc_simulation_2d::add_charges_at_contacts(std::siz
 
     std::vector<double> electron_charge_to_add(m_list_element_contact_ptr.size(), 0.0);
     std::vector<double> hole_charge_to_add(m_list_element_contact_ptr.size(), 0.0);
-    double total_electron_charge_to_add = 0.0;
-    double total_hole_charge_to_add     = 0.0;
+    double              total_electron_charge_to_add = 0.0;
+    double              total_hole_charge_to_add     = 0.0;
 
     for (std::size_t i = 0; i < m_list_element_contact_ptr.size(); ++i) {
-        auto& element = m_list_element_contact_ptr[i];
-        const double element_charge = element->get_n_charge() - element->get_p_charge();
+        auto&        element                 = m_list_element_contact_ptr[i];
+        const double element_charge          = element->get_n_charge() - element->get_p_charge();
         const double averaged_element_charge = element_charge / static_cast<double>(poisson_frequency);
-        const double equilibrium_charge = m_list_element_contact_equilibrium_charge[i];
-        const double charge_to_add = equilibrium_charge - averaged_element_charge;
+        const double equilibrium_charge      = m_list_element_contact_equilibrium_charge[i];
+        const double charge_to_add           = equilibrium_charge - averaged_element_charge;
         if (equilibrium_charge > 0.0 && charge_to_add > 0.0) {
             electron_charge_to_add[i] = charge_to_add;
             total_electron_charge_to_add += charge_to_add;
@@ -553,7 +552,8 @@ void self_consistent_device_admc_simulation_2d::add_charges_at_contacts(std::siz
         if (hole_charge_to_add[i] <= 0.0) {
             continue;
         }
-        hole_positions.push_back(m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
+        hole_positions.push_back(
+            m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
         hole_charge_to_add[i] -= particle_weight;
     }
 
@@ -569,11 +569,11 @@ void self_consistent_device_admc_simulation_2d::add_missing_contact_charge_to_po
     std::size_t accumulation_steps) {
     const double accumulation_factor = static_cast<double>(accumulation_steps);
     for (std::size_t i = 0; i < m_list_element_contact_ptr.size(); ++i) {
-        auto& element = m_list_element_contact_ptr[i];
-        const double equilibrium_charge = m_list_element_contact_equilibrium_charge[i];
+        auto&        element                   = m_list_element_contact_ptr[i];
+        const double equilibrium_charge        = m_list_element_contact_equilibrium_charge[i];
         const double accumulated_mobile_charge = element->get_n_charge() - element->get_p_charge();
         const double target_accumulated_charge = equilibrium_charge * accumulation_factor;
-        const double correction = target_accumulated_charge - accumulated_mobile_charge;
+        const double correction                = target_accumulated_charge - accumulated_mobile_charge;
         if (correction > 0.0) {
             element->add_n_charge(correction);
         } else if (correction < 0.0) {
@@ -613,13 +613,13 @@ void self_consistent_device_admc_simulation_2d::recompute_vertex_space_charge_fr
 void self_consistent_device_admc_simulation_2d::run_self_consistent_transport_simulation() {
     const std::size_t total_iterations =
         static_cast<std::size_t>(std::ceil(m_options.m_final_time_s / m_options.m_time_step_s));
-    const std::size_t poisson_frequency = m_self_consistent_options.m_common.m_poisson_frequency;
-    double accumulator_ramo_current_electron = 0.0;
-    double accumulator_ramo_current_hole     = 0.0;
-    double ramo_current_electron             = 0.0;
-    double ramo_current_hole                 = 0.0;
-    double ramo_current                      = 0.0;
-    const std::string history_filename       = initialize_simulation_history_file();
+    const std::size_t poisson_frequency                 = m_self_consistent_options.m_common.m_poisson_frequency;
+    double            accumulator_ramo_current_electron = 0.0;
+    double            accumulator_ramo_current_hole     = 0.0;
+    double            ramo_current_electron             = 0.0;
+    double            ramo_current_hole                 = 0.0;
+    double            ramo_current                      = 0.0;
+    const std::string history_filename                  = initialize_simulation_history_file();
     std::fstream      history_stream(history_filename, std::ios::app);
     history_stream << std::setprecision(std::numeric_limits<double>::max_digits10);
     if (!history_stream.is_open()) {
@@ -672,10 +672,9 @@ void self_consistent_device_admc_simulation_2d::run_self_consistent_transport_si
             recompute_vertex_space_charge_from_element_charges(poisson_frequency + 1);
             update_self_consistent_potential(false);
             reset_element_charges();
-
         }
-        m_history.set_last_contact_voltages(m_history.contact_voltage_values_from_map(
-            m_self_consistent_options.m_common.m_contact_voltages_V));
+        m_history.set_last_contact_voltages(
+            m_history.contact_voltage_values_from_map(m_self_consistent_options.m_common.m_contact_voltages_V));
 
         if (m_state.m_iteration == 1 ||
             m_state.m_iteration % static_cast<std::size_t>(m_options.m_frequency_export) == 0) {

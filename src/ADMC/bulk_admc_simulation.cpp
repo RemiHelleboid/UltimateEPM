@@ -1,12 +1,12 @@
 /**
  * @file bulk_admc_simulation.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-06-15
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 
 #include "bulk_admc_simulation.hpp"
@@ -38,7 +38,7 @@ void bulk_admc_simulation_config::validate() const {
 bulk_admc_simulation::bulk_admc_simulation(bulk_admc_simulation_config config)
     : bulk_admc_simulation(std::move(config), silicon_arora_canali_mobility{}) {}
 
-bulk_admc_simulation::bulk_admc_simulation(bulk_admc_simulation_config config,
+bulk_admc_simulation::bulk_admc_simulation(bulk_admc_simulation_config   config,
                                            silicon_arora_canali_mobility mobility_model)
     : m_config(std::move(config)),
       m_transport(std::move(mobility_model)),

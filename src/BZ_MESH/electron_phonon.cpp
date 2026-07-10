@@ -155,7 +155,7 @@ RateKernel8 ElectronPhonon::compute_electron_phonon_transition_kernel_pair(std::
     const double     qe                 = uepm::constants::q_e;
     const double     hbar_eV            = uepm::constants::h_bar_eV;
 
-    const vector3 vnk           = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);
+    const vector3 vnk = vtx1.get_energy_gradient_at_band(idx_n1) * (1.0 / hbar_eV);
 
     for (std::size_t image_index = 0; image_index < positive_octant_images.size(); ++image_index) {
         if (!stores_positive_octant() && image_index > 0) {
@@ -638,7 +638,7 @@ SelectedFinalState ElectronPhonon::select_phonon_final_state(std::size_t     idx
 
                 const auto&            T       = m_list_tetrahedra[candidate.tetra_index];
                 const IsoEnergyPolygon polygon = T.compute_band_iso_energy_polygon(Ef_eV, idx_n2);
-                const double dos_eV = T.compute_tetra_dos_energy_band(Ef_eV, idx_n2, polygon);
+                const double           dos_eV  = T.compute_tetra_dos_energy_band(Ef_eV, idx_n2, polygon);
                 if (!(dos_eV > 0.0) || !std::isfinite(dos_eV)) {
                     continue;
                 }
@@ -676,7 +676,7 @@ SelectedFinalState ElectronPhonon::select_phonon_final_state(std::size_t     idx
     }
 
     std::uniform_real_distribution<double> uniform_weight(0.0, total_weight);
-    const double                           target = uniform_weight(rng);
+    const double                           target            = uniform_weight(rng);
     double                                 cumulative_weight = 0.0;
     std::size_t                            selected_index    = candidates.size() - 1;
     for (std::size_t index = 0; index < candidates.size(); ++index) {
@@ -686,9 +686,9 @@ SelectedFinalState ElectronPhonon::select_phonon_final_state(std::size_t     idx
             break;
         }
     }
-    const Candidate& chosen = candidates[selected_index];
-    const auto&       Tsel           = m_list_tetrahedra[chosen.tetra];
-    const auto        chosen_polygon = Tsel.compute_band_iso_energy_polygon(chosen.Ef_eV, chosen.band);
+    const Candidate& chosen         = candidates[selected_index];
+    const auto&      Tsel           = m_list_tetrahedra[chosen.tetra];
+    const auto       chosen_polygon = Tsel.compute_band_iso_energy_polygon(chosen.Ef_eV, chosen.band);
 
     const vector3 k_final_representative = Tsel.draw_random_uniform_point_at_energy(chosen_polygon, rng);
     const vector3 k_final =
@@ -1172,8 +1172,7 @@ void ElectronPhonon::load_phonon_parameters_from_file(const std::filesystem::pat
     if (!config["material"] || !config["model"] || !config["parameter_set"] ||
         config["material"].as<std::string>() != material_symbol ||
         config["model"].as<std::string>() != "electron_phonon" ||
-        (!expected_parameter_set.empty() &&
-         config["parameter_set"].as<std::string>() != expected_parameter_set)) {
+        (!expected_parameter_set.empty() && config["parameter_set"].as<std::string>() != expected_parameter_set)) {
         throw std::runtime_error("Invalid electron-phonon parameter file '" + filename.string() + "'.");
     }
     const auto material = config;
@@ -1283,12 +1282,12 @@ void ElectronPhonon::read_phonon_rate_kernels_from_file(const std::filesystem::p
         vertex.set_nb_electron_phonon_rates(m_nb_bands_elph);
     }
 
-    std::size_t vertex_index = 0;
-    std::size_t band_index   = 0;
-    double      energy_eV    = 0.0;
-    RateKernel8 kernel{};
-    double      transport_ac = 0.0;
-    double      transport_op = 0.0;
+    std::size_t                    vertex_index = 0;
+    std::size_t                    band_index   = 0;
+    double                         energy_eV    = 0.0;
+    RateKernel8                    kernel{};
+    double                         transport_ac = 0.0;
+    double                         transport_op = 0.0;
     std::vector<std::vector<bool>> seen(m_list_vertices.size(), std::vector<bool>(m_nb_bands_elph, false));
     std::size_t                    loaded_rows = 0;
 
@@ -1336,7 +1335,7 @@ void ElectronPhonon::read_phonon_rate_kernels_from_file(const std::filesystem::p
         m_list_phonon_scattering_rates[local_vertex][band_index] = rates;
         m_list_vertices[local_vertex].set_electron_phonon_rates(band_index, rates);
         m_phonon_transport_kernels[band_index][local_vertex] = {transport_ac, transport_op};
-        seen[local_vertex][band_index] = true;
+        seen[local_vertex][band_index]                       = true;
         ++loaded_rows;
     }
     if (loaded_rows == 0) {
@@ -1527,8 +1526,8 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
     const double q  = uepm::constants::q_e;       // Coulomb
     const double hE = uepm::constants::h_bar_eV;  // eV·s
 
-    Eigen::Matrix3d sigma = Eigen::Matrix3d::Zero();  // S/m
-    double          n_e   = 0.0;                      // m^-3
+    Eigen::Matrix3d sigma                      = Eigen::Matrix3d::Zero();  // S/m
+    double          n_e                        = 0.0;                      // m^-3
     double          n_e_without_transport_rate = 0.0;
 
     auto bands = get_band_indices(MeshParticleType::conduction);
@@ -1575,9 +1574,8 @@ Eigen::Matrix3d ElectronPhonon::compute_electron_MRTA_mobility_tensor(double fer
     }
     const double missing_rate_fraction = n_e_without_transport_rate / n_e;
     if (!std::isfinite(missing_rate_fraction) || missing_rate_fraction > 1.0e-2) {
-        throw std::runtime_error(
-            "MRTA: more than 1% of the equilibrium electron density has no valid transport rate. "
-            "Increase the kernel/rate energy window.");
+        throw std::runtime_error("MRTA: more than 1% of the equilibrium electron density has no valid transport rate. "
+                                 "Increase the kernel/rate energy window.");
     }
     if (missing_rate_fraction > 1.0e-4) {
         fmt::print(stderr,

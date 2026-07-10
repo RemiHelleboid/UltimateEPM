@@ -163,9 +163,9 @@ void self_consistent_device_pbmc_simulation_2d::place_initial_charges_according_
     if (number_holes > 0 && max_acceptor_concentration <= 0.0) {
         throw std::runtime_error("Acceptor concentration maximum is non-positive.");
     }
-    const mesh::bbox active_region_bbox = mesh->get_p_region("Silicon_1")->compute_bounding_box();
-    const std::size_t max_trial = 100 * number_electrons;
-    std::size_t count_trial = 0;
+    const mesh::bbox  active_region_bbox = mesh->get_p_region("Silicon_1")->compute_bounding_box();
+    const std::size_t max_trial          = 100 * number_electrons;
+    std::size_t       count_trial        = 0;
 
     while (electron_positions.size() < number_electrons) {
         const mesh::vector3 position = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
@@ -188,7 +188,7 @@ void self_consistent_device_pbmc_simulation_2d::place_initial_charges_according_
     fmt::print("Initial electrons placed according to doping.\n");
 
     const std::size_t max_trial_holes = 100 * number_holes;
-    count_trial = 0;
+    count_trial                       = 0;
 
     while (hole_positions.size() < number_holes) {
         const mesh::vector3 position         = active_region_bbox.draw_uniform_random_point_inside_box(m_contact_rng);
@@ -516,11 +516,11 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
     fmt::print("Total iterations: {}\n", total_iterations);
     fmt::print("Poisson frequency: {}\n", poisson_frequency());
 
-    double accumulator_ramo_current_electron = 0.0;
-    double accumulator_ramo_current_hole     = 0.0;
-    double ramo_current_electron             = 0.0;
-    double ramo_current_hole                 = 0.0;
-    double ramo_current                      = 0.0;
+    double accumulator_ramo_current_electron       = 0.0;
+    double accumulator_ramo_current_hole           = 0.0;
+    double ramo_current_electron                   = 0.0;
+    double ramo_current_hole                       = 0.0;
+    double ramo_current                            = 0.0;
     double accumulator_probe_ramo_current_electron = 0.0;
     double accumulator_probe_ramo_current_hole     = 0.0;
     double probe_ramo_current_electron             = 0.0;
@@ -563,11 +563,11 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
             ramo_current_hole     = accumulator_ramo_current_hole / sim_poisson_frequency;
             ramo_current          = ramo_current_electron + ramo_current_hole;
             ramo_current -= common_options().m_background_ramo_current_A;
-            probe_ramo_current_electron = accumulator_probe_ramo_current_electron / sim_poisson_frequency;
-            probe_ramo_current_hole     = accumulator_probe_ramo_current_hole / sim_poisson_frequency;
-            probe_ramo_current          = probe_ramo_current_electron + probe_ramo_current_hole;
-            accumulator_ramo_current_electron = 0.0;
-            accumulator_ramo_current_hole     = 0.0;
+            probe_ramo_current_electron             = accumulator_probe_ramo_current_electron / sim_poisson_frequency;
+            probe_ramo_current_hole                 = accumulator_probe_ramo_current_hole / sim_poisson_frequency;
+            probe_ramo_current                      = probe_ramo_current_electron + probe_ramo_current_hole;
+            accumulator_ramo_current_electron       = 0.0;
+            accumulator_ramo_current_hole           = 0.0;
             accumulator_probe_ramo_current_electron = 0.0;
             accumulator_probe_ramo_current_hole     = 0.0;
 
@@ -598,25 +598,25 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
         update_successful_quench_detection(m_state.m_time_s, impact_events_before_step);
 
         const double max_electric_field_V_per_cm = max_particle_electric_field_V_per_cm();
-        m_simulation_history.add_data_to_history(m_state.m_time_s,
-                                                 get_number_electrons(),
-                                                 get_number_holes(),
-                                                 m_simulation_history.m_impact_ionization_positions.size(),
-                                                 ramo_current_electron,
-                                                 ramo_current_hole,
-                                                 ramo_current,
-                                                 probe_ramo_current_electron,
-                                                 probe_ramo_current_hole,
-                                                 probe_ramo_current,
-                                                 max_electric_field_V_per_cm,
-                                                 ramo_electrode_voltage_for_history(),
-                                                 reference_electrode_voltage_for_history(),
-                                                 quench_supply_voltage_for_history(),
-                                                 quench_device_current_for_history(),
-                                                 quench_resistor_current_for_history(),
-                                                 quench_voltage_drop_for_history(),
-                                                 m_simulation_history.contact_voltage_values_from_map(
-                                                     contact_voltages_V()));
+        m_simulation_history.add_data_to_history(
+            m_state.m_time_s,
+            get_number_electrons(),
+            get_number_holes(),
+            m_simulation_history.m_impact_ionization_positions.size(),
+            ramo_current_electron,
+            ramo_current_hole,
+            ramo_current,
+            probe_ramo_current_electron,
+            probe_ramo_current_hole,
+            probe_ramo_current,
+            max_electric_field_V_per_cm,
+            ramo_electrode_voltage_for_history(),
+            reference_electrode_voltage_for_history(),
+            quench_supply_voltage_for_history(),
+            quench_device_current_for_history(),
+            quench_resistor_current_for_history(),
+            quench_voltage_drop_for_history(),
+            m_simulation_history.contact_voltage_values_from_map(contact_voltages_V()));
 
         // The "full" history is exported at the end of the sim
         if (m_state.m_iteration % 10 == 0) {

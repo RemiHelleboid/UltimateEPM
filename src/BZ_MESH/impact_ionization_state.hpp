@@ -5,9 +5,8 @@
 
 #pragma once
 
-#include <cstddef>
-
 #include <Eigen/Dense>
+#include <cstddef>
 
 #include "bz_states.hpp"
 #include "vector_bz.hpp"
@@ -35,9 +34,9 @@ class ImpactIonizationStateTable {
     std::size_t number_stored_bands() const;
 
     ImpactIonizationBandState state(std::size_t idx_k, std::size_t idx_band) const;
-    const Eigen::VectorXd&     eigenvalues_at_k(std::size_t idx_k) const;
-    const Eigen::MatrixXcd&    eigenvectors_at_k(std::size_t idx_k) const;
-    Eigen::VectorXcd           coefficients(std::size_t idx_k, std::size_t idx_band) const;
+    const Eigen::VectorXd&    eigenvalues_at_k(std::size_t idx_k) const;
+    const Eigen::MatrixXcd&   eigenvectors_at_k(std::size_t idx_k) const;
+    Eigen::VectorXcd          coefficients(std::size_t idx_k, std::size_t idx_band) const;
 };
 
 }  // namespace uepm::mesh_bz

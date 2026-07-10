@@ -111,10 +111,10 @@ class DielectricFunction {
      *
      * @param nb_points
      */
-    void generate_k_points_grid(std::size_t Nx,
-                                std::size_t Ny,
-                                std::size_t Nz,
-                                double      shift,
+    void generate_k_points_grid(std::size_t              Nx,
+                                std::size_t              Ny,
+                                std::size_t              Nz,
+                                double                   shift,
                                 DielectricKPointSampling sampling);
     void generate_k_points_grid(std::size_t Nx, std::size_t Ny, std::size_t Nz, double shift, bool irreducible_wedge);
 
