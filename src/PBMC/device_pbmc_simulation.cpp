@@ -523,10 +523,10 @@ void device_pbmc_simulation::inject_scheduled_particle_if_due() {
 
     const auto &injection = m_simulation_options.m_scheduled_particle_injection;
 
-    const double dt = m_simulation_options.m_time_step;
-
-    // Inject during the timestep that reaches the requested time.
-    if (m_state.m_time_s + dt < injection.m_time_s) {
+    // Inject at the first transport-step boundary at or after the requested
+    // time. This avoids creating the particle at the beginning of the
+    // preceding step and propagating it for a full dt before it exists.
+    if (m_state.m_time_s < injection.m_time_s) {
         return;
     }
 
@@ -821,6 +821,36 @@ std::size_t device_pbmc_simulation::get_number_holes() const {
                             return nb_part + static_cast<std::size_t>(p_part_2->type() == particle_type::hole);
                         });
     return nb_hole;
+}
+
+std::array<double, 3> device_pbmc_simulation::get_mean_kinetic_energies_eV() const {
+    double      electron_energy_sum_eV = 0.0;
+    double      hole_energy_sum_eV     = 0.0;
+    std::size_t nb_electrons           = 0;
+    std::size_t nb_holes               = 0;
+
+    for (const auto &particle : m_list_particles) {
+        if (particle->type() == particle_type::electron) {
+            electron_energy_sum_eV += particle->state().kinetic_energy;
+            ++nb_electrons;
+        } else {
+            hole_energy_sum_eV += particle->state().kinetic_energy;
+            ++nb_holes;
+        }
+    }
+
+    const double undefined_mean = std::numeric_limits<double>::quiet_NaN();
+    const double mean_electron_energy_eV =
+        nb_electrons == 0 ? undefined_mean : electron_energy_sum_eV / static_cast<double>(nb_electrons);
+    const double mean_hole_energy_eV =
+        nb_holes == 0 ? undefined_mean : hole_energy_sum_eV / static_cast<double>(nb_holes);
+    const std::size_t nb_particles = nb_electrons + nb_holes;
+    const double mean_particle_energy_eV =
+        nb_particles == 0
+            ? undefined_mean
+            : (electron_energy_sum_eV + hole_energy_sum_eV) / static_cast<double>(nb_particles);
+
+    return {mean_electron_energy_eV, mean_hole_energy_eV, mean_particle_energy_eV};
 }
 
 double device_pbmc_simulation::ramo_current_scale_factor() const { return 1.0; }
@@ -1118,12 +1148,16 @@ void device_pbmc_simulation::run() {
         const auto nb_electrons         = get_number_electrons();
         const auto nb_holes             = get_number_holes();
         const auto nb_impact_ionization = m_simulation_history.m_impact_ionization_positions.size();
+        const auto mean_energies_eV      = get_mean_kinetic_energies_eV();
 
         double dumb_ramo_current_e_h_total = 0.0;
         double dumb_0                      = 0.0;
         m_simulation_history.add_data_to_history(m_state.m_time_s,
                                                  nb_electrons,
                                                  nb_holes,
+                                                 mean_energies_eV[0],
+                                                 mean_energies_eV[1],
+                                                 mean_energies_eV[2],
                                                  nb_impact_ionization,
                                                  dumb_ramo_current_e_h_total,
                                                  dumb_ramo_current_e_h_total,

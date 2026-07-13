@@ -77,6 +77,64 @@ quench_circuit:
     CHECK(config.collecting_contacts[1] == "cathode");
 }
 
+TEST_CASE("PBMC config selects nonlinear steady-state Poisson explicitly") {
+    const auto path = write_contact_config(R"(
+input:
+  device_mesh: pn.msh
+poisson:
+  mode: nonlinear_steady_state
+  nonlinear:
+    warmup_steps: 23
+    max_iterations: 17
+    relative_residual_tolerance: 2.0e-7
+    potential_tolerance_V: 3.0e-6
+    maximum_update_V: 0.04
+    minimum_damping: 0.001
+    armijo_coefficient: 2.0e-4
+contacts:
+  voltages_V:
+    anode: 0.0
+    cathode: 0.0
+  collecting:
+    anode: true
+    cathode: true
+  ramo_electrode: anode
+quench_circuit:
+  enabled: false
+)");
+
+    const auto config = uepm::PBMC::load_device_pbmc_config(path);
+    CHECK(config.self_consistent_options_2d.m_common.m_nonlinear_steady_state_poisson);
+    const auto& options = config.self_consistent_options_2d.m_common.m_nonlinear_poisson_options;
+    CHECK(config.self_consistent_options_2d.m_common.m_nonlinear_poisson_warmup_steps == 23);
+    CHECK(options.max_iterations == 17);
+    CHECK(options.relative_residual_tolerance == doctest::Approx(2.0e-7));
+    CHECK(options.potential_tolerance_V == doctest::Approx(3.0e-6));
+    CHECK(options.maximum_update_V == doctest::Approx(0.04));
+    CHECK(options.minimum_damping == doctest::Approx(0.001));
+    CHECK(options.armijo_coefficient == doctest::Approx(2.0e-4));
+}
+
+TEST_CASE("PBMC config keeps linear transient Poisson as the default") {
+    const auto path = write_contact_config(R"(
+input:
+  device_mesh: pn.msh
+contacts:
+  voltages_V:
+    anode: 0.0
+    cathode: 0.0
+  collecting:
+    anode: true
+    cathode: true
+  ramo_electrode: anode
+quench_circuit:
+  enabled: false
+)");
+
+    const auto config = uepm::PBMC::load_device_pbmc_config(path);
+    CHECK_FALSE(config.self_consistent_options_2d.m_common.m_nonlinear_steady_state_poisson);
+}
+
 TEST_CASE("PBMC config parses scheduled contact voltage events") {
     const auto path = write_contact_config(R"(
 input:
@@ -138,6 +196,35 @@ contact_voltage_schedule:
     CHECK_THROWS_WITH_AS(uepm::PBMC::load_device_pbmc_config(path),
                          "Scheduled contact-voltage event references unknown contact 'gate'.",
                          std::invalid_argument);
+}
+
+TEST_CASE("PBMC nonlinear steady-state mode rejects scheduled voltage events") {
+    const auto path = write_contact_config(R"(
+input:
+  device_mesh: nmos.msh
+poisson:
+  mode: nonlinear_steady_state
+contacts:
+  voltages_V:
+    source: 0.0
+    gate: 0.0
+  collecting:
+    source: true
+  ramo_electrode: source
+quench_circuit:
+  enabled: false
+contact_voltage_schedule:
+  enabled: true
+  events:
+    - time_s: 2.0e-12
+      voltages_V:
+        gate: 1.0
+)");
+
+    CHECK_THROWS_WITH_AS(
+        uepm::PBMC::load_device_pbmc_config(path),
+        "Scheduled contact-voltage events are incompatible with nonlinear_steady_state Poisson; use separate stationary bias points instead.",
+        std::invalid_argument);
 }
 
 TEST_CASE("PBMC config parses boundary reflection model") {

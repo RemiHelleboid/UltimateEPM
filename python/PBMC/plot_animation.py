@@ -93,7 +93,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--particle-size",
         type=float,
-        default=14.0,
+        default=4.0,
         help="Particle marker area in points squared.",
     )
     parser.add_argument(
@@ -535,7 +535,8 @@ def create_animation(args: argparse.Namespace) -> tuple[plt.Figure, animation.Fu
         cmap=particle_cmap,
         norm=particle_norm,
         s=args.particle_size,
-        linewidths=0.0,
+        linewidths=0.1,
+        edgecolors="black",
         zorder=2,
     )
     time_artist = ax.text(

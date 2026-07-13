@@ -10,4 +10,3 @@ target_link_libraries(uepm_common INTERFACE rapidcsv fmt::fmt)
 
 
 target_compile_features(uepm_common INTERFACE cxx_std_20)
-

@@ -1,8 +1,15 @@
 /**
  * @file self_consistent_device_mmmc_simulation_2d.hpp
- * @brief Self-consistent 2D Mixed Method Monte Carlo device simulation.
+ * @author remzerrr (remi.helleboid@gmail.com)
+ * @brief 
+ * @version 0.1
+ * @date 2026-07-10
+ * 
+ * @copyright Copyright (c) 2026
+ * 
  */
 
+ 
 #pragma once
 
 #include <cstddef>

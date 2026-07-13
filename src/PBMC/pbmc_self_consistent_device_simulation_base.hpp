@@ -24,6 +24,7 @@
 #include "pbmc_avalanche_detector.hpp"
 #include "pbmc_quench_circuit.hpp"
 #include "pbmc_quench_detector.hpp"
+#include "nonlinear_poisson_solver.hpp"
 #include "vtkWriter.hpp"
 
 namespace uepm::PBMC {
@@ -36,6 +37,9 @@ struct scheduled_contact_voltage_event {
 struct options_self_consistent_device_pbmc_common {
     bool        m_frozen_field_mode = false;
     std::size_t m_poisson_frequency = 10;
+    bool        m_nonlinear_steady_state_poisson = false;
+    std::size_t m_nonlinear_poisson_warmup_steps = 10;
+    uepm::fem::nonlinear_poisson_options m_nonlinear_poisson_options{};
 
     std::map<std::string, double>                m_contact_voltages_V;
     std::string                                  m_ramo_electrode;

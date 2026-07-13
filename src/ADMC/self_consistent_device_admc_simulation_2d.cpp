@@ -501,8 +501,6 @@ void self_consistent_device_admc_simulation_2d::add_charges_at_contacts(std::siz
 
     std::vector<double> electron_charge_to_add(m_list_element_contact_ptr.size(), 0.0);
     std::vector<double> hole_charge_to_add(m_list_element_contact_ptr.size(), 0.0);
-    double              total_electron_charge_to_add = 0.0;
-    double              total_hole_charge_to_add     = 0.0;
 
     for (std::size_t i = 0; i < m_list_element_contact_ptr.size(); ++i) {
         auto&        element                 = m_list_element_contact_ptr[i];
@@ -512,50 +510,54 @@ void self_consistent_device_admc_simulation_2d::add_charges_at_contacts(std::siz
         const double charge_to_add           = equilibrium_charge - averaged_element_charge;
         if (equilibrium_charge > 0.0 && charge_to_add > 0.0) {
             electron_charge_to_add[i] = charge_to_add;
-            total_electron_charge_to_add += charge_to_add;
         } else if (equilibrium_charge < 0.0 && charge_to_add < 0.0) {
             hole_charge_to_add[i] = -charge_to_add;
-            total_hole_charge_to_add += -charge_to_add;
         }
     }
-
-    const std::size_t number_electrons_to_place =
-        static_cast<std::size_t>(std::floor(total_electron_charge_to_add / particle_weight));
-    const std::size_t number_holes_to_place =
-        static_cast<std::size_t>(std::floor(total_hole_charge_to_add / particle_weight));
 
     std::vector<mesh::vector3> electron_positions;
     std::vector<mesh::vector3> hole_positions;
+    std::uniform_real_distribution<double> uniform01(0.0, 1.0);
 
-    electron_positions.reserve(number_electrons_to_place);
-    hole_positions.reserve(number_holes_to_place);
-
-    const auto has_capacity = [&]() {
-        return m_particles.size() + electron_positions.size() + hole_positions.size() <
-               m_options.m_max_number_particles;
+    const auto remaining_capacity = [&]() {
+        const std::size_t reserved = m_particles.size() + electron_positions.size() + hole_positions.size();
+        return reserved < m_options.m_max_number_particles ? m_options.m_max_number_particles - reserved
+                                                            : std::size_t{0};
     };
 
-    std::uniform_int_distribution<std::size_t> contact_index_distribution(0, m_list_element_contact_ptr.size() - 1);
+    const auto allocate_positions_by_local_deficit = [&](const std::vector<double>& local_deficits,
+                                                          std::vector<mesh::vector3>& positions) {
+        for (std::size_t i = 0; i < local_deficits.size(); ++i) {
+            const double exact_particle_count = local_deficits[i] / particle_weight;
+            if (!(exact_particle_count > 0.0) || !std::isfinite(exact_particle_count)) {
+                continue;
+            }
 
-    while (electron_positions.size() < number_electrons_to_place && has_capacity()) {
-        const std::size_t i = contact_index_distribution(m_contact_rng);
-        if (electron_charge_to_add[i] <= 0.0) {
-            continue;
-        }
-        electron_positions.push_back(
-            m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
-        electron_charge_to_add[i] -= particle_weight;
-    }
+            const double      integral_count_as_double = std::floor(exact_particle_count);
+            const std::size_t capacity                 = remaining_capacity();
+            const std::size_t integral_count = integral_count_as_double >= static_cast<double>(capacity)
+                                                   ? capacity
+                                                   : static_cast<std::size_t>(integral_count_as_double);
 
-    while (hole_positions.size() < number_holes_to_place && has_capacity()) {
-        const std::size_t i = contact_index_distribution(m_contact_rng);
-        if (hole_charge_to_add[i] <= 0.0) {
-            continue;
+            positions.reserve(positions.size() + integral_count + 1);
+            for (std::size_t particle_index = 0; particle_index < integral_count; ++particle_index) {
+                positions.push_back(
+                    m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
+            }
+
+            if (remaining_capacity() == 0 || integral_count_as_double > static_cast<double>(integral_count)) {
+                continue;
+            }
+            const double fractional_count = exact_particle_count - integral_count_as_double;
+            if (fractional_count > 0.0 && uniform01(m_contact_rng) < fractional_count) {
+                positions.push_back(
+                    m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
+            }
         }
-        hole_positions.push_back(
-            m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
-        hole_charge_to_add[i] -= particle_weight;
-    }
+    };
+
+    allocate_positions_by_local_deficit(electron_charge_to_add, electron_positions);
+    allocate_positions_by_local_deficit(hole_charge_to_add, hole_positions);
 
     for (const auto& position : electron_positions) {
         add_particle_at_position(position, carrier_type::electron, particle_weight);
@@ -626,12 +628,37 @@ void self_consistent_device_admc_simulation_2d::run_self_consistent_transport_si
         throw std::runtime_error("Could not open ADMC simulation history CSV file '" + history_filename + "'.");
     }
     std::size_t last_history_append_iteration = 0;
+    std::size_t poisson_sample_count          = 0;
 
     fmt::print("START 2D SELF-CONSISTENT ADMC SIMULATION\n");
     fmt::print("Total iterations: {}\n", total_iterations);
     fmt::print("Poisson frequency: {}\n", poisson_frequency);
 
     reset_element_charges();
+    const auto finalize_poisson_batch = [&]() {
+        if (poisson_sample_count == 0) {
+            // A voltage event immediately following a completed batch still
+            // needs a field update before the next transport step.
+            update_self_consistent_potential(false);
+            return;
+        }
+
+        const double sample_count = static_cast<double>(poisson_sample_count);
+        ramo_current_electron = accumulator_ramo_current_electron / sample_count;
+        ramo_current_hole     = accumulator_ramo_current_hole / sample_count;
+        ramo_current          = ramo_current_electron + ramo_current_hole;
+
+        add_charges_at_contacts(poisson_sample_count);
+        add_missing_contact_charge_to_poisson_reservoir(poisson_sample_count);
+        recompute_vertex_space_charge_from_element_charges(poisson_sample_count);
+        update_self_consistent_potential(false);
+        reset_element_charges();
+
+        poisson_sample_count = 0;
+        accumulator_ramo_current_electron = 0.0;
+        accumulator_ramo_current_hole     = 0.0;
+    };
+
     while (m_state.m_time_s < m_options.m_final_time_s) {
         if (m_options.m_stop_when_no_electrons && get_number_electrons() == 0 &&
             !has_pending_scheduled_particle_injection()) {
@@ -643,38 +670,32 @@ void self_consistent_device_admc_simulation_2d::run_self_consistent_transport_si
             break;
         }
 
+        // Apply voltage events at transport-step resolution. Finalize a
+        // partial sampling window using its actual sample count so the next
+        // particle step sees the updated electrostatic field.
+        if (apply_scheduled_contact_voltage_events(m_state.m_time_s)) {
+            finalize_poisson_batch();
+        }
+
         advance_particles_one_time_step();
         add_particle_charges_to_elements();
+        ++poisson_sample_count;
 
         const auto [electron_current, hole_current] = last_ramo_current();
         accumulator_ramo_current_electron += electron_current;
         accumulator_ramo_current_hole += hole_current;
 
+        const bool should_update_poisson = poisson_sample_count == poisson_frequency;
+        if (should_update_poisson) {
+            finalize_poisson_batch();
+        }
+        m_history.set_last_contact_voltages(
+            m_history.contact_voltage_values_from_map(m_self_consistent_options.m_common.m_contact_voltages_V));
+
         if (m_state.m_iteration == 1 || m_state.m_iteration % 10 == 0) {
             m_history.append_last_iter_to_csv(history_stream);
             last_history_append_iteration = m_state.m_iteration;
         }
-
-        const bool should_update_poisson = (m_state.m_iteration % poisson_frequency == 0) && m_state.m_iteration != 0;
-        if (should_update_poisson) {
-            const double poisson_sample_time_s = m_state.m_time_s + m_options.m_time_step_s;
-            apply_scheduled_contact_voltage_events(poisson_sample_time_s);
-
-            ramo_current_electron = accumulator_ramo_current_electron / static_cast<double>(poisson_frequency);
-            ramo_current_hole     = accumulator_ramo_current_hole / static_cast<double>(poisson_frequency);
-            ramo_current          = ramo_current_electron + ramo_current_hole;
-            accumulator_ramo_current_electron = 0.0;
-            accumulator_ramo_current_hole     = 0.0;
-
-            add_charges_at_contacts(poisson_frequency);
-            add_particle_charges_to_elements();
-            add_missing_contact_charge_to_poisson_reservoir(poisson_frequency + 1);
-            recompute_vertex_space_charge_from_element_charges(poisson_frequency + 1);
-            update_self_consistent_potential(false);
-            reset_element_charges();
-        }
-        m_history.set_last_contact_voltages(
-            m_history.contact_voltage_values_from_map(m_self_consistent_options.m_common.m_contact_voltages_V));
 
         if (m_state.m_iteration == 1 ||
             m_state.m_iteration % static_cast<std::size_t>(m_options.m_frequency_export) == 0) {

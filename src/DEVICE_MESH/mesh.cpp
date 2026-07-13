@@ -1713,7 +1713,8 @@ void mesh::convert_element_function_to_vertex_function_scalar(const std::string 
  * @param factor
  */
 void mesh::convert_charge_on_element_into_charge_at_vtx(double factor) {
-    std::vector<double> scalar_values(get_nb_vertices(), 0.0);
+    std::vector<double> electron_values(get_nb_vertices(), 0.0);
+    std::vector<double> hole_values(get_nb_vertices(), 0.0);
     std::vector<double> sum_volume_per_vertices(get_nb_vertices(), 0);
     constexpr double    conversion_factor = 1e12;
 
@@ -1723,17 +1724,26 @@ void mesh::convert_charge_on_element_into_charge_at_vtx(double factor) {
         double                element_p_density = (element.get_p_charge() * factor) / volume_element;
         std::vector<vertex *> p_vertices_list   = element.get_vertices();
         for (const auto &p_vtx : p_vertices_list) {
-            scalar_values[p_vtx->get_index()] += (element_p_density - element_n_density) * volume_element;
+            electron_values[p_vtx->get_index()] += element_n_density * volume_element;
+            hole_values[p_vtx->get_index()] += element_p_density * volume_element;
             sum_volume_per_vertices[p_vtx->get_index()] += volume_element;
         }
     });
 
     // If a vertex "received" density from several elements, we average the density.
     for (std::size_t index_vtx = 0; index_vtx < get_nb_vertices(); ++index_vtx) {
-        scalar_values[index_vtx] /= (sum_volume_per_vertices[index_vtx] > 0 ? sum_volume_per_vertices[index_vtx] : 1);
-        m_ListVertices[index_vtx].set_charge_density(scalar_values[index_vtx]);
+        const double normalization = sum_volume_per_vertices[index_vtx] > 0 ? sum_volume_per_vertices[index_vtx] : 1;
+        electron_values[index_vtx] /= normalization;
+        hole_values[index_vtx] /= normalization;
+        m_ListVertices[index_vtx].set_mobile_carrier_densities(electron_values[index_vtx], hole_values[index_vtx]);
     }
-    create_scalar_function_from_values_on_vertex("MCC_Density", scalar_values);
+    std::vector<double> net_values(get_nb_vertices(), 0.0);
+    for (std::size_t index_vtx = 0; index_vtx < get_nb_vertices(); ++index_vtx) {
+        net_values[index_vtx] = hole_values[index_vtx] - electron_values[index_vtx];
+    }
+    create_scalar_function_from_values_on_vertex("MCC_Density", net_values);
+    create_scalar_function_from_values_on_vertex("MCC_ElectronDensity", electron_values);
+    create_scalar_function_from_values_on_vertex("MCC_HoleDensity", hole_values);
     recompute_space_charge();
 }
 

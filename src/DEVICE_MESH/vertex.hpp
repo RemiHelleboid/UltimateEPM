@@ -18,6 +18,8 @@ class vertex : public geometry_entity, public vector3 {
     double  m_doping_concentration{0.0};
     double  m_space_charge{0.0};
     double  m_charge_density{0.0};
+    double  m_electron_density{0.0};
+    double  m_hole_density{0.0};
     vector3 m_electric_field{0.0, 0.0, 0.0};
     vector3 m_e_drift_velocity{0.0, 0.0, 0.0};
     vector3 m_h_drift_velocity{0.0, 0.0, 0.0};
@@ -46,6 +48,13 @@ class vertex : public geometry_entity, public vector3 {
     inline double get_charge_density() const noexcept { return m_charge_density; }
     inline void   set_charge_density(double new_density) noexcept { m_charge_density = new_density; }
     inline void   add_charge_to_vertex(double charge_quantity) noexcept { m_charge_density += charge_quantity; }
+    inline double get_electron_density() const noexcept { return m_electron_density; }
+    inline double get_hole_density() const noexcept { return m_hole_density; }
+    inline void   set_mobile_carrier_densities(double electron_density, double hole_density) noexcept {
+        m_electron_density = electron_density;
+        m_hole_density     = hole_density;
+        m_charge_density   = hole_density - electron_density;
+    }
 
     // Doping concentration accessors
     inline double get_doping_concentration() const noexcept { return m_doping_concentration; }

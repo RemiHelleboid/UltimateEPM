@@ -52,6 +52,7 @@ void bulk_admc_simulation::initialize() {
     m_random_generator.seed(m_config.random_seed);
     m_standard_normal.reset();
     m_current_time_s = 0.0;
+    m_diffusion      = {};
 
     for (std::size_t i = 0; i < m_config.number_electrons; ++i) {
         m_particles.emplace_back(m_particles.size(), carrier_type::electron, m_config.initial_position_m);
@@ -76,6 +77,12 @@ void bulk_admc_simulation::run() {
         }
         m_current_time_s += time_step_s;
     }
+
+    m_diffusion = statistics::estimate_directional_diffusion(
+        m_particles.size(), m_current_time_s, [&](std::size_t index) {
+            const auto displacement = m_particles[index].state().position_m - m_config.initial_position_m;
+            return std::array<double, 3>{displacement.x(), displacement.y(), displacement.z()};
+        });
 }
 
 }  // namespace uepm::ADMC

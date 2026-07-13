@@ -26,6 +26,18 @@ void options_self_consistent_device_pbmc_common::validate() const {
     if (m_poisson_frequency == 0) {
         throw std::invalid_argument("Poisson frequency must be positive.");
     }
+    const auto& nonlinear = m_nonlinear_poisson_options;
+    if (nonlinear.max_iterations == 0 || !(nonlinear.relative_residual_tolerance > 0.0) ||
+        !(nonlinear.potential_tolerance_V > 0.0) || !(nonlinear.maximum_update_V > 0.0) ||
+        !(nonlinear.minimum_damping > 0.0 && nonlinear.minimum_damping <= 1.0) ||
+        !(nonlinear.armijo_coefficient > 0.0 && nonlinear.armijo_coefficient < 1.0)) {
+        throw std::invalid_argument("Invalid nonlinear Poisson options.");
+    }
+    if (m_nonlinear_steady_state_poisson && !m_contact_voltage_schedule.empty()) {
+        throw std::invalid_argument(
+            "Scheduled contact-voltage events are incompatible with nonlinear_steady_state Poisson; "
+            "use separate stationary bias points instead.");
+    }
     if (m_contact_voltages_V.empty()) {
         throw std::invalid_argument("At least one contact voltage must be configured.");
     }

@@ -47,6 +47,10 @@ add_executable(device_admc.epm admc_device.cpp)
 target_link_libraries(device_admc.epm PRIVATE uepm::ADMC fmt::fmt)
 target_compile_features(device_admc.epm PRIVATE cxx_std_20)
 
+add_executable(admc_bulk.epm admc_bulk.cpp)
+target_link_libraries(admc_bulk.epm PRIVATE uepm::ADMC fmt::fmt)
+target_compile_features(admc_bulk.epm PRIVATE cxx_std_20)
+
 add_executable(device_mmmc.epm mmmc_device.cpp)
 target_link_libraries(device_mmmc.epm PRIVATE uepm::MMMC fmt::fmt)
 target_compile_features(device_mmmc.epm PRIVATE cxx_std_20)

@@ -18,6 +18,7 @@
 #include "pbmc_particle.hpp"
 #include "pbmc_scattering_model.hpp"
 #include "pbmc_transport_kernel.hpp"
+#include "directional_diffusion.hpp"
 #include "scattering_channels.hpp"
 #include "valley_model.hpp"
 #include "vector.hpp"
@@ -94,6 +95,7 @@ struct bulk_observables {
     double weighted_velocity_x_m2_per_s2 = 0.0;
     double weighted_kinetic_energy_eV_s  = 0.0;
     double accumulated_time_s            = 0.0;
+    statistics::directional_diffusion diffusion{};
 };
 
 class bulk_pbmc_simulation {
@@ -106,6 +108,7 @@ class bulk_pbmc_simulation {
     impact_ionization_coefficient_statistics m_impact_ionization_coefficient_statistics;
 
     static pbmc_transport_config make_transport_config(const bulk_pbmc_simulation_config& cfg);
+    void update_directional_diffusion();
 
  public:
     bulk_pbmc_simulation() : m_transport(make_transport_config(m_cfg), m_cfg.m_material_model) {}

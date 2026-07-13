@@ -22,6 +22,7 @@
 #include "pbmc_quench_circuit.hpp"
 #include "pbmc_self_consistent_device_simulation_base.hpp"
 #include "poisson_solver_2d.hpp"
+#include "nonlinear_poisson_solver.hpp"
 #include "vtkWriter.hpp"
 
 namespace uepm::PBMC {
@@ -39,6 +40,7 @@ class self_consistent_device_pbmc_simulation_2d : public self_consistent_device_
     options_self_consistent_device_pbmc_2d m_self_consistent_options;
     uepm::fem::poisson_solver_2d           m_poisson_solver;
     uepm::fem::EigenVector                 m_previous_poisson_solution;
+    uepm::fem::EigenSparseMatrix           m_unconstrained_poisson_stiffness;
 
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
@@ -56,6 +58,7 @@ class self_consistent_device_pbmc_simulation_2d : public self_consistent_device_
     void add_charges_at_contacts(std::size_t poisson_frequency);
     void add_missing_contact_charge_to_poisson_reservoir(std::size_t accumulation_steps);
     void update_self_consistent_potential(bool publish_mesh_functions = true);
+    void update_nonlinear_self_consistent_potential();
 
     // 2D-specific methods
     double scale_integrated_2d_doping_to_carriers(double integrated_doping) const;

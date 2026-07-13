@@ -19,7 +19,8 @@ TEST_CASE("empty PBMC device history exports a header-only CSV") {
     const std::string contents{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
 
     CHECK(contents ==
-          "time,nb_electrons,nb_holes,nb_impact_ionization,ramo_current_electron,ramo_current_hole,ramo_current,"
+          "time,nb_electrons,nb_holes,mean_electron_kinetic_energy_eV,mean_hole_kinetic_energy_eV,"
+          "mean_particle_kinetic_energy_eV,nb_impact_ionization,ramo_current_electron,ramo_current_hole,ramo_current,"
           "probe_ramo_current_electron,probe_ramo_current_hole,probe_ramo_current,"
           "max_electric_field,ramo_electrode_voltage_V,reference_electrode_voltage_V,quench_bias_voltage_V,"
           "quench_device_current_A,"

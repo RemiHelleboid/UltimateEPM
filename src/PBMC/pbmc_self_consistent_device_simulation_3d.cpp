@@ -29,6 +29,9 @@ void self_consistent_device_pbmc_simulation_3d::validate_self_consistent_options
     if (poisson_frequency() == 0) {
         throw std::invalid_argument("Poisson frequency must be positive.");
     }
+    if (common_options().m_nonlinear_steady_state_poisson) {
+        throw std::invalid_argument("nonlinear_steady_state Poisson is currently implemented for 2D PBMC only.");
+    }
 }
 
 /**
@@ -474,7 +477,7 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
     double probe_ramo_current_hole                 = 0.0;
     double probe_ramo_current                      = 0.0;
 
-    const double sim_poisson_frequency = static_cast<double>(poisson_frequency());
+    std::size_t poisson_sample_count = 0;
 
     while (m_state.m_time_s <= m_simulation_options.m_t_max && !m_list_particles.empty()) {
         if (m_simulation_options.m_stop_simu_when_no_electron_remaining && get_number_electrons() == 0) {
@@ -490,6 +493,7 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
         const std::size_t impact_events_before_step = m_simulation_history.m_impact_ionization_positions.size();
         transport_particles_one_time_step();
         add_particle_charges_to_elements();
+        ++poisson_sample_count;
 
         const auto currents = compute_ramo_currents(true, true);
         accumulator_ramo_current_electron += currents.electron;
@@ -497,19 +501,19 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
         accumulator_probe_ramo_current_electron += currents.probe_electron;
         accumulator_probe_ramo_current_hole += currents.probe_hole;
 
-        const bool should_update_poisson =
-            (m_state.m_iteration % poisson_frequency() == 0) && (m_state.m_iteration != 0);
+        const bool should_update_poisson = poisson_sample_count == poisson_frequency();
 
         if (should_update_poisson) {
             const double poisson_sample_time_s = m_state.m_time_s + m_simulation_options.m_time_step;
             apply_scheduled_contact_voltage_events(poisson_sample_time_s);
 
-            ramo_current_electron = accumulator_ramo_current_electron / sim_poisson_frequency;
-            ramo_current_hole     = accumulator_ramo_current_hole / sim_poisson_frequency;
+            const double sample_count = static_cast<double>(poisson_sample_count);
+            ramo_current_electron = accumulator_ramo_current_electron / sample_count;
+            ramo_current_hole     = accumulator_ramo_current_hole / sample_count;
             ramo_current          = ramo_current_electron + ramo_current_hole;
             ramo_current -= common_options().m_background_ramo_current_A;
-            probe_ramo_current_electron             = accumulator_probe_ramo_current_electron / sim_poisson_frequency;
-            probe_ramo_current_hole                 = accumulator_probe_ramo_current_hole / sim_poisson_frequency;
+            probe_ramo_current_electron             = accumulator_probe_ramo_current_electron / sample_count;
+            probe_ramo_current_hole                 = accumulator_probe_ramo_current_hole / sample_count;
             probe_ramo_current                      = probe_ramo_current_electron + probe_ramo_current_hole;
             accumulator_ramo_current_electron       = 0.0;
             accumulator_ramo_current_hole           = 0.0;
@@ -517,17 +521,17 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
             accumulator_probe_ramo_current_hole     = 0.0;
 
             if (m_simulation_options.m_scheduled_particle_injection.m_done) {
-                const double circuit_dt_s  = m_simulation_options.m_time_step * sim_poisson_frequency;
+                const double circuit_dt_s  = m_simulation_options.m_time_step * sample_count;
                 const double sample_time_s = m_state.m_time_s + m_simulation_options.m_time_step;
                 advance_quench_circuit(ramo_current, circuit_dt_s, sample_time_s);
             }
 
-            add_charges_at_contacts(poisson_frequency());
-            add_particle_charges_to_elements();
-            add_missing_contact_charge_to_poisson_reservoir(poisson_frequency() + 1);
-            recompute_vertex_space_charge_from_element_charges(poisson_frequency() + 1);
+            add_charges_at_contacts(poisson_sample_count);
+            add_missing_contact_charge_to_poisson_reservoir(poisson_sample_count);
+            recompute_vertex_space_charge_from_element_charges(poisson_sample_count);
             update_self_consistent_potential();
             reset_element_charges();
+            poisson_sample_count = 0;
 
             if (m_common_options.m_auto_background_ramo_current && m_state.m_scheduled_particle_injection_done &&
                 m_common_options.m_background_ramo_current_A == 0.0) {
@@ -543,10 +547,14 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
         update_successful_quench_detection(m_state.m_time_s, impact_events_before_step);
 
         const double max_electric_field_V_per_cm = max_particle_electric_field_V_per_cm();
+        const auto   mean_energies_eV            = get_mean_kinetic_energies_eV();
         m_simulation_history.add_data_to_history(
             m_state.m_time_s,
             get_number_electrons(),
             get_number_holes(),
+            mean_energies_eV[0],
+            mean_energies_eV[1],
+            mean_energies_eV[2],
             m_simulation_history.m_impact_ionization_positions.size(),
             ramo_current_electron,
             ramo_current_hole,

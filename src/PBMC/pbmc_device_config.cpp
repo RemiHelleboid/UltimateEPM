@@ -61,6 +61,14 @@ YAML::Node make_default_config() {
 
     config["poisson_mixing"]["enabled"]               = false;
     config["poisson_mixing"]["old_solution_fraction"] = 0.0;
+    config["poisson"]["mode"] = "linear_transient";
+    config["poisson"]["nonlinear"]["max_iterations"] = 30;
+    config["poisson"]["nonlinear"]["warmup_steps"] = 10;
+    config["poisson"]["nonlinear"]["relative_residual_tolerance"] = 1.0e-8;
+    config["poisson"]["nonlinear"]["potential_tolerance_V"] = 1.0e-6;
+    config["poisson"]["nonlinear"]["maximum_update_V"] = 0.05;
+    config["poisson"]["nonlinear"]["minimum_damping"] = 1.0 / 1024.0;
+    config["poisson"]["nonlinear"]["armijo_coefficient"] = 1.0e-4;
 
     config["particles"]["initial_electrons"]        = 0;
     config["particles"]["initial_holes"]            = 0;
@@ -408,6 +416,29 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
 
     options_self_consistent_device_pbmc_common common;
     common.m_poisson_frequency = value_at<std::size_t>(config, "simulation", "poisson_frequency");
+    const std::string poisson_mode = value_at<std::string>(config, "poisson", "mode");
+    if (poisson_mode == "linear_transient") {
+        common.m_nonlinear_steady_state_poisson = false;
+    } else if (poisson_mode == "nonlinear_steady_state") {
+        common.m_nonlinear_steady_state_poisson = true;
+    } else {
+        throw std::invalid_argument("poisson.mode must be 'linear_transient' or 'nonlinear_steady_state'.");
+    }
+    auto& nonlinear = common.m_nonlinear_poisson_options;
+    common.m_nonlinear_poisson_warmup_steps =
+        nested_value_at<std::size_t>(config, "poisson", "nonlinear", "warmup_steps");
+    nonlinear.max_iterations =
+        nested_value_at<std::size_t>(config, "poisson", "nonlinear", "max_iterations");
+    nonlinear.relative_residual_tolerance =
+        nested_value_at<double>(config, "poisson", "nonlinear", "relative_residual_tolerance");
+    nonlinear.potential_tolerance_V =
+        nested_value_at<double>(config, "poisson", "nonlinear", "potential_tolerance_V");
+    nonlinear.maximum_update_V =
+        nested_value_at<double>(config, "poisson", "nonlinear", "maximum_update_V");
+    nonlinear.minimum_damping =
+        nested_value_at<double>(config, "poisson", "nonlinear", "minimum_damping");
+    nonlinear.armijo_coefficient =
+        nested_value_at<double>(config, "poisson", "nonlinear", "armijo_coefficient");
     if (explicit_contact_voltages) {
         for (const auto& entry : explicit_contact_voltages) {
             common.m_contact_voltages_V.emplace(entry.first.as<std::string>(), entry.second.as<double>());

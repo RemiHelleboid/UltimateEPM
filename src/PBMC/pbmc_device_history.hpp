@@ -29,6 +29,9 @@ struct history_device_PBMC {
     std::vector<double>              m_list_times{};
     std::vector<std::size_t>         m_list_nb_electrons{};
     std::vector<std::size_t>         m_list_nb_holes{};
+    std::vector<double>              m_list_mean_electron_kinetic_energy_eV{};
+    std::vector<double>              m_list_mean_hole_kinetic_energy_eV{};
+    std::vector<double>              m_list_mean_particle_kinetic_energy_eV{};
     std::vector<std::size_t>         m_list_nb_impact_ionization{};
     std::vector<double>              m_list_ramo_current_electron{};
     std::vector<double>              m_list_ramo_current_hole{};
@@ -54,6 +57,9 @@ struct history_device_PBMC {
         m_list_times.reserve(size);
         m_list_nb_electrons.reserve(size);
         m_list_nb_holes.reserve(size);
+        m_list_mean_electron_kinetic_energy_eV.reserve(size);
+        m_list_mean_hole_kinetic_energy_eV.reserve(size);
+        m_list_mean_particle_kinetic_energy_eV.reserve(size);
         m_list_nb_impact_ionization.reserve(size);
         m_list_ramo_current_electron.reserve(size);
         m_list_ramo_current_hole.reserve(size);
@@ -88,6 +94,9 @@ struct history_device_PBMC {
     void add_data_to_history(double                     time,
                              std::size_t                nb_electrons,
                              std::size_t                nb_holes,
+                             double                     mean_electron_kinetic_energy_eV,
+                             double                     mean_hole_kinetic_energy_eV,
+                             double                     mean_particle_kinetic_energy_eV,
                              std::size_t                nb_impact_ionization,
                              double                     ramo_current_electron,
                              double                     ramo_current_hole,
@@ -106,6 +115,9 @@ struct history_device_PBMC {
         m_list_times.push_back(time);
         m_list_nb_electrons.push_back(nb_electrons);
         m_list_nb_holes.push_back(nb_holes);
+        m_list_mean_electron_kinetic_energy_eV.push_back(mean_electron_kinetic_energy_eV);
+        m_list_mean_hole_kinetic_energy_eV.push_back(mean_hole_kinetic_energy_eV);
+        m_list_mean_particle_kinetic_energy_eV.push_back(mean_particle_kinetic_energy_eV);
         m_list_nb_impact_ionization.push_back(nb_impact_ionization);
         m_list_ramo_current_electron.push_back(ramo_current_electron);
         m_list_ramo_current_hole.push_back(ramo_current_hole);
@@ -131,7 +143,8 @@ struct history_device_PBMC {
 
     void print_header_csv(const std::string& filename) {
         std::ofstream file(filename);
-        file << "time,nb_electrons,nb_holes,nb_impact_ionization,ramo_current_electron,ramo_current_hole,ramo_current,"
+        file << "time,nb_electrons,nb_holes,mean_electron_kinetic_energy_eV,mean_hole_kinetic_energy_eV,"
+                "mean_particle_kinetic_energy_eV,nb_impact_ionization,ramo_current_electron,ramo_current_hole,ramo_current,"
                 "probe_ramo_current_electron,probe_ramo_current_hole,probe_ramo_current,"
                 "max_electric_field,ramo_electrode_voltage_V,reference_electrode_voltage_V,quench_bias_voltage_V,"
                 "quench_device_current_A,"
@@ -145,6 +158,8 @@ struct history_device_PBMC {
 
     void append_last_iter_to_csv(std::fstream& file) {
         file << m_list_times.back() << ',' << m_list_nb_electrons.back() << ',' << m_list_nb_holes.back() << ','
+             << m_list_mean_electron_kinetic_energy_eV.back() << ',' << m_list_mean_hole_kinetic_energy_eV.back() << ','
+             << m_list_mean_particle_kinetic_energy_eV.back() << ','
              << m_list_nb_impact_ionization.back() << ',' << m_list_ramo_current_electron.back() << ','
              << m_list_ramo_current_hole.back() << ',' << m_list_ramo_current.back() << ','
              << m_list_probe_ramo_current_electron.back() << ',' << m_list_probe_ramo_current_hole.back() << ','
@@ -173,6 +188,9 @@ struct history_device_PBMC {
         std::vector<double>              double_list_time;
         std::vector<double>              double_list_nb_electrons;
         std::vector<double>              double_list_nb_hole;
+        std::vector<double>              double_list_mean_electron_kinetic_energy_eV;
+        std::vector<double>              double_list_mean_hole_kinetic_energy_eV;
+        std::vector<double>              double_list_mean_particle_kinetic_energy_eV;
         std::vector<double>              double_list_nb_impact_ionization;
         std::vector<double>              double_list_ramo_current_electron;
         std::vector<double>              double_list_ramo_current_hole;
@@ -193,6 +211,9 @@ struct history_device_PBMC {
             double_list_time.push_back(m_list_times[iter_nb]);
             double_list_nb_electrons.push_back(m_list_nb_electrons[iter_nb]);
             double_list_nb_hole.push_back(m_list_nb_holes[iter_nb]);
+            double_list_mean_electron_kinetic_energy_eV.push_back(m_list_mean_electron_kinetic_energy_eV[iter_nb]);
+            double_list_mean_hole_kinetic_energy_eV.push_back(m_list_mean_hole_kinetic_energy_eV[iter_nb]);
+            double_list_mean_particle_kinetic_energy_eV.push_back(m_list_mean_particle_kinetic_energy_eV[iter_nb]);
             double_list_nb_impact_ionization.push_back(m_list_nb_impact_ionization[iter_nb]);
             double_list_ramo_current_electron.push_back(m_list_ramo_current_electron[iter_nb]);
             double_list_ramo_current_hole.push_back(m_list_ramo_current_hole[iter_nb]);
@@ -217,6 +238,12 @@ struct history_device_PBMC {
         double_list_time.push_back(m_list_times[m_list_nb_electrons.size() - 1]);
         double_list_nb_electrons.push_back(m_list_nb_electrons[m_list_nb_electrons.size() - 1]);
         double_list_nb_hole.push_back(m_list_nb_holes[m_list_nb_electrons.size() - 1]);
+        double_list_mean_electron_kinetic_energy_eV.push_back(
+            m_list_mean_electron_kinetic_energy_eV[m_list_nb_electrons.size() - 1]);
+        double_list_mean_hole_kinetic_energy_eV.push_back(
+            m_list_mean_hole_kinetic_energy_eV[m_list_nb_electrons.size() - 1]);
+        double_list_mean_particle_kinetic_energy_eV.push_back(
+            m_list_mean_particle_kinetic_energy_eV[m_list_nb_electrons.size() - 1]);
         double_list_nb_impact_ionization.push_back(m_list_nb_impact_ionization[m_list_nb_electrons.size() - 1]);
         double_list_ramo_current_electron.push_back(m_list_ramo_current_electron[m_list_nb_electrons.size() - 1]);
         double_list_ramo_current_hole.push_back(m_list_ramo_current_hole[m_list_nb_electrons.size() - 1]);
@@ -243,6 +270,9 @@ struct history_device_PBMC {
         std::vector<std::string> header_csv = {"time",
                                                "nb_electrons",
                                                "nb_holes",
+                                               "mean_electron_kinetic_energy_eV",
+                                               "mean_hole_kinetic_energy_eV",
+                                               "mean_particle_kinetic_energy_eV",
                                                "nb_impact_ionization",
                                                "ramo_current_electron",
                                                "ramo_current_hole",
@@ -263,6 +293,9 @@ struct history_device_PBMC {
         std::vector<std::vector<double>> columns = {double_list_time,
                                                     double_list_nb_electrons,
                                                     double_list_nb_hole,
+                                                    double_list_mean_electron_kinetic_energy_eV,
+                                                    double_list_mean_hole_kinetic_energy_eV,
+                                                    double_list_mean_particle_kinetic_energy_eV,
                                                     double_list_nb_impact_ionization,
                                                     double_list_ramo_current_electron,
                                                     double_list_ramo_current_hole,

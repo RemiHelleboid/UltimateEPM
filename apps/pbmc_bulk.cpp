@@ -412,6 +412,9 @@ int main(int argc, const char** argv) {
 
         manifest.add("results", "mean_velocity_x_m_per_s", mean_velocity_x_m_per_s);
         manifest.add("results", "mean_kinetic_energy_eV", mean_energy_eV);
+        manifest.add("results", "diffusion_x_m2_per_s", observables.diffusion.coefficient_m2_per_s[0]);
+        manifest.add("results", "diffusion_y_m2_per_s", observables.diffusion.coefficient_m2_per_s[1]);
+        manifest.add("results", "diffusion_z_m2_per_s", observables.diffusion.coefficient_m2_per_s[2]);
         manifest.add("results", "accumulated_carrier_time_s", observables.accumulated_time_s);
         manifest.add("results",
                      "acoustic_events",

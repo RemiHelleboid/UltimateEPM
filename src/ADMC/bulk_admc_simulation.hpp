@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "admc_transport.hpp"
+#include "directional_diffusion.hpp"
 
 namespace uepm::ADMC {
 
@@ -43,6 +44,7 @@ class bulk_admc_simulation {
     const bulk_admc_simulation_config& config() const noexcept { return m_config; }
     const std::vector<admc_particle>&  particles() const noexcept { return m_particles; }
     double                             current_time_s() const noexcept { return m_current_time_s; }
+    const statistics::directional_diffusion& diffusion_observables() const noexcept { return m_diffusion; }
 
  private:
     vector3 draw_standard_normal();
@@ -53,6 +55,7 @@ class bulk_admc_simulation {
     std::mt19937_64                  m_random_generator;
     std::normal_distribution<double> m_standard_normal{0.0, 1.0};
     double                           m_current_time_s = 0.0;
+    statistics::directional_diffusion m_diffusion{};
 };
 
 }  // namespace uepm::ADMC

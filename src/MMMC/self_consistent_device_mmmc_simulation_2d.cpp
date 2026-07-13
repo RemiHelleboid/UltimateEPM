@@ -1,6 +1,12 @@
 /**
  * @file self_consistent_device_mmmc_simulation_2d.cpp
- * @brief Self-consistent 2D Mixed Method Monte Carlo device simulation.
+ * @author remzerrr (remi.helleboid@gmail.com)
+ * @brief
+ * @version 0.1
+ * @date 2026-07-10
+ *
+ * @copyright Copyright (c) 2026
+ *
  */
 
 #include "self_consistent_device_mmmc_simulation_2d.hpp"
@@ -525,9 +531,9 @@ void self_consistent_device_mmmc_simulation_2d::update_admc_element_and_check_bo
     if (new_element == nullptr || !is_transport_material_element(*new_element)) {
         auto&      state = particle.particle.state();
         const auto hit   = mesh::find_boundary_exit_hit(*particle.containing_element,
-                                                      previous_position_um,
-                                                      current_position_um,
-                                                      m_dimension);
+                                                        previous_position_um,
+                                                        current_position_um,
+                                                        m_dimension);
         if (m_mmmc_options.m_admc.m_boundary_reflection_model == mesh::boundary_reflection_model::reverse ||
             !hit.has_value()) {
             state.position_m = state.previous_position_m;
@@ -1005,7 +1011,7 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
     const std::size_t total_iterations =
         static_cast<std::size_t>(std::ceil(m_simulation_options.m_t_max / m_simulation_options.m_time_step));
     const std::size_t poisson_frequency_value = poisson_frequency();
-    const double      sim_poisson_frequency   = static_cast<double>(poisson_frequency_value);
+    std::size_t       poisson_sample_count    = 0;
 
     const std::string history_filename = initialize_simulation_history_file();
     std::fstream      history_stream(history_filename, std::ios::app);
@@ -1046,30 +1052,31 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
         const std::size_t impact_events_before_step = m_simulation_history.m_impact_ionization_positions.size();
         advance_mmmc_particles_one_time_step();
         add_particle_charges_to_elements();
+        ++poisson_sample_count;
 
         const auto pbmc_currents = compute_ramo_current();
         const auto admc_currents = compute_admc_ramo_current();
         accumulator_ramo_current_electron += pbmc_currents.first + admc_currents.first;
         accumulator_ramo_current_hole += pbmc_currents.second + admc_currents.second;
 
-        const bool should_update_poisson =
-            (m_state.m_iteration % poisson_frequency_value == 0) && (m_state.m_iteration != 0);
+        const bool should_update_poisson = poisson_sample_count == poisson_frequency_value;
         if (should_update_poisson) {
             const double poisson_sample_time_s = m_state.m_time_s + m_simulation_options.m_time_step;
             apply_scheduled_contact_voltage_events(poisson_sample_time_s);
 
-            ramo_current_electron = accumulator_ramo_current_electron / sim_poisson_frequency;
-            ramo_current_hole     = accumulator_ramo_current_hole / sim_poisson_frequency;
+            const double sample_count = static_cast<double>(poisson_sample_count);
+            ramo_current_electron = accumulator_ramo_current_electron / sample_count;
+            ramo_current_hole     = accumulator_ramo_current_hole / sample_count;
             ramo_current = ramo_current_electron + ramo_current_hole - common_options().m_background_ramo_current_A;
             accumulator_ramo_current_electron = 0.0;
             accumulator_ramo_current_hole     = 0.0;
 
-            add_charges_at_contacts(poisson_frequency_value);
-            add_particle_charges_to_elements();
-            add_missing_contact_charge_to_poisson_reservoir(poisson_frequency_value + 1);
-            recompute_vertex_space_charge_from_element_charges(poisson_frequency_value + 1);
+            add_charges_at_contacts(poisson_sample_count);
+            add_missing_contact_charge_to_poisson_reservoir(poisson_sample_count);
+            recompute_vertex_space_charge_from_element_charges(poisson_sample_count);
             update_self_consistent_potential(false);
             reset_element_charges();
+            poisson_sample_count = 0;
         }
 
         m_state.m_time_s += m_simulation_options.m_time_step;
@@ -1078,10 +1085,19 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
 
         const double max_electric_field_V_per_cm =
             std::max(max_particle_electric_field_V_per_cm(), max_admc_particle_electric_field_V_per_cm());
+        // ADMC particles do not carry an explicit kinetic-energy state. Keep these
+        // observables undefined whenever the hybrid population contains ADMC particles.
+        auto mean_energies_eV = get_mean_kinetic_energies_eV();
+        if (!m_admc_particles.empty()) {
+            mean_energies_eV.fill(std::numeric_limits<double>::quiet_NaN());
+        }
         m_simulation_history.add_data_to_history(
             m_state.m_time_s,
             get_total_number_electrons(),
             get_total_number_holes(),
+            mean_energies_eV[0],
+            mean_energies_eV[1],
+            mean_energies_eV[2],
             m_simulation_history.m_impact_ionization_positions.size(),
             ramo_current_electron,
             ramo_current_hole,

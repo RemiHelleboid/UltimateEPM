@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <array>
 #include <fstream>
 #include <memory>
 #include <random>
@@ -254,6 +255,7 @@ class device_pbmc_simulation {
 
     std::size_t                get_number_electrons() const;
     std::size_t                get_number_holes() const;
+    std::array<double, 3>      get_mean_kinetic_energies_eV() const;
     double                     get_total_electron_weight() const;
     double                     get_total_hole_weight() const;
     std::optional<double>      get_current_time() const { return m_state.m_time_s; }

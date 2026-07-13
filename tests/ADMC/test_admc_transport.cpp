@@ -115,6 +115,25 @@ TEST_CASE("bulk ADMC runs to the exact requested final time and is reproducible"
     CHECK(first.particles().front().state().position_m.x() == doctest::Approx(first_run_x));
 }
 
+TEST_CASE("bulk ADMC measured directional diffusion recovers the Einstein coefficient") {
+    uepm::ADMC::bulk_admc_simulation_config config;
+    config.environment.electric_field_V_per_m = {2.0e5, 0.0, 0.0};
+    config.number_electrons                    = 20000;
+    config.number_holes                        = 0;
+    config.time_step_s                         = 1.0e-11;
+    config.final_time_s                        = 1.0e-11;
+    config.random_seed                         = 1234;
+
+    uepm::ADMC::bulk_admc_simulation simulation(config);
+    simulation.run();
+
+    const double expected = simulation.particles().front().state().diffusion_m2_per_s;
+    const auto&  measured = simulation.diffusion_observables().coefficient_m2_per_s;
+    CHECK(measured[0] == doctest::Approx(expected).epsilon(0.03));
+    CHECK(measured[1] == doctest::Approx(expected).epsilon(0.03));
+    CHECK(measured[2] == doctest::Approx(expected).epsilon(0.03));
+}
+
 TEST_CASE("ADMC rejects invalid physical inputs") {
     uepm::ADMC::admc_transport_kernel kernel;
     uepm::ADMC::admc_particle         particle(0, uepm::ADMC::carrier_type::electron);

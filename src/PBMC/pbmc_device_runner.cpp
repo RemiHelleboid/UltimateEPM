@@ -114,6 +114,18 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     fmt::print("  built-in potential: {}\n",
                config.self_consistent_options_2d.m_common.m_enable_built_in_potential ? "enabled" : "disabled");
     fmt::print("  Poisson mixing: {}\n", common_options.m_enable_poisson_mixing ? "enabled" : "disabled");
+    fmt::print("  Poisson mode: {}\n",
+               common_options.m_nonlinear_steady_state_poisson ? "nonlinear_steady_state" : "linear_transient");
+    if (common_options.m_nonlinear_steady_state_poisson) {
+        const auto& nonlinear = common_options.m_nonlinear_poisson_options;
+        fmt::print("    warm-up steps per batch: {}\n", common_options.m_nonlinear_poisson_warmup_steps);
+        fmt::print("    max iterations: {}\n", nonlinear.max_iterations);
+        fmt::print("    relative residual tolerance: {:.6e}\n", nonlinear.relative_residual_tolerance);
+        fmt::print("    potential tolerance: {:.6e} V\n", nonlinear.potential_tolerance_V);
+        fmt::print("    maximum update: {:.6e} V\n", nonlinear.maximum_update_V);
+        fmt::print("    minimum damping: {:.6e}\n", nonlinear.minimum_damping);
+        fmt::print("    Armijo coefficient: {:.6e}\n", nonlinear.armijo_coefficient);
+    }
     if (common_options.m_enable_poisson_mixing) {
         fmt::print("    old solution fraction: {:.6e}\n", common_options.m_poisson_mixing_old_solution_fraction);
     }
@@ -234,6 +246,17 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
                  silicon_intrinsic_concentration_cm_3(device_options.m_lattice_temperature));
     manifest.add("self_consistent", "built_in_contact_voltage_scale", common_options.m_built_in_contact_voltage_scale);
     manifest.add("self_consistent", "poisson_mixing_enabled", common_options.m_enable_poisson_mixing);
+    manifest.add("self_consistent",
+                 "poisson_mode",
+                 common_options.m_nonlinear_steady_state_poisson ? "nonlinear_steady_state" : "linear_transient");
+    const auto& nonlinear = common_options.m_nonlinear_poisson_options;
+    manifest.add("nonlinear_poisson", "warmup_steps", common_options.m_nonlinear_poisson_warmup_steps);
+    manifest.add("nonlinear_poisson", "max_iterations", nonlinear.max_iterations);
+    manifest.add("nonlinear_poisson", "relative_residual_tolerance", nonlinear.relative_residual_tolerance);
+    manifest.add("nonlinear_poisson", "potential_tolerance_V", nonlinear.potential_tolerance_V);
+    manifest.add("nonlinear_poisson", "maximum_update_V", nonlinear.maximum_update_V);
+    manifest.add("nonlinear_poisson", "minimum_damping", nonlinear.minimum_damping);
+    manifest.add("nonlinear_poisson", "armijo_coefficient", nonlinear.armijo_coefficient);
     manifest.add("self_consistent",
                  "poisson_mixing_old_solution_fraction",
                  common_options.m_poisson_mixing_old_solution_fraction);

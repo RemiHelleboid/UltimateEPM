@@ -1,6 +1,12 @@
 /**
  * @file mmmc_device_config.cpp
- * @brief YAML configuration support for self-consistent MMMC device simulations.
+ * @author remzerrr (remi.helleboid@gmail.com)
+ * @brief 
+ * @version 0.1
+ * @date 2026-07-10
+ * 
+ * @copyright Copyright (c) 2026
+ * 
  */
 
 #include "mmmc_device_config.hpp"

@@ -18,6 +18,7 @@
 #include <stdexcept>
 
 #include "unit_conversion.hpp"
+#include "physical_constants.hpp"
 
 namespace uepm::PBMC {
 
@@ -243,8 +244,6 @@ void self_consistent_device_pbmc_simulation_2d::add_charges_at_contacts(std::siz
 
     std::vector<double> electron_charge_to_add(number_contact_elements, 0.0);
     std::vector<double> hole_charge_to_add(number_contact_elements, 0.0);
-    double              total_electron_charge_to_add = 0.0;
-    double              total_hole_charge_to_add     = 0.0;
 
     for (std::size_t i = 0; i < number_contact_elements; ++i) {
         auto& element = m_list_element_contact_ptr[i];
@@ -256,57 +255,55 @@ void self_consistent_device_pbmc_simulation_2d::add_charges_at_contacts(std::siz
 
         if (equilibrium_charge > 0.0 && charge_to_add > 0.0) {
             electron_charge_to_add[i] = charge_to_add;
-            total_electron_charge_to_add += charge_to_add;
         } else if (equilibrium_charge < 0.0 && charge_to_add < 0.0) {
             hole_charge_to_add[i] = -charge_to_add;
-            total_hole_charge_to_add += -charge_to_add;
         }
     }
-
-    const std::size_t number_electrons_to_place =
-        static_cast<std::size_t>(std::floor(total_electron_charge_to_add / particle_weight));
-
-    const std::size_t number_holes_to_place =
-        static_cast<std::size_t>(std::floor(total_hole_charge_to_add / particle_weight));
 
     std::vector<mesh::vector3> electron_positions;
     std::vector<mesh::vector3> hole_positions;
+    std::uniform_real_distribution<double> uniform01(0.0, 1.0);
 
-    electron_positions.reserve(number_electrons_to_place);
-    hole_positions.reserve(number_holes_to_place);
-
-    const auto has_capacity = [&]() {
-        return m_list_particles.size() + electron_positions.size() + hole_positions.size() <
-               m_simulation_options.m_max_number_particle;
+    const auto remaining_capacity = [&]() {
+        const std::size_t reserved = m_list_particles.size() + electron_positions.size() + hole_positions.size();
+        return reserved < m_simulation_options.m_max_number_particle
+                   ? m_simulation_options.m_max_number_particle - reserved
+                   : std::size_t{0};
     };
 
-    std::uniform_int_distribution<std::size_t> contact_index_distribution(0, number_contact_elements - 1);
+    const auto allocate_positions_by_local_deficit = [&](const std::vector<double>& local_deficits,
+                                                          std::vector<mesh::vector3>& positions) {
+        for (std::size_t i = 0; i < local_deficits.size(); ++i) {
+            const double exact_particle_count = local_deficits[i] / particle_weight;
+            if (!(exact_particle_count > 0.0) || !std::isfinite(exact_particle_count)) {
+                continue;
+            }
 
-    while (electron_positions.size() < number_electrons_to_place && has_capacity()) {
-        const std::size_t i = contact_index_distribution(m_contact_rng);
+            const double      integral_count_as_double = std::floor(exact_particle_count);
+            const std::size_t capacity                 = remaining_capacity();
+            const std::size_t integral_count = integral_count_as_double >= static_cast<double>(capacity)
+                                                   ? capacity
+                                                   : static_cast<std::size_t>(integral_count_as_double);
 
-        if (electron_charge_to_add[i] <= 0.0) {
-            continue;
+            positions.reserve(positions.size() + integral_count + 1);
+            for (std::size_t particle_index = 0; particle_index < integral_count; ++particle_index) {
+                positions.push_back(
+                    m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
+            }
+
+            if (remaining_capacity() == 0 || integral_count_as_double > static_cast<double>(integral_count)) {
+                continue;
+            }
+            const double fractional_count = exact_particle_count - integral_count_as_double;
+            if (fractional_count > 0.0 && uniform01(m_contact_rng) < fractional_count) {
+                positions.push_back(
+                    m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
+            }
         }
+    };
 
-        electron_positions.push_back(
-            m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
-
-        electron_charge_to_add[i] -= particle_weight;
-    }
-
-    while (hole_positions.size() < number_holes_to_place && has_capacity()) {
-        const std::size_t i = contact_index_distribution(m_contact_rng);
-
-        if (hole_charge_to_add[i] <= 0.0) {
-            continue;
-        }
-
-        hole_positions.push_back(
-            m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
-
-        hole_charge_to_add[i] -= particle_weight;
-    }
+    allocate_positions_by_local_deficit(electron_charge_to_add, electron_positions);
+    allocate_positions_by_local_deficit(hole_charge_to_add, hole_positions);
 
     add_particles_at_positions(electron_positions, particle_type::electron, particle_weight);
     add_particles_at_positions(hole_positions, particle_type::hole, particle_weight);
@@ -377,6 +374,7 @@ void self_consistent_device_pbmc_simulation_2d::initialize_poisson_solver() {
     // The weighting-potential solve modifies the matrix. Reassemble it for the
     // physical Poisson problem and constrain every configured contact.
     m_poisson_solver.compute_stiffness_matrix();
+    m_unconstrained_poisson_stiffness = m_poisson_solver.get_lhs_matrix();
     m_poisson_solver.compute_second_member(0.0);
     for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
         static_cast<void>(unused_voltage);
@@ -478,13 +476,20 @@ void self_consistent_device_pbmc_simulation_2d::recompute_vertex_space_charge_fr
 }
 
 void self_consistent_device_pbmc_simulation_2d::update_self_consistent_potential(bool publish_mesh_functions) {
-    m_poisson_solver.update_second_member();
-    for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
-        static_cast<void>(unused_voltage);
-        m_poisson_solver.apply_dirichlet_condition_second_member(contact_name,
-                                                                 contact_voltage_for_poisson(contact_name));
+    const bool nonlinear_ready = common_options().m_nonlinear_steady_state_poisson &&
+                                 m_previous_poisson_solution.size() ==
+                                     static_cast<Eigen::Index>(m_device.get_p_mesh()->get_nb_vertices());
+    if (nonlinear_ready) {
+        update_nonlinear_self_consistent_potential();
+    } else {
+        m_poisson_solver.update_second_member();
+        for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
+            static_cast<void>(unused_voltage);
+            m_poisson_solver.apply_dirichlet_condition_second_member(contact_name,
+                                                                     contact_voltage_for_poisson(contact_name));
+        }
+        m_poisson_solver.solve_system();
     }
-    m_poisson_solver.solve_system();
     if (common_options().m_enable_poisson_mixing) {
         if (m_previous_poisson_solution.size() == m_poisson_solver.get_solution().size()) {
             if (m_previous_poisson_solution.allFinite()) {
@@ -495,14 +500,77 @@ void self_consistent_device_pbmc_simulation_2d::update_self_consistent_potential
                            "update.\n");
             }
         }
-        m_previous_poisson_solution = m_poisson_solver.get_solution();
     }
+    m_previous_poisson_solution = m_poisson_solver.get_solution();
     if (publish_mesh_functions) {
         constexpr bool add_gradient = true;
         m_poisson_solver.add_solution_to_mesh_functions("PoissonSolution", add_gradient);
     } else {
         m_poisson_solver.update_mesh_electric_field_from_solution();
     }
+}
+
+void self_consistent_device_pbmc_simulation_2d::update_nonlinear_self_consistent_potential() {
+    auto* mesh = m_device.get_p_mesh();
+    const Eigen::Index size = static_cast<Eigen::Index>(mesh->get_nb_vertices());
+    Eigen::VectorXd fixed_source = Eigen::VectorXd::Zero(size);
+    Eigen::VectorXd lumped_volume = Eigen::VectorXd::Zero(size);
+    Eigen::VectorXd electron_density(size);
+    Eigen::VectorXd hole_density(size);
+    Eigen::VectorXd thermal_voltage(size);
+    constexpr double density_conversion = 1.0e-6;
+
+    for (const auto& element : mesh->get_list_bulk_element()) {
+        const double nodal_measure = std::abs(element->get_measure()) / 3.0;
+        for (const auto* vertex : element->get_vertices()) {
+            lumped_volume(vertex->get_index()) += nodal_measure * density_conversion;
+        }
+    }
+    for (Eigen::Index i = 0; i < size; ++i) {
+        const auto* vertex = mesh->get_p_vertex(static_cast<std::size_t>(i));
+        electron_density(i) = vertex->get_electron_density();
+        hole_density(i) = vertex->get_hole_density();
+        fixed_source(i) = lumped_volume(i) * vertex->get_doping_concentration();
+        thermal_voltage(i) = uepm::constants::k_B * vertex->get_temperature() / uepm::constants::q_e;
+    }
+
+    std::vector<uepm::fem::nonlinear_poisson_dirichlet> boundary_conditions;
+    std::vector<bool> constrained(static_cast<std::size_t>(size), false);
+    for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
+        static_cast<void>(unused_voltage);
+        const auto* region = mesh->get_p_region(contact_name);
+        if (region == nullptr) {
+            throw std::runtime_error("Poisson contact region '" + contact_name + "' does not exist.");
+        }
+        const double value = contact_voltage_for_poisson(contact_name);
+        for (const auto index : region->get_unique_vertices()) {
+            if (!constrained[index]) {
+                boundary_conditions.push_back({static_cast<Eigen::Index>(index), value});
+                constrained[index] = true;
+            }
+        }
+    }
+
+    const auto result = uepm::fem::solve_nonlinear_poisson_lumped(
+        m_unconstrained_poisson_stiffness,
+        fixed_source,
+        lumped_volume,
+        electron_density,
+        hole_density,
+        m_previous_poisson_solution,
+        m_previous_poisson_solution,
+        thermal_voltage,
+        boundary_conditions,
+        common_options().m_nonlinear_poisson_options);
+    if (!result.converged) {
+        throw std::runtime_error("Nonlinear steady-state Poisson did not converge after " +
+                                 std::to_string(result.iterations) + " iterations.");
+    }
+    fmt::print("Nonlinear Poisson converged in {} iterations, residual={:.6e}, max update={:.6e} V\n",
+               result.iterations,
+               result.final_residual_norm,
+               result.maximum_correction_V);
+    m_poisson_solver.set_solution(result.potential_V);
 }
 
 void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_simulation() {
@@ -521,76 +589,107 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
     double ramo_current_electron                   = 0.0;
     double ramo_current_hole                       = 0.0;
     double ramo_current                            = 0.0;
-    double accumulator_probe_ramo_current_electron = 0.0;
-    double accumulator_probe_ramo_current_hole     = 0.0;
     double probe_ramo_current_electron             = 0.0;
     double probe_ramo_current_hole                 = 0.0;
     double probe_ramo_current                      = 0.0;
 
-    const double sim_poisson_frequency = static_cast<double>(poisson_frequency());
+    std::size_t poisson_sample_count = 0;
+    std::size_t nonlinear_warmup_steps_remaining =
+        common_options().m_nonlinear_steady_state_poisson ? common_options().m_nonlinear_poisson_warmup_steps : 0;
+    bool terminated_early = false;
 
-    while (m_state.m_time_s <= m_simulation_options.m_t_max) {
-        if (m_state.m_iteration > 10 && m_simulation_options.m_stop_simu_when_no_electron_remaining == 0 &&
-            get_number_electrons() == 0) {
+    const auto finalize_poisson_batch = [&](double sample_time_s) {
+        if (poisson_sample_count == 0) {
+            // A voltage event immediately following a completed batch still
+            // needs to update the field before the next transport step.
+            update_self_consistent_potential(false);
+            return;
+        }
+
+        const double sample_count = static_cast<double>(poisson_sample_count);
+        const double averaged_ramo_current_electron = accumulator_ramo_current_electron / sample_count;
+        const double averaged_ramo_current_hole     = accumulator_ramo_current_hole / sample_count;
+        const double averaged_ramo_current = averaged_ramo_current_electron + averaged_ramo_current_hole -
+                                             common_options().m_background_ramo_current_A;
+
+        if (m_simulation_options.m_scheduled_particle_injection.m_done) {
+            const double circuit_dt_s = m_simulation_options.m_time_step * sample_count;
+            advance_quench_circuit(averaged_ramo_current, circuit_dt_s, sample_time_s);
+        }
+
+        add_charges_at_contacts(poisson_sample_count);
+        add_missing_contact_charge_to_poisson_reservoir(poisson_sample_count);
+        recompute_vertex_space_charge_from_element_charges(poisson_sample_count);
+        update_self_consistent_potential(false);
+        reset_element_charges();
+
+        poisson_sample_count = 0;
+        accumulator_ramo_current_electron = 0.0;
+        accumulator_ramo_current_hole     = 0.0;
+        nonlinear_warmup_steps_remaining = common_options().m_nonlinear_steady_state_poisson
+                                               ? common_options().m_nonlinear_poisson_warmup_steps
+                                               : 0;
+
+    };
+
+    while (m_state.m_iteration < total_iterations) {
+        if (m_state.m_iteration > 10 && m_simulation_options.m_stop_simu_when_no_electron_remaining &&
+            get_number_electrons() == 0 && !has_pending_scheduled_particle_injection()) {
             fmt::print("Stop: no electrons remaining in device.\n");
+            terminated_early = true;
             break;
         }
 
         if (has_reached_particle_limit()) {
             fmt::print("Stop: hard particle limit reached.\n");
+            terminated_early = true;
             break;
+        }
+
+        // Apply scheduled voltages at transport-step resolution. If an event
+        // cuts a Poisson window short, finalize that partial window with its
+        // actual sample count before propagating under the new field.
+        if (apply_scheduled_contact_voltage_events(m_state.m_time_s)) {
+            finalize_poisson_batch(m_state.m_time_s);
+        }
+
+        if (m_common_options.m_auto_background_ramo_current && has_pending_scheduled_particle_injection() &&
+            m_state.m_time_s >= m_simulation_options.m_scheduled_particle_injection.m_time_s &&
+            m_common_options.m_background_ramo_current_A == 0.0) {
+            constexpr double time_window_s = 1e-12;  // 1 ps
+            const double background_current_A = m_simulation_history.extract_final_current(time_window_s);
+            fmt::print("Extracted pre-injection background Ramo current: {:.3e} A\n", background_current_A);
+            m_common_options.m_background_ramo_current_A = background_current_A;
         }
 
         const std::size_t impact_events_before_step = m_simulation_history.m_impact_ionization_positions.size();
         transport_particles_one_time_step();
-        add_particle_charges_to_elements();
 
         const auto currents = compute_ramo_currents(true, true);
-        accumulator_ramo_current_electron += currents.electron;
-        accumulator_ramo_current_hole += currents.hole;
-        accumulator_probe_ramo_current_electron += currents.probe_electron;
-        accumulator_probe_ramo_current_hole += currents.probe_hole;
+        const bool is_sampling_step = nonlinear_warmup_steps_remaining == 0;
+        if (is_sampling_step) {
+            add_particle_charges_to_elements();
+            ++poisson_sample_count;
+            accumulator_ramo_current_electron += currents.electron;
+            accumulator_ramo_current_hole += currents.hole;
+        } else {
+            --nonlinear_warmup_steps_remaining;
+        }
 
-        const bool should_update_poisson =
-            (m_state.m_iteration % common_options().m_poisson_frequency == 0) && (m_state.m_iteration != 0);
+        // History stores the current of this transport step. Batch-averaged
+        // currents are computed separately below for the external circuit.
+        ramo_current_electron       = currents.electron;
+        ramo_current_hole           = currents.hole;
+        ramo_current                = ramo_current_electron + ramo_current_hole - common_options().m_background_ramo_current_A;
+        probe_ramo_current_electron = currents.probe_electron;
+        probe_ramo_current_hole     = currents.probe_hole;
+        probe_ramo_current          = probe_ramo_current_electron + probe_ramo_current_hole;
+
+        const bool should_update_poisson = poisson_sample_count == poisson_frequency();
 
         if (should_update_poisson) {
             const double poisson_sample_time_s = m_state.m_time_s + m_simulation_options.m_time_step;
-            apply_scheduled_contact_voltage_events(poisson_sample_time_s);
-
-            // Ramo current
-            ramo_current_electron = accumulator_ramo_current_electron / sim_poisson_frequency;
-            ramo_current_hole     = accumulator_ramo_current_hole / sim_poisson_frequency;
-            ramo_current          = ramo_current_electron + ramo_current_hole;
-            ramo_current -= common_options().m_background_ramo_current_A;
-            probe_ramo_current_electron             = accumulator_probe_ramo_current_electron / sim_poisson_frequency;
-            probe_ramo_current_hole                 = accumulator_probe_ramo_current_hole / sim_poisson_frequency;
-            probe_ramo_current                      = probe_ramo_current_electron + probe_ramo_current_hole;
-            accumulator_ramo_current_electron       = 0.0;
-            accumulator_ramo_current_hole           = 0.0;
-            accumulator_probe_ramo_current_electron = 0.0;
-            accumulator_probe_ramo_current_hole     = 0.0;
-
-            if (m_simulation_options.m_scheduled_particle_injection.m_done) {
-                const double circuit_dt_s  = m_simulation_options.m_time_step * sim_poisson_frequency;
-                const double sample_time_s = m_state.m_time_s + m_simulation_options.m_time_step;
-                advance_quench_circuit(ramo_current, circuit_dt_s, sample_time_s);
-            }
-
-            add_charges_at_contacts(poisson_frequency());
-            add_particle_charges_to_elements();
-            add_missing_contact_charge_to_poisson_reservoir(poisson_frequency() + 1);
-            recompute_vertex_space_charge_from_element_charges(poisson_frequency() + 1);
-            update_self_consistent_potential(false);
-            reset_element_charges();
-
-            if (m_common_options.m_auto_background_ramo_current && m_state.m_scheduled_particle_injection_done &&
-                m_common_options.m_background_ramo_current_A == 0.0) {
-                const double time_window = 1e-12;  // 1 ns
-                double       bg_current  = m_simulation_history.extract_final_current(time_window);
-                fmt::print("Extracted background Ramo current from history: {:.3e} A\n", bg_current);
-                m_common_options.m_background_ramo_current_A = bg_current;
-            }
+            finalize_poisson_batch(poisson_sample_time_s);
         }
 
         m_state.m_time_s += m_simulation_options.m_time_step;
@@ -598,10 +697,14 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
         update_successful_quench_detection(m_state.m_time_s, impact_events_before_step);
 
         const double max_electric_field_V_per_cm = max_particle_electric_field_V_per_cm();
+        const auto   mean_energies_eV            = get_mean_kinetic_energies_eV();
         m_simulation_history.add_data_to_history(
             m_state.m_time_s,
             get_number_electrons(),
             get_number_holes(),
+            mean_energies_eV[0],
+            mean_energies_eV[1],
+            mean_energies_eV[2],
             m_simulation_history.m_impact_ionization_positions.size(),
             ramo_current_electron,
             ramo_current_hole,
@@ -618,7 +721,8 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
             quench_voltage_drop_for_history(),
             m_simulation_history.contact_voltage_values_from_map(contact_voltages_V()));
 
-        // The "full" history is exported at the end of the sim
+        // Periodic checkpoint. The complete in-memory history overwrites this
+        // file after the loop finishes successfully or stops early.
         if (m_state.m_iteration % 10 == 0) {
             m_simulation_history.append_last_iter_to_csv(stream);
         }
@@ -640,7 +744,11 @@ void self_consistent_device_pbmc_simulation_2d::run_self_consistent_transport_si
         }
     }
 
+    if (!terminated_early && poisson_sample_count > 0) {
+        finalize_poisson_batch(m_state.m_time_s);
+    }
     stream.close();
+    m_simulation_history.export_to_csv(history_filename);
     constexpr bool add_gradient = true;
     m_poisson_solver.add_solution_to_mesh_functions("PoissonSolution", add_gradient);
     export_current_state();

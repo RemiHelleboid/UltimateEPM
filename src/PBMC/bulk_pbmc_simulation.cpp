@@ -9,6 +9,7 @@
  */
 
 #include "bulk_pbmc_simulation.hpp"
+#include "unit_conversion.hpp"
 
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -86,6 +87,18 @@ double bulk_pbmc_simulation::average_drift_velocity_along_field_m_per_s() const 
     }
     const double mean_parallel_velocity = velocity_sum / static_cast<double>(m_particles.size());
     return std::abs(mean_parallel_velocity);
+}
+
+void bulk_pbmc_simulation::update_directional_diffusion() {
+    constexpr double micron_to_meter = uepm::units::micron_to_meter;
+    const double observation_time_s = m_particles.empty() ? 0.0 : m_particles.front().state().time;
+    m_observables.diffusion = statistics::estimate_directional_diffusion(
+        m_particles.size(), observation_time_s, [&](std::size_t index) {
+            const auto& position_um = m_particles[index].state().position;
+            return std::array<double, 3>{position_um.x() * micron_to_meter,
+                                         position_um.y() * micron_to_meter,
+                                         position_um.z() * micron_to_meter};
+        });
 }
 
 void bulk_pbmc_simulation::initialize() {
@@ -174,6 +187,7 @@ void bulk_pbmc_simulation::run() {
             stats.m_sampling_time_s += dt;
         }
     }
+    update_directional_diffusion();
 
     fmt::print("Completed {} steps of {} particles\n", n_steps, m_particles.size());
 
@@ -233,6 +247,10 @@ void bulk_pbmc_simulation::run() {
     const double avg_energy_eV  = m_observables.weighted_kinetic_energy_eV_s / m_observables.accumulated_time_s;
     fmt::print("Steady-state average vx: {:.6e} m/s\n", avg_vx_m_per_s);
     fmt::print("Steady-state average energy: {:.6f} eV\n", avg_energy_eV);
+    fmt::print("Directional diffusion: Dx={:.6e}, Dy={:.6e}, Dz={:.6e} m^2/s\n",
+               m_observables.diffusion.coefficient_m2_per_s[0],
+               m_observables.diffusion.coefficient_m2_per_s[1],
+               m_observables.diffusion.coefficient_m2_per_s[2]);
 }
 
 void bulk_pbmc_simulation::run_self_scattering_emc() {
@@ -367,6 +385,7 @@ void bulk_pbmc_simulation::run_self_scattering_emc() {
     m_observables.weighted_velocity_x_m2_per_s2 += reduced_weighted_velocity_x;
     m_observables.weighted_kinetic_energy_eV_s += reduced_weighted_energy;
     m_observables.accumulated_time_s += reduced_accumulated_time;
+    update_directional_diffusion();
 
     m_impact_ionization_coefficient_statistics.m_events += reduced_ii_events;
     m_impact_ionization_coefficient_statistics.m_carrier_time_s += reduced_ii_carrier_time;
@@ -451,6 +470,10 @@ void bulk_pbmc_simulation::run_self_scattering_emc() {
     const double avg_energy_eV  = m_observables.weighted_kinetic_energy_eV_s / m_observables.accumulated_time_s;
     fmt::print("Steady-state average vx: {:.6e} m/s\n", avg_vx_m_per_s);
     fmt::print("Steady-state average energy: {:.6f} eV\n", avg_energy_eV);
+    fmt::print("Directional diffusion: Dx={:.6e}, Dy={:.6e}, Dz={:.6e} m^2/s\n",
+               m_observables.diffusion.coefficient_m2_per_s[0],
+               m_observables.diffusion.coefficient_m2_per_s[1],
+               m_observables.diffusion.coefficient_m2_per_s[2]);
 }
 
 void bulk_pbmc_simulation::export_observables_to_csv(const std::string& filename) const {
@@ -467,6 +490,9 @@ void bulk_pbmc_simulation::export_observables_to_csv(const std::string& filename
                 "impurity_density_cm_3,"
                 "mean_velocity_x_m_per_s,"
                 "mean_kinetic_energy_eV,"
+                "diffusion_x_m2_per_s,"
+                "diffusion_y_m2_per_s,"
+                "diffusion_z_m2_per_s,"
                 "sample_count,"
                 "impact_ionization_events,"
                 "impact_ionization_rate_per_carrier_s_1,"
@@ -481,13 +507,16 @@ void bulk_pbmc_simulation::export_observables_to_csv(const std::string& filename
 
     const auto& ii_stats = m_impact_ionization_coefficient_statistics;
 
-    file << fmt::format("{},{},{},{},{},{},{},{},{},{},{}\n",
+    file << fmt::format("{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
                         signed_charge_C(m_cfg.m_carrier_type),
                         m_cfg.m_lattice_temperature,
                         m_observables.electric_field_V_per_m,
                         m_cfg.m_impurity_density_cm_3,
                         m_observables.weighted_velocity_x_m2_per_s2 / m_observables.accumulated_time_s,
                         m_observables.weighted_kinetic_energy_eV_s / m_observables.accumulated_time_s,
+                        m_observables.diffusion.coefficient_m2_per_s[0],
+                        m_observables.diffusion.coefficient_m2_per_s[1],
+                        m_observables.diffusion.coefficient_m2_per_s[2],
                         m_observables.accumulated_time_s,
                         ii_stats.m_events,
                         ii_stats.event_rate_per_carrier_s_1(),
