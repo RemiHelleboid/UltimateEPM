@@ -52,6 +52,28 @@ std::string_view impurity_screening_model_name(impurity_screening_model model) {
     throw std::runtime_error("unknown impurity screening model");
 }
 
+contact_injection_distribution parse_contact_injection_distribution(const std::string& text) {
+    if (text == "maxwellian") {
+        return contact_injection_distribution::maxwellian;
+    }
+    if (text == "velocity_weighted_maxwellian") {
+        return contact_injection_distribution::velocity_weighted_maxwellian;
+    }
+    throw std::invalid_argument(
+        "particles.contact_injection_distribution must be either maxwellian or "
+        "velocity_weighted_maxwellian.");
+}
+
+std::string_view contact_injection_distribution_name(contact_injection_distribution distribution) {
+    switch (distribution) {
+        case contact_injection_distribution::maxwellian:
+            return "maxwellian";
+        case contact_injection_distribution::velocity_weighted_maxwellian:
+            return "velocity_weighted_maxwellian";
+    }
+    throw std::runtime_error("unknown contact injection distribution");
+}
+
 particle_type parse_particle_type(const std::string& text) {
     if (text == "electron" || text == "e") {
         return particle_type::electron;
@@ -75,13 +97,13 @@ std::string make_default_output_directory(const std::string& mesh_file) {
 void add_collecting_contacts(uepm::device::device&           simulation_device,
                              uepm::mesh::mesh&               mesh,
                              const std::vector<std::string>& contact_names) {
-    constexpr double contact_collection_depth = 0.001;  // µm
-    constexpr double contact_margin           = 10.0;   // µm
-    constexpr double ohmic_resistance         = 0.0;
+    constexpr double contact_margin   = 10.0;  // µm
+    constexpr double ohmic_resistance = 0.0;
 
-    const mesh::bbox device_bbox   = mesh.get_bounding_box();
-    const double     tolerance     = 1.0e-8 * std::max(device_bbox.get_diagonal_size(), 1.0);
-    const auto       bulk_elements = mesh.get_list_bulk_element();
+    const mesh::bbox device_bbox             = mesh.get_bounding_box();
+    const double     tolerance               = 1.0e-8 * std::max(device_bbox.get_diagonal_size(), 1.0);
+    const double     contact_collection_depth = tolerance;
+    const auto       bulk_elements           = mesh.get_list_bulk_element();
 
     for (const auto& contact_name : contact_names) {
         const auto* region = mesh.get_p_region(contact_name);

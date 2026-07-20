@@ -36,6 +36,8 @@ contacts:
   ramo_electrode: drain
 quench_circuit:
   enabled: false
+output:
+  contact_current_window_s: 2.0e-13
 )");
 
     const auto  config   = uepm::PBMC::load_device_pbmc_config(path, {"contacts.voltages_V.drain=0.25"});
@@ -48,6 +50,33 @@ quench_circuit:
     CHECK(config.collecting_contacts.size() == 2);
     CHECK(config.collecting_contacts[0] == "source");
     CHECK(config.collecting_contacts[1] == "drain");
+    CHECK(config.device_options.m_contact_current_window_s == doctest::Approx(2.0e-13));
+}
+
+TEST_CASE("PBMC contact-current window must cover at least one Poisson batch") {
+    const auto path = write_contact_config(R"(
+input:
+  device_mesh: pn.msh
+simulation:
+  time_step_s: 1.0e-16
+  poisson_frequency: 5
+contacts:
+  voltages_V:
+    anode: 0.0
+    cathode: 0.0
+  collecting:
+    anode: true
+    cathode: true
+  ramo_electrode: anode
+output:
+  contact_current_window_s: 4.0e-16
+quench_circuit:
+  enabled: false
+)");
+
+    CHECK_THROWS_WITH_AS(uepm::PBMC::load_device_pbmc_config(path),
+                         "output.contact_current_window_s must be zero or span at least one complete Poisson batch.",
+                         std::invalid_argument);
 }
 
 TEST_CASE("PBMC config accepts named PN contacts") {
@@ -133,6 +162,9 @@ quench_circuit:
 
     const auto config = uepm::PBMC::load_device_pbmc_config(path);
     CHECK_FALSE(config.self_consistent_options_2d.m_common.m_nonlinear_steady_state_poisson);
+    CHECK(config.device_options.m_boundary_reflection_model == uepm::mesh::boundary_reflection_model::specular);
+    CHECK(config.self_consistent_options_2d.m_common.m_contact_injection_distribution ==
+          uepm::PBMC::contact_injection_distribution::velocity_weighted_maxwellian);
 }
 
 TEST_CASE("PBMC config parses scheduled contact voltage events") {
@@ -247,6 +279,53 @@ quench_circuit:
 
     const auto config = uepm::PBMC::load_device_pbmc_config(path);
     CHECK(config.device_options.m_boundary_reflection_model == uepm::mesh::boundary_reflection_model::specular);
+}
+
+TEST_CASE("PBMC config selects velocity-weighted Maxwellian contact injection") {
+    const auto path = write_contact_config(R"(
+input:
+  device_mesh: pn.msh
+particles:
+  contact_injection_distribution: velocity_weighted_maxwellian
+contacts:
+  voltages_V:
+    anode: 0.0
+    cathode: 0.0
+  collecting:
+    anode: true
+    cathode: true
+  ramo_electrode: anode
+quench_circuit:
+  enabled: false
+)");
+
+    const auto config = uepm::PBMC::load_device_pbmc_config(path);
+    CHECK(config.self_consistent_options_2d.m_common.m_contact_injection_distribution ==
+          uepm::PBMC::contact_injection_distribution::velocity_weighted_maxwellian);
+}
+
+TEST_CASE("PBMC config rejects an unknown contact injection distribution") {
+    const auto path = write_contact_config(R"(
+input:
+  device_mesh: pn.msh
+particles:
+  contact_injection_distribution: unknown
+contacts:
+  voltages_V:
+    anode: 0.0
+    cathode: 0.0
+  collecting:
+    anode: true
+    cathode: true
+  ramo_electrode: anode
+quench_circuit:
+  enabled: false
+)");
+
+    CHECK_THROWS_WITH_AS(
+        uepm::PBMC::load_device_pbmc_config(path),
+        "particles.contact_injection_distribution must be either maxwellian or velocity_weighted_maxwellian.",
+        std::invalid_argument);
 }
 
 TEST_CASE("PBMC config rejects an unknown Ramo electrode") {

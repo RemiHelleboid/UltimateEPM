@@ -154,6 +154,35 @@ void pbmc_transport_kernel::initialize() {
     m_impact_ionization_parameters = m_material_model.m_impact_ionization;
     m_impurity_mobility_parameters = m_material_model.m_impurity_mobility;
 
+    const auto& acoustic_parameters = m_cfg.m_carrier_type == particle_type::electron
+                                          ? m_material_model.m_electron_acoustic
+                                          : m_material_model.m_hole_acoustic;
+    m_acoustic_scattering_prefactors.clear();
+    m_acoustic_scattering_prefactors.reserve(m_valleys.size());
+    for (const auto& valley : m_valleys) {
+        m_acoustic_scattering_prefactors.push_back(make_acoustic_scattering_prefactor(valley, acoustic_parameters));
+    }
+
+    m_intervalley_scattering_prefactors.clear();
+    m_intervalley_scattering_prefactors.reserve(m_valleys.size() * m_intervalley_branches.size());
+    for (const auto& valley : m_valleys) {
+        for (const auto& branch : m_intervalley_branches) {
+            m_intervalley_scattering_prefactors.push_back(
+                make_intervalley_scattering_prefactor(valley,
+                                                      branch,
+                                                      m_material_model.m_electron_acoustic.mass_density_kg_per_m3));
+        }
+    }
+
+    m_hole_optical_scattering_prefactors.clear();
+    m_hole_optical_scattering_prefactors.reserve(m_hole_optical_transitions.size());
+    for (const auto& transition : m_hole_optical_transitions) {
+        m_hole_optical_scattering_prefactors.push_back(
+            make_optical_scattering_prefactor_holes(m_valleys[transition.final_band],
+                                                    transition,
+                                                    m_material_model.m_hole_acoustic.mass_density_kg_per_m3));
+    }
+
     m_gamma_max_by_valley_s_1.assign(m_valleys.size(), 0.0);
     m_gamma_max_s_1 = 0.0;
     for (std::size_t valley_index = 0; valley_index < m_valleys.size(); ++valley_index) {
@@ -195,6 +224,56 @@ void pbmc_transport_kernel::initialize_particle_state(pbmc_particle& p, double t
     p.state().gamma          = valley.gamma_from_k_valley(p.state().local_k);
     p.state().kinetic_energy = valley.kinetic_energy_from_gamma(p.state().gamma);
     p.state().velocity       = valley.to_global_frame(valley.velocity_from_k_valley(p.state().local_k));
+}
+
+void pbmc_transport_kernel::initialize_particle_state_from_parabolic_contact_flux(
+    pbmc_particle&       p,
+    double               temperature_K,
+    const mesh::vector3& inward_global_normal) {
+    if (m_valleys.empty()) {
+        throw std::runtime_error("transport kernel is not initialized");
+    }
+    if (p.state().valley_index >= m_valleys.size()) {
+        throw std::out_of_range("invalid valley index in contact particle initialization");
+    }
+    if (!std::isfinite(temperature_K) || temperature_K <= 0.0) {
+        throw std::invalid_argument("contact particle initialization temperature must be positive and finite");
+    }
+
+    auto inward_normal = inward_global_normal;
+    inward_normal.re_normalize();
+    if (inward_normal.norm_squared() == 0.0) {
+        throw std::invalid_argument("contact inward normal must be non-zero");
+    }
+
+    const double                           kT_eV = uepm::constants::k_b_eV * temperature_K;
+    std::gamma_distribution<double>        energy_distribution(2.0, kT_eV);
+    std::uniform_real_distribution<double> unit_distribution(0.0, 1.0);
+
+    mesh::vector3 helper =
+        std::abs(inward_normal.x()) < 0.9 ? mesh::vector3{1.0, 0.0, 0.0} : mesh::vector3{0.0, 1.0, 0.0};
+    auto tangent_1 = cross_product(inward_normal, helper);
+    tangent_1.re_normalize();
+    auto tangent_2 = cross_product(inward_normal, tangent_1);
+    tangent_2.re_normalize();
+
+    const double u_1       = unit_distribution(m_rng);
+    const double u_2       = unit_distribution(m_rng);
+    const double cos_theta = std::sqrt(u_1);
+    const double sin_theta = std::sqrt(std::max(0.0, 1.0 - u_1));
+    const double phi       = 2.0 * uepm::constants::pi * u_2;
+    const auto   global_velocity_direction =
+        cos_theta * inward_normal + sin_theta * std::cos(phi) * tangent_1 + sin_theta * std::sin(phi) * tangent_2;
+
+    const auto&  valley                    = m_valleys[p.state().valley_index];
+    const double energy_eV                 = energy_distribution(m_rng);
+    const auto   valley_velocity_direction = valley.to_valley_frame(global_velocity_direction);
+
+    p.state().local_k        = valley.k_valley_from_energy_velocity_direction(energy_eV, valley_velocity_direction);
+    p.state().gamma          = valley.gamma_from_k_valley(p.state().local_k);
+    p.state().kinetic_energy = valley.kinetic_energy_from_gamma(p.state().gamma);
+    p.state().velocity =
+        valley.to_global_frame(valley.velocity_from_k_valley_and_energy(p.state().local_k, p.state().kinetic_energy));
 }
 
 double pbmc_transport_kernel::uniform01() {
@@ -415,8 +494,7 @@ scattering_channel_list pbmc_transport_kernel::build_scattering_channels(const p
     scattering_channel_list channels;
 
     if (p.type() == particle_type::hole) {
-        const double acoustic_rate = acoustic_scattering_rate(current_band,
-                                                              m_material_model.m_hole_acoustic,
+        const double acoustic_rate = acoustic_scattering_rate(m_acoustic_scattering_prefactors[current_band_index],
                                                               energy_eV,
                                                               p.get_lattice_temperature());
 
@@ -430,17 +508,15 @@ scattering_channel_list pbmc_transport_kernel::build_scattering_channels(const p
                                                   .transition_name   = "acoustic"});
         }
 
-        for (const auto& transition : m_hole_optical_transitions) {
+        for (std::size_t transition_index = 0; transition_index < m_hole_optical_transitions.size();
+             ++transition_index) {
+            const auto& transition = m_hole_optical_transitions[transition_index];
             if (transition.initial_band != current_band_index) {
                 continue;
             }
 
-            const auto& final_band = m_valleys[transition.final_band];
-
             const double rate_abs =
-                optical_scattering_rate_holes(final_band,
-                                              transition,
-                                              m_material_model.m_hole_acoustic.mass_density_kg_per_m3,
+                optical_scattering_rate_holes(m_hole_optical_scattering_prefactors[transition_index],
                                               energy_eV,
                                               true,
                                               p.get_lattice_temperature());
@@ -456,13 +532,10 @@ scattering_channel_list pbmc_transport_kernel::build_scattering_channels(const p
             }
 
             const double final_energy_emission_eV = energy_eV - transition.phonon_energy_eV;
-            const double rate_em =
-                optical_scattering_rate_holes(final_band,
-                                              transition,
-                                              m_material_model.m_hole_acoustic.mass_density_kg_per_m3,
-                                              energy_eV,
-                                              false,
-                                              p.get_lattice_temperature());
+            const double rate_em = optical_scattering_rate_holes(m_hole_optical_scattering_prefactors[transition_index],
+                                                                 energy_eV,
+                                                                 false,
+                                                                 p.get_lattice_temperature());
 
             if (rate_em > 0.0 && final_energy_emission_eV >= 0.0) {
                 channels.push_back(scattering_channel{.mechanism         = scattering_mechanism::intervalley,
@@ -508,8 +581,7 @@ scattering_channel_list pbmc_transport_kernel::build_scattering_channels(const p
         return channels;
     }
 
-    const double acoustic_rate = acoustic_scattering_rate(current_band,
-                                                          m_material_model.m_electron_acoustic,
+    const double acoustic_rate = acoustic_scattering_rate(m_acoustic_scattering_prefactors[current_band_index],
                                                           energy_eV,
                                                           p.get_lattice_temperature());
 
@@ -522,13 +594,11 @@ scattering_channel_list pbmc_transport_kernel::build_scattering_channels(const p
                                               .transition_name = "acoustic"});
     }
     const double optical_boost = 1.0;
-    for (const auto& branch : m_intervalley_branches) {
-        const double rate_abs = intervalley_scattering_rate(current_band,
-                                                            branch,
-                                                            m_material_model.m_electron_acoustic.mass_density_kg_per_m3,
-                                                            energy_eV,
-                                                            true,
-                                                            p.get_lattice_temperature());
+    for (std::size_t branch_index = 0; branch_index < m_intervalley_branches.size(); ++branch_index) {
+        const auto& branch = m_intervalley_branches[branch_index];
+        const auto& prefactor =
+            m_intervalley_scattering_prefactors[current_band_index * m_intervalley_branches.size() + branch_index];
+        const double rate_abs = intervalley_scattering_rate(prefactor, energy_eV, true, p.get_lattice_temperature());
 
         if (rate_abs > 0.0) {
             channels.push_back(scattering_channel{.mechanism       = scattering_mechanism::intervalley,
@@ -539,12 +609,7 @@ scattering_channel_list pbmc_transport_kernel::build_scattering_channels(const p
                                                   .transition_name = branch.m_name});
         }
 
-        const double rate_em = intervalley_scattering_rate(current_band,
-                                                           branch,
-                                                           m_material_model.m_electron_acoustic.mass_density_kg_per_m3,
-                                                           energy_eV,
-                                                           false,
-                                                           p.get_lattice_temperature());
+        const double rate_em = intervalley_scattering_rate(prefactor, energy_eV, false, p.get_lattice_temperature());
 
         const double final_energy_emission_eV = energy_eV - branch.m_phonon_energy_eV;
         if (rate_em > 0.0 && final_energy_emission_eV >= 0.0) {
@@ -602,25 +667,23 @@ double pbmc_transport_kernel::total_scattering_rate(const pbmc_particle& p) cons
     double       total_rate   = 0.0;
 
     if (p.type() == particle_type::hole) {
-        total_rate += acoustic_scattering_rate(current_band, m_material_model.m_hole_acoustic, energy_eV, temperature);
+        total_rate +=
+            acoustic_scattering_rate(m_acoustic_scattering_prefactors[current_band_index], energy_eV, temperature);
 
-        for (const auto& transition : m_hole_optical_transitions) {
+        for (std::size_t transition_index = 0; transition_index < m_hole_optical_transitions.size();
+             ++transition_index) {
+            const auto& transition = m_hole_optical_transitions[transition_index];
             if (transition.initial_band != current_band_index) {
                 continue;
             }
 
-            const auto& final_band = m_valleys[transition.final_band];
-            total_rate += optical_scattering_rate_holes(final_band,
-                                                        transition,
-                                                        m_material_model.m_hole_acoustic.mass_density_kg_per_m3,
+            total_rate += optical_scattering_rate_holes(m_hole_optical_scattering_prefactors[transition_index],
                                                         energy_eV,
                                                         true,
                                                         temperature);
 
             if (energy_eV >= transition.phonon_energy_eV) {
-                total_rate += optical_scattering_rate_holes(final_band,
-                                                            transition,
-                                                            m_material_model.m_hole_acoustic.mass_density_kg_per_m3,
+                total_rate += optical_scattering_rate_holes(m_hole_optical_scattering_prefactors[transition_index],
                                                             energy_eV,
                                                             false,
                                                             temperature);
@@ -636,23 +699,17 @@ double pbmc_transport_kernel::total_scattering_rate(const pbmc_particle& p) cons
         return total_rate;
     }
 
-    total_rate += acoustic_scattering_rate(current_band, m_material_model.m_electron_acoustic, energy_eV, temperature);
+    total_rate +=
+        acoustic_scattering_rate(m_acoustic_scattering_prefactors[current_band_index], energy_eV, temperature);
 
-    for (const auto& branch : m_intervalley_branches) {
-        total_rate += intervalley_scattering_rate(current_band,
-                                                  branch,
-                                                  m_material_model.m_electron_acoustic.mass_density_kg_per_m3,
-                                                  energy_eV,
-                                                  true,
-                                                  temperature);
+    for (std::size_t branch_index = 0; branch_index < m_intervalley_branches.size(); ++branch_index) {
+        const auto& branch = m_intervalley_branches[branch_index];
+        const auto& prefactor =
+            m_intervalley_scattering_prefactors[current_band_index * m_intervalley_branches.size() + branch_index];
+        total_rate += intervalley_scattering_rate(prefactor, energy_eV, true, temperature);
 
         if (energy_eV >= branch.m_phonon_energy_eV) {
-            total_rate += intervalley_scattering_rate(current_band,
-                                                      branch,
-                                                      m_material_model.m_electron_acoustic.mass_density_kg_per_m3,
-                                                      energy_eV,
-                                                      false,
-                                                      temperature);
+            total_rate += intervalley_scattering_rate(prefactor, energy_eV, false, temperature);
         }
     }
 
@@ -676,26 +733,23 @@ double pbmc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_
     double      total_rate     = 0.0;
 
     if (m_cfg.m_carrier_type == particle_type::hole) {
-        total_rate +=
-            acoustic_scattering_rate(band_or_valley, m_material_model.m_hole_acoustic, energy_eV, max_temperature_K);
+        total_rate += acoustic_scattering_rate(m_acoustic_scattering_prefactors[band_or_valley_index],
+                                               energy_eV,
+                                               max_temperature_K);
 
-        for (const auto& transition : m_hole_optical_transitions) {
+        for (std::size_t transition_index = 0; transition_index < m_hole_optical_transitions.size();
+             ++transition_index) {
+            const auto& transition = m_hole_optical_transitions[transition_index];
             if (transition.initial_band != band_or_valley_index) {
                 continue;
             }
 
-            const auto& final_band = m_valleys[transition.final_band];
-
-            total_rate += optical_scattering_rate_holes(final_band,
-                                                        transition,
-                                                        m_material_model.m_hole_acoustic.mass_density_kg_per_m3,
+            total_rate += optical_scattering_rate_holes(m_hole_optical_scattering_prefactors[transition_index],
                                                         energy_eV,
                                                         true,
                                                         max_temperature_K);
 
-            total_rate += optical_scattering_rate_holes(final_band,
-                                                        transition,
-                                                        m_material_model.m_hole_acoustic.mass_density_kg_per_m3,
+            total_rate += optical_scattering_rate_holes(m_hole_optical_scattering_prefactors[transition_index],
                                                         energy_eV,
                                                         false,
                                                         max_temperature_K);
@@ -713,21 +767,13 @@ double pbmc_transport_kernel::total_scattering_rate_for_energy(std::size_t band_
     }
 
     total_rate +=
-        acoustic_scattering_rate(band_or_valley, m_material_model.m_electron_acoustic, energy_eV, max_temperature_K);
+        acoustic_scattering_rate(m_acoustic_scattering_prefactors[band_or_valley_index], energy_eV, max_temperature_K);
 
-    for (const auto& branch : m_intervalley_branches) {
-        total_rate += intervalley_scattering_rate(band_or_valley,
-                                                  branch,
-                                                  m_material_model.m_electron_acoustic.mass_density_kg_per_m3,
-                                                  energy_eV,
-                                                  true,
-                                                  max_temperature_K);
-        total_rate += intervalley_scattering_rate(band_or_valley,
-                                                  branch,
-                                                  m_material_model.m_electron_acoustic.mass_density_kg_per_m3,
-                                                  energy_eV,
-                                                  false,
-                                                  max_temperature_K);
+    for (std::size_t branch_index = 0; branch_index < m_intervalley_branches.size(); ++branch_index) {
+        const auto& prefactor =
+            m_intervalley_scattering_prefactors[band_or_valley_index * m_intervalley_branches.size() + branch_index];
+        total_rate += intervalley_scattering_rate(prefactor, energy_eV, true, max_temperature_K);
+        total_rate += intervalley_scattering_rate(prefactor, energy_eV, false, max_temperature_K);
     }
 
     if (m_cfg.m_enable_impurity_scattering && m_cfg.m_background_impurity_density_cm_3 > 0.0) {

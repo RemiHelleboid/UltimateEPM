@@ -52,6 +52,8 @@ struct options_self_consistent_device_pbmc_common {
     double m_poisson_mixing_old_solution_fraction = 0.0;
 
     double m_contact_injection_particle_weight = 2.0;
+    contact_injection_distribution m_contact_injection_distribution =
+        contact_injection_distribution::velocity_weighted_maxwellian;
 
     bool        m_initialize_particles_from_doping = true;
     double      m_initial_particle_weight          = 2.0;

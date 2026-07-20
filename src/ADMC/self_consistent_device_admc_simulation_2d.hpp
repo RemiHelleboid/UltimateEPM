@@ -95,6 +95,7 @@ class self_consistent_device_admc_simulation_2d : public device_admc_simulation 
 
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
+    std::vector<std::size_t>                    m_list_element_contact_owner_index;
     std::vector<double>                         m_list_element_contact_equilibrium_charge;
     std::map<std::string, double>               m_built_in_contact_voltage_offsets_V;
     std::size_t                                 m_next_contact_voltage_event_index = 0;

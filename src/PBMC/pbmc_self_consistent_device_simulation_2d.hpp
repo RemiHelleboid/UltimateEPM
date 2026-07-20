@@ -44,7 +44,10 @@ class self_consistent_device_pbmc_simulation_2d : public self_consistent_device_
 
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
+    std::vector<std::size_t>                    m_list_element_contact_owner_index;
     std::vector<double>                         m_list_element_contact_equilibrium_charge;
+    std::vector<mesh::vector3>                  m_list_element_contact_inward_direction;
+    std::vector<std::vector<mesh::vector3>>     m_list_element_contact_face_vertices;
 
     std::minstd_rand m_contact_rng;
 
@@ -63,7 +66,6 @@ class self_consistent_device_pbmc_simulation_2d : public self_consistent_device_
     // 2D-specific methods
     double scale_integrated_2d_doping_to_carriers(double integrated_doping) const;
     double charge_deposition_factor(std::size_t accumulation_steps) const;
-    double ramo_current_scale_factor() const override;
     double current_density_cell_volume_m3(const mesh::element& element) const override;
 
  public:

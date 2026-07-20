@@ -38,7 +38,10 @@ class self_consistent_device_pbmc_simulation_3d : public self_consistent_device_
 
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
+    std::vector<std::size_t>                    m_list_element_contact_owner_index;
     std::vector<double>                         m_list_element_contact_equilibrium_charge;
+    std::vector<mesh::vector3>                  m_list_element_contact_inward_direction;
+    std::vector<std::vector<mesh::vector3>>     m_list_element_contact_face_vertices;
 
     std::minstd_rand m_contact_rng;
 

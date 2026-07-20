@@ -314,6 +314,9 @@ void options_device_PBMC::validate() const {
     if (m_frequency_export_trajectory <= 0) {
         throw std::invalid_argument("--export-frequency must be positive.");
     }
+    if (!std::isfinite(m_contact_current_window_s) || m_contact_current_window_s < 0.0) {
+        throw std::invalid_argument("Contact-current averaging window must be finite and non-negative.");
+    }
     if (m_nb_threads <= 0) {
         throw std::invalid_argument("--nthreads must be positive.");
     }
@@ -571,6 +574,7 @@ device_pbmc_simulation::device_pbmc_simulation(const device::device      &simula
     validate_time_step_against_scattering_rate();
     initialize_thread_transports(seed_random_generator);
     initialize_scheduled_particle_injection();
+    initialize_contact_flow_tracking();
 }
 
 device_pbmc_simulation::device_pbmc_simulation(const device::device      &device_simulation,
@@ -594,6 +598,7 @@ device_pbmc_simulation::device_pbmc_simulation(const device::device      &device
     validate_time_step_against_scattering_rate();
     initialize_thread_transports(seed_random_generator);
     m_simulation_history.m_initial_seed_rng = seed_random_generator;
+    initialize_contact_flow_tracking();
     if (number_electrons_start + number_holes_start == 0) {
         initialize_scheduled_particle_injection();
         return;
@@ -636,6 +641,110 @@ device_pbmc_simulation::device_pbmc_simulation(const device::device      &device
     }
 
     initialize_scheduled_particle_injection();
+}
+
+void device_pbmc_simulation::initialize_contact_flow_tracking() {
+    const auto contacts = m_device.get_list_contacts();
+    m_contact_flow_names.clear();
+    m_contact_flow_names.reserve(contacts.size());
+    for (const auto &contact : contacts) {
+        m_contact_flow_names.push_back(contact.get_contact_name());
+    }
+    m_step_collected_electron_charge_C.assign(contacts.size(), 0.0);
+    m_step_collected_hole_charge_C.assign(contacts.size(), 0.0);
+    m_cumulative_collected_charge_C.assign(contacts.size(), 0.0);
+    m_step_injected_charge_C.assign(contacts.size(), 0.0);
+    m_cumulative_injected_charge_C.assign(contacts.size(), 0.0);
+    m_simulation_history.set_contact_flow_names(m_contact_flow_names);
+    m_simulation_history.set_contact_current_window_s(m_simulation_options.m_contact_current_window_s);
+}
+
+void device_pbmc_simulation::reset_step_contact_flow() {
+    std::fill(m_step_collected_electron_charge_C.begin(), m_step_collected_electron_charge_C.end(), 0.0);
+    std::fill(m_step_collected_hole_charge_C.begin(), m_step_collected_hole_charge_C.end(), 0.0);
+    std::fill(m_step_injected_charge_C.begin(), m_step_injected_charge_C.end(), 0.0);
+}
+
+void device_pbmc_simulation::record_contact_collection(const pbmc_particle &particle, std::size_t contact_index) {
+    record_contact_collection(particle.type(), particle.weight(), contact_index);
+}
+
+void device_pbmc_simulation::record_contact_collection(particle_type type,
+                                                        double        weight,
+                                                        std::size_t   contact_index) {
+    if (contact_index >= m_contact_flow_names.size()) {
+        throw std::out_of_range("collected-particle contact index is out of range");
+    }
+    const double collected_charge_C =
+        weight * (type == particle_type::electron ? -uepm::constants::q_e : uepm::constants::q_e);
+    if (type == particle_type::electron) {
+        m_step_collected_electron_charge_C[contact_index] += collected_charge_C;
+    } else {
+        m_step_collected_hole_charge_C[contact_index] += collected_charge_C;
+    }
+    m_cumulative_collected_charge_C[contact_index] += collected_charge_C;
+}
+
+void device_pbmc_simulation::record_contact_injection(particle_type type,
+                                                       double        weight,
+                                                       std::size_t   contact_index) {
+    if (contact_index >= m_contact_flow_names.size()) {
+        throw std::out_of_range("injected-particle contact index is out of range");
+    }
+    const double injected_charge_C =
+        weight * (type == particle_type::electron ? -uepm::constants::q_e : uepm::constants::q_e);
+    m_step_injected_charge_C[contact_index] += injected_charge_C;
+    m_cumulative_injected_charge_C[contact_index] += injected_charge_C;
+}
+
+std::vector<double> device_pbmc_simulation::collected_contact_electron_currents_A() const {
+    std::vector<double> currents = m_step_collected_electron_charge_C;
+    for (auto &current : currents) {
+        current /= m_simulation_options.m_time_step;
+    }
+    return currents;
+}
+
+std::vector<double> device_pbmc_simulation::collected_contact_hole_currents_A() const {
+    std::vector<double> currents = m_step_collected_hole_charge_C;
+    for (auto &current : currents) {
+        current /= m_simulation_options.m_time_step;
+    }
+    return currents;
+}
+
+std::vector<double> device_pbmc_simulation::collected_contact_total_currents_A() const {
+    auto       currents      = collected_contact_electron_currents_A();
+    const auto hole_currents = collected_contact_hole_currents_A();
+    for (std::size_t index = 0; index < currents.size(); ++index) {
+        currents[index] += hole_currents[index];
+    }
+    return currents;
+}
+
+std::vector<double> device_pbmc_simulation::injected_contact_currents_A() const {
+    std::vector<double> currents = m_step_injected_charge_C;
+    for (auto& current : currents) {
+        current /= m_simulation_options.m_time_step;
+    }
+    return currents;
+}
+
+std::vector<double> device_pbmc_simulation::net_contact_currents_A() const {
+    auto currents = collected_contact_total_currents_A();
+    const auto injected_currents = injected_contact_currents_A();
+    for (std::size_t index = 0; index < currents.size(); ++index) {
+        currents[index] -= injected_currents[index];
+    }
+    return currents;
+}
+
+std::vector<double> device_pbmc_simulation::cumulative_net_contact_charges_C() const {
+    auto charges = m_cumulative_collected_charge_C;
+    for (std::size_t index = 0; index < charges.size(); ++index) {
+        charges[index] -= m_cumulative_injected_charge_C[index];
+    }
+    return charges;
 }
 
 void device_pbmc_simulation::add_particle_at_position(const mesh::vector3 &location,
@@ -714,6 +823,43 @@ void device_pbmc_simulation::add_particles_at_positions(const std::vector<mesh::
         particle.set_weight(weight);
 
         initialize_particle_transport_state(particle);
+    }
+}
+
+void device_pbmc_simulation::add_particles_at_positions_with_directions(
+    const std::vector<mesh::vector3> &positions,
+    const std::vector<mesh::vector3> &directions,
+    particle_type                     type_of_particle,
+    double                            weight,
+    contact_injection_distribution    distribution) {
+    if (positions.size() != directions.size()) {
+        throw std::invalid_argument("Contact particle positions and directions must have the same size.");
+    }
+
+    for (std::size_t index = 0; index < positions.size(); ++index) {
+        const std::size_t particle_count_before_add = m_list_particles.size();
+        add_particle_at_position(positions[index], type_of_particle, weight);
+        if (m_list_particles.size() == particle_count_before_add) {
+            continue;
+        }
+
+        auto &particle = *m_list_particles.back();
+        auto inward_normal = directions[index];
+        inward_normal.re_normalize();
+        auto& transport = transport_for(type_of_particle);
+        switch (distribution) {
+            case contact_injection_distribution::maxwellian:
+                if (particle.state().velocity.dot(inward_normal) < 0.0) {
+                    const auto inward_velocity_direction =
+                        mesh::reflect_vector_specular(particle.state().velocity, inward_normal);
+                    transport.set_particle_velocity_direction_preserving_energy(particle, inward_velocity_direction);
+                }
+                break;
+            case contact_injection_distribution::velocity_weighted_maxwellian:
+                transport.initialize_particle_state_from_parabolic_contact_flux(
+                    particle, particle.get_lattice_temperature(), inward_normal);
+                break;
+        }
     }
 }
 
@@ -845,15 +991,19 @@ std::array<double, 3> device_pbmc_simulation::get_mean_kinetic_energies_eV() con
     const double mean_hole_energy_eV =
         nb_holes == 0 ? undefined_mean : hole_energy_sum_eV / static_cast<double>(nb_holes);
     const std::size_t nb_particles = nb_electrons + nb_holes;
-    const double mean_particle_energy_eV =
-        nb_particles == 0
-            ? undefined_mean
-            : (electron_energy_sum_eV + hole_energy_sum_eV) / static_cast<double>(nb_particles);
+    const double      mean_particle_energy_eV =
+        nb_particles == 0 ? undefined_mean
+                               : (electron_energy_sum_eV + hole_energy_sum_eV) / static_cast<double>(nb_particles);
 
     return {mean_electron_energy_eV, mean_hole_energy_eV, mean_particle_energy_eV};
 }
 
-double device_pbmc_simulation::ramo_current_scale_factor() const { return 1.0; }
+double device_pbmc_simulation::ramo_current_scale_factor() const {
+    // The mesh stores the weighting field in cm^-1, whereas particle
+    // velocities are expressed in m/s. Convert cm^-1 to m^-1 so that
+    // q * v dot E_weighting is returned in amperes.
+    return uepm::units::electric_field_V_per_cm_to_V_per_m;
+}
 
 // Compute Ramo current for a given single particle
 double device_pbmc_simulation::compute_ramo_current_for_particle(const pbmc_particle &particle) const {
@@ -931,6 +1081,7 @@ std::pair<double, double> device_pbmc_simulation::compute_probe_ramo_current() c
 }
 
 void device_pbmc_simulation::transport_particles_one_time_step() {
+    reset_step_contact_flow();
     inject_scheduled_particle_if_due();
     const double                             dt = m_simulation_options.m_time_step;
     std::vector<impact_ionization_pair_seed> impact_pair_seeds;
@@ -1087,7 +1238,13 @@ void device_pbmc_simulation::update_element_and_check_boundary() {
         if (old_element->is_location_inside_element(current_position)) {
             continue;
         }
-        if (m_device.check_enters_contact(current_position)) {
+        mesh::vector3 previous_position = particle.state().previous_position;
+        if (is_2d) {
+            previous_position.to_2d_inplace();
+        }
+        if (const auto crossing = m_device.find_first_contact_crossing(previous_position, current_position);
+            crossing.has_value()) {
+            record_contact_collection(particle, crossing->contact_index);
             particle.set_crossed_contact(true);
             continue;
         }
@@ -1115,22 +1272,7 @@ void device_pbmc_simulation::update_element_and_check_boundary() {
 }
 
 void device_pbmc_simulation::remove_collected_particles() {
-    bool remove_particle = false;
-    int  nb_part_erased  = 0;
-    for (const auto &p_particle : m_list_particles) {
-        if (p_particle->state().m_crossed_contact) {
-            remove_particle = true;
-            nb_part_erased++;
-        }
-    }
-    if (remove_particle) {
-        std::erase_if(m_list_particles, [](auto &&p_part) { return p_part->state().m_crossed_contact; });
-    }
-    std::vector<double> currents = m_device.get_electrode_currents();
-    // CHECK SIZE OF CURRENTS VECTOR
-    if (currents.size() < 2) {
-        throw std::runtime_error("Error: currents vector should have at least 2 elements (anode and cathode currents)");
-    }
+    std::erase_if(m_list_particles, [](auto &&p_part) { return p_part->state().m_crossed_contact; });
 }
 
 void device_pbmc_simulation::run() {
@@ -1148,7 +1290,7 @@ void device_pbmc_simulation::run() {
         const auto nb_electrons         = get_number_electrons();
         const auto nb_holes             = get_number_holes();
         const auto nb_impact_ionization = m_simulation_history.m_impact_ionization_positions.size();
-        const auto mean_energies_eV      = get_mean_kinetic_energies_eV();
+        const auto mean_energies_eV     = get_mean_kinetic_energies_eV();
 
         double dumb_ramo_current_e_h_total = 0.0;
         double dumb_0                      = 0.0;
@@ -1171,7 +1313,16 @@ void device_pbmc_simulation::run() {
                                                  dumb_0,
                                                  dumb_0,
                                                  dumb_0,
-                                                 dumb_0);
+                                                 dumb_0,
+                                                 {},
+                                                 collected_contact_electron_currents_A(),
+                                                 collected_contact_hole_currents_A(),
+                                                 collected_contact_total_currents_A(),
+                                                 cumulative_collected_contact_charges_C(),
+                                                 injected_contact_currents_A(),
+                                                 net_contact_currents_A(),
+                                                 cumulative_injected_contact_charges_C(),
+                                                 cumulative_net_contact_charges_C());
 
         if (m_simulation_options.m_export_time_step &&
             m_state.m_iteration % static_cast<std::size_t>(m_simulation_options.m_frequency_export_trajectory) == 0) {
@@ -1509,8 +1660,8 @@ void device_pbmc_simulation::publish_mesh_particle_local_average_energy() const 
         element_indices.emplace(list_bulk_elements[index].get(), index);
     }
 
-    std::vector<double> particle_count(list_bulk_elements.size(), 0.0);
-    std::vector<double> energy_sum_eV(list_bulk_elements.size(), 0.0);
+    std::vector<double> particle_weight_sum(list_bulk_elements.size(), 0.0);
+    std::vector<double> weighted_energy_sum_eV(list_bulk_elements.size(), 0.0);
 
     for (const auto &p_particle : m_list_particles) {
         const auto index_it = element_indices.find(p_particle->get_containing_element());
@@ -1518,14 +1669,14 @@ void device_pbmc_simulation::publish_mesh_particle_local_average_energy() const 
             continue;
         }
         const std::size_t index = index_it->second;
-        particle_count[index] += 1.0;
-        energy_sum_eV[index] += p_particle->state().kinetic_energy;
+        particle_weight_sum[index] += p_particle->weight();
+        weighted_energy_sum_eV[index] += p_particle->weight() * p_particle->state().kinetic_energy;
     }
 
     std::vector<double> average_energy_eV(list_bulk_elements.size(), 0.0);
     for (std::size_t index = 0; index < list_bulk_elements.size(); ++index) {
-        if (particle_count[index] > 0.0) {
-            average_energy_eV[index] = energy_sum_eV[index] / particle_count[index];
+        if (particle_weight_sum[index] > 0.0) {
+            average_energy_eV[index] = weighted_energy_sum_eV[index] / particle_weight_sum[index];
         }
     }
 

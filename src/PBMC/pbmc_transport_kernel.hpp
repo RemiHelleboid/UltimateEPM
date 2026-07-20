@@ -34,6 +34,8 @@ enum class impurity_scattering_model { mobility_empirical, screened_coulomb };
  */
 enum class impurity_density_source { background, particle_local };
 
+enum class contact_injection_distribution { maxwellian, velocity_weighted_maxwellian };
+
 struct pbmc_transport_config {
     particle_type m_carrier_type                  = particle_type::electron;
     double        m_lattice_temperature           = 300.0;
@@ -74,6 +76,9 @@ class pbmc_transport_kernel {
     double                           gamma_max(const pbmc_particle& p) const;
     void                             initialize_particle_state(pbmc_particle& p);
     void                             initialize_particle_state(pbmc_particle& p, double temperature_K);
+    void                             initialize_particle_state_from_parabolic_contact_flux(pbmc_particle&       p,
+                                                                                           double               temperature_K,
+                                                                                           const mesh::vector3& inward_global_normal);
     std::optional<scattering_event>  scatter_particle(pbmc_particle& p, double dt);
     void                    drift_particle(pbmc_particle& p, const mesh::vector3& electric_field_Vm, double dt);
     scattering_channel_list build_scattering_channels(const pbmc_particle& p) const;
@@ -100,6 +105,10 @@ class pbmc_transport_kernel {
     std::vector<valley_model>              m_valleys;
     std::vector<intervalley_phonon_branch> m_intervalley_branches;
     std::vector<hole_optical_transition>   m_hole_optical_transitions;
+
+    std::vector<acoustic_scattering_prefactor>      m_acoustic_scattering_prefactors;
+    std::vector<intervalley_scattering_prefactor>   m_intervalley_scattering_prefactors;
+    std::vector<optical_scattering_prefactor_holes> m_hole_optical_scattering_prefactors;
 
     carrier_impact_ionization_parameters m_impact_ionization_parameters;
 

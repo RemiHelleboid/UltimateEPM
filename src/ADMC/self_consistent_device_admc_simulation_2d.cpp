@@ -251,9 +251,12 @@ void self_consistent_device_admc_simulation_2d::initialize_contact_elements() {
 
     m_list_element_contact.clear();
     m_list_element_contact_ptr.clear();
+    m_list_element_contact_owner_index.clear();
     m_list_element_contact_equilibrium_charge.clear();
 
-    for (const auto& device_contact : m_device.get_list_contacts()) {
+    const auto contacts = m_device.get_list_contacts();
+    for (std::size_t contact_index = 0; contact_index < contacts.size(); ++contact_index) {
+        const auto& device_contact = contacts[contact_index];
         const std::string contact_name = device_contact.get_contact_name();
         if (!m_self_consistent_options.m_common.m_contact_voltages_V.contains(contact_name)) {
             throw std::runtime_error("ADMC collecting contact '" + contact_name +
@@ -275,6 +278,7 @@ void self_consistent_device_admc_simulation_2d::initialize_contact_elements() {
             contact_elements.push_back(element);
             m_list_element_contact.push_back(element_index);
             m_list_element_contact_ptr.push_back(element);
+            m_list_element_contact_owner_index.push_back(contact_index);
             m_list_element_contact_equilibrium_charge.push_back(
                 scale_integrated_2d_doping_to_carriers(element->integrate_scalar("DopingConcentration")));
         }
@@ -526,7 +530,8 @@ void self_consistent_device_admc_simulation_2d::add_charges_at_contacts(std::siz
     };
 
     const auto allocate_positions_by_local_deficit = [&](const std::vector<double>& local_deficits,
-                                                          std::vector<mesh::vector3>& positions) {
+                                                          std::vector<mesh::vector3>& positions,
+                                                          carrier_type type) {
         for (std::size_t i = 0; i < local_deficits.size(); ++i) {
             const double exact_particle_count = local_deficits[i] / particle_weight;
             if (!(exact_particle_count > 0.0) || !std::isfinite(exact_particle_count)) {
@@ -543,6 +548,7 @@ void self_consistent_device_admc_simulation_2d::add_charges_at_contacts(std::siz
             for (std::size_t particle_index = 0; particle_index < integral_count; ++particle_index) {
                 positions.push_back(
                     m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
+                record_contact_injection(type, particle_weight, m_list_element_contact_owner_index[i]);
             }
 
             if (remaining_capacity() == 0 || integral_count_as_double > static_cast<double>(integral_count)) {
@@ -552,12 +558,13 @@ void self_consistent_device_admc_simulation_2d::add_charges_at_contacts(std::siz
             if (fractional_count > 0.0 && uniform01(m_contact_rng) < fractional_count) {
                 positions.push_back(
                     m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
+                record_contact_injection(type, particle_weight, m_list_element_contact_owner_index[i]);
             }
         }
     };
 
-    allocate_positions_by_local_deficit(electron_charge_to_add, electron_positions);
-    allocate_positions_by_local_deficit(hole_charge_to_add, hole_positions);
+    allocate_positions_by_local_deficit(electron_charge_to_add, electron_positions, carrier_type::electron);
+    allocate_positions_by_local_deficit(hole_charge_to_add, hole_positions, carrier_type::hole);
 
     for (const auto& position : electron_positions) {
         add_particle_at_position(position, carrier_type::electron, particle_weight);
@@ -649,6 +656,14 @@ void self_consistent_device_admc_simulation_2d::run_self_consistent_transport_si
         ramo_current          = ramo_current_electron + ramo_current_hole;
 
         add_charges_at_contacts(poisson_sample_count);
+        m_history.set_last_contact_flow(collected_contact_electron_currents_A(),
+                                        collected_contact_hole_currents_A(),
+                                        collected_contact_total_currents_A(),
+                                        cumulative_collected_contact_charges_C(),
+                                        injected_contact_currents_A(),
+                                        net_contact_currents_A(),
+                                        cumulative_injected_contact_charges_C(),
+                                        cumulative_net_contact_charges_C());
         add_missing_contact_charge_to_poisson_reservoir(poisson_sample_count);
         recompute_vertex_space_charge_from_element_charges(poisson_sample_count);
         update_self_consistent_potential(false);

@@ -13,9 +13,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <fstream>
+#include <iomanip>
 #include <limits>
 #include <stdexcept>
 #include <utility>
+
+#include "unit_conversion.hpp"
 
 namespace uepm::ADMC {
 
@@ -54,11 +58,23 @@ void bulk_admc_simulation::initialize() {
     m_current_time_s = 0.0;
     m_diffusion      = {};
 
+    const auto number_of_steps = static_cast<std::size_t>(std::ceil(m_config.final_time_s / m_config.time_step_s));
+
     for (std::size_t i = 0; i < m_config.number_electrons; ++i) {
         m_particles.emplace_back(m_particles.size(), carrier_type::electron, m_config.initial_position_m);
+        m_transport.initialize_particle_state(m_particles.back(), m_config.environment);
+        if (m_config.record_history) {
+            m_particles.back().history().reserve(number_of_steps + 1);
+            m_particles.back().record_state();
+        }
     }
     for (std::size_t i = 0; i < m_config.number_holes; ++i) {
         m_particles.emplace_back(m_particles.size(), carrier_type::hole, m_config.initial_position_m);
+        m_transport.initialize_particle_state(m_particles.back(), m_config.environment);
+        if (m_config.record_history) {
+            m_particles.back().history().reserve(number_of_steps + 1);
+            m_particles.back().record_state();
+        }
     }
 }
 
@@ -74,15 +90,42 @@ void bulk_admc_simulation::run() {
         const double time_step_s = std::min(m_config.time_step_s, m_config.final_time_s - m_current_time_s);
         for (auto& particle : m_particles) {
             m_transport.step(particle, m_config.environment, time_step_s, draw_standard_normal());
+            if (m_config.record_history) {
+                particle.record_state();
+            }
         }
         m_current_time_s += time_step_s;
     }
 
-    m_diffusion = statistics::estimate_directional_diffusion(
-        m_particles.size(), m_current_time_s, [&](std::size_t index) {
+    m_diffusion =
+        statistics::estimate_directional_diffusion(m_particles.size(), m_current_time_s, [&](std::size_t index) {
             const auto displacement = m_particles[index].state().position_m - m_config.initial_position_m;
             return std::array<double, 3>{displacement.x(), displacement.y(), displacement.z()};
         });
+}
+
+void bulk_admc_simulation::export_particles_history_to_csv(const std::string& prefix_name) const {
+    for (const auto& particle : m_particles) {
+        const std::string filename = prefix_name + "_particle_" + std::to_string(particle.index()) + ".csv";
+        std::ofstream     file(filename);
+        if (!file.is_open()) {
+            throw std::runtime_error("cannot open particle history output file: " + filename);
+        }
+        file << std::setprecision(std::numeric_limits<double>::max_digits10);
+
+        file << "time,"
+                "position_x,position_y,position_z,"
+                "local_k_x,local_k_y,local_k_z,"
+                "velocity_x,velocity_y,velocity_z,"
+                "lattice_temperature_K,kinetic_energy,gamma,valley_index\n";
+
+        for (const auto& snapshot : particle.history().snapshots()) {
+            const vector3 position_um = snapshot.position_m * uepm::units::meter_to_micron;
+            file << snapshot.time_s << ',' << position_um.x() << ',' << position_um.y() << ',' << position_um.z()
+                 << ",,,," << snapshot.total_velocity_m_per_s.x() << ',' << snapshot.total_velocity_m_per_s.y() << ','
+                 << snapshot.total_velocity_m_per_s.z() << ',' << snapshot.lattice_temperature_K << ",,,\n";
+        }
+    }
 }
 
 }  // namespace uepm::ADMC

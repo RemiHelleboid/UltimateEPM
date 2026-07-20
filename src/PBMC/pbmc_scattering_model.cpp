@@ -53,6 +53,37 @@ double bose_einstein_occupation(double phonon_energy_eV, double temperature_K) {
     return 1.0 / std::expm1(x);
 }
 
+acoustic_scattering_prefactor make_acoustic_scattering_prefactor(const valley_model&                   valley,
+                                                                 const acoustic_scattering_parameters& parameters) {
+    const double alpha_per_J = valley.non_parabolicity() / uepm::constants::eV_to_J;
+    const double mt          = valley.transverse_effective_mass();
+    const double ml          = valley.longitudinal_effective_mass();
+    const double mD          = std::cbrt(mt * mt * ml);
+    const double D_ac_J      = parameters.deformation_potential_eV * uepm::constants::eV_to_J;
+
+    const double rate_per_temperature =
+        std::sqrt(2.0) * uepm::constants::k_B * std::pow(mD, 1.5) * (D_ac_J * D_ac_J) * parameters.overlap_factor /
+        (uepm::constants::pi * std::pow(uepm::constants::h_bar, 4) * parameters.mass_density_kg_per_m3 *
+         parameters.sound_velocity_m_per_s * parameters.sound_velocity_m_per_s);
+
+    return {.alpha_per_J = alpha_per_J, .rate_per_temperature = rate_per_temperature};
+}
+
+double acoustic_scattering_rate(const acoustic_scattering_prefactor& prefactor,
+                                double                               energy_eV,
+                                double                               temperature_K) {
+    if (temperature_K <= 0.0) {
+        return 0.0;
+    }
+
+    const double energy_clamped_eV = std::max(energy_eV, 1.0e-9);
+    const double energy_J          = energy_clamped_eV * uepm::constants::eV_to_J;
+    const double gamma_factor =
+        std::sqrt(energy_J * (1.0 + prefactor.alpha_per_J * energy_J)) * (1.0 + 2.0 * prefactor.alpha_per_J * energy_J);
+
+    return prefactor.rate_per_temperature * temperature_K * gamma_factor;
+}
+
 double acoustic_scattering_rate(const valley_model&                   valley,
                                 const acoustic_scattering_parameters& parameters,
                                 double                                energy_eV,
@@ -63,18 +94,13 @@ double acoustic_scattering_rate(const valley_model&                   valley,
 
     const double energy_clamped_eV = std::max(energy_eV, 1.0e-9);
     const double energy_J          = energy_clamped_eV * uepm::constants::eV_to_J;
-
-    const double alpha_per_J = valley.non_parabolicity() / uepm::constants::eV_to_J;
-
-    const double mt = valley.transverse_effective_mass();
-    const double ml = valley.longitudinal_effective_mass();
-    const double mD = std::cbrt(mt * mt * ml);
-
-    const double D_ac_J = parameters.deformation_potential_eV * uepm::constants::eV_to_J;
-
+    const double alpha_per_J       = valley.non_parabolicity() / uepm::constants::eV_to_J;
+    const double mt                = valley.transverse_effective_mass();
+    const double ml                = valley.longitudinal_effective_mass();
+    const double mD                = std::cbrt(mt * mt * ml);
+    const double D_ac_J            = parameters.deformation_potential_eV * uepm::constants::eV_to_J;
     const double gamma_factor =
         std::sqrt(energy_J * (1.0 + alpha_per_J * energy_J)) * (1.0 + 2.0 * alpha_per_J * energy_J);
-
     const double prefactor =
         std::sqrt(2.0) * uepm::constants::k_B * temperature_K * std::pow(mD, 1.5) * (D_ac_J * D_ac_J) *
         parameters.overlap_factor /
@@ -82,6 +108,58 @@ double acoustic_scattering_rate(const valley_model&                   valley,
          parameters.sound_velocity_m_per_s * parameters.sound_velocity_m_per_s);
 
     return prefactor * gamma_factor;
+}
+
+intervalley_scattering_prefactor make_intervalley_scattering_prefactor(const valley_model&              valley,
+                                                                       const intervalley_phonon_branch& branch,
+                                                                       double mass_density_kg_per_m3) {
+    const double alpha_per_J     = valley.non_parabolicity() / uepm::constants::eV_to_J;
+    const double mD              = valley.density_of_states_effective_mass();
+    const double phonon_energy_J = branch.m_phonon_energy_eV * uepm::constants::eV_to_J;
+    double       rate_prefactor  = 0.0;
+
+    if (branch.is_zeroth_order()) {
+        const double D0_J_per_m = branch.m_deformation_potential_0 * uepm::constants::eV_to_J;
+        rate_prefactor = std::sqrt(2.0) * static_cast<double>(branch.m_final_valley_count) * std::pow(mD, 1.5) *
+                         (D0_J_per_m * D0_J_per_m) /
+                         (uepm::constants::pi * mass_density_kg_per_m3 * uepm::constants::h_bar *
+                          uepm::constants::h_bar * phonon_energy_J);
+    } else {
+        const double D1_J = branch.m_deformation_potential_1 * uepm::constants::eV_to_J;
+        rate_prefactor =
+            std::sqrt(2.0) * static_cast<double>(branch.m_final_valley_count) * std::pow(mD, 2.5) * (D1_J * D1_J) /
+            (uepm::constants::pi * mass_density_kg_per_m3 * std::pow(uepm::constants::h_bar, 4) * phonon_energy_J);
+    }
+
+    return {.alpha_per_J      = alpha_per_J,
+            .phonon_energy_eV = branch.m_phonon_energy_eV,
+            .rate_prefactor   = rate_prefactor,
+            .first_order      = branch.is_first_order()};
+}
+
+double intervalley_scattering_rate(const intervalley_scattering_prefactor& prefactor,
+                                   double                                  initial_energy_eV,
+                                   bool                                    absorption,
+                                   double                                  temperature_K) {
+    const double final_energy_eV = absorption ? (initial_energy_eV + prefactor.phonon_energy_eV)
+                                              : (initial_energy_eV - prefactor.phonon_energy_eV);
+    if (final_energy_eV < 0.0) {
+        return 0.0;
+    }
+
+    const double Nop              = bose_einstein_occupation(prefactor.phonon_energy_eV, temperature_K);
+    const double phonon_factor    = absorption ? Nop : (Nop + 1.0);
+    const double initial_energy_J = initial_energy_eV * uepm::constants::eV_to_J;
+    const double final_energy_J   = final_energy_eV * uepm::constants::eV_to_J;
+    const double gamma_final      = final_energy_J * (1.0 + prefactor.alpha_per_J * final_energy_J);
+
+    double rate = prefactor.rate_prefactor * phonon_factor * std::sqrt(std::max(0.0, gamma_final)) *
+                  (1.0 + 2.0 * prefactor.alpha_per_J * final_energy_J);
+    if (prefactor.first_order) {
+        const double gamma_initial = initial_energy_J * (1.0 + prefactor.alpha_per_J * initial_energy_J);
+        rate *= gamma_final + gamma_initial;
+    }
+    return rate;
 }
 
 double intervalley_zeroth_order_rate(const valley_model&              valley,
@@ -163,21 +241,48 @@ double intervalley_scattering_rate(const valley_model&              valley,
                                    double                           initial_energy_eV,
                                    bool                             absorption,
                                    double                           temperature_K) {
-    if (branch.is_zeroth_order()) {
-        return intervalley_zeroth_order_rate(valley,
-                                             branch,
-                                             mass_density_kg_per_m3,
-                                             initial_energy_eV,
-                                             absorption,
-                                             temperature_K);
+    return intervalley_scattering_rate(make_intervalley_scattering_prefactor(valley, branch, mass_density_kg_per_m3),
+                                       initial_energy_eV,
+                                       absorption,
+                                       temperature_K);
+}
+
+optical_scattering_prefactor_holes make_optical_scattering_prefactor_holes(const valley_model&            final_band,
+                                                                           const hole_optical_transition& transition,
+                                                                           double mass_density_kg_per_m3) {
+    const double alpha_per_J     = final_band.non_parabolicity() / uepm::constants::eV_to_J;
+    const double mt              = final_band.transverse_effective_mass();
+    const double ml              = final_band.longitudinal_effective_mass();
+    const double mD              = std::cbrt(mt * mt * ml);
+    const double phonon_energy_J = transition.phonon_energy_eV * uepm::constants::eV_to_J;
+    const double dop_J_per_m     = transition.deformation_potential_eV_per_m * uepm::constants::eV_to_J;
+    const double rate_prefactor  = std::sqrt(2.0) * std::pow(mD, 1.5) * (dop_J_per_m * dop_J_per_m) *
+                                  transition.overlap_factor /
+                                  (uepm::constants::pi * mass_density_kg_per_m3 * uepm::constants::h_bar *
+                                   uepm::constants::h_bar * phonon_energy_J);
+
+    return {.alpha_per_J      = alpha_per_J,
+            .phonon_energy_eV = transition.phonon_energy_eV,
+            .rate_prefactor   = rate_prefactor};
+}
+
+double optical_scattering_rate_holes(const optical_scattering_prefactor_holes& prefactor,
+                                     double                                    initial_energy_eV,
+                                     bool                                      absorption,
+                                     double                                    temperature_K) {
+    const double final_energy_eV = absorption ? (initial_energy_eV + prefactor.phonon_energy_eV)
+                                              : (initial_energy_eV - prefactor.phonon_energy_eV);
+    if (final_energy_eV < 0.0) {
+        return 0.0;
     }
 
-    return intervalley_first_order_rate(valley,
-                                        branch,
-                                        mass_density_kg_per_m3,
-                                        initial_energy_eV,
-                                        absorption,
-                                        temperature_K);
+    const double n_op           = bose_einstein_occupation(prefactor.phonon_energy_eV, temperature_K);
+    const double phonon_factor = absorption ? n_op : (n_op + 1.0);
+    const double final_energy_J = final_energy_eV * uepm::constants::eV_to_J;
+    const double gamma_final    = final_energy_J * (1.0 + prefactor.alpha_per_J * final_energy_J);
+
+    return prefactor.rate_prefactor * phonon_factor * std::sqrt(std::max(0.0, gamma_final)) *
+           (1.0 + 2.0 * prefactor.alpha_per_J * final_energy_J);
 }
 
 double optical_scattering_rate_holes(const valley_model&            final_band,
@@ -186,35 +291,11 @@ double optical_scattering_rate_holes(const valley_model&            final_band,
                                      double                         initial_energy_eV,
                                      bool                           absorption,
                                      double                         temperature_K) {
-    const double phonon_energy_eV = transition.phonon_energy_eV;
-    const double final_energy_eV =
-        absorption ? (initial_energy_eV + phonon_energy_eV) : (initial_energy_eV - phonon_energy_eV);
-
-    if (final_energy_eV < 0.0) {
-        return 0.0;
-    }
-
-    const double n_op          = bose_einstein_occupation(phonon_energy_eV, temperature_K);
-    const double phonon_factor = absorption ? n_op : (n_op + 1.0);
-
-    const double alpha_per_J = final_band.non_parabolicity() / uepm::constants::eV_to_J;
-    const double mt          = final_band.transverse_effective_mass();
-    const double ml          = final_band.longitudinal_effective_mass();
-    const double mD          = std::cbrt(mt * mt * ml);
-
-    const double final_energy_J  = final_energy_eV * uepm::constants::eV_to_J;
-    const double phonon_energy_J = phonon_energy_eV * uepm::constants::eV_to_J;
-    const double dop_J_per_m     = transition.deformation_potential_eV_per_m * uepm::constants::eV_to_J;
-
-    const double gamma_final = final_energy_J * (1.0 + alpha_per_J * final_energy_J);
-
-    const double prefactor = std::sqrt(2.0) * std::pow(mD, 1.5) * (dop_J_per_m * dop_J_per_m) *
-                             transition.overlap_factor /
-                             (uepm::constants::pi * mass_density_kg_per_m3 * uepm::constants::h_bar *
-                              uepm::constants::h_bar * phonon_energy_J);
-
-    return prefactor * phonon_factor * std::sqrt(std::max(0.0, gamma_final)) *
-           (1.0 + 2.0 * alpha_per_J * final_energy_J);
+    return optical_scattering_rate_holes(
+        make_optical_scattering_prefactor_holes(final_band, transition, mass_density_kg_per_m3),
+        initial_energy_eV,
+        absorption,
+        temperature_K);
 }
 
 double caughey_thomas_mobility_cm2_per_V_s(double                              impurity_density_cm_3,

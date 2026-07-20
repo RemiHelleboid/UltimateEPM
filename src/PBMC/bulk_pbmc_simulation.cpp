@@ -336,10 +336,10 @@ void bulk_pbmc_simulation::run_self_scattering_emc() {
                 reduced_ii_sampling_time += sampled_drift_time;
                 reduced_impurity_carrier_time += sampled_drift_time;
             }
-            if (m_cfg.m_record_history) {
-                p.record_state();
-            }
             if (drift_time < tau) {
+                if (m_cfg.m_record_history) {
+                    p.record_state();
+                }
                 break;
             }
             const auto channels   = transport.build_scattering_channels(p);

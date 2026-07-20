@@ -25,6 +25,8 @@ namespace uepm::PBMC {
 impurity_scattering_model parse_impurity_model(const std::string& text);
 impurity_screening_model  parse_impurity_screening_model(const std::string& text);
 std::string_view          impurity_screening_model_name(impurity_screening_model model);
+contact_injection_distribution parse_contact_injection_distribution(const std::string& text);
+std::string_view contact_injection_distribution_name(contact_injection_distribution distribution);
 particle_type             parse_particle_type(const std::string& text);
 
 void validate_material_symbol(const std::string& material_symbol);

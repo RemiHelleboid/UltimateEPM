@@ -61,6 +61,7 @@ struct options_device_PBMC {
     bool        m_keep_particles_history               = false;
     bool        m_export_time_step                     = false;
     int         m_frequency_export_trajectory          = 10;
+    double      m_contact_current_window_s              = 1.0e-13;
     int         m_nb_threads                           = 1;
     std::string m_prefix_export_filename               = "trajectory/time_step.csv";
 
@@ -72,7 +73,7 @@ struct options_device_PBMC {
     bool                            m_enable_impurity_scattering = false;
     impurity_scattering_model       m_impurity_scattering_model  = impurity_scattering_model::mobility_empirical;
     impurity_screening_model        m_impurity_screening_model   = impurity_screening_model::debye_analytic;
-    mesh::boundary_reflection_model m_boundary_reflection_model  = mesh::boundary_reflection_model::reverse;
+    mesh::boundary_reflection_model m_boundary_reflection_model  = mesh::boundary_reflection_model::specular;
 
     options_device_PBMC() = default;
 
@@ -156,6 +157,12 @@ class device_pbmc_simulation {
 
     std::vector<std::unique_ptr<pbmc_particle>>  m_list_particles;
     std::vector<std::optional<scattering_event>> m_scattering_events_scratch;
+    std::vector<std::string>                     m_contact_flow_names;
+    std::vector<double>                          m_step_collected_electron_charge_C;
+    std::vector<double>                          m_step_collected_hole_charge_C;
+    std::vector<double>                          m_cumulative_collected_charge_C;
+    std::vector<double>                          m_step_injected_charge_C;
+    std::vector<double>                          m_cumulative_injected_charge_C;
 
     void                         initialize_scheduled_particle_injection();
     bool                         has_pending_scheduled_particle_injection() const;
@@ -163,10 +170,24 @@ class device_pbmc_simulation {
     void                         validate_time_step_against_scattering_rate() const;
     static pbmc_transport_config make_transport_config(const options_device_PBMC &options, particle_type carrier_type);
     void                         initialize_thread_transports(int seed_random_generator);
+    void                         initialize_contact_flow_tracking();
+    void                         reset_step_contact_flow();
+    void                         record_contact_collection(const pbmc_particle &particle, std::size_t contact_index);
+    void                         record_contact_collection(particle_type type,
+                                                           double        weight,
+                                                           std::size_t   contact_index);
+    void                         record_contact_injection(particle_type type,
+                                                          double        weight,
+                                                          std::size_t   contact_index);
     pbmc_transport_kernel       &transport_for(particle_type type);
     const pbmc_transport_kernel &transport_for(particle_type type) const;
     pbmc_transport_kernel       &transport_for(particle_type type, std::size_t thread_index);
     void                         initialize_particle_transport_state(pbmc_particle &particle);
+    void add_particles_at_positions_with_directions(const std::vector<mesh::vector3> &positions,
+                                                     const std::vector<mesh::vector3> &directions,
+                                                     particle_type                     type_of_particle,
+                                                     double                            weight,
+                                                     contact_injection_distribution    distribution);
     std::string                  initialize_simulation_history_file();
     void                         flatten_particle_positions_for_2d();
 
@@ -228,12 +249,24 @@ class device_pbmc_simulation {
     void set_particles_transport_data_from_device();
     void update_element_and_check_boundary();
 
-    void                      remove_collected_particles();
-    ramo_current_components   compute_ramo_currents(bool include_full, bool include_probe) const;
-    std::pair<double, double> compute_ramo_current() const;
-    std::pair<double, double> compute_probe_ramo_current() const;
-    double                    compute_ramo_current_for_particle(const pbmc_particle &particle) const;
-    virtual double            ramo_current_scale_factor() const;
+    void                                     remove_collected_particles();
+    ramo_current_components                  compute_ramo_currents(bool include_full, bool include_probe) const;
+    std::pair<double, double>                compute_ramo_current() const;
+    std::pair<double, double>                compute_probe_ramo_current() const;
+    double                                   compute_ramo_current_for_particle(const pbmc_particle &particle) const;
+    virtual double                           ramo_current_scale_factor() const;
+    [[nodiscard]] std::vector<double>        collected_contact_electron_currents_A() const;
+    [[nodiscard]] std::vector<double>        collected_contact_hole_currents_A() const;
+    [[nodiscard]] std::vector<double>        collected_contact_total_currents_A() const;
+    [[nodiscard]] const std::vector<double> &cumulative_collected_contact_charges_C() const {
+        return m_cumulative_collected_charge_C;
+    }
+    [[nodiscard]] std::vector<double> injected_contact_currents_A() const;
+    [[nodiscard]] std::vector<double> net_contact_currents_A() const;
+    [[nodiscard]] const std::vector<double> &cumulative_injected_contact_charges_C() const {
+        return m_cumulative_injected_charge_C;
+    }
+    [[nodiscard]] std::vector<double> cumulative_net_contact_charges_C() const;
 
     void run();
 

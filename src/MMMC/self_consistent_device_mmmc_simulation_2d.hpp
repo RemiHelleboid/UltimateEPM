@@ -89,6 +89,7 @@ class self_consistent_device_mmmc_simulation_2d : public PBMC::self_consistent_d
 
     std::vector<std::size_t>                    m_list_element_contact;
     std::vector<std::shared_ptr<mesh::element>> m_list_element_contact_ptr;
+    std::vector<std::size_t>                    m_list_element_contact_owner_index;
     std::vector<double>                         m_list_element_contact_equilibrium_charge;
 
     std::minstd_rand                 m_contact_rng;

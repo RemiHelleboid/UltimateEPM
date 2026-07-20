@@ -46,9 +46,14 @@ void self_consistent_device_pbmc_simulation_3d::initialize_contact_elements() {
 
     m_list_element_contact.clear();
     m_list_element_contact_ptr.clear();
+    m_list_element_contact_owner_index.clear();
     m_list_element_contact_equilibrium_charge.clear();
+    m_list_element_contact_inward_direction.clear();
+    m_list_element_contact_face_vertices.clear();
 
-    for (const auto& device_contact : m_device.get_list_contacts()) {
+    const auto contacts = m_device.get_list_contacts();
+    for (std::size_t contact_index = 0; contact_index < contacts.size(); ++contact_index) {
+        const auto& device_contact = contacts[contact_index];
         const std::string contact_name = device_contact.get_contact_name();
         if (!contact_voltages_V().contains(contact_name)) {
             throw std::runtime_error("Particle-collection contact '" + contact_name +
@@ -56,6 +61,11 @@ void self_consistent_device_pbmc_simulation_3d::initialize_contact_elements() {
         }
         const auto element_indices =
             m_device.get_p_mesh()->get_idx_bulk_elements_adjacent_to_contact_region(contact_name);
+        const auto* contact_region = m_device.get_p_mesh()->get_p_region(contact_name);
+        if (contact_region == nullptr) {
+            throw std::runtime_error("Cannot find contact region '" + contact_name + "'.");
+        }
+        const auto& contact_vertex_indices = contact_region->get_unique_vertices();
         std::vector<std::shared_ptr<mesh::element>> contact_elements;
         contact_elements.reserve(element_indices.size());
 
@@ -67,10 +77,36 @@ void self_consistent_device_pbmc_simulation_3d::initialize_contact_elements() {
             if (!is_transport_material_element(*element)) {
                 continue;
             }
+
+            std::vector<mesh::vector3> contact_face_vertices;
+            mesh::vector3 contact_face_center{};
+            for (const auto* vertex : element->get_vertices()) {
+                if (contact_vertex_indices.contains(static_cast<unsigned int>(vertex->get_index()))) {
+                    contact_face_vertices.push_back(*vertex);
+                    contact_face_center += *vertex;
+                }
+            }
+            if (contact_face_vertices.size() != 3) {
+                continue;
+            }
+            contact_face_center *= 1.0 / 3.0;
+            auto inward_direction = cross_product(contact_face_vertices[1] - contact_face_vertices[0],
+                                                   contact_face_vertices[2] - contact_face_vertices[0]);
+            if (inward_direction.dot(element->get_barycenter() - contact_face_center) < 0.0) {
+                inward_direction *= -1.0;
+            }
+            if (inward_direction.norm_squared() == 0.0) {
+                throw std::runtime_error("Cannot determine inward injection direction for contact '" + contact_name +
+                                         "'.");
+            }
+
             contact_elements.push_back(element);
             m_list_element_contact.push_back(element_index);
             m_list_element_contact_ptr.push_back(element);
+            m_list_element_contact_owner_index.push_back(contact_index);
             m_list_element_contact_equilibrium_charge.push_back(element->integrate_scalar("DopingConcentration"));
+            m_list_element_contact_inward_direction.push_back(inward_direction);
+            m_list_element_contact_face_vertices.push_back(std::move(contact_face_vertices));
         }
 
         if (!contact_elements.empty()) {
@@ -222,9 +258,34 @@ void self_consistent_device_pbmc_simulation_3d::add_charges_at_contacts(std::siz
 
     std::vector<mesh::vector3> electron_positions;
     std::vector<mesh::vector3> hole_positions;
+    std::vector<mesh::vector3> electron_directions;
+    std::vector<mesh::vector3> hole_directions;
 
     electron_positions.reserve(number_electrons_to_place);
     hole_positions.reserve(number_holes_to_place);
+
+    std::uniform_real_distribution<double> uniform01(0.0, 1.0);
+    const auto contacts = m_device.get_list_contacts();
+    const auto draw_contact_surface_position = [&](std::size_t element_index) {
+        const auto& face_vertices = m_list_element_contact_face_vertices[element_index];
+        const double sqrt_u       = std::sqrt(uniform01(m_contact_rng));
+        const double v            = uniform01(m_contact_rng);
+        const auto surface_position = (1.0 - sqrt_u) * face_vertices[0] +
+                                      sqrt_u * (1.0 - v) * face_vertices[1] + sqrt_u * v * face_vertices[2];
+        const auto barycenter = m_list_element_contact_ptr[element_index]->get_barycenter();
+        const auto owner_index = m_list_element_contact_owner_index[element_index];
+
+        double inward_fraction = 1.0e-12;
+        while (inward_fraction < 1.0) {
+            const auto position = (1.0 - inward_fraction) * surface_position + inward_fraction * barycenter;
+            if (m_list_element_contact_ptr[element_index]->is_location_inside_element(position) &&
+                !contacts.at(owner_index).point_in_contact_box(position)) {
+                return position;
+            }
+            inward_fraction *= 10.0;
+        }
+        throw std::runtime_error("Could not place a contact-injected particle inside the semiconductor element.");
+    };
 
     const auto has_capacity = [&]() {
         return m_list_particles.size() + electron_positions.size() + hole_positions.size() <
@@ -240,8 +301,9 @@ void self_consistent_device_pbmc_simulation_3d::add_charges_at_contacts(std::siz
             continue;
         }
 
-        electron_positions.push_back(
-            m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
+        electron_positions.push_back(draw_contact_surface_position(i));
+        electron_directions.push_back(m_list_element_contact_inward_direction[i]);
+        record_contact_injection(particle_type::electron, particle_weight, m_list_element_contact_owner_index[i]);
 
         electron_charge_to_add[i] -= particle_weight;
     }
@@ -253,14 +315,24 @@ void self_consistent_device_pbmc_simulation_3d::add_charges_at_contacts(std::siz
             continue;
         }
 
-        hole_positions.push_back(
-            m_list_element_contact_ptr[i]->draw_uniform_random_point_inside_element(m_contact_rng));
+        hole_positions.push_back(draw_contact_surface_position(i));
+        hole_directions.push_back(m_list_element_contact_inward_direction[i]);
+        record_contact_injection(particle_type::hole, particle_weight, m_list_element_contact_owner_index[i]);
 
         hole_charge_to_add[i] -= particle_weight;
     }
 
-    add_particles_at_positions(electron_positions, particle_type::electron, particle_weight);
-    add_particles_at_positions(hole_positions, particle_type::hole, particle_weight);
+    add_particles_at_positions_with_directions(
+        electron_positions,
+        electron_directions,
+        particle_type::electron,
+        particle_weight,
+        common_options().m_contact_injection_distribution);
+    add_particles_at_positions_with_directions(hole_positions,
+                                                hole_directions,
+                                                particle_type::hole,
+                                                particle_weight,
+                                                common_options().m_contact_injection_distribution);
 }
 
 void self_consistent_device_pbmc_simulation_3d::add_missing_contact_charge_to_poisson_reservoir(
@@ -508,9 +580,9 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
             apply_scheduled_contact_voltage_events(poisson_sample_time_s);
 
             const double sample_count = static_cast<double>(poisson_sample_count);
-            ramo_current_electron = accumulator_ramo_current_electron / sample_count;
-            ramo_current_hole     = accumulator_ramo_current_hole / sample_count;
-            ramo_current          = ramo_current_electron + ramo_current_hole;
+            ramo_current_electron     = accumulator_ramo_current_electron / sample_count;
+            ramo_current_hole         = accumulator_ramo_current_hole / sample_count;
+            ramo_current              = ramo_current_electron + ramo_current_hole;
             ramo_current -= common_options().m_background_ramo_current_A;
             probe_ramo_current_electron             = accumulator_probe_ramo_current_electron / sample_count;
             probe_ramo_current_hole                 = accumulator_probe_ramo_current_hole / sample_count;
@@ -569,7 +641,15 @@ void self_consistent_device_pbmc_simulation_3d::run_self_consistent_transport_si
             quench_device_current_for_history(),
             quench_resistor_current_for_history(),
             quench_voltage_drop_for_history(),
-            m_simulation_history.contact_voltage_values_from_map(contact_voltages_V()));
+            m_simulation_history.contact_voltage_values_from_map(contact_voltages_V()),
+            collected_contact_electron_currents_A(),
+            collected_contact_hole_currents_A(),
+            collected_contact_total_currents_A(),
+            cumulative_collected_contact_charges_C(),
+            injected_contact_currents_A(),
+            net_contact_currents_A(),
+            cumulative_injected_contact_charges_C(),
+            cumulative_net_contact_charges_C());
 
         m_simulation_history.append_last_iter_to_csv(stream);
         if (m_state.m_iteration == 1 ||

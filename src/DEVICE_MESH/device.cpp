@@ -22,9 +22,13 @@
 namespace uepm::device {
 namespace {
 
-bool segment_intersects_box(const mesh::bbox &box, const mesh::vector3 &start, const mesh::vector3 &end) {
+std::optional<double> segment_box_entry_fraction(const mesh::bbox    &box,
+                                                 const mesh::vector3 &start,
+                                                 const mesh::vector3 &end) {
     if (box.is_inside(start) || box.is_inside(end)) {
-        return true;
+        if (box.is_inside(start)) {
+            return 0.0;
+        }
     }
 
     double t_min = 0.0;
@@ -47,9 +51,12 @@ bool segment_intersects_box(const mesh::bbox &box, const mesh::vector3 &start, c
         return t_min <= t_max;
     };
 
-    return update_axis(start.x(), end.x(), box.get_x_min(), box.get_x_max()) &&
-           update_axis(start.y(), end.y(), box.get_y_min(), box.get_y_max()) &&
-           update_axis(start.z(), end.z(), box.get_z_min(), box.get_z_max());
+    if (update_axis(start.x(), end.x(), box.get_x_min(), box.get_x_max()) &&
+        update_axis(start.y(), end.y(), box.get_y_min(), box.get_y_max()) &&
+        update_axis(start.z(), end.z(), box.get_z_min(), box.get_z_max())) {
+        return t_min;
+    }
+    return std::nullopt;
 }
 
 }  // namespace
@@ -71,8 +78,22 @@ void device::add_contact(const std::string  &contact_name,
 
 bool device::check_crossing_contact(const mesh::vector3 &point_A, const mesh::vector3 &point_B) const {
     return std::any_of(m_list_contacts.begin(), m_list_contacts.end(), [&](const device_contact &device_contact) {
-        return segment_intersects_box(device_contact.get_contact_box(), point_A, point_B);
+        return segment_box_entry_fraction(device_contact.get_contact_box(), point_A, point_B).has_value();
     });
+}
+
+std::optional<contact_crossing> device::find_first_contact_crossing(const mesh::vector3 &point_A,
+                                                                    const mesh::vector3 &point_B) const {
+    std::optional<contact_crossing> first_crossing;
+    for (std::size_t contact_index = 0; contact_index < m_list_contacts.size(); ++contact_index) {
+        const auto &contact        = m_list_contacts[contact_index];
+        const auto  entry_fraction = segment_box_entry_fraction(contact.get_contact_box(), point_A, point_B);
+        if (entry_fraction.has_value() &&
+            (!first_crossing.has_value() || *entry_fraction < first_crossing->segment_fraction)) {
+            first_crossing = contact_crossing{contact_index, contact.get_contact_name(), *entry_fraction};
+        }
+    }
+    return first_crossing;
 }
 
 bool device::check_enters_contact(const mesh::vector3 &point) {

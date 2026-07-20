@@ -46,7 +46,7 @@ YAML::Node make_default_config() {
     config["transport"]["impurity_scattering"] = false;
     config["transport"]["impurity_model"]      = "mobility";
     config["transport"]["impurity_screening"]  = "debye";
-    config["transport"]["boundary_reflection"] = "reverse";
+    config["transport"]["boundary_reflection"] = "specular";
 
     config["contacts"]["voltages_V"]["anode"]      = 0.0;
     config["contacts"]["voltages_V"]["cathode"]    = 0.0;
@@ -79,6 +79,7 @@ YAML::Node make_default_config() {
     config["particles"]["initial_weight"]           = 1.0;
     config["particles"]["initial_state_file"]       = "";
     config["particles"]["contact_injection_weight"] = 1.0;
+    config["particles"]["contact_injection_distribution"] = "velocity_weighted_maxwellian";
 
     config["geometry_2d"]["effective_depth_um"] = 1.0;
 
@@ -101,6 +102,7 @@ YAML::Node make_default_config() {
     config["output"]["keep_particle_history"] = false;
     config["output"]["export_time_steps"]     = true;
     config["output"]["export_frequency"]      = 1000;
+    config["output"]["contact_current_window_s"] = 1.0e-13;
 
     config["quench_circuit"]["enabled"]                      = false;
     config["quench_circuit"]["resistance_ohm"]               = 1.0;
@@ -390,6 +392,7 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
     device.m_keep_particles_history      = value_at<bool>(config, "output", "keep_particle_history");
     device.m_export_time_step            = value_at<bool>(config, "output", "export_time_steps");
     device.m_frequency_export_trajectory = value_at<int>(config, "output", "export_frequency");
+    device.m_contact_current_window_s    = value_at<double>(config, "output", "contact_current_window_s");
 
     device.m_enable_scheduled_particle_injection = value_at<bool>(config, "scheduled_injection", "enabled");
     auto& injection                              = device.m_scheduled_particle_injection;
@@ -465,6 +468,8 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
     common.m_initial_particle_state_file =
         resolve_input_path(config_file, value_at<std::string>(config, "particles", "initial_state_file"));
     common.m_contact_injection_particle_weight = value_at<double>(config, "particles", "contact_injection_weight");
+    common.m_contact_injection_distribution = parse_contact_injection_distribution(
+        value_at<std::string>(config, "particles", "contact_injection_distribution"));
     common.m_passive_quench_circuit.m_enabled  = value_at<bool>(config, "quench_circuit", "enabled");
     common.m_passive_quench_circuit.m_resistance_ohm = value_at<double>(config, "quench_circuit", "resistance_ohm");
     common.m_passive_quench_circuit.m_capacitance_F  = value_at<double>(config, "quench_circuit", "capacitance_F");
@@ -494,6 +499,13 @@ self_consistent_device_pbmc_run_config load_device_pbmc_config(const std::filesy
 
     device.validate();
     common.validate();
+    const double poisson_batch_duration_s =
+        device.m_time_step * static_cast<double>(common.m_poisson_frequency);
+    if (device.m_contact_current_window_s > 0.0 &&
+        device.m_contact_current_window_s < poisson_batch_duration_s) {
+        throw std::invalid_argument(
+            "output.contact_current_window_s must be zero or span at least one complete Poisson batch.");
+    }
     return result;
 }
 

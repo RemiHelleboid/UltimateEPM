@@ -192,6 +192,7 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     manifest.add("simulation", "keep_particle_history", device_options.m_keep_particles_history);
     manifest.add("simulation", "export_time_steps", device_options.m_export_time_step);
     manifest.add("simulation", "export_frequency", device_options.m_frequency_export_trajectory);
+    manifest.add("simulation", "contact_current_window_s", device_options.m_contact_current_window_s);
     manifest.add("current_probe", "enabled", device_options.m_current_probe.m_enabled);
     manifest.add("current_probe", "x_min_um", device_options.m_current_probe.m_box_um.get_x_min());
     manifest.add("current_probe", "x_max_um", device_options.m_current_probe.m_box_um.get_x_max());
@@ -268,6 +269,9 @@ void run_self_consistent_device_pbmc_simulation(const self_consistent_device_pbm
     manifest.add("self_consistent",
                  "contact_injection_particle_weight",
                  common_options.m_contact_injection_particle_weight);
+    manifest.add("self_consistent",
+                 "contact_injection_distribution",
+                 contact_injection_distribution_name(common_options.m_contact_injection_distribution));
     manifest.add("self_consistent", "background_ramo_current_A", common_options.m_background_ramo_current_A);
     manifest.add("self_consistent", "auto_background_ramo_current", common_options.m_auto_background_ramo_current);
 

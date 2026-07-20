@@ -164,9 +164,12 @@ void self_consistent_device_mmmc_simulation_2d::initialize_contact_elements() {
 
     m_list_element_contact.clear();
     m_list_element_contact_ptr.clear();
+    m_list_element_contact_owner_index.clear();
     m_list_element_contact_equilibrium_charge.clear();
 
-    for (const auto& device_contact : m_device.get_list_contacts()) {
+    const auto contacts = m_device.get_list_contacts();
+    for (std::size_t contact_index = 0; contact_index < contacts.size(); ++contact_index) {
+        const auto& device_contact = contacts[contact_index];
         const std::string contact_name = device_contact.get_contact_name();
         if (!contact_voltages_V().contains(contact_name)) {
             throw std::runtime_error("MMMC particle-collection contact '" + contact_name +
@@ -188,6 +191,7 @@ void self_consistent_device_mmmc_simulation_2d::initialize_contact_elements() {
             contact_elements.push_back(element);
             m_list_element_contact.push_back(element_index);
             m_list_element_contact_ptr.push_back(element);
+            m_list_element_contact_owner_index.push_back(contact_index);
             m_list_element_contact_equilibrium_charge.push_back(
                 scale_integrated_2d_doping_to_carriers(element->integrate_scalar("DopingConcentration")));
         }
@@ -421,6 +425,9 @@ void self_consistent_device_mmmc_simulation_2d::add_charges_at_contacts(std::siz
             m_list_element_contact_ptr[contact_index]->draw_uniform_random_point_inside_element(m_contact_rng),
             PBMC::particle_type::electron,
             particle_weight);
+        record_contact_injection(PBMC::particle_type::electron,
+                                 particle_weight,
+                                 m_list_element_contact_owner_index[contact_index]);
         electron_charge_to_add[contact_index] -= particle_weight;
     }
     for (std::size_t i = 0; i < number_holes_to_place && !has_reached_particle_limit(); ++i) {
@@ -432,6 +439,9 @@ void self_consistent_device_mmmc_simulation_2d::add_charges_at_contacts(std::siz
             m_list_element_contact_ptr[contact_index]->draw_uniform_random_point_inside_element(m_contact_rng),
             PBMC::particle_type::hole,
             particle_weight);
+        record_contact_injection(PBMC::particle_type::hole,
+                                 particle_weight,
+                                 m_list_element_contact_owner_index[contact_index]);
         hole_charge_to_add[contact_index] -= particle_weight;
     }
 
@@ -518,8 +528,9 @@ void self_consistent_device_mmmc_simulation_2d::update_admc_element_and_check_bo
 
     const mesh::vector3 current_position_um  = to_mesh_position_um(particle.particle.state().position_m);
     const mesh::vector3 previous_position_um = to_mesh_position_um(particle.particle.state().previous_position_m);
-    if (m_device.check_enters_contact(current_position_um) ||
-        m_device.check_crossing_contact(previous_position_um, current_position_um)) {
+    if (const auto crossing = m_device.find_first_contact_crossing(previous_position_um, current_position_um);
+        crossing.has_value()) {
+        record_contact_collection(to_pbmc_type(particle.particle.type()), particle.weight, crossing->contact_index);
         particle.crossed_contact = true;
         return;
     }
@@ -531,9 +542,9 @@ void self_consistent_device_mmmc_simulation_2d::update_admc_element_and_check_bo
     if (new_element == nullptr || !is_transport_material_element(*new_element)) {
         auto&      state = particle.particle.state();
         const auto hit   = mesh::find_boundary_exit_hit(*particle.containing_element,
-                                                        previous_position_um,
-                                                        current_position_um,
-                                                        m_dimension);
+                                                      previous_position_um,
+                                                      current_position_um,
+                                                      m_dimension);
         if (m_mmmc_options.m_admc.m_boundary_reflection_model == mesh::boundary_reflection_model::reverse ||
             !hit.has_value()) {
             state.position_m = state.previous_position_m;
@@ -1065,8 +1076,8 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
             apply_scheduled_contact_voltage_events(poisson_sample_time_s);
 
             const double sample_count = static_cast<double>(poisson_sample_count);
-            ramo_current_electron = accumulator_ramo_current_electron / sample_count;
-            ramo_current_hole     = accumulator_ramo_current_hole / sample_count;
+            ramo_current_electron     = accumulator_ramo_current_electron / sample_count;
+            ramo_current_hole         = accumulator_ramo_current_hole / sample_count;
             ramo_current = ramo_current_electron + ramo_current_hole - common_options().m_background_ramo_current_A;
             accumulator_ramo_current_electron = 0.0;
             accumulator_ramo_current_hole     = 0.0;
@@ -1112,7 +1123,15 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
             quench_device_current_for_history(),
             quench_resistor_current_for_history(),
             quench_voltage_drop_for_history(),
-            m_simulation_history.contact_voltage_values_from_map(contact_voltages_V()));
+            m_simulation_history.contact_voltage_values_from_map(contact_voltages_V()),
+            collected_contact_electron_currents_A(),
+            collected_contact_hole_currents_A(),
+            collected_contact_total_currents_A(),
+            cumulative_collected_contact_charges_C(),
+            injected_contact_currents_A(),
+            net_contact_currents_A(),
+            cumulative_injected_contact_charges_C(),
+            cumulative_net_contact_charges_C());
 
         if (m_state.m_iteration == 1 || m_state.m_iteration % 10 == 0) {
             m_simulation_history.append_last_iter_to_csv(history_stream);

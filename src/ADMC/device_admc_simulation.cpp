@@ -219,7 +219,15 @@ void history_device_ADMC::add(double                     time_s,
                               double                     probe_hole_current_A,
                               double                     probe_total_current_A,
                               double                     max_field_V_per_m,
-                              const std::vector<double>& active_contact_voltages_V) {
+                              const std::vector<double>& active_contact_voltages_V,
+                              const std::vector<double>& contact_current_electron_A,
+                              const std::vector<double>& contact_current_hole_A,
+                              const std::vector<double>& contact_current_A,
+                              const std::vector<double>& contact_cumulative_charge_C,
+                              const std::vector<double>& contact_injected_current_A,
+                              const std::vector<double>& contact_net_current_A,
+                              const std::vector<double>& contact_cumulative_injected_charge_C,
+                              const std::vector<double>& contact_cumulative_net_charge_C) {
     times_s.push_back(time_s);
     nb_electrons.push_back(electrons);
     nb_holes.push_back(holes);
@@ -231,10 +239,22 @@ void history_device_ADMC::add(double                     time_s,
     probe_ramo_current_A.push_back(probe_total_current_A);
     max_electric_field_V_per_m.push_back(max_field_V_per_m);
     contact_voltages_V.push_back(active_contact_voltages_V);
+    collected_current_electron_A.push_back(contact_current_electron_A);
+    collected_current_hole_A.push_back(contact_current_hole_A);
+    collected_current_A.push_back(contact_current_A);
+    cumulative_collected_charge_C.push_back(contact_cumulative_charge_C);
+    injected_current_A.push_back(contact_injected_current_A);
+    net_contact_current_A.push_back(contact_net_current_A);
+    cumulative_injected_charge_C.push_back(contact_cumulative_injected_charge_C);
+    cumulative_net_contact_charge_C.push_back(contact_cumulative_net_charge_C);
 }
 
 void history_device_ADMC::set_contact_voltage_names(const std::vector<std::string>& contact_names) {
     contact_voltage_names = contact_names;
+}
+
+void history_device_ADMC::set_contact_flow_names(const std::vector<std::string>& contact_names) {
+    contact_flow_names = contact_names;
 }
 
 std::vector<double> history_device_ADMC::contact_voltage_values_from_map(
@@ -254,6 +274,27 @@ void history_device_ADMC::set_last_contact_voltages(const std::vector<double>& a
     }
 }
 
+void history_device_ADMC::set_last_contact_flow(const std::vector<double>& contact_current_electron_A,
+                                                const std::vector<double>& contact_current_hole_A,
+                                                const std::vector<double>& contact_current_A,
+                                                const std::vector<double>& contact_cumulative_charge_C,
+                                                const std::vector<double>& contact_injected_current_A,
+                                                const std::vector<double>& contact_net_current_A,
+                                                const std::vector<double>& contact_cumulative_injected_charge_C,
+                                                const std::vector<double>& contact_cumulative_net_charge_C) {
+    if (times_s.empty()) {
+        return;
+    }
+    collected_current_electron_A.back() = contact_current_electron_A;
+    collected_current_hole_A.back() = contact_current_hole_A;
+    collected_current_A.back() = contact_current_A;
+    cumulative_collected_charge_C.back() = contact_cumulative_charge_C;
+    injected_current_A.back() = contact_injected_current_A;
+    net_contact_current_A.back() = contact_net_current_A;
+    cumulative_injected_charge_C.back() = contact_cumulative_injected_charge_C;
+    cumulative_net_contact_charge_C.back() = contact_cumulative_net_charge_C;
+}
+
 void history_device_ADMC::print_header_csv(const std::string& filename) const {
     std::ofstream stream(filename);
     if (!stream.is_open()) {
@@ -266,6 +307,16 @@ void history_device_ADMC::print_header_csv(const std::string& filename) const {
               "quench_resistor_current_A,quench_voltage_drop_V";
     for (const auto& contact_name : contact_voltage_names) {
         stream << ",V_" << contact_name;
+    }
+    for (const auto& contact_name : contact_flow_names) {
+        stream << ",collected_current_electron_" << contact_name << "_A"
+               << ",collected_current_hole_" << contact_name << "_A"
+               << ",collected_current_" << contact_name << "_A"
+               << ",cumulative_collected_charge_" << contact_name << "_C"
+               << ",injected_current_" << contact_name << "_A"
+               << ",net_contact_current_" << contact_name << "_A"
+               << ",cumulative_injected_charge_" << contact_name << "_C"
+               << ",cumulative_net_contact_charge_" << contact_name << "_C";
     }
     stream << '\n';
 }
@@ -286,6 +337,20 @@ void history_device_ADMC::append_last_iter_to_csv(std::fstream& file) const {
     for (std::size_t contact_index = 0; contact_index < contact_voltage_names.size(); ++contact_index) {
         file << ','
              << (contact_index < active_contact_voltages_V.size() ? active_contact_voltages_V[contact_index] : 0.0);
+    }
+    const auto append_contact_flow_value = [&](const std::vector<std::vector<double>>& rows,
+                                               std::size_t                            contact_index) {
+        file << ',' << (i < rows.size() && contact_index < rows[i].size() ? rows[i][contact_index] : 0.0);
+    };
+    for (std::size_t contact_index = 0; contact_index < contact_flow_names.size(); ++contact_index) {
+        append_contact_flow_value(collected_current_electron_A, contact_index);
+        append_contact_flow_value(collected_current_hole_A, contact_index);
+        append_contact_flow_value(collected_current_A, contact_index);
+        append_contact_flow_value(cumulative_collected_charge_C, contact_index);
+        append_contact_flow_value(injected_current_A, contact_index);
+        append_contact_flow_value(net_contact_current_A, contact_index);
+        append_contact_flow_value(cumulative_injected_charge_C, contact_index);
+        append_contact_flow_value(cumulative_net_contact_charge_C, contact_index);
     }
     file << '\n';
 }
@@ -316,6 +381,20 @@ void history_device_ADMC::export_to_csv(const std::string& filename) const {
                    << (contact_index < active_contact_voltages_V.size() ? active_contact_voltages_V[contact_index]
                                                                         : 0.0);
         }
+        const auto append_contact_flow_value = [&](const std::vector<std::vector<double>>& rows,
+                                                   std::size_t                            contact_index) {
+            stream << ',' << (i < rows.size() && contact_index < rows[i].size() ? rows[i][contact_index] : 0.0);
+        };
+        for (std::size_t contact_index = 0; contact_index < contact_flow_names.size(); ++contact_index) {
+            append_contact_flow_value(collected_current_electron_A, contact_index);
+            append_contact_flow_value(collected_current_hole_A, contact_index);
+            append_contact_flow_value(collected_current_A, contact_index);
+            append_contact_flow_value(cumulative_collected_charge_C, contact_index);
+            append_contact_flow_value(injected_current_A, contact_index);
+            append_contact_flow_value(net_contact_current_A, contact_index);
+            append_contact_flow_value(cumulative_injected_charge_C, contact_index);
+            append_contact_flow_value(cumulative_net_contact_charge_C, contact_index);
+        }
         stream << '\n';
     }
 }
@@ -329,6 +408,7 @@ device_admc_simulation::device_admc_simulation(const device::device&      simula
       m_random_generator(random_seed) {
     m_options.validate();
     initialize_scheduled_particle_injection();
+    initialize_contact_flow_tracking();
 }
 
 device_admc_simulation::device_admc_simulation(const device::device&      simulation_device,
@@ -459,6 +539,115 @@ void device_admc_simulation::initialize_particle_device_state(device_admc_partic
     state.lattice_temperature_K     = environment.lattice_temperature_K;
 }
 
+void device_admc_simulation::initialize_contact_flow_tracking() {
+    const auto contacts = m_device.get_list_contacts();
+    m_contact_flow_names.clear();
+    m_contact_flow_names.reserve(contacts.size());
+    for (const auto& contact : contacts) {
+        m_contact_flow_names.push_back(contact.get_contact_name());
+    }
+    m_step_collected_electron_charge_C.assign(contacts.size(), 0.0);
+    m_step_collected_hole_charge_C.assign(contacts.size(), 0.0);
+    m_cumulative_collected_charge_C.assign(contacts.size(), 0.0);
+    m_step_injected_charge_C.assign(contacts.size(), 0.0);
+    m_cumulative_injected_charge_C.assign(contacts.size(), 0.0);
+    m_history.set_contact_flow_names(m_contact_flow_names);
+}
+
+void device_admc_simulation::reset_step_contact_flow(double step_duration_s) {
+    if (!std::isfinite(step_duration_s) || step_duration_s <= 0.0) {
+        throw std::invalid_argument("ADMC contact-flow step duration must be positive and finite.");
+    }
+    std::fill(m_step_collected_electron_charge_C.begin(), m_step_collected_electron_charge_C.end(), 0.0);
+    std::fill(m_step_collected_hole_charge_C.begin(), m_step_collected_hole_charge_C.end(), 0.0);
+    std::fill(m_step_injected_charge_C.begin(), m_step_injected_charge_C.end(), 0.0);
+    m_contact_flow_step_duration_s = step_duration_s;
+}
+
+void device_admc_simulation::record_contact_collection(const device_admc_particle& particle,
+                                                        std::size_t                 contact_index) {
+    if (contact_index >= m_contact_flow_names.size()) {
+        throw std::out_of_range("ADMC collected-particle contact index is out of range.");
+    }
+    const double collected_charge_C = signed_particle_charge_C(particle);
+    if (particle.particle.type() == carrier_type::electron) {
+        m_step_collected_electron_charge_C[contact_index] += collected_charge_C;
+    } else {
+        m_step_collected_hole_charge_C[contact_index] += collected_charge_C;
+    }
+    m_cumulative_collected_charge_C[contact_index] += collected_charge_C;
+}
+
+void device_admc_simulation::record_contact_injection(carrier_type type,
+                                                       double       weight,
+                                                       std::size_t  contact_index) {
+    if (contact_index >= m_contact_flow_names.size()) {
+        throw std::out_of_range("ADMC injected-particle contact index is out of range.");
+    }
+    const double charge_C = weight * carrier_charge_sign(type) * uepm::constants::q_e;
+    m_step_injected_charge_C[contact_index] += charge_C;
+    m_cumulative_injected_charge_C[contact_index] += charge_C;
+}
+
+std::vector<double> device_admc_simulation::collected_contact_electron_currents_A() const {
+    std::vector<double> currents = m_step_collected_electron_charge_C;
+    if (m_contact_flow_step_duration_s <= 0.0) {
+        return currents;
+    }
+    for (auto& current : currents) {
+        current /= m_contact_flow_step_duration_s;
+    }
+    return currents;
+}
+
+std::vector<double> device_admc_simulation::collected_contact_hole_currents_A() const {
+    std::vector<double> currents = m_step_collected_hole_charge_C;
+    if (m_contact_flow_step_duration_s <= 0.0) {
+        return currents;
+    }
+    for (auto& current : currents) {
+        current /= m_contact_flow_step_duration_s;
+    }
+    return currents;
+}
+
+std::vector<double> device_admc_simulation::collected_contact_total_currents_A() const {
+    auto       currents      = collected_contact_electron_currents_A();
+    const auto hole_currents = collected_contact_hole_currents_A();
+    for (std::size_t index = 0; index < currents.size(); ++index) {
+        currents[index] += hole_currents[index];
+    }
+    return currents;
+}
+
+std::vector<double> device_admc_simulation::injected_contact_currents_A() const {
+    auto currents = m_step_injected_charge_C;
+    if (m_contact_flow_step_duration_s <= 0.0) {
+        return currents;
+    }
+    for (auto& current : currents) {
+        current /= m_contact_flow_step_duration_s;
+    }
+    return currents;
+}
+
+std::vector<double> device_admc_simulation::net_contact_currents_A() const {
+    auto currents = collected_contact_total_currents_A();
+    const auto injected = injected_contact_currents_A();
+    for (std::size_t i = 0; i < currents.size(); ++i) {
+        currents[i] -= injected[i];
+    }
+    return currents;
+}
+
+std::vector<double> device_admc_simulation::cumulative_net_contact_charges_C() const {
+    auto charges = m_cumulative_collected_charge_C;
+    for (std::size_t i = 0; i < charges.size(); ++i) {
+        charges[i] -= m_cumulative_injected_charge_C[i];
+    }
+    return charges;
+}
+
 void device_admc_simulation::update_element_and_check_boundary(device_admc_particle& particle) {
     if (particle.containing_element == nullptr) {
         particle.crossed_contact = true;
@@ -467,8 +656,9 @@ void device_admc_simulation::update_element_and_check_boundary(device_admc_parti
 
     const mesh::vector3 current_position_um  = to_mesh_position_um(particle.particle.state().position_m);
     const mesh::vector3 previous_position_um = to_mesh_position_um(particle.particle.state().previous_position_m);
-    if (m_device.check_enters_contact(current_position_um) ||
-        m_device.check_crossing_contact(previous_position_um, current_position_um)) {
+    if (const auto crossing = m_device.find_first_contact_crossing(previous_position_um, current_position_um);
+        crossing.has_value()) {
+        record_contact_collection(particle, crossing->contact_index);
         particle.crossed_contact = true;
         return;
     }
@@ -533,6 +723,7 @@ void device_admc_simulation::advance_particles_one_time_step() {
     if (dt_s <= 0.0) {
         return;
     }
+    reset_step_contact_flow(dt_s);
 
     for (auto& particle : m_particles) {
         const auto environment = local_environment(particle);
@@ -575,7 +766,16 @@ void device_admc_simulation::record_history(double electron_current_A, double ho
                   m_state.m_last_probe_ramo_current_electron_A,
                   m_state.m_last_probe_ramo_current_hole_A,
                   m_state.m_last_probe_ramo_current_electron_A + m_state.m_last_probe_ramo_current_hole_A,
-                  max_particle_electric_field_V_per_m());
+                  max_particle_electric_field_V_per_m(),
+                  {},
+                  collected_contact_electron_currents_A(),
+                  collected_contact_hole_currents_A(),
+                  collected_contact_total_currents_A(),
+                  cumulative_collected_contact_charges_C(),
+                  injected_contact_currents_A(),
+                  net_contact_currents_A(),
+                  cumulative_injected_contact_charges_C(),
+                  cumulative_net_contact_charges_C());
 }
 
 std::string device_admc_simulation::initialize_simulation_history_file() {

@@ -94,3 +94,38 @@ TEST_CASE("PBMC boundary direction update preserves kinetic energy") {
     CHECK(particle.state().kinetic_energy == doctest::Approx(initial_energy).epsilon(1.0e-12));
     CHECK(particle.state().velocity.dot({1.0, 2.0, 0.0}) > 0.0);
 }
+
+TEST_CASE("PBMC approximate M3 contact sampler is flux weighted and points inward") {
+    constexpr double temperature_K = 300.0;
+    constexpr std::size_t sample_count = 100000;
+    const uepm::mesh::vector3 inward_normal{1.0, 0.0, 0.0};
+
+    uepm::PBMC::pbmc_transport_config config;
+    config.m_carrier_type             = uepm::PBMC::particle_type::electron;
+    config.m_lattice_temperature      = temperature_K;
+    config.m_enable_impact_ionization = false;
+
+    uepm::PBMC::pbmc_transport_kernel transport{config, 29};
+    transport.initialize();
+
+    uepm::PBMC::pbmc_particle particle{0, uepm::PBMC::particle_type::electron};
+    particle.state().valley_index = 0;
+
+    double energy_sum_eV = 0.0;
+    double cosine_sum    = 0.0;
+    for (std::size_t sample = 0; sample < sample_count; ++sample) {
+        transport.initialize_particle_state_from_parabolic_contact_flux(particle, temperature_K, inward_normal);
+        const double speed = particle.state().velocity.norm();
+        REQUIRE(speed > 0.0);
+        CHECK(particle.state().velocity.dot(inward_normal) > 0.0);
+        energy_sum_eV += particle.state().kinetic_energy;
+        cosine_sum += particle.state().velocity.dot(inward_normal) / speed;
+    }
+
+    const double mean_energy_eV = energy_sum_eV / static_cast<double>(sample_count);
+    const double mean_cosine    = cosine_sum / static_cast<double>(sample_count);
+    const double expected_mean_energy_eV = 2.0 * uepm::constants::k_b_eV * temperature_K;
+
+    CHECK(mean_energy_eV == doctest::Approx(expected_mean_energy_eV).epsilon(0.01));
+    CHECK(mean_cosine == doctest::Approx(2.0 / 3.0).epsilon(0.01));
+}

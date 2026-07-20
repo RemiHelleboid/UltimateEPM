@@ -41,6 +41,23 @@ double einstein_diffusion_m2_per_s(double mobility_m2_per_V_s, double temperatur
     return mobility_m2_per_V_s * uepm::constants::k_B * temperature_K / uepm::constants::q_e;
 }
 
+void admc_transport_kernel::initialize_particle_state(admc_particle&                particle,
+                                                      const admc_local_environment& environment) const {
+    environment.validate();
+    auto& state                     = particle.state();
+    state.electric_field_V_per_m    = environment.electric_field_V_per_m;
+    state.doping_concentration_cm_3 = environment.doping_concentration_cm_3;
+    state.lattice_temperature_K     = environment.lattice_temperature_K;
+    state.mobility_m2_per_V_s       = m_mobility_model.mobility_m2_per_V_s(particle.type(),
+                                                                     environment.lattice_temperature_K,
+                                                                     environment.doping_concentration_cm_3,
+                                                                     environment.electric_field_V_per_m.norm());
+    state.diffusion_m2_per_s =
+        einstein_diffusion_m2_per_s(state.mobility_m2_per_V_s, environment.lattice_temperature_K);
+    state.drift_velocity_m_per_s =
+        carrier_charge_sign(particle.type()) * state.mobility_m2_per_V_s * environment.electric_field_V_per_m;
+}
+
 void admc_transport_kernel::step(admc_particle&                particle,
                                  const admc_local_environment& environment,
                                  double                        time_step_s,
@@ -54,19 +71,9 @@ void admc_transport_kernel::step(admc_particle&                particle,
         throw std::invalid_argument("normal draw components must be finite");
     }
 
-    auto& state                     = particle.state();
-    state.previous_position_m       = state.position_m;
-    state.electric_field_V_per_m    = environment.electric_field_V_per_m;
-    state.doping_concentration_cm_3 = environment.doping_concentration_cm_3;
-    state.lattice_temperature_K     = environment.lattice_temperature_K;
-    state.mobility_m2_per_V_s       = m_mobility_model.mobility_m2_per_V_s(particle.type(),
-                                                                     environment.lattice_temperature_K,
-                                                                     environment.doping_concentration_cm_3,
-                                                                     environment.electric_field_V_per_m.norm());
-    state.diffusion_m2_per_s =
-        einstein_diffusion_m2_per_s(state.mobility_m2_per_V_s, environment.lattice_temperature_K);
-    state.drift_velocity_m_per_s =
-        carrier_charge_sign(particle.type()) * state.mobility_m2_per_V_s * environment.electric_field_V_per_m;
+    initialize_particle_state(particle, environment);
+    auto& state               = particle.state();
+    state.previous_position_m = state.position_m;
 
     const double  diffusion_sigma_m = std::sqrt(2.0 * state.diffusion_m2_per_s * time_step_s);
     const vector3 displacement_m =

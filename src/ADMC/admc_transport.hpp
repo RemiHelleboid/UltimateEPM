@@ -34,6 +34,7 @@ class admc_transport_kernel {
     explicit admc_transport_kernel(silicon_arora_canali_mobility mobility_model)
         : m_mobility_model(std::move(mobility_model)) {}
 
+    void initialize_particle_state(admc_particle& particle, const admc_local_environment& environment) const;
     void step(admc_particle&                particle,
               const admc_local_environment& environment,
               double                        time_step_s,

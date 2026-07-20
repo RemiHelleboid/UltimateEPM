@@ -89,6 +89,15 @@ struct history_device_ADMC {
     std::vector<double>              max_electric_field_V_per_m;
     std::vector<std::string>         contact_voltage_names;
     std::vector<std::vector<double>> contact_voltages_V;
+    std::vector<std::string>         contact_flow_names;
+    std::vector<std::vector<double>> collected_current_electron_A;
+    std::vector<std::vector<double>> collected_current_hole_A;
+    std::vector<std::vector<double>> collected_current_A;
+    std::vector<std::vector<double>> cumulative_collected_charge_C;
+    std::vector<std::vector<double>> injected_current_A;
+    std::vector<std::vector<double>> net_contact_current_A;
+    std::vector<std::vector<double>> cumulative_injected_charge_C;
+    std::vector<std::vector<double>> cumulative_net_contact_charge_C;
 
     void                add(double                     time_s,
                             std::size_t                electrons,
@@ -100,11 +109,28 @@ struct history_device_ADMC {
                             double                     probe_hole_current_A,
                             double                     probe_total_current_A,
                             double                     max_field_V_per_m,
-                            const std::vector<double>& active_contact_voltages_V = {});
+                            const std::vector<double>& active_contact_voltages_V = {},
+                            const std::vector<double>& contact_current_electron_A = {},
+                            const std::vector<double>& contact_current_hole_A = {},
+                            const std::vector<double>& contact_current_A = {},
+                            const std::vector<double>& contact_cumulative_charge_C = {},
+                            const std::vector<double>& contact_injected_current_A = {},
+                            const std::vector<double>& contact_net_current_A = {},
+                            const std::vector<double>& contact_cumulative_injected_charge_C = {},
+                            const std::vector<double>& contact_cumulative_net_charge_C = {});
     void                set_contact_voltage_names(const std::vector<std::string>& contact_names);
+    void                set_contact_flow_names(const std::vector<std::string>& contact_names);
     std::vector<double> contact_voltage_values_from_map(
         const std::map<std::string, double>& active_contact_voltages_V) const;
     void set_last_contact_voltages(const std::vector<double>& active_contact_voltages_V);
+    void set_last_contact_flow(const std::vector<double>& contact_current_electron_A,
+                               const std::vector<double>& contact_current_hole_A,
+                               const std::vector<double>& contact_current_A,
+                               const std::vector<double>& contact_cumulative_charge_C,
+                               const std::vector<double>& contact_injected_current_A,
+                               const std::vector<double>& contact_net_current_A,
+                               const std::vector<double>& contact_cumulative_injected_charge_C,
+                               const std::vector<double>& contact_cumulative_net_charge_C);
     void print_header_csv(const std::string& filename) const;
     void append_last_iter_to_csv(std::fstream& file) const;
     void export_to_csv(const std::string& filename) const;
@@ -136,6 +162,18 @@ class device_admc_simulation {
     std::pair<double, double> compute_ramo_current() const;
     std::pair<double, double> compute_probe_ramo_current() const;
     double                    max_particle_electric_field_V_per_m() const;
+    [[nodiscard]] std::vector<double> collected_contact_electron_currents_A() const;
+    [[nodiscard]] std::vector<double> collected_contact_hole_currents_A() const;
+    [[nodiscard]] std::vector<double> collected_contact_total_currents_A() const;
+    [[nodiscard]] const std::vector<double>& cumulative_collected_contact_charges_C() const {
+        return m_cumulative_collected_charge_C;
+    }
+    [[nodiscard]] std::vector<double> injected_contact_currents_A() const;
+    [[nodiscard]] std::vector<double> net_contact_currents_A() const;
+    [[nodiscard]] const std::vector<double>& cumulative_injected_contact_charges_C() const {
+        return m_cumulative_injected_charge_C;
+    }
+    [[nodiscard]] std::vector<double> cumulative_net_contact_charges_C() const;
 
     const std::vector<device_admc_particle>& particles() const noexcept { return m_particles; }
     const history_device_ADMC&               history() const noexcept { return m_history; }
@@ -155,6 +193,11 @@ class device_admc_simulation {
 
     admc_local_environment    local_environment(const device_admc_particle& particle) const;
     void                      initialize_particle_device_state(device_admc_particle& particle);
+    void                      initialize_contact_flow_tracking();
+    void                      reset_step_contact_flow(double step_duration_s);
+    void                      record_contact_collection(const device_admc_particle& particle,
+                                                        std::size_t                 contact_index);
+    void                      record_contact_injection(carrier_type type, double weight, std::size_t contact_index);
     void                      update_element_and_check_boundary(device_admc_particle& particle);
     void                      remove_collected_particles();
     void                      initialize_scheduled_particle_injection();
@@ -180,6 +223,13 @@ class device_admc_simulation {
     int                                              m_dimension = 3;
     std::vector<device_admc_particle>                m_particles;
     history_device_ADMC                              m_history;
+    std::vector<std::string>                         m_contact_flow_names;
+    std::vector<double>                              m_step_collected_electron_charge_C;
+    std::vector<double>                              m_step_collected_hole_charge_C;
+    std::vector<double>                              m_cumulative_collected_charge_C;
+    std::vector<double>                              m_step_injected_charge_C;
+    std::vector<double>                              m_cumulative_injected_charge_C;
+    double                                           m_contact_flow_step_duration_s = 0.0;
     mutable std::vector<admc_vtk_time_series_record> m_particle_vtp_export_records;
     mutable std::vector<admc_vtk_time_series_record> m_mesh_vtu_export_records;
     std::mt19937_64                                  m_random_generator;

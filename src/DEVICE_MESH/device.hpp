@@ -31,6 +31,12 @@ struct device_metadata {
     explicit device_metadata(const std::string &device_file_name);
 };
 
+struct contact_crossing {
+    std::size_t contact_index = 0;
+    std::string contact_name{};
+    double      segment_fraction = 0.0;
+};
+
 class device {
  protected:
     mesh::mesh                 *m_mesh;
@@ -57,6 +63,9 @@ class device {
      * @return false
      */
     bool check_crossing_contact(const mesh::vector3 &point_A, const mesh::vector3 &point_B) const;
+
+    [[nodiscard]] std::optional<contact_crossing> find_first_contact_crossing(const mesh::vector3 &point_A,
+                                                                              const mesh::vector3 &point_B) const;
 
     bool check_enters_contact(const mesh::vector3 &point);
     bool check_enters_contact(mesh::sp_element crossing_element) const;

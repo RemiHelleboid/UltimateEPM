@@ -2,7 +2,11 @@
 
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
+#include <string>
 
 #include "admc_mobility.hpp"
 #include "admc_transport.hpp"
@@ -118,11 +122,11 @@ TEST_CASE("bulk ADMC runs to the exact requested final time and is reproducible"
 TEST_CASE("bulk ADMC measured directional diffusion recovers the Einstein coefficient") {
     uepm::ADMC::bulk_admc_simulation_config config;
     config.environment.electric_field_V_per_m = {2.0e5, 0.0, 0.0};
-    config.number_electrons                    = 20000;
-    config.number_holes                        = 0;
-    config.time_step_s                         = 1.0e-11;
-    config.final_time_s                        = 1.0e-11;
-    config.random_seed                         = 1234;
+    config.number_electrons                   = 20000;
+    config.number_holes                       = 0;
+    config.time_step_s                        = 1.0e-11;
+    config.final_time_s                       = 1.0e-11;
+    config.random_seed                        = 1234;
 
     uepm::ADMC::bulk_admc_simulation simulation(config);
     simulation.run();
@@ -132,6 +136,68 @@ TEST_CASE("bulk ADMC measured directional diffusion recovers the Einstein coeffi
     CHECK(measured[0] == doctest::Approx(expected).epsilon(0.03));
     CHECK(measured[1] == doctest::Approx(expected).epsilon(0.03));
     CHECK(measured[2] == doctest::Approx(expected).epsilon(0.03));
+}
+
+TEST_CASE("bulk ADMC records and exports PBMC-style per-particle histories on request") {
+    uepm::ADMC::bulk_admc_simulation_config config;
+    config.number_electrons                   = 2;
+    config.number_holes                       = 0;
+    config.time_step_s                        = 3.0e-13;
+    config.final_time_s                       = 1.0e-12;
+    config.record_history                     = true;
+    config.initial_position_m                 = {2.0e-6, -3.0e-6, 4.0e-6};
+    config.environment.electric_field_V_per_m = {2.0e5, 0.0, 0.0};
+
+    uepm::ADMC::bulk_admc_simulation simulation(config);
+    simulation.run();
+
+    REQUIRE(simulation.particles().size() == 2);
+    for (const auto& particle : simulation.particles()) {
+        REQUIRE(particle.history().recorded_number_of_steps() == 5);
+        CHECK(particle.history().snapshots().front().time_s == doctest::Approx(0.0));
+        CHECK(particle.history().snapshots().front().electric_field_V_per_m.x() ==
+              doctest::Approx(config.environment.electric_field_V_per_m.x()));
+        CHECK(particle.history().snapshots().front().mobility_m2_per_V_s > 0.0);
+        CHECK(particle.history().snapshots().back().time_s == doctest::Approx(config.final_time_s));
+    }
+
+    const auto directory = std::filesystem::temp_directory_path() / "ultimate_epm_admc_bulk_history";
+    std::filesystem::create_directories(directory);
+    const auto prefix = directory / "simulation_results_test";
+    simulation.export_particles_history_to_csv(prefix.string());
+
+    for (std::size_t index = 0; index < simulation.particles().size(); ++index) {
+        const auto    filename = prefix.string() + "_particle_" + std::to_string(index) + ".csv";
+        std::ifstream file(filename);
+        REQUIRE(file.is_open());
+        std::string header;
+        std::getline(file, header);
+        CHECK(header == "time,position_x,position_y,position_z,local_k_x,local_k_y,local_k_z,"
+                        "velocity_x,velocity_y,velocity_z,lattice_temperature_K,kinetic_energy,gamma,valley_index");
+        std::size_t row_count = 0;
+        std::string row;
+        while (std::getline(file, row)) {
+            CHECK(std::count(row.begin(), row.end(), ',') == 13);
+            if (row_count == 0) {
+                CHECK(row.starts_with("0,2,-3,4,"));
+            }
+            ++row_count;
+        }
+        CHECK(row_count == 5);
+        std::filesystem::remove(filename);
+    }
+    std::filesystem::remove(directory);
+}
+
+TEST_CASE("bulk ADMC does not retain particle histories by default") {
+    uepm::ADMC::bulk_admc_simulation_config config;
+    config.number_electrons = 2;
+    config.final_time_s     = config.time_step_s;
+
+    uepm::ADMC::bulk_admc_simulation simulation(config);
+    simulation.run();
+
+    CHECK(simulation.particles().front().history().snapshots().empty());
 }
 
 TEST_CASE("ADMC rejects invalid physical inputs") {

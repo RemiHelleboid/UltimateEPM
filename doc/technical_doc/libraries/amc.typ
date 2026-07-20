@@ -572,11 +572,15 @@ mesh ownership and boundaries before scattering:
 - otherwise, the device searches for a new containing element;
 - if no element is found, or the new element is not silicon, the particle is
   returned to its pre-step position;
-- reflection negates the complete velocity and local wave vector.
+- the configured boundary-reflection model updates its direction while
+  preserving kinetic energy.
 
-This is a full back-reflection, not specular reflection about a computed
-surface normal. The crossing time is not resolved, and the remaining fraction
-of the time step is not transported after reflection or contact collection.
+`specular` reflects about the computed inward surface normal and is the
+default. `diffuse` draws a cosine-weighted inward direction, while `reverse`
+negates the complete velocity and local wave vector. If the boundary hit
+cannot be resolved geometrically, the implementation falls back to `reverse`.
+The crossing time is not resolved, and the remaining fraction of the time step
+is not transported after reflection or contact collection.
 
 The two-dimensional self-consistent implementation may additionally apply a
 periodic condition in the out-of-plane direction. The base three-dimensional
@@ -775,6 +779,9 @@ small relative to scattering and field-evolution time scales.
    `debye` for analytic Debye screening and `full` for the finite-temperature
    numerical treatment. It has no effect when impurity scattering is disabled
    or the mobility model is selected.],
+  [`transport.boundary_reflection`], [`specular`],
+  [Reflection model for non-contact device boundaries. Accepted values are
+   `specular`, `diffuse`, and `reverse`.],
 )
 
 === Contacts and initial particles
@@ -805,11 +812,22 @@ small relative to scattering and field-evolution time scales.
   [`particles.contact_injection_weight`], [2],
   [Numerical weight assigned to carriers injected by contact charge
    reservoirs during self-consistent evolution. It must be positive.],
+  [`particles.contact_injection_distribution`], [`velocity_weighted_maxwellian`],
+  [Thermal velocity distribution used for contact-replenished carriers.
+   `maxwellian` preserves the current M1-like half-Maxwellian behavior.
+   `velocity_weighted_maxwellian` selects the approximate parabolic M3
+   distribution with mean injected kinetic energy $2 k_B T$ and a
+   cosine-weighted inward direction.],
 )
 
 The explicit counts and doping-based initialization are independent. Thus, a
 run may contain both the requested particles at the configured position and
 additional particles representing the initial dopant charge.
+
+Contact-replenished particles are sampled uniformly on the mesh edge (2D) or
+face (3D) shared by the semiconductor element and the contact region. A small
+inward numerical offset places the particle inside the semiconductor before
+transport begins.
 
 === Two-dimensional geometry
 
@@ -819,8 +837,10 @@ additional particles representing the initial dopant charge.
   table.header([YAML key], [Default], [Meaning]),
   [`geometry_2d.effective_depth_um`], [1 um],
   [Physical out-of-plane depth represented by a two-dimensional mesh. It
-   scales integrated doping, deposited charge, and Ramo current. Ignored for a
-   three-dimensional mesh.],
+   scales integrated doping and therefore the number and total weight of
+   physical carriers. All terminal currents exported in amperes, including
+   Ramo and contact-flow currents, consequently scale linearly with this
+   depth. Ignored for a three-dimensional mesh.],
   [`geometry_2d.particle_z_period_um`], [1 um],
   [Numerical periodic length used for particle $z$ coordinates in a
    two-dimensional simulation. Ignored for a three-dimensional mesh.],
@@ -828,6 +848,16 @@ additional particles representing the initial dopant charge.
 
 The effective physical depth and numerical periodic length are separate
 concepts and need not be equal.
+
+Two-dimensional current columns are physical currents in amperes for the
+configured effective depth. They are not line-current densities. For a
+depth-independent two-dimensional result in amperes per centimetre, use
+
+$ J_"2D" = I / (d_"eff,um" 10^(-4)) . $
+
+The physical current in amperes is retained as the simulation output because
+the external quench circuit requires the current of the represented device,
+not a width-normalized value.
 
 === Scheduled particle injection
 
@@ -871,6 +901,10 @@ has been performed, its internal `done` state prevents reinjection.
   [`output.export_frequency`], [100],
   [Number of transport iterations between snapshot exports. It must be
    strictly positive, even when periodic export is disabled.],
+  [`output.contact_current_window_s`], [0.1 ps],
+  [Trailing physical-time window used for collected, injected, and net
+   contact currents. It must be zero or at least one complete Poisson batch.
+   Zero restores the instantaneous per-transport-step currents.],
 )
 
 Every completed run writes `device_history.csv` and
@@ -878,6 +912,40 @@ Every completed run writes `device_history.csv` and
 simulation parameters, build information, input paths, output paths, and final
 observables. Trajectory and time-step directories are created only when the
 corresponding output mode requires them.
+
+For every collecting contact named `<contact>`, PBMC and ADMC
+`device_history.csv` also
+contains `collected_current_electron_<contact>_A`,
+`collected_current_hole_<contact>_A`, `collected_current_<contact>_A`, and
+`cumulative_collected_charge_<contact>_C`. It additionally exports
+`injected_current_<contact>_A`, `net_contact_current_<contact>_A`,
+`cumulative_injected_charge_<contact>_C`, and
+`cumulative_net_contact_charge_<contact>_C`. A particle collected during a
+transport step contributes its signed weighted charge $w q_c$. By default,
+the current columns report the charge transferred during the trailing 0.1 ps
+divided by the actual duration of that window. Before a complete window is
+available, the interval from the start of the simulation is used.
+Electron collection is therefore negative and hole collection positive with
+the convention that positive current is positive charge flowing from the
+device into the contact. The cumulative-charge column preserves the integrated
+collection signal when history rows are downsampled.
+
+Only particles created by contact replenishment count as injected; initial
+doping and explicitly scheduled particles do not. Injected current is signed
+charge entering the device per unit time, so the net current into a contact is
+
+$ I_"net" = I_"collected" - I_"injected". $
+
+Setting `output.contact_current_window_s` to zero restores the raw PBMC step
+current $Delta Q / Delta t$. ADMC uses the actual propagated step duration,
+including a shortened final step. MMMC writes the same columns and combines
+collection by its PBMC and ADMC particle populations.
+
+Contact-flow current is separate from the Ramo current and is not added to it
+or used by the quench circuit. Replenishment occurs at Poisson-batch
+boundaries, so a non-zero averaging window prevents those numerical batch
+impulses from dominating the exported injected and net currents. All contact
+components use the same window, while cumulative charge remains exact.
 
 === Passive quench circuit
 
@@ -964,6 +1032,7 @@ transport:
   impurity_scattering: false
   impurity_model: mobility
   impurity_screening: debye
+  boundary_reflection: specular
 contacts:
   voltages_V:
     anode: 0
@@ -982,6 +1051,7 @@ particles:
   initialize_from_doping: true
   initial_weight: 2
   contact_injection_weight: 2
+  contact_injection_distribution: velocity_weighted_maxwellian
 geometry_2d:
   effective_depth_um: 1
   particle_z_period_um: 1
@@ -998,6 +1068,7 @@ output:
   keep_particle_history: false
   export_time_steps: false
   export_frequency: 100
+  contact_current_window_s: 1e-13
 quench_circuit:
   enabled: true
   resistance_ohm: 1

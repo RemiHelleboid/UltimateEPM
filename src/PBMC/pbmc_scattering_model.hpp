@@ -20,13 +20,41 @@ namespace uepm::PBMC {
 
 enum class impurity_screening_model { debye_analytic, finite_temperature_full };
 
+struct acoustic_scattering_prefactor {
+    double alpha_per_J          = 0.0;
+    double rate_per_temperature = 0.0;
+};
+
+struct intervalley_scattering_prefactor {
+    double alpha_per_J      = 0.0;
+    double phonon_energy_eV = 0.0;
+    double rate_prefactor   = 0.0;
+    bool   first_order      = false;
+};
+
+struct optical_scattering_prefactor_holes {
+    double alpha_per_J      = 0.0;
+    double phonon_energy_eV = 0.0;
+    double rate_prefactor   = 0.0;
+};
+
 double bose_einstein_occupation(double phonon_energy_eV, double temperature_K);
 
+acoustic_scattering_prefactor make_acoustic_scattering_prefactor(const valley_model&                   valley,
+                                                                 const acoustic_scattering_parameters& parameters);
+double acoustic_scattering_rate(const acoustic_scattering_prefactor& prefactor, double energy_eV, double temperature_K);
 double acoustic_scattering_rate(const valley_model&                   valley,
                                 const acoustic_scattering_parameters& parameters,
                                 double                                energy_eV,
                                 double                                temperature_K);
 
+intervalley_scattering_prefactor make_intervalley_scattering_prefactor(const valley_model&              valley,
+                                                                       const intervalley_phonon_branch& branch,
+                                                                       double mass_density_kg_per_m3);
+double                           intervalley_scattering_rate(const intervalley_scattering_prefactor& prefactor,
+                                                             double                                  initial_energy_eV,
+                                                             bool                                    absorption,
+                                                             double                                  temperature_K);
 double intervalley_zeroth_order_rate(const valley_model&              valley,
                                      const intervalley_phonon_branch& branch,
                                      double                           mass_density_kg_per_m3,
@@ -48,6 +76,13 @@ double intervalley_scattering_rate(const valley_model&              valley,
                                    bool                             absorption,
                                    double                           temperature_K);
 
+optical_scattering_prefactor_holes make_optical_scattering_prefactor_holes(const valley_model&            final_band,
+                                                                           const hole_optical_transition& transition,
+                                                                           double mass_density_kg_per_m3);
+double                             optical_scattering_rate_holes(const optical_scattering_prefactor_holes& prefactor,
+                                                                 double                                    initial_energy_eV,
+                                                                 bool                                      absorption,
+                                                                 double                                    temperature_K);
 double optical_scattering_rate_holes(const valley_model&            final_band,
                                      const hole_optical_transition& transition,
                                      double                         mass_density_kg_per_m3,

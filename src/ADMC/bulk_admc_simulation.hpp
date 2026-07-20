@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <random>
+#include <string>
 #include <vector>
 
 #include "admc_transport.hpp"
@@ -29,6 +30,7 @@ struct bulk_admc_simulation_config {
     double                 time_step_s      = 1.0e-15;
     double                 final_time_s     = 1.0e-12;
     std::uint64_t          random_seed      = 5489u;
+    bool                   record_history   = false;
 
     void validate() const;
 };
@@ -40,21 +42,22 @@ class bulk_admc_simulation {
 
     void initialize();
     void run();
+    void export_particles_history_to_csv(const std::string& prefix_name) const;
 
-    const bulk_admc_simulation_config& config() const noexcept { return m_config; }
-    const std::vector<admc_particle>&  particles() const noexcept { return m_particles; }
-    double                             current_time_s() const noexcept { return m_current_time_s; }
+    const bulk_admc_simulation_config&       config() const noexcept { return m_config; }
+    const std::vector<admc_particle>&        particles() const noexcept { return m_particles; }
+    double                                   current_time_s() const noexcept { return m_current_time_s; }
     const statistics::directional_diffusion& diffusion_observables() const noexcept { return m_diffusion; }
 
  private:
     vector3 draw_standard_normal();
 
-    bulk_admc_simulation_config      m_config;
-    admc_transport_kernel            m_transport;
-    std::vector<admc_particle>       m_particles;
-    std::mt19937_64                  m_random_generator;
-    std::normal_distribution<double> m_standard_normal{0.0, 1.0};
-    double                           m_current_time_s = 0.0;
+    bulk_admc_simulation_config       m_config;
+    admc_transport_kernel             m_transport;
+    std::vector<admc_particle>        m_particles;
+    std::mt19937_64                   m_random_generator;
+    std::normal_distribution<double>  m_standard_normal{0.0, 1.0};
+    double                            m_current_time_s = 0.0;
     statistics::directional_diffusion m_diffusion{};
 };
 

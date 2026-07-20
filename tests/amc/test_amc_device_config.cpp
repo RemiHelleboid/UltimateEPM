@@ -132,14 +132,21 @@ TEST_CASE("generated PBMC device config contains the complete schema and is load
 
     CHECK(contents.find("transport:") != std::string::npos);
     CHECK(contents.find("particles:") != std::string::npos);
+    CHECK(contents.find("boundary_reflection: specular") != std::string::npos);
+    CHECK(contents.find("contact_injection_distribution: velocity_weighted_maxwellian") != std::string::npos);
     CHECK(contents.find("scheduled_injection:") != std::string::npos);
     CHECK(contents.find("geometry_2d:") != std::string::npos);
     CHECK(contents.find("output:") != std::string::npos);
+    CHECK(contents.find("contact_current_window_s: 1e-13") != std::string::npos);
     CHECK(contents.find("quench_circuit:") != std::string::npos);
     CHECK(contents.find("avalanche_detection:") != std::string::npos);
     CHECK(contents.find("quench_detection:") != std::string::npos);
 
     const auto config = uepm::PBMC::load_device_pbmc_config(config_file);
     CHECK(config.device_options.m_time_step == doctest::Approx(1.0e-15));
+    CHECK(config.device_options.m_contact_current_window_s == doctest::Approx(1.0e-13));
     CHECK(config.device_options.m_nb_threads == 1);
+    CHECK(config.device_options.m_boundary_reflection_model == uepm::mesh::boundary_reflection_model::specular);
+    CHECK(config.self_consistent_options_2d.m_common.m_contact_injection_distribution ==
+          uepm::PBMC::contact_injection_distribution::velocity_weighted_maxwellian);
 }

@@ -128,6 +128,7 @@ class bulk_pbmc_simulation {
     void        export_observables_to_csv(const std::string& filename) const;
 
     const bulk_observables&                         observables() const noexcept { return m_observables; }
+    const std::vector<pbmc_particle>&               particles() const noexcept { return m_particles; }
     const impact_ionization_coefficient_statistics& impact_ionization_statistics() const noexcept {
         return m_impact_ionization_coefficient_statistics;
     }
