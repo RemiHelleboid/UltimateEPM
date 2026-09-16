@@ -23,6 +23,7 @@
 #include <stdexcept>
 
 #include "boundary_reflection.hpp"
+#include "mmmc_particle_pools.hpp"
 #include "mmmc_particle_transfer.hpp"
 #include "physical_constants.hpp"
 #include "unit_conversion.hpp"
@@ -91,7 +92,8 @@ self_consistent_device_mmmc_simulation_2d::self_consistent_device_mmmc_simulatio
       m_self_consistent_options(self_consistent_options),
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(seed_random_generator + 1),
-      m_admc_rng(static_cast<std::uint64_t>(seed_random_generator) + 7919u) {
+      m_admc_rng(static_cast<std::uint64_t>(seed_random_generator) + 7919u),
+      m_policy_seed(static_cast<std::uint64_t>(seed_random_generator)) {
     m_mmmc_options.synchronize_from_pbmc();
     validate_self_consistent_options();
     apply_scheduled_contact_voltage_events(0.0);
@@ -120,7 +122,8 @@ self_consistent_device_mmmc_simulation_2d::self_consistent_device_mmmc_simulatio
       m_self_consistent_options(self_consistent_options),
       m_poisson_solver(m_device.get_p_mesh(), m_device.get_p_mesh()->get_nb_vertices(), material_database),
       m_contact_rng(seed_random_generator + 1),
-      m_admc_rng(static_cast<std::uint64_t>(seed_random_generator) + 7919u) {
+      m_admc_rng(static_cast<std::uint64_t>(seed_random_generator) + 7919u),
+      m_policy_seed(static_cast<std::uint64_t>(seed_random_generator)) {
     m_mmmc_options.synchronize_from_pbmc();
     validate_self_consistent_options();
     apply_scheduled_contact_voltage_events(0.0);
@@ -149,10 +152,6 @@ double self_consistent_device_mmmc_simulation_2d::charge_deposition_factor(std::
     return 1.0 / (static_cast<double>(accumulation_steps) * m_self_consistent_options.m_effective_depth_um);
 }
 
-double self_consistent_device_mmmc_simulation_2d::ramo_current_scale_factor() const {
-    return 1.0 / m_self_consistent_options.m_effective_depth_um;
-}
-
 double self_consistent_device_mmmc_simulation_2d::current_density_cell_volume_m3(const mesh::element& element) const {
     const double area_um2             = std::abs(element.get_measure());
     const double effective_volume_um3 = area_um2 * m_self_consistent_options.m_effective_depth_um;
@@ -166,17 +165,24 @@ void self_consistent_device_mmmc_simulation_2d::initialize_contact_elements() {
     m_list_element_contact_ptr.clear();
     m_list_element_contact_owner_index.clear();
     m_list_element_contact_equilibrium_charge.clear();
+    m_list_element_contact_inward_direction.clear();
+    m_list_element_contact_face_vertices.clear();
 
     const auto contacts = m_device.get_list_contacts();
     for (std::size_t contact_index = 0; contact_index < contacts.size(); ++contact_index) {
-        const auto& device_contact = contacts[contact_index];
-        const std::string contact_name = device_contact.get_contact_name();
+        const auto&       device_contact = contacts[contact_index];
+        const std::string contact_name   = device_contact.get_contact_name();
         if (!contact_voltages_V().contains(contact_name)) {
             throw std::runtime_error("MMMC particle-collection contact '" + contact_name +
                                      "' has no configured Poisson voltage.");
         }
         const auto element_indices =
             m_device.get_p_mesh()->get_idx_bulk_elements_adjacent_to_contact_region(contact_name);
+        const auto* contact_region = m_device.get_p_mesh()->get_p_region(contact_name);
+        if (contact_region == nullptr) {
+            throw std::runtime_error("MMMC cannot find contact region '" + contact_name + "'.");
+        }
+        const auto&                                 contact_vertex_indices = contact_region->get_unique_vertices();
         std::vector<std::shared_ptr<mesh::element>> contact_elements;
         contact_elements.reserve(element_indices.size());
 
@@ -188,12 +194,36 @@ void self_consistent_device_mmmc_simulation_2d::initialize_contact_elements() {
             if (!is_transport_material_element(*element)) {
                 continue;
             }
+
+            std::vector<mesh::vector3> contact_face_vertices;
+            mesh::vector3              contact_face_center{};
+            for (const auto* vertex : element->get_vertices()) {
+                if (contact_vertex_indices.contains(static_cast<unsigned int>(vertex->get_index()))) {
+                    contact_face_vertices.push_back(*vertex);
+                    contact_face_center += *vertex;
+                }
+            }
+            if (contact_face_vertices.size() != 2) {
+                continue;
+            }
+            contact_face_center *= 0.5;
+            const auto face_edge        = contact_face_vertices[1] - contact_face_vertices[0];
+            auto       inward_direction = mesh::vector3{-face_edge.y(), face_edge.x(), 0.0};
+            if (inward_direction.dot(element->get_barycenter() - contact_face_center) < 0.0) {
+                inward_direction *= -1.0;
+            }
+            if (inward_direction.norm_squared() == 0.0) {
+                throw std::runtime_error("MMMC cannot determine inward injection direction for contact '" +
+                                         contact_name + "'.");
+            }
             contact_elements.push_back(element);
             m_list_element_contact.push_back(element_index);
             m_list_element_contact_ptr.push_back(element);
             m_list_element_contact_owner_index.push_back(contact_index);
             m_list_element_contact_equilibrium_charge.push_back(
                 scale_integrated_2d_doping_to_carriers(element->integrate_scalar("DopingConcentration")));
+            m_list_element_contact_inward_direction.push_back(inward_direction);
+            m_list_element_contact_face_vertices.push_back(std::move(contact_face_vertices));
         }
 
         if (!contact_elements.empty()) {
@@ -226,8 +256,14 @@ void self_consistent_device_mmmc_simulation_2d::compute_unitary_potential() {
 void self_consistent_device_mmmc_simulation_2d::initialize_poisson_solver() {
     m_poisson_solver.compute_stiffness_matrix();
     compute_unitary_potential();
+    const double unitary_potential_max =
+        m_device.get_p_mesh()->get_argmax_max_of_function("RamoUnitaryPotential").second;
+    if (unitary_potential_max <= 0.0) {
+        throw std::runtime_error("MMMC unitary potential maximum is non-positive.");
+    }
 
     m_poisson_solver.compute_stiffness_matrix();
+    m_unconstrained_poisson_stiffness = m_poisson_solver.get_lhs_matrix();
     m_poisson_solver.compute_second_member(0.0);
     for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
         static_cast<void>(unused_voltage);
@@ -356,26 +392,99 @@ void self_consistent_device_mmmc_simulation_2d::recompute_vertex_space_charge_fr
 }
 
 void self_consistent_device_mmmc_simulation_2d::update_self_consistent_potential(bool publish_mesh_functions) {
-    m_poisson_solver.update_second_member();
-    for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
-        static_cast<void>(unused_voltage);
-        m_poisson_solver.apply_dirichlet_condition_second_member(contact_name,
-                                                                 contact_voltage_for_poisson(contact_name));
-    }
-    m_poisson_solver.solve_system();
-    if (common_options().m_enable_poisson_mixing) {
-        if (m_previous_poisson_solution.size() == m_poisson_solver.get_solution().size() &&
-            m_previous_poisson_solution.allFinite()) {
-            m_poisson_solver.mix_solution_with(m_previous_poisson_solution,
-                                               common_options().m_poisson_mixing_old_solution_fraction);
+    const bool nonlinear_ready =
+        common_options().m_nonlinear_steady_state_poisson &&
+        m_previous_poisson_solution.size() == static_cast<Eigen::Index>(m_device.get_p_mesh()->get_nb_vertices());
+    if (nonlinear_ready) {
+        update_nonlinear_self_consistent_potential();
+    } else {
+        m_poisson_solver.update_second_member();
+        for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
+            static_cast<void>(unused_voltage);
+            m_poisson_solver.apply_dirichlet_condition_second_member(contact_name,
+                                                                     contact_voltage_for_poisson(contact_name));
         }
-        m_previous_poisson_solution = m_poisson_solver.get_solution();
+        m_poisson_solver.solve_system();
     }
+    if (common_options().m_enable_poisson_mixing) {
+        if (m_previous_poisson_solution.size() == m_poisson_solver.get_solution().size()) {
+            if (m_previous_poisson_solution.allFinite()) {
+                m_poisson_solver.mix_solution_with(m_previous_poisson_solution,
+                                                   common_options().m_poisson_mixing_old_solution_fraction);
+            } else {
+                fmt::print("WARNING: previous MMMC Poisson solution is non-finite; skipping Poisson mixing for this "
+                           "update.\n");
+            }
+        }
+    }
+    m_previous_poisson_solution = m_poisson_solver.get_solution();
     if (publish_mesh_functions) {
         m_poisson_solver.add_solution_to_mesh_functions("PoissonSolution", true);
     } else {
         m_poisson_solver.update_mesh_electric_field_from_solution();
     }
+}
+
+void self_consistent_device_mmmc_simulation_2d::update_nonlinear_self_consistent_potential() {
+    auto*              mesh          = m_device.get_p_mesh();
+    const Eigen::Index size          = static_cast<Eigen::Index>(mesh->get_nb_vertices());
+    Eigen::VectorXd    fixed_source  = Eigen::VectorXd::Zero(size);
+    Eigen::VectorXd    lumped_volume = Eigen::VectorXd::Zero(size);
+    Eigen::VectorXd    electron_density(size);
+    Eigen::VectorXd    hole_density(size);
+    Eigen::VectorXd    thermal_voltage(size);
+    constexpr double   density_conversion = 1.0e-6;
+
+    for (const auto& element : mesh->get_list_bulk_element()) {
+        const double nodal_measure = std::abs(element->get_measure()) / 3.0;
+        for (const auto* vertex : element->get_vertices()) {
+            lumped_volume(vertex->get_index()) += nodal_measure * density_conversion;
+        }
+    }
+    for (Eigen::Index i = 0; i < size; ++i) {
+        const auto* vertex  = mesh->get_p_vertex(static_cast<std::size_t>(i));
+        electron_density(i) = vertex->get_electron_density();
+        hole_density(i)     = vertex->get_hole_density();
+        fixed_source(i)     = lumped_volume(i) * vertex->get_doping_concentration();
+        thermal_voltage(i)  = constants::k_B * vertex->get_temperature() / constants::q_e;
+    }
+
+    std::vector<fem::nonlinear_poisson_dirichlet> boundary_conditions;
+    std::vector<bool>                             constrained(static_cast<std::size_t>(size), false);
+    for (const auto& [contact_name, unused_voltage] : contact_voltages_V()) {
+        static_cast<void>(unused_voltage);
+        const auto* region = mesh->get_p_region(contact_name);
+        if (region == nullptr) {
+            throw std::runtime_error("MMMC Poisson contact region '" + contact_name + "' does not exist.");
+        }
+        const double value = contact_voltage_for_poisson(contact_name);
+        for (const auto index : region->get_unique_vertices()) {
+            if (!constrained[index]) {
+                boundary_conditions.push_back({static_cast<Eigen::Index>(index), value});
+                constrained[index] = true;
+            }
+        }
+    }
+
+    const auto result = fem::solve_nonlinear_poisson_lumped(m_unconstrained_poisson_stiffness,
+                                                            fixed_source,
+                                                            lumped_volume,
+                                                            electron_density,
+                                                            hole_density,
+                                                            m_previous_poisson_solution,
+                                                            m_previous_poisson_solution,
+                                                            thermal_voltage,
+                                                            boundary_conditions,
+                                                            common_options().m_nonlinear_poisson_options);
+    if (!result.converged) {
+        throw std::runtime_error("MMMC nonlinear steady-state Poisson did not converge after " +
+                                 std::to_string(result.iterations) + " iterations.");
+    }
+    fmt::print("MMMC nonlinear Poisson converged in {} iterations, residual={:.6e}, max update={:.6e} V\n",
+               result.iterations,
+               result.final_residual_norm,
+               result.maximum_correction_V);
+    m_poisson_solver.set_solution(result.potential_V);
 }
 
 void self_consistent_device_mmmc_simulation_2d::add_charges_at_contacts(std::size_t poisson_frequency_value) {
@@ -386,16 +495,15 @@ void self_consistent_device_mmmc_simulation_2d::add_charges_at_contacts(std::siz
     if (particle_weight <= 0.0) {
         throw std::invalid_argument("MMMC contact injection particle weight must be positive.");
     }
-    if (m_list_element_contact_ptr.empty()) {
+    const std::size_t number_contact_elements = m_list_element_contact_ptr.size();
+    if (number_contact_elements == 0) {
         return;
     }
 
-    std::vector<double> electron_charge_to_add(m_list_element_contact_ptr.size(), 0.0);
-    std::vector<double> hole_charge_to_add(m_list_element_contact_ptr.size(), 0.0);
-    double              total_electron_charge_to_add = 0.0;
-    double              total_hole_charge_to_add     = 0.0;
+    std::vector<double> electron_charge_to_add(number_contact_elements, 0.0);
+    std::vector<double> hole_charge_to_add(number_contact_elements, 0.0);
 
-    for (std::size_t i = 0; i < m_list_element_contact_ptr.size(); ++i) {
+    for (std::size_t i = 0; i < number_contact_elements; ++i) {
         auto&        element                 = m_list_element_contact_ptr[i];
         const double element_charge          = element->get_n_charge() - element->get_p_charge();
         const double averaged_element_charge = element_charge / static_cast<double>(poisson_frequency_value);
@@ -403,47 +511,96 @@ void self_consistent_device_mmmc_simulation_2d::add_charges_at_contacts(std::siz
         const double charge_to_add           = equilibrium_charge - averaged_element_charge;
         if (equilibrium_charge > 0.0 && charge_to_add > 0.0) {
             electron_charge_to_add[i] = charge_to_add;
-            total_electron_charge_to_add += charge_to_add;
         } else if (equilibrium_charge < 0.0 && charge_to_add < 0.0) {
             hole_charge_to_add[i] = -charge_to_add;
-            total_hole_charge_to_add += -charge_to_add;
         }
     }
 
-    const std::size_t number_electrons_to_place =
-        static_cast<std::size_t>(std::floor(total_electron_charge_to_add / particle_weight));
-    const std::size_t number_holes_to_place =
-        static_cast<std::size_t>(std::floor(total_hole_charge_to_add / particle_weight));
-    std::uniform_int_distribution<std::size_t> contact_index_distribution(0, m_list_element_contact_ptr.size() - 1);
+    std::vector<mesh::vector3>             electron_positions;
+    std::vector<mesh::vector3>             hole_positions;
+    std::vector<mesh::vector3>             electron_directions;
+    std::vector<mesh::vector3>             hole_directions;
+    std::uniform_real_distribution<double> uniform01(0.0, 1.0);
+    const auto                             contacts = m_device.get_list_contacts();
 
-    for (std::size_t i = 0; i < number_electrons_to_place && !has_reached_particle_limit(); ++i) {
-        const std::size_t contact_index = contact_index_distribution(m_contact_rng);
-        if (electron_charge_to_add[contact_index] <= 0.0) {
-            continue;
+    const auto draw_contact_surface_position = [&](std::size_t element_index) {
+        const auto&  face_vertices    = m_list_element_contact_face_vertices[element_index];
+        const double u                = uniform01(m_contact_rng);
+        const auto   surface_position = face_vertices[0] + u * (face_vertices[1] - face_vertices[0]);
+        const auto   barycenter       = m_list_element_contact_ptr[element_index]->get_barycenter();
+        const auto   owner_index      = m_list_element_contact_owner_index[element_index];
+
+        double inward_fraction = 1.0e-12;
+        while (inward_fraction < 1.0) {
+            const auto position = (1.0 - inward_fraction) * surface_position + inward_fraction * barycenter;
+            if (m_list_element_contact_ptr[element_index]->is_location_inside_element(position) &&
+                !contacts.at(owner_index).point_in_contact_box(position)) {
+                return position;
+            }
+            inward_fraction *= 10.0;
         }
-        add_particle_at_position(
-            m_list_element_contact_ptr[contact_index]->draw_uniform_random_point_inside_element(m_contact_rng),
-            PBMC::particle_type::electron,
-            particle_weight);
-        record_contact_injection(PBMC::particle_type::electron,
-                                 particle_weight,
-                                 m_list_element_contact_owner_index[contact_index]);
-        electron_charge_to_add[contact_index] -= particle_weight;
-    }
-    for (std::size_t i = 0; i < number_holes_to_place && !has_reached_particle_limit(); ++i) {
-        const std::size_t contact_index = contact_index_distribution(m_contact_rng);
-        if (hole_charge_to_add[contact_index] <= 0.0) {
-            continue;
+        throw std::runtime_error("MMMC could not place a contact-injected particle inside the semiconductor element.");
+    };
+
+    const auto remaining_capacity = [&]() {
+        const std::size_t reserved =
+            m_list_particles.size() + m_admc_particles.size() + electron_positions.size() + hole_positions.size();
+        return reserved < m_simulation_options.m_max_number_particle
+                   ? m_simulation_options.m_max_number_particle - reserved
+                   : std::size_t{0};
+    };
+
+    const auto allocate_positions_by_local_deficit = [&](const std::vector<double>&  local_deficits,
+                                                         std::vector<mesh::vector3>& positions,
+                                                         std::vector<mesh::vector3>& directions,
+                                                         PBMC::particle_type         type) {
+        for (std::size_t i = 0; i < local_deficits.size(); ++i) {
+            const double exact_particle_count = local_deficits[i] / particle_weight;
+            if (!(exact_particle_count > 0.0) || !std::isfinite(exact_particle_count)) {
+                continue;
+            }
+
+            const double      integral_count_as_double = std::floor(exact_particle_count);
+            const std::size_t capacity                 = remaining_capacity();
+            const std::size_t integral_count           = integral_count_as_double >= static_cast<double>(capacity)
+                                                             ? capacity
+                                                             : static_cast<std::size_t>(integral_count_as_double);
+            positions.reserve(positions.size() + integral_count + 1);
+            directions.reserve(directions.size() + integral_count + 1);
+            for (std::size_t particle_index = 0; particle_index < integral_count; ++particle_index) {
+                positions.push_back(draw_contact_surface_position(i));
+                directions.push_back(m_list_element_contact_inward_direction[i]);
+                record_contact_injection(type, particle_weight, m_list_element_contact_owner_index[i]);
+            }
+
+            if (remaining_capacity() == 0 || integral_count_as_double > static_cast<double>(integral_count)) {
+                continue;
+            }
+            const double fractional_count = exact_particle_count - integral_count_as_double;
+            if (fractional_count > 0.0 && uniform01(m_contact_rng) < fractional_count) {
+                positions.push_back(draw_contact_surface_position(i));
+                directions.push_back(m_list_element_contact_inward_direction[i]);
+                record_contact_injection(type, particle_weight, m_list_element_contact_owner_index[i]);
+            }
         }
-        add_particle_at_position(
-            m_list_element_contact_ptr[contact_index]->draw_uniform_random_point_inside_element(m_contact_rng),
-            PBMC::particle_type::hole,
-            particle_weight);
-        record_contact_injection(PBMC::particle_type::hole,
-                                 particle_weight,
-                                 m_list_element_contact_owner_index[contact_index]);
-        hole_charge_to_add[contact_index] -= particle_weight;
-    }
+    };
+
+    allocate_positions_by_local_deficit(electron_charge_to_add,
+                                        electron_positions,
+                                        electron_directions,
+                                        PBMC::particle_type::electron);
+    allocate_positions_by_local_deficit(hole_charge_to_add, hole_positions, hole_directions, PBMC::particle_type::hole);
+
+    add_particles_at_positions_with_directions(electron_positions,
+                                               electron_directions,
+                                               PBMC::particle_type::electron,
+                                               particle_weight,
+                                               common_options().m_contact_injection_distribution);
+    add_particles_at_positions_with_directions(hole_positions,
+                                               hole_directions,
+                                               PBMC::particle_type::hole,
+                                               particle_weight,
+                                               common_options().m_contact_injection_distribution);
 
     apply_transport_policy();
 }
@@ -481,16 +638,8 @@ ADMC::vector3 self_consistent_device_mmmc_simulation_2d::to_admc_position_m(cons
     return normalized * units::micron_to_meter;
 }
 
-ADMC::carrier_type self_consistent_device_mmmc_simulation_2d::to_admc_type(PBMC::particle_type type) const {
-    return to_admc_carrier_type(type);
-}
-
 PBMC::particle_type self_consistent_device_mmmc_simulation_2d::to_pbmc_type(ADMC::carrier_type type) const {
     return to_pbmc_particle_type(type);
-}
-
-PBMC::pbmc_transport_kernel& self_consistent_device_mmmc_simulation_2d::pbmc_transport_for(ADMC::carrier_type type) {
-    return transport_for(to_pbmc_type(type));
 }
 
 ADMC::admc_local_environment self_consistent_device_mmmc_simulation_2d::local_admc_environment(
@@ -514,7 +663,11 @@ void self_consistent_device_mmmc_simulation_2d::advance_admc_particles_one_time_
         const auto environment = local_admc_environment(particle);
         m_admc_transport.step(particle.particle, environment, dt_s, draw_standard_normal());
         particle.particle.state().position_m.set_z(0.0);
+        particle.particle.state().total_velocity_m_per_s.set_z(0.0);
         update_admc_element_and_check_boundary(particle);
+        if (m_simulation_options.m_keep_particles_history && !particle.crossed_contact) {
+            particle.particle.record_state();
+        }
     }
     remove_collected_admc_particles();
 }
@@ -589,58 +742,49 @@ void self_consistent_device_mmmc_simulation_2d::remove_collected_admc_particles(
 }
 
 void self_consistent_device_mmmc_simulation_2d::apply_transport_policy() {
-    m_last_transfer_counters = {};
-
-    for (std::size_t i = 0; i < m_list_particles.size();) {
-        const auto& particle = *m_list_particles[i];
-        if (m_self_consistent_options.m_policy.method_for_position(particle.state().position) ==
-            transport_method::admc) {
-            auto converted = convert_pbmc_to_admc(particle, particle.index());
-            if (converted.containing_element != nullptr) {
-                const auto environment                               = local_admc_environment(converted);
-                converted.particle.state().electric_field_V_per_m    = environment.electric_field_V_per_m;
-                converted.particle.state().doping_concentration_cm_3 = environment.doping_concentration_cm_3;
-                converted.particle.state().lattice_temperature_K     = environment.lattice_temperature_K;
-            }
-            m_admc_particles.push_back(std::move(converted));
-            m_list_particles[i] = std::move(m_list_particles.back());
-            m_list_particles.pop_back();
-            ++m_last_transfer_counters.pbmc_to_admc;
-            continue;
-        }
-        ++i;
-    }
-
-    for (std::size_t i = 0; i < m_admc_particles.size();) {
-        const auto& particle = m_admc_particles[i];
-        if (m_self_consistent_options.m_policy.method_for_position(
-                to_mesh_position_um(particle.particle.state().position_m)) == transport_method::pbmc) {
-            auto& transport = pbmc_transport_for(particle.particle.type());
-            auto  converted = convert_admc_to_pbmc(particle, particle.particle.index(), transport);
-            m_list_particles.push_back(std::make_unique<PBMC::pbmc_particle>(std::move(converted)));
-            m_admc_particles[i] = std::move(m_admc_particles.back());
-            m_admc_particles.pop_back();
-            ++m_last_transfer_counters.admc_to_pbmc;
-            continue;
-        }
-        ++i;
-    }
-
+    particle_pools pools;
+    pools.m_pbmc_particles = std::move(m_list_particles);
+    pools.m_admc_particles = std::move(m_admc_particles);
+    pools.apply_policy(m_self_consistent_options.m_policy,
+                       m_policy_seed,
+                       transport_for(PBMC::particle_type::electron),
+                       transport_for(PBMC::particle_type::hole));
+    m_list_particles                      = std::move(pools.m_pbmc_particles);
+    m_admc_particles                      = std::move(pools.m_admc_particles);
+    m_last_transfer_counters.pbmc_to_admc = pools.m_last_transfer_counters.m_pbmc_to_admc;
+    m_last_transfer_counters.admc_to_pbmc = pools.m_last_transfer_counters.m_admc_to_pbmc;
     m_total_transfer_counters.pbmc_to_admc += m_last_transfer_counters.pbmc_to_admc;
     m_total_transfer_counters.admc_to_pbmc += m_last_transfer_counters.admc_to_pbmc;
 }
 
 void self_consistent_device_mmmc_simulation_2d::advance_mmmc_particles_one_time_step() {
-    const double dt_s = m_simulation_options.m_time_step;
-    transport_particles_one_time_step();
+    const double      dt_s                 = m_simulation_options.m_time_step;
+    const std::size_t total_particle_limit = m_simulation_options.m_max_number_particle;
+    m_simulation_options.m_max_number_particle =
+        m_admc_particles.size() < total_particle_limit ? total_particle_limit - m_admc_particles.size() : 0;
+    try {
+        transport_particles_one_time_step();
+    } catch (...) {
+        m_simulation_options.m_max_number_particle = total_particle_limit;
+        throw;
+    }
+    m_simulation_options.m_max_number_particle = total_particle_limit;
     advance_admc_particles_one_time_step(dt_s);
     apply_transport_policy();
 }
 
-std::pair<double, double> self_consistent_device_mmmc_simulation_2d::compute_admc_ramo_current() const {
+std::pair<double, double> self_consistent_device_mmmc_simulation_2d::compute_admc_ramo_current(
+    bool restrict_to_probe) const {
     double electron_current = 0.0;
     double hole_current     = 0.0;
+    if (restrict_to_probe && !m_simulation_options.m_current_probe.m_enabled) {
+        return {0.0, 0.0};
+    }
     for (const auto& particle : m_admc_particles) {
+        const mesh::vector3 position_um = to_mesh_position_um(particle.particle.state().position_m);
+        if (restrict_to_probe && !m_simulation_options.m_current_probe.m_box_um.is_inside_2d(position_um)) {
+            continue;
+        }
         const double current = compute_admc_ramo_current_for_particle(particle);
         if (particle.particle.type() == ADMC::carrier_type::electron) {
             electron_current += current;
@@ -657,7 +801,7 @@ double self_consistent_device_mmmc_simulation_2d::compute_admc_ramo_current_for_
     const mesh::vector3 ramo_field = get_RamoUnitaryElectricField_at_position(position_um, particle.containing_element);
     const double        signed_charge_C =
         particle.weight * ADMC::carrier_charge_sign(particle.particle.type()) * constants::q_e;
-    return -signed_charge_C * particle.particle.state().total_velocity_m_per_s.dot(ramo_field) *
+    return signed_charge_C * particle.particle.state().total_velocity_m_per_s.dot(ramo_field) *
            ramo_current_scale_factor();
 }
 
@@ -681,6 +825,26 @@ std::size_t self_consistent_device_mmmc_simulation_2d::get_total_number_holes() 
            static_cast<std::size_t>(std::count_if(m_admc_particles.begin(), m_admc_particles.end(), [](const auto& p) {
                return p.particle.type() == ADMC::carrier_type::hole;
            }));
+}
+
+double self_consistent_device_mmmc_simulation_2d::get_total_electron_weight() const {
+    double total = PBMC::device_pbmc_simulation::get_total_electron_weight();
+    for (const auto& particle : m_admc_particles) {
+        if (particle.particle.type() == ADMC::carrier_type::electron) {
+            total += particle.weight;
+        }
+    }
+    return total;
+}
+
+double self_consistent_device_mmmc_simulation_2d::get_total_hole_weight() const {
+    double total = PBMC::device_pbmc_simulation::get_total_hole_weight();
+    for (const auto& particle : m_admc_particles) {
+        if (particle.particle.type() == ADMC::carrier_type::hole) {
+            total += particle.weight;
+        }
+    }
+    return total;
 }
 
 std::size_t self_consistent_device_mmmc_simulation_2d::get_number_pbmc_particles() const noexcept {
@@ -759,6 +923,37 @@ void self_consistent_device_mmmc_simulation_2d::export_mmmc_particle_state_csv(c
                << electric_field_V_per_cm.y() << ',' << electric_field_V_per_cm.z() << ','
                << electric_field_V_per_cm.norm() << ',' << particle.weight << ',' << admc_signed_charge_C(particle)
                << '\n';
+    }
+}
+
+void self_consistent_device_mmmc_simulation_2d::export_all_mmmc_trajectories_as_csv(
+    const std::string& directory) const {
+    const std::filesystem::path output_directory(directory);
+    std::filesystem::create_directories(output_directory);
+    PBMC::device_pbmc_simulation::export_all_trajectories_as_csv((output_directory / "pbmc_particle_").string());
+
+    for (const auto& particle : m_admc_particles) {
+        const auto    filename = output_directory / fmt::format("admc_particle_{}.csv", particle.particle.index());
+        std::ofstream stream(filename);
+        if (!stream.is_open()) {
+            throw std::runtime_error(fmt::format("Could not open MMMC ADMC trajectory '{}'.", filename.string()));
+        }
+        stream << std::setprecision(std::numeric_limits<double>::max_digits10);
+        stream << "time_s,x_um,y_um,z_um,vx_m_per_s,vy_m_per_s,vz_m_per_s,drift_vx_m_per_s,"
+                  "drift_vy_m_per_s,drift_vz_m_per_s,mobility_m2_per_V_s,diffusion_m2_per_s,"
+                  "doping_concentration_cm_3,lattice_temperature_K,electric_field_x_V_per_m,"
+                  "electric_field_y_V_per_m,electric_field_z_V_per_m\n";
+        for (const auto& snapshot : particle.particle.history().snapshots()) {
+            const auto position_um = snapshot.position_m * units::meter_to_micron;
+            stream << snapshot.time_s << ',' << position_um.x() << ',' << position_um.y() << ',' << position_um.z()
+                   << ',' << snapshot.total_velocity_m_per_s.x() << ',' << snapshot.total_velocity_m_per_s.y() << ','
+                   << snapshot.total_velocity_m_per_s.z() << ',' << snapshot.drift_velocity_m_per_s.x() << ','
+                   << snapshot.drift_velocity_m_per_s.y() << ',' << snapshot.drift_velocity_m_per_s.z() << ','
+                   << snapshot.mobility_m2_per_V_s << ',' << snapshot.diffusion_m2_per_s << ','
+                   << snapshot.doping_concentration_cm_3 << ',' << snapshot.lattice_temperature_K << ','
+                   << snapshot.electric_field_V_per_m.x() << ',' << snapshot.electric_field_V_per_m.y() << ','
+                   << snapshot.electric_field_V_per_m.z() << '\n';
+        }
     }
 }
 
@@ -1021,8 +1216,6 @@ void self_consistent_device_mmmc_simulation_2d::export_current_mmmc_particles_as
 void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_simulation() {
     const std::size_t total_iterations =
         static_cast<std::size_t>(std::ceil(m_simulation_options.m_t_max / m_simulation_options.m_time_step));
-    const std::size_t poisson_frequency_value = poisson_frequency();
-    std::size_t       poisson_sample_count    = 0;
 
     const std::string history_filename = initialize_simulation_history_file();
     std::fstream      history_stream(history_filename, std::ios::app);
@@ -1033,7 +1226,7 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
 
     fmt::print("START 2D SELF-CONSISTENT MMMC SIMULATION\n");
     fmt::print("Total iterations: {}\n", total_iterations);
-    fmt::print("Poisson frequency: {}\n", poisson_frequency_value);
+    fmt::print("Poisson frequency: {}\n", poisson_frequency());
     fmt::print("PBMC bbox: x=[{:.6e},{:.6e}] y=[{:.6e},{:.6e}] z=[{:.6e},{:.6e}] um\n",
                m_self_consistent_options.m_policy.m_pbmc_region_um.get_x_min(),
                m_self_consistent_options.m_policy.m_pbmc_region_um.get_x_max(),
@@ -1041,53 +1234,105 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
                m_self_consistent_options.m_policy.m_pbmc_region_um.get_y_max(),
                m_self_consistent_options.m_policy.m_pbmc_region_um.get_z_min(),
                m_self_consistent_options.m_policy.m_pbmc_region_um.get_z_max());
+    fmt::print("PBMC bbox buffer width: {:.6e} um\n", m_self_consistent_options.m_policy.m_buffer_width_um);
 
     double accumulator_ramo_current_electron = 0.0;
     double accumulator_ramo_current_hole     = 0.0;
     double ramo_current_electron             = 0.0;
     double ramo_current_hole                 = 0.0;
     double ramo_current                      = 0.0;
+    double probe_ramo_current_electron       = 0.0;
+    double probe_ramo_current_hole           = 0.0;
+    double probe_ramo_current                = 0.0;
+
+    std::size_t poisson_sample_count = 0;
+    std::size_t nonlinear_warmup_steps_remaining =
+        common_options().m_nonlinear_steady_state_poisson ? common_options().m_nonlinear_poisson_warmup_steps : 0;
+    bool terminated_early = false;
+
+    const auto finalize_poisson_batch = [&](double sample_time_s) {
+        if (poisson_sample_count == 0) {
+            update_self_consistent_potential(false);
+            return;
+        }
+
+        const double sample_count                   = static_cast<double>(poisson_sample_count);
+        const double averaged_ramo_current_electron = accumulator_ramo_current_electron / sample_count;
+        const double averaged_ramo_current_hole     = accumulator_ramo_current_hole / sample_count;
+        const double averaged_ramo_current =
+            averaged_ramo_current_electron + averaged_ramo_current_hole - common_options().m_background_ramo_current_A;
+
+        if (m_simulation_options.m_scheduled_particle_injection.m_done) {
+            const double circuit_dt_s = m_simulation_options.m_time_step * sample_count;
+            advance_quench_circuit(averaged_ramo_current, circuit_dt_s, sample_time_s);
+        }
+
+        add_charges_at_contacts(poisson_sample_count);
+        add_missing_contact_charge_to_poisson_reservoir(poisson_sample_count);
+        recompute_vertex_space_charge_from_element_charges(poisson_sample_count);
+        update_self_consistent_potential(false);
+        reset_element_charges();
+
+        poisson_sample_count              = 0;
+        accumulator_ramo_current_electron = 0.0;
+        accumulator_ramo_current_hole     = 0.0;
+        nonlinear_warmup_steps_remaining =
+            common_options().m_nonlinear_steady_state_poisson ? common_options().m_nonlinear_poisson_warmup_steps : 0;
+    };
 
     reset_element_charges();
-    while (m_state.m_time_s <= m_simulation_options.m_t_max) {
+    while (m_state.m_iteration < total_iterations) {
         if (m_state.m_iteration > 10 && m_simulation_options.m_stop_simu_when_no_electron_remaining &&
             get_total_number_electrons() == 0 && !has_pending_scheduled_particle_injection()) {
             fmt::print("Stop: no electrons remaining in device.\n");
+            terminated_early = true;
             break;
         }
         if (m_list_particles.size() + m_admc_particles.size() >= m_simulation_options.m_max_number_particle) {
             fmt::print("Stop: hard particle limit reached.\n");
+            terminated_early = true;
             break;
+        }
+
+        if (apply_scheduled_contact_voltage_events(m_state.m_time_s)) {
+            finalize_poisson_batch(m_state.m_time_s);
+        }
+
+        if (m_common_options.m_auto_background_ramo_current && has_pending_scheduled_particle_injection() &&
+            m_state.m_time_s >= m_simulation_options.m_scheduled_particle_injection.m_time_s &&
+            m_common_options.m_background_ramo_current_A == 0.0) {
+            constexpr double time_window_s        = 1e-12;
+            const double     background_current_A = m_simulation_history.extract_final_current(time_window_s);
+            fmt::print("Extracted pre-injection MMMC background Ramo current: {:.3e} A\n", background_current_A);
+            m_common_options.m_background_ramo_current_A = background_current_A;
         }
 
         const std::size_t impact_events_before_step = m_simulation_history.m_impact_ionization_positions.size();
         advance_mmmc_particles_one_time_step();
-        add_particle_charges_to_elements();
-        ++poisson_sample_count;
 
-        const auto pbmc_currents = compute_ramo_current();
-        const auto admc_currents = compute_admc_ramo_current();
-        accumulator_ramo_current_electron += pbmc_currents.first + admc_currents.first;
-        accumulator_ramo_current_hole += pbmc_currents.second + admc_currents.second;
+        const auto pbmc_currents       = compute_ramo_currents(true, true);
+        const auto admc_currents       = compute_admc_ramo_current();
+        const auto admc_probe_currents = compute_admc_ramo_current(true);
 
-        const bool should_update_poisson = poisson_sample_count == poisson_frequency_value;
-        if (should_update_poisson) {
-            const double poisson_sample_time_s = m_state.m_time_s + m_simulation_options.m_time_step;
-            apply_scheduled_contact_voltage_events(poisson_sample_time_s);
+        const bool is_sampling_step = nonlinear_warmup_steps_remaining == 0;
+        if (is_sampling_step) {
+            add_particle_charges_to_elements();
+            ++poisson_sample_count;
+            accumulator_ramo_current_electron += pbmc_currents.electron + admc_currents.first;
+            accumulator_ramo_current_hole += pbmc_currents.hole + admc_currents.second;
+        } else {
+            --nonlinear_warmup_steps_remaining;
+        }
 
-            const double sample_count = static_cast<double>(poisson_sample_count);
-            ramo_current_electron     = accumulator_ramo_current_electron / sample_count;
-            ramo_current_hole         = accumulator_ramo_current_hole / sample_count;
-            ramo_current = ramo_current_electron + ramo_current_hole - common_options().m_background_ramo_current_A;
-            accumulator_ramo_current_electron = 0.0;
-            accumulator_ramo_current_hole     = 0.0;
+        ramo_current_electron = pbmc_currents.electron + admc_currents.first;
+        ramo_current_hole     = pbmc_currents.hole + admc_currents.second;
+        ramo_current = ramo_current_electron + ramo_current_hole - common_options().m_background_ramo_current_A;
+        probe_ramo_current_electron = pbmc_currents.probe_electron + admc_probe_currents.first;
+        probe_ramo_current_hole     = pbmc_currents.probe_hole + admc_probe_currents.second;
+        probe_ramo_current          = probe_ramo_current_electron + probe_ramo_current_hole;
 
-            add_charges_at_contacts(poisson_sample_count);
-            add_missing_contact_charge_to_poisson_reservoir(poisson_sample_count);
-            recompute_vertex_space_charge_from_element_charges(poisson_sample_count);
-            update_self_consistent_potential(false);
-            reset_element_charges();
-            poisson_sample_count = 0;
+        if (poisson_sample_count == poisson_frequency()) {
+            finalize_poisson_batch(m_state.m_time_s + m_simulation_options.m_time_step);
         }
 
         m_state.m_time_s += m_simulation_options.m_time_step;
@@ -1113,9 +1358,9 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
             ramo_current_electron,
             ramo_current_hole,
             ramo_current,
-            0.0,
-            0.0,
-            0.0,
+            probe_ramo_current_electron,
+            probe_ramo_current_hole,
+            probe_ramo_current,
             max_electric_field_V_per_cm,
             ramo_electrode_voltage_for_history(),
             reference_electrode_voltage_for_history(),
@@ -1161,7 +1406,11 @@ void self_consistent_device_mmmc_simulation_2d::run_self_consistent_transport_si
         }
     }
 
+    if (!terminated_early && poisson_sample_count > 0) {
+        finalize_poisson_batch(m_state.m_time_s);
+    }
     history_stream.close();
+    m_simulation_history.export_to_csv(history_filename);
     m_poisson_solver.add_solution_to_mesh_functions("PoissonSolution", true);
     export_current_mmmc_snapshot();
     fmt::print("\nEND 2D SELF-CONSISTENT MMMC SIMULATION\n");

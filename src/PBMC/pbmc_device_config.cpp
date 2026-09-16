@@ -122,6 +122,7 @@ YAML::Node make_default_config() {
     config["mmmc"]["pbmc_bbox_um"]["y_max"] = 1.0;
     config["mmmc"]["pbmc_bbox_um"]["z_min"] = 0.0;
     config["mmmc"]["pbmc_bbox_um"]["z_max"] = 0.0;
+    config["mmmc"]["bbox_buffer_width_um"]   = 0.0;
 
     return config;
 }

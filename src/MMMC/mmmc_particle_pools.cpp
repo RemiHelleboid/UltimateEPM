@@ -44,13 +44,15 @@ std::size_t particle_pools::pbmc_size() const noexcept { return m_pbmc_particles
 std::size_t particle_pools::admc_size() const noexcept { return m_admc_particles.size(); }
 
 void particle_pools::apply_policy(const bbox_transport_policy& policy,
+                                  std::uint64_t                policy_seed,
                                   PBMC::pbmc_transport_kernel& electron_transport,
                                   PBMC::pbmc_transport_kernel& hole_transport) {
     m_last_transfer_counters.reset();
 
     for (std::size_t i = 0; i < m_pbmc_particles.size();) {
         const auto& particle = *m_pbmc_particles[i];
-        if (policy.method_for_position(particle.state().position) == transport_method::admc) {
+        if (policy.method_for_particle(particle.state().position, particle.index(), policy_seed) ==
+            transport_method::admc) {
             m_admc_particles.push_back(convert_pbmc_to_admc(particle, particle.index()));
             m_pbmc_particles[i] = std::move(m_pbmc_particles.back());
             m_pbmc_particles.pop_back();
@@ -62,7 +64,8 @@ void particle_pools::apply_policy(const bbox_transport_policy& policy,
 
     for (std::size_t i = 0; i < m_admc_particles.size();) {
         const auto& particle = m_admc_particles[i];
-        if (policy.method_for_position(admc_position_um(particle)) == transport_method::pbmc) {
+        if (policy.method_for_particle(admc_position_um(particle), particle.particle.index(), policy_seed) ==
+            transport_method::pbmc) {
             auto& transport = pbmc_transport_for(particle.particle.type(), electron_transport, hole_transport);
             auto  converted = convert_admc_to_pbmc(particle, particle.particle.index(), transport);
             m_pbmc_particles.push_back(std::make_unique<PBMC::pbmc_particle>(std::move(converted)));

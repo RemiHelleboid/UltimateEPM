@@ -34,11 +34,12 @@ void apply_scalar_override(YAML::Node& root, const std::string& assignment) {
     }
     const std::string path  = assignment.substr(0, equals);
     const std::string value = assignment.substr(equals + 1);
-    if (!path.starts_with("mmmc.pbmc_bbox_um.")) {
-        return;
+    if (path == "mmmc.bbox_buffer_width_um") {
+        root["mmmc"]["bbox_buffer_width_um"] = value;
+    } else if (path.starts_with("mmmc.pbmc_bbox_um.")) {
+        const std::string key             = path.substr(std::string("mmmc.pbmc_bbox_um.").size());
+        root["mmmc"]["pbmc_bbox_um"][key] = value;
     }
-    const std::string key             = path.substr(std::string("mmmc.pbmc_bbox_um.").size());
-    root["mmmc"]["pbmc_bbox_um"][key] = value;
 }
 
 bbox_transport_policy parse_policy(const YAML::Node& config) {
@@ -53,6 +54,7 @@ bbox_transport_policy parse_policy(const YAML::Node& config) {
                                          yaml_value_or(bbox_node, "y_max", 0.0),
                                          yaml_value_or(bbox_node, "z_min", 0.0),
                                          yaml_value_or(bbox_node, "z_max", 0.0)};
+    policy.m_buffer_width_um = yaml_value_or(config["mmmc"], "bbox_buffer_width_um", 0.0);
     policy.validate();
     return policy;
 }

@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -41,6 +42,7 @@ class particle_pools {
     [[nodiscard]] std::size_t admc_size() const noexcept;
 
     void apply_policy(const bbox_transport_policy& policy,
+                      std::uint64_t                policy_seed,
                       PBMC::pbmc_transport_kernel& electron_transport,
                       PBMC::pbmc_transport_kernel& hole_transport);
 };

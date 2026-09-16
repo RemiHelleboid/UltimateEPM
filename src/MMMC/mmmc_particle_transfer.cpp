@@ -1,17 +1,18 @@
 /**
  * @file mmmc_particle_transfer.cpp
  * @author remzerrr (remi.helleboid@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2026-07-10
- * 
+ *
  * @copyright Copyright (c) 2026
- * 
+ *
  */
 
- 
 #include "mmmc_particle_transfer.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <stdexcept>
 
 #include "unit_conversion.hpp"
@@ -31,11 +32,41 @@ mesh::vector3 to_microns(const ADMC::vector3& position_m) {
             position_m.z() * units::meter_to_micron};
 }
 
-ADMC::vector3 handoff_velocity_direction(const ADMC::admc_particle_state& state) {
-    if (state.drift_velocity_m_per_s.norm_squared() > 0.0) {
-        return state.drift_velocity_m_per_s;
+void bias_pbmc_velocity_to_admc_drift(PBMC::pbmc_particle&         particle,
+                                      const ADMC::vector3&         drift_velocity_m_per_s,
+                                      PBMC::pbmc_transport_kernel& transport) {
+    if (!std::isfinite(drift_velocity_m_per_s.x()) || !std::isfinite(drift_velocity_m_per_s.y()) ||
+        !std::isfinite(drift_velocity_m_per_s.z())) {
+        throw std::invalid_argument("ADMC drift velocity must be finite for MMMC transfer.");
     }
-    return state.total_velocity_m_per_s;
+
+    const double drift_speed_m_per_s = drift_velocity_m_per_s.norm();
+    if (!std::isfinite(drift_speed_m_per_s)) {
+        throw std::invalid_argument("ADMC drift speed must be finite for MMMC transfer.");
+    }
+    if (drift_speed_m_per_s == 0.0) {
+        return;
+    }
+
+    // ADMC drift velocity is an ensemble mean, whereas PBMC velocity is a
+    // microscopic sample. Keep the thermally initialized PBMC state with
+    // probability 1-p and align it with the drift with probability p. Since
+    // the unbiased thermal sample has zero mean, p = |v_drift|/|v_aligned|
+    // reproduces v_drift in expectation whenever the sampled microscopic
+    // speed can represent it. Very low-energy samples saturate at p = 1.
+    const PBMC::particle_state unbiased_state = particle.state();
+    transport.set_particle_velocity_direction_preserving_energy(particle, drift_velocity_m_per_s);
+
+    const double aligned_speed_m_per_s = particle.state().velocity.norm();
+    if (!std::isfinite(aligned_speed_m_per_s) || aligned_speed_m_per_s <= 0.0) {
+        particle.state() = unbiased_state;
+        return;
+    }
+
+    const double alignment_probability = std::min(1.0, drift_speed_m_per_s / aligned_speed_m_per_s);
+    if (transport.uniform01() >= alignment_probability) {
+        particle.state() = unbiased_state;
+    }
 }
 
 }  // namespace
@@ -74,7 +105,7 @@ ADMC::device_admc_particle convert_pbmc_to_admc(const PBMC::pbmc_particle& parti
     auto& admc_state                     = result.particle.state();
     admc_state.time_s                    = pbmc_state.time;
     admc_state.previous_position_m       = to_meters(pbmc_state.previous_position);
-    admc_state.electric_field_V_per_m    = pbmc_state.electric_field;
+    admc_state.electric_field_V_per_m    = pbmc_state.electric_field * units::electric_field_V_per_cm_to_V_per_m;
     admc_state.drift_velocity_m_per_s    = pbmc_state.velocity;
     admc_state.total_velocity_m_per_s    = pbmc_state.velocity;
     admc_state.doping_concentration_cm_3 = pbmc_state.doping_concentration_cm_3;
@@ -89,11 +120,11 @@ PBMC::pbmc_particle convert_admc_to_pbmc(const ADMC::device_admc_particle& parti
     const auto& admc_state = particle.particle.state();
 
     PBMC::particle_state pbmc_state{};
-    pbmc_state.time                        = admc_state.time_s;
-    pbmc_state.position                    = to_microns(admc_state.position_m);
-    pbmc_state.previous_position           = to_microns(admc_state.previous_position_m);
-    pbmc_state.velocity                    = handoff_velocity_direction(admc_state);
-    pbmc_state.electric_field              = admc_state.electric_field_V_per_m;
+    pbmc_state.time              = admc_state.time_s;
+    pbmc_state.position          = to_microns(admc_state.position_m);
+    pbmc_state.previous_position = to_microns(admc_state.previous_position_m);
+    pbmc_state.velocity          = admc_state.drift_velocity_m_per_s;
+    pbmc_state.electric_field    = admc_state.electric_field_V_per_m / units::electric_field_V_per_cm_to_V_per_m;
     pbmc_state.doping_concentration_cm_3   = admc_state.doping_concentration_cm_3;
     pbmc_state.impurity_concentration_cm_3 = std::abs(admc_state.doping_concentration_cm_3);
     pbmc_state.lattice_temperature_K       = admc_state.lattice_temperature_K;
@@ -103,7 +134,7 @@ PBMC::pbmc_particle convert_admc_to_pbmc(const ADMC::device_admc_particle& parti
 
     PBMC::pbmc_particle result(new_index, to_pbmc_particle_type(particle.particle.type()), pbmc_state, particle.weight);
     transport.initialize_particle_state(result, admc_state.lattice_temperature_K);
-    transport.set_particle_velocity_direction_preserving_energy(result, handoff_velocity_direction(admc_state));
+    bias_pbmc_velocity_to_admc_drift(result, admc_state.drift_velocity_m_per_s, transport);
     return result;
 }
 

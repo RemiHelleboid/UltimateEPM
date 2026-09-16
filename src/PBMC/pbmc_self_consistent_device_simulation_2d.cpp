@@ -76,8 +76,8 @@ void self_consistent_device_pbmc_simulation_2d::initialize_contact_elements() {
 
     const auto contacts = m_device.get_list_contacts();
     for (std::size_t contact_index = 0; contact_index < contacts.size(); ++contact_index) {
-        const auto& device_contact = contacts[contact_index];
-        const std::string contact_name = device_contact.get_contact_name();
+        const auto&       device_contact = contacts[contact_index];
+        const std::string contact_name   = device_contact.get_contact_name();
         if (!contact_voltages_V().contains(contact_name)) {
             throw std::runtime_error("Particle-collection contact '" + contact_name +
                                      "' has no configured Poisson voltage.");
@@ -88,7 +88,7 @@ void self_consistent_device_pbmc_simulation_2d::initialize_contact_elements() {
         if (contact_region == nullptr) {
             throw std::runtime_error("Cannot find contact region '" + contact_name + "'.");
         }
-        const auto& contact_vertex_indices = contact_region->get_unique_vertices();
+        const auto&                                 contact_vertex_indices = contact_region->get_unique_vertices();
         std::vector<std::shared_ptr<mesh::element>> contact_elements;
         contact_elements.reserve(element_indices.size());
 
@@ -102,7 +102,7 @@ void self_consistent_device_pbmc_simulation_2d::initialize_contact_elements() {
             }
 
             std::vector<mesh::vector3> contact_face_vertices;
-            mesh::vector3 contact_face_center{};
+            mesh::vector3              contact_face_center{};
             for (const auto* vertex : element->get_vertices()) {
                 if (contact_vertex_indices.contains(static_cast<unsigned int>(vertex->get_index()))) {
                     contact_face_vertices.push_back(*vertex);
@@ -113,8 +113,8 @@ void self_consistent_device_pbmc_simulation_2d::initialize_contact_elements() {
                 continue;
             }
             contact_face_center *= 0.5;
-            const auto face_edge = contact_face_vertices[1] - contact_face_vertices[0];
-            auto inward_direction = mesh::vector3{-face_edge.y(), face_edge.x(), 0.0};
+            const auto face_edge        = contact_face_vertices[1] - contact_face_vertices[0];
+            auto       inward_direction = mesh::vector3{-face_edge.y(), face_edge.x(), 0.0};
             if (inward_direction.dot(element->get_barycenter() - contact_face_center) < 0.0) {
                 inward_direction *= -1.0;
             }
@@ -297,14 +297,14 @@ void self_consistent_device_pbmc_simulation_2d::add_charges_at_contacts(std::siz
     std::vector<mesh::vector3>             electron_directions;
     std::vector<mesh::vector3>             hole_directions;
     std::uniform_real_distribution<double> uniform01(0.0, 1.0);
-    const auto                              contacts = m_device.get_list_contacts();
+    const auto                             contacts = m_device.get_list_contacts();
 
     const auto draw_contact_surface_position = [&](std::size_t element_index) {
-        const auto& face_vertices = m_list_element_contact_face_vertices[element_index];
-        const double u            = uniform01(m_contact_rng);
-        const auto surface_position = face_vertices[0] + u * (face_vertices[1] - face_vertices[0]);
-        const auto barycenter = m_list_element_contact_ptr[element_index]->get_barycenter();
-        const auto owner_index = m_list_element_contact_owner_index[element_index];
+        const auto&  face_vertices    = m_list_element_contact_face_vertices[element_index];
+        const double u                = uniform01(m_contact_rng);
+        const auto   surface_position = face_vertices[0] + u * (face_vertices[1] - face_vertices[0]);
+        const auto   barycenter       = m_list_element_contact_ptr[element_index]->get_barycenter();
+        const auto   owner_index      = m_list_element_contact_owner_index[element_index];
 
         double inward_fraction = 1.0e-12;
         while (inward_fraction < 1.0) {
@@ -360,21 +360,22 @@ void self_consistent_device_pbmc_simulation_2d::add_charges_at_contacts(std::siz
         }
     };
 
-    allocate_positions_by_local_deficit(
-        electron_charge_to_add, electron_positions, electron_directions, particle_type::electron);
+    allocate_positions_by_local_deficit(electron_charge_to_add,
+                                        electron_positions,
+                                        electron_directions,
+                                        particle_type::electron);
     allocate_positions_by_local_deficit(hole_charge_to_add, hole_positions, hole_directions, particle_type::hole);
 
-    add_particles_at_positions_with_directions(
-        electron_positions,
-        electron_directions,
-        particle_type::electron,
-        particle_weight,
-        common_options().m_contact_injection_distribution);
+    add_particles_at_positions_with_directions(electron_positions,
+                                               electron_directions,
+                                               particle_type::electron,
+                                               particle_weight,
+                                               common_options().m_contact_injection_distribution);
     add_particles_at_positions_with_directions(hole_positions,
-                                                hole_directions,
-                                                particle_type::hole,
-                                                particle_weight,
-                                                common_options().m_contact_injection_distribution);
+                                               hole_directions,
+                                               particle_type::hole,
+                                               particle_weight,
+                                               common_options().m_contact_injection_distribution);
 }
 
 void self_consistent_device_pbmc_simulation_2d::add_missing_contact_charge_to_poisson_reservoir(
